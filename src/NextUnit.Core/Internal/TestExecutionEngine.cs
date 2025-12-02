@@ -1,4 +1,4 @@
-﻿namespace NextUnit.Internal;
+namespace NextUnit.Internal;
 
 /// <summary>
 /// Defines a sink for reporting test execution results.
@@ -10,23 +10,23 @@ public interface ITestExecutionSink
     /// </summary>
     /// <param name="test">The test case that passed.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    Task ReportPassedAsync(TestCaseDescriptor test);
-    
+    public Task ReportPassedAsync(TestCaseDescriptor test);
+
     /// <summary>
     /// Reports that a test has failed due to an assertion failure.
     /// </summary>
     /// <param name="test">The test case that failed.</param>
     /// <param name="ex">The assertion exception that caused the failure.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex);
-    
+    public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex);
+
     /// <summary>
     /// Reports that a test encountered an unexpected error.
     /// </summary>
     /// <param name="test">The test case that encountered an error.</param>
     /// <param name="ex">The exception that was thrown.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    Task ReportErrorAsync(TestCaseDescriptor test, Exception ex);
+    public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex);
 }
 
 /// <summary>
@@ -62,7 +62,7 @@ public sealed class TestExecutionEngine
     /// <param name="sink">The sink for reporting the test result.</param>
     /// <param name="cancellationToken">A cancellation token to observe while waiting for the task to complete.</param>
     /// <returns>A task that represents the asynchronous execution operation.</returns>
-    static async Task ExecuteSingleAsync(
+    private static async Task ExecuteSingleAsync(
         TestCaseDescriptor testCase,
         ITestExecutionSink sink,
         CancellationToken cancellationToken)

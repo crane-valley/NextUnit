@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 
 namespace NextUnit.Internal;
 
@@ -7,7 +7,7 @@ namespace NextUnit.Internal;
 /// </summary>
 public sealed class ParallelScheduler
 {
-    readonly DependencyGraph _graph;
+    private readonly DependencyGraph _graph;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ParallelScheduler"/> class.
@@ -40,7 +40,7 @@ public sealed class ParallelScheduler
         while (ready.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             var node = ready.Dequeue();
 
             if (ShouldSkipDueToDependencies(node, completed))
@@ -68,7 +68,7 @@ public sealed class ParallelScheduler
     /// <param name="node">The test node to check.</param>
     /// <param name="completed">The set of completed test identifiers.</param>
     /// <returns><c>true</c> if the test should be skipped; otherwise, <c>false</c>.</returns>
-    static bool ShouldSkipDueToDependencies(DependencyGraph.Node node, HashSet<TestCaseId> completed)
+    private static bool ShouldSkipDueToDependencies(DependencyGraph.Node node, HashSet<TestCaseId> completed)
     {
         // Check if all dependencies have completed
         foreach (var depId in node.Test.Dependencies)

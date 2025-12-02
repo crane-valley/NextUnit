@@ -1,11 +1,11 @@
-﻿using Microsoft.Testing.Platform.Capabilities.TestFramework;
+using System.Reflection;
+using Microsoft.Testing.Platform.Capabilities.TestFramework;
 using Microsoft.Testing.Platform.Extensions.Messages;
 using Microsoft.Testing.Platform.Extensions.TestFramework;
 using Microsoft.Testing.Platform.Messages;
 using Microsoft.Testing.Platform.Requests;
 using Microsoft.Testing.Platform.TestHost;
 using NextUnit.Internal;
-using System.Reflection;
 
 namespace NextUnit.Platform;
 
@@ -20,8 +20,11 @@ internal sealed class NextUnitFramework :
     ITestFramework,
     IDataProducer
 {
-    readonly IServiceProvider _services;
-    readonly TestExecutionEngine _engine = new();
+    // TODO M4: _services will be used for dependency injection and service resolution
+#pragma warning disable IDE0052 // Remove unread private members
+    private readonly IServiceProvider _services;
+#pragma warning restore IDE0052
+    private readonly TestExecutionEngine _engine = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NextUnitFramework"/> class.
@@ -113,7 +116,7 @@ internal sealed class NextUnitFramework :
         return Task.FromResult(new CloseTestSessionResult { IsSuccess = true });
     }
 
-    async Task DiscoverAsync(
+    private async Task DiscoverAsync(
         DiscoverTestExecutionRequest request,
         IMessageBus messageBus,
         CancellationToken cancellationToken)
@@ -148,7 +151,7 @@ internal sealed class NextUnitFramework :
         }
     }
 
-    async Task RunAsync(
+    private async Task RunAsync(
         RunTestExecutionRequest request,
         IMessageBus messageBus,
         CancellationToken cancellationToken)
@@ -169,11 +172,11 @@ internal sealed class NextUnitFramework :
         await _engine.RunAsync(testCases, sink, cancellationToken).ConfigureAwait(false);
     }
 
-    sealed class MessageBusSink : ITestExecutionSink
+    private sealed class MessageBusSink : ITestExecutionSink
     {
-        readonly IMessageBus _messageBus;
-        readonly SessionUid _sessionUid;
-        readonly IDataProducer _producer;
+        private readonly IMessageBus _messageBus;
+        private readonly SessionUid _sessionUid;
+        private readonly IDataProducer _producer;
 
         public MessageBusSink(IMessageBus messageBus, SessionUid sessionUid, IDataProducer producer)
         {

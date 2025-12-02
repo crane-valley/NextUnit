@@ -1,7 +1,5 @@
-﻿using System;
 using System.Collections.Immutable;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -60,7 +58,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     /// </summary>
     /// <param name="node">The syntax node to evaluate.</param>
     /// <returns><c>true</c> if the node is a method with attributes; otherwise, <c>false</c>.</returns>
-    static bool IsCandidate(SyntaxNode node)
+    private static bool IsCandidate(SyntaxNode node)
     {
         return node is MethodDeclarationSyntax { AttributeLists.Count: > 0 };
     }
@@ -70,7 +68,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     /// </summary>
     /// <param name="context">The generator syntax context.</param>
     /// <returns>A test method descriptor, or null if not a test method.</returns>
-    static object? TransformMethod(GeneratorSyntaxContext context)
+    private static object? TransformMethod(GeneratorSyntaxContext context)
     {
         if (context.Node is not MethodDeclarationSyntax methodSyntax)
         {
@@ -112,7 +110,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     /// </summary>
     /// <param name="context">The generator syntax context.</param>
     /// <returns>A lifecycle method descriptor, or null if not a lifecycle method.</returns>
-    static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
+    private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
     {
         if (context.Node is not MethodDeclarationSyntax methodSyntax)
         {
@@ -149,7 +147,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     /// <param name="compilation">The compilation.</param>
     /// <param name="testGroups">The discovered test methods grouped by type.</param>
     /// <param name="lifecycleGroups">The discovered lifecycle methods grouped by type.</param>
-    static void EmitRegistry(
+    private static void EmitRegistry(
         SourceProductionContext context,
         Compilation compilation,
         ImmutableArray<IGrouping<string, TestMethodDescriptor>> testGroups,
@@ -174,7 +172,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         context.AddSource("GeneratedTestRegistry.g.cs", SourceText.From(source, Encoding.UTF8));
     }
 
-    static void ValidateAndReportDiagnostics(
+    private static void ValidateAndReportDiagnostics(
         SourceProductionContext context,
         ImmutableArray<TestMethodDescriptor> tests,
         Dictionary<string, List<LifecycleMethodDescriptor>> lifecycleByType)
@@ -223,7 +221,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         }
     }
 
-    static bool HasCycle(string testId, HashSet<string> visited, Dictionary<string, HashSet<string>> graph)
+    private static bool HasCycle(string testId, HashSet<string> visited, Dictionary<string, HashSet<string>> graph)
     {
         if (!visited.Add(testId))
         {
@@ -248,7 +246,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return false;
     }
 
-    static string GenerateSource(
+    private static string GenerateSource(
         IReadOnlyList<TestMethodDescriptor> tests,
         Dictionary<string, List<LifecycleMethodDescriptor>> lifecycleByType)
     {
@@ -332,17 +330,17 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
-    static string BuildTestMethodDelegate(string typeName, string methodName)
+    private static string BuildTestMethodDelegate(string typeName, string methodName)
     {
         return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
     }
 
-    static string BuildLifecycleMethodDelegate(string typeName, string methodName)
+    private static string BuildLifecycleMethodDelegate(string typeName, string methodName)
     {
         return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeLifecycleMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
     }
 
-    static string BuildLifecycleInfoLiteral(string typeName, List<LifecycleMethodDescriptor> lifecycleMethods)
+    private static string BuildLifecycleInfoLiteral(string typeName, List<LifecycleMethodDescriptor> lifecycleMethods)
     {
         var beforeTestMethods = lifecycleMethods
             .Where(m => m.BeforeScopes.Contains(0)) // LifecycleScope.Test = 0
@@ -395,7 +393,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
-    static string BuildDependenciesLiteral(ImmutableArray<string> dependencies)
+    private static string BuildDependenciesLiteral(ImmutableArray<string> dependencies)
     {
         if (dependencies.IsDefaultOrEmpty)
         {
@@ -419,7 +417,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
-    static ImmutableArray<string> GetDependencies(IMethodSymbol methodSymbol)
+    private static ImmutableArray<string> GetDependencies(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<string>();
         var containingType = methodSymbol.ContainingType;
@@ -458,7 +456,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToImmutable();
     }
 
-    static bool HasAttribute(ISymbol symbol, string metadataName)
+    private static bool HasAttribute(ISymbol symbol, string metadataName)
     {
         foreach (var attribute in symbol.GetAttributes())
         {
@@ -471,12 +469,12 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return false;
     }
 
-    static bool IsAttribute(AttributeData attribute, string metadataName)
+    private static bool IsAttribute(AttributeData attribute, string metadataName)
     {
         return attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == metadataName;
     }
 
-    static int? GetParallelLimit(ISymbol symbol)
+    private static int? GetParallelLimit(ISymbol symbol)
     {
         foreach (var attribute in symbol.GetAttributes())
         {
@@ -501,23 +499,23 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return null;
     }
 
-    static string CreateTestId(IMethodSymbol methodSymbol)
+    private static string CreateTestId(IMethodSymbol methodSymbol)
     {
         var typeName = methodSymbol.ContainingType.ToDisplayString(TestIdTypeFormat);
         return $"{typeName}.{methodSymbol.Name}";
     }
 
-    static string GetFullyQualifiedTypeName(INamedTypeSymbol typeSymbol)
+    private static string GetFullyQualifiedTypeName(INamedTypeSymbol typeSymbol)
     {
         return typeSymbol.ToDisplayString(FullyQualifiedTypeFormat);
     }
 
-    static string ToLiteral(string value)
+    private static string ToLiteral(string value)
     {
         return SymbolDisplay.FormatLiteral(value, true);
     }
 
-    static ImmutableArray<int> GetLifecycleScopes(IMethodSymbol methodSymbol, string attributeMetadataName)
+    private static ImmutableArray<int> GetLifecycleScopes(IMethodSymbol methodSymbol, string attributeMetadataName)
     {
         var builder = ImmutableArray.CreateBuilder<int>();
 
@@ -544,21 +542,21 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToImmutable();
     }
 
-    const string TestAttributeMetadataName = "global::NextUnit.TestAttribute";
-    const string BeforeAttributeMetadataName = "global::NextUnit.BeforeAttribute";
-    const string AfterAttributeMetadataName = "global::NextUnit.AfterAttribute";
-    const string NotInParallelMetadataName = "global::NextUnit.NotInParallelAttribute";
-    const string ParallelLimitMetadataName = "global::NextUnit.ParallelLimitAttribute";
-    const string DependsOnMetadataName = "global::NextUnit.DependsOnAttribute";
+    private const string TestAttributeMetadataName = "global::NextUnit.TestAttribute";
+    private const string BeforeAttributeMetadataName = "global::NextUnit.BeforeAttribute";
+    private const string AfterAttributeMetadataName = "global::NextUnit.AfterAttribute";
+    private const string NotInParallelMetadataName = "global::NextUnit.NotInParallelAttribute";
+    private const string ParallelLimitMetadataName = "global::NextUnit.ParallelLimitAttribute";
+    private const string DependsOnMetadataName = "global::NextUnit.DependsOnAttribute";
 
-    static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
+    private static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
             miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                                    SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
-    static readonly SymbolDisplayFormat TestIdTypeFormat =
+    private static readonly SymbolDisplayFormat TestIdTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,

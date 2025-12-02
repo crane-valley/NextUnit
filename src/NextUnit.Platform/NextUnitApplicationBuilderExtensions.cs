@@ -1,4 +1,4 @@
-﻿using Microsoft.Testing.Platform.Builder;
+using Microsoft.Testing.Platform.Builder;
 using Microsoft.Testing.Platform.Capabilities.TestFramework;
 
 namespace NextUnit.Platform;

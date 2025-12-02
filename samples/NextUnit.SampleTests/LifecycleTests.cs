@@ -1,5 +1,3 @@
-using NextUnit;
-
 namespace NextUnit.SampleTests;
 
 /// <summary>
@@ -7,7 +5,7 @@ namespace NextUnit.SampleTests;
 /// </summary>
 public class LifecycleTests
 {
-    int _instanceSetupCount;
+    private int _instanceSetupCount;
 
     [Before(LifecycleScope.Test)]
     public void Setup()

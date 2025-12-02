@@ -1,5 +1,3 @@
-using NextUnit;
-
 namespace NextUnit.SampleTests;
 
 /// <summary>
@@ -7,8 +5,8 @@ namespace NextUnit.SampleTests;
 /// </summary>
 public class ParallelTests
 {
-    static int _concurrentCount;
-    static readonly object _lock = new();
+    private static int _concurrentCount;
+    private static readonly object _lock = new();
 
     [Test]
     public async Task ParallelTest1()
@@ -28,7 +26,7 @@ public class ParallelTests
         await SimulateWork();
     }
 
-    static async Task SimulateWork()
+    private static async Task SimulateWork()
     {
         lock (_lock)
         {
@@ -50,7 +48,7 @@ public class ParallelTests
 [NotInParallel]
 public class SerialTests
 {
-    static int _runningTests;
+    private static int _runningTests;
 
     [Test]
     public async Task SerialTest1()

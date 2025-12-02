@@ -1,4 +1,4 @@
-﻿namespace NextUnit.Internal;
+namespace NextUnit.Internal;
 
 /// <summary>
 /// Represents a directed acyclic graph (DAG) of test case dependencies.
@@ -14,12 +14,12 @@ public sealed class DependencyGraph
         /// Gets the test case descriptor associated with this node.
         /// </summary>
         public TestCaseDescriptor Test { get; }
-        
+
         /// <summary>
         /// Gets the list of nodes that depend on this test case.
         /// </summary>
         public List<Node> Dependents { get; } = new();
-        
+
         /// <summary>
         /// Gets or sets the number of prerequisite tests that must complete before this test can run.
         /// </summary>
@@ -35,13 +35,13 @@ public sealed class DependencyGraph
         }
     }
 
-    readonly Dictionary<TestCaseId, Node> _nodes;
+    private readonly Dictionary<TestCaseId, Node> _nodes;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DependencyGraph"/> class.
     /// </summary>
     /// <param name="nodes">The dictionary of nodes indexed by test case identifier.</param>
-    DependencyGraph(Dictionary<TestCaseId, Node> nodes)
+    private DependencyGraph(Dictionary<TestCaseId, Node> nodes)
     {
         _nodes = nodes;
     }

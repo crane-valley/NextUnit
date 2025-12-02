@@ -2,6 +2,9 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>NextUnit.SampleTests</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Suppress warnings for sample/test code -->
+    <NoWarn>$(NoWarn);IDE0052</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

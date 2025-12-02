@@ -1,4 +1,4 @@
-﻿namespace NextUnit.Internal;
+namespace NextUnit.Internal;
 
 /// <summary>
 /// Represents a unique identifier for a test case.

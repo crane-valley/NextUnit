@@ -14,7 +14,9 @@ public static class Assert
     public static void True(bool condition, string? message = null)
     {
         if (!condition)
+        {
             throw new AssertionFailedException(message ?? "Expected true but was false.");
+        }
     }
 
     /// <summary>
@@ -26,7 +28,9 @@ public static class Assert
     public static void False(bool condition, string? message = null)
     {
         if (condition)
+        {
             throw new AssertionFailedException(message ?? "Expected false but was true.");
+        }
     }
 
     /// <summary>
@@ -40,8 +44,10 @@ public static class Assert
     public static void Equal<T>(T expected, T actual, string? message = null)
     {
         if (!Equals(expected, actual))
+        {
             throw new AssertionFailedException(
                 message ?? $"Expected: {expected}; Actual: {actual}");
+        }
     }
 
     /// <summary>
@@ -55,8 +61,10 @@ public static class Assert
     public static void NotEqual<T>(T notExpected, T actual, string? message = null)
     {
         if (Equals(notExpected, actual))
+        {
             throw new AssertionFailedException(
                 message ?? $"Did not expect: {actual}");
+        }
     }
 
     /// <summary>
@@ -68,7 +76,9 @@ public static class Assert
     public static void Null(object? value, string? message = null)
     {
         if (value is not null)
+        {
             throw new AssertionFailedException(message ?? "Expected null.");
+        }
     }
 
     /// <summary>
@@ -80,7 +90,9 @@ public static class Assert
     public static void NotNull(object? value, string? message = null)
     {
         if (value is null)
+        {
             throw new AssertionFailedException(message ?? "Expected non-null.");
+        }
     }
 
     /// <summary>

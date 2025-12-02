@@ -58,7 +58,7 @@ internal static class ReflectionTestDescriptorBuilder
         return descriptors;
     }
 
-    static TestMethodDelegate CreateTestMethodDelegate(Type type, MethodInfo method)
+    private static TestMethodDelegate CreateTestMethodDelegate(Type type, MethodInfo method)
     {
         return async (instance, ct) =>
         {
@@ -92,7 +92,7 @@ internal static class ReflectionTestDescriptorBuilder
         };
     }
 
-    static LifecycleMethodDelegate CreateLifecycleMethodDelegate(MethodInfo method)
+    private static LifecycleMethodDelegate CreateLifecycleMethodDelegate(MethodInfo method)
     {
         return async (instance, ct) =>
         {
@@ -121,7 +121,7 @@ internal static class ReflectionTestDescriptorBuilder
         };
     }
 
-    static LifecycleInfo BuildLifecycleInfo(IEnumerable<MethodInfo> methods)
+    private static LifecycleInfo BuildLifecycleInfo(IEnumerable<MethodInfo> methods)
     {
         var before = new List<LifecycleMethodDelegate>();
         var after = new List<LifecycleMethodDelegate>();
@@ -152,7 +152,7 @@ internal static class ReflectionTestDescriptorBuilder
         };
     }
 
-    static ParallelInfo BuildParallelInfo(Type type, MethodInfo method)
+    private static ParallelInfo BuildParallelInfo(Type type, MethodInfo method)
     {
         var notInParallel = method.GetCustomAttributes(typeof(NotInParallelAttribute), inherit: false).Any()
                             || type.GetCustomAttributes(typeof(NotInParallelAttribute), inherit: false).Any();
@@ -175,7 +175,7 @@ internal static class ReflectionTestDescriptorBuilder
         };
     }
 
-    static IReadOnlyList<TestCaseId> BuildDependencies(MethodInfo method)
+    private static IReadOnlyList<TestCaseId> BuildDependencies(MethodInfo method)
     {
         var builder = new List<TestCaseId>();
         var declaringType = method.DeclaringType;
@@ -186,7 +186,7 @@ internal static class ReflectionTestDescriptorBuilder
             {
                 if (!string.IsNullOrWhiteSpace(name))
                 {
-                    var dependencyId = declaringType != null 
+                    var dependencyId = declaringType != null
                         ? $"{declaringType.FullName}.{name}"
                         : name;
                     builder.Add(new TestCaseId(dependencyId));
@@ -197,7 +197,7 @@ internal static class ReflectionTestDescriptorBuilder
         return builder;
     }
 
-    static string CreateTestId(Type type, MethodInfo method)
+    private static string CreateTestId(Type type, MethodInfo method)
     {
         return $"{type.FullName}.{method.Name}";
     }

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <AssemblyName>NextUnit.Platform</AssemblyName>
     <RootNamespace>NextUnit.Platform</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
