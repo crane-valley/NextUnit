@@ -27,6 +27,13 @@ public interface ITestExecutionSink
     /// <param name="ex">The exception that was thrown.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex);
+
+    /// <summary>
+    /// Reports that a test was skipped.
+    /// </summary>
+    /// <param name="test">The test case that was skipped.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    public Task ReportSkippedAsync(TestCaseDescriptor test);
 }
 
 /// <summary>
@@ -67,6 +74,13 @@ public sealed class TestExecutionEngine
         ITestExecutionSink sink,
         CancellationToken cancellationToken)
     {
+        // Check if test is skipped
+        if (testCase.IsSkipped)
+        {
+            await sink.ReportSkippedAsync(testCase).ConfigureAwait(false);
+            return;
+        }
+
         if (testCase.TestMethod is null)
         {
             await sink.ReportErrorAsync(

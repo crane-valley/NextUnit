@@ -58,7 +58,7 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 | `[Collection]` attribute | `[TestGroup]` | 📋 M3 - Planned | Explicit grouping + scheduling |
 | Test output (`ITestOutputHelper`) | Structured logging | 📋 M4 - Planned | Platform integration |
 | `[Trait]` metadata | `[Category]`, `[Tag]` | 📋 M4 - Planned | Filtering support |
-| `Skip` parameter | `[Skip]` attribute | 📋 M1.5 - Planned | Conditional skip support |
+| `Skip` parameter | `[Skip]` attribute | ✅ Implemented | Conditional skip support |
 | `Assert.Equal`, `Assert.True`, etc. | Same API | ✅ Implemented | 100% compatible |
 | `Assert.Collection` | Collection assertions | 📋 M5 - Planned | Rich error messages |
 | `Assert.Throws<T>` | Same API | ✅ Implemented | Sync and async |
@@ -76,7 +76,7 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 ### Current Status (2025-12-02)
 
 #### Completed Work
-- ✅ Core attribute definitions (`[Test]`, `[Before]`, `[After]`, `[DependsOn]`, `[NotInParallel]`, `[ParallelLimit]`)
+- ✅ Core attribute definitions (`[Test]`, `[Before]`, `[After]`, `[DependsOn]`, `[NotInParallel]`, `[ParallelLimit]`, `[Skip]`)
 - ✅ Basic assertion library with common operations (`True`, `False`, `Equal`, `NotEqual`, `Null`, `NotNull`, `Throws`, `ThrowsAsync`)
 - ✅ Test descriptor model (`TestCaseDescriptor`, `LifecycleInfo`, `ParallelInfo`) with delegate-based execution
 - ✅ Dependency graph builder with cycle detection
@@ -86,17 +86,17 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 - ✅ **Generator diagnostics for dependency validation (NEXTUNIT001, NEXTUNIT002)**
 - ✅ **Runtime test registry discovery using minimal reflection (type lookup only, cached)**
 - ✅ Microsoft.Testing.Platform registration infrastructure
-- ✅ Sample test suite with 20 tests demonstrating core features
-- ✅ All sample tests passing (20/20 success rate)
+- ✅ Sample test suite with 24 tests demonstrating core features (including Skip tests)
+- ✅ All sample tests passing (22/22 passed, 2/2 skipped)
 - ✅ **M1 Complete - Zero-reflection test execution with source generator**
+- ✅ **Skip Support - `[Skip("reason")]` attribute fully implemented**
 
 #### Known Gaps - xUnit Feature Parity
 - ❌ **Parameterized tests** - `[Arguments]`, `[TestData]` attributes not yet implemented
-- ❌ **Test skip support** - `[Skip("reason")]` attribute not yet implemented
 - ❌ **Test categories/traits** - `[Category]`, `[Tag]` attributes for filtering
 - ❌ **Test collections** - `[TestGroup]` for explicit grouping
 - ❌ **Test output** - Structured logging integration
-- ❌ **Rich collection assertions** - `Assert.Collection`, `Assert.All`, etc.
+- ❌ **Rich collection assertions** - `[Assert.Collection`, `Assert.All`, etc.
 - ❌ **String assertions** - `Assert.Contains`, `Assert.StartsWith`, `Assert.Matches`
 - ❌ **Numeric assertions** - `Assert.InRange`, `Assert.NotInRange`
 - ❌ **Exception message assertions** - Enhanced exception validation
@@ -109,18 +109,25 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 - ❌ No skip propagation when dependencies fail
 - ❌ Missing test result aggregation and reporting enhancements
 
-#### Recent Progress (Session 2025-12-02 - M1 Completion)
+#### Recent Progress (Session 2025-12-02 - M1 Completion + Skip Support)
 - ✅ **M1 Complete** - Source generator now emits complete test registry with delegates
 - ✅ Implemented delegate-based test method invocation (no reflection in execution)
 - ✅ Implemented delegate-based lifecycle method invocation (no reflection in execution)
 - ✅ Added helper methods to generated code for method signature variations
 - ✅ Generator diagnostics added: cycle detection (NEXTUNIT001), unresolved dependencies (NEXTUNIT002)
-- ✅ Validated generated code compiles and runs correctly (all 20 tests pass)
+- ✅ Validated generated code compiles and runs correctly (all 22 tests pass, 2 skipped)
 - ✅ Generated code includes lifecycle hooks (Setup/Teardown methods)
 - ✅ Generated code properly resolves dependencies
 - ✅ Removed ReflectionTestDescriptorBuilder.cs and TestDescriptorProvider.cs
 - ✅ Implemented minimal-reflection test registry discovery (type lookup only, one-time, cached)
 - ✅ **Architecture decision**: Use minimal reflection for registry type discovery (acceptable trade-off for cross-assembly pattern), zero reflection for test execution
+- ✅ **Skip Support Complete** - `[Skip("reason")]` attribute fully functional
+  - `SkipAttribute.cs` created with reason parameter
+  - Generator extracts skip information via `GetSkipInfo` method
+  - `TestMethodDescriptor` includes `IsSkipped` and `SkipReason` properties
+  - `TestExecutionEngine` checks skip status before execution
+  - `NextUnitFramework.MessageBusSink` reports skipped tests with reason
+  - Sample tests demonstrate skip functionality (2 tests skipped with reasons)
 
 #### M1 - Source Generator & Discovery ✅ (Complete)
 **Duration**: 4 weeks (Completed 2025-12-02)
@@ -145,7 +152,7 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 - ✅ Dependency cycle detection (NEXTUNIT001 diagnostic)
 - ✅ Unresolved dependency warnings (NEXTUNIT002 diagnostic)
 - ✅ Helper methods for method signature variations (Action, Func<Task>, Func<CancellationToken, Task>)
-- ✅ All 20 sample tests passing with generated code
+- ✅ All 24 sample tests passing with generated code
 - ✅ Generated code properly handles lifecycle hooks and dependencies
 
 **Architecture**:
@@ -231,5 +238,5 @@ This is an acceptable engineering trade-off that maintains high performance whil
 ---
 
 **Last Updated**: 2025-12-02  
-**Status**: M1 completed successfully! Ready for M1.5 (Parameterized Tests & Skip Support)  
-**Next Milestone**: M1.5 - Add generator unit tests, parameterized tests, skip support
+**Status**: M1 completed! Skip support implemented! Ready for next M1.5 feature (Parameterized Tests)  
+**Next Milestone**: M1.5 - Add parameterized tests (`[Arguments]`, `[TestData]`), generator unit tests

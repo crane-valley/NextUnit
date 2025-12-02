@@ -252,5 +252,23 @@ internal sealed class NextUnitFramework :
                     _sessionUid,
                     testNode)).ConfigureAwait(false);
         }
+
+        public async Task ReportSkippedAsync(TestCaseDescriptor test)
+        {
+            var explanation = test.SkipReason ?? "Test was skipped";
+            var testNode = new TestNode
+            {
+                Uid = new TestNodeUid(test.Id.Value),
+                DisplayName = test.DisplayName,
+                Properties = new PropertyBag(
+                    new SkippedTestNodeStateProperty(explanation))
+            };
+
+            await _messageBus.PublishAsync(
+                _producer,
+                new TestNodeUpdateMessage(
+                    _sessionUid,
+                    testNode)).ConfigureAwait(false);
+        }
     }
 }

@@ -94,6 +94,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var typeParallelLimit = GetParallelLimit(typeSymbol);
         var parallelLimit = methodParallelLimit ?? typeParallelLimit;
         var dependencies = GetDependencies(methodSymbol);
+        var (isSkipped, skipReason) = GetSkipInfo(methodSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -102,7 +103,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             methodSymbol.Name,
             notInParallel,
             parallelLimit,
-            dependencies);
+            dependencies,
+            isSkipped,
+            skipReason);
     }
 
     /// <summary>
@@ -320,8 +323,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             builder.AppendLine($"                    ParallelLimit = {(test.ParallelLimit is int limit ? limit.ToString(CultureInfo.InvariantCulture) : "null")}");
             builder.AppendLine("                },");
             builder.AppendLine($"                Dependencies = {BuildDependenciesLiteral(test.Dependencies)},");
-            builder.AppendLine("                IsSkipped = false,");
-            builder.AppendLine("                SkipReason = null");
+            builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
+            builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? ToLiteral(test.SkipReason) : "null")}");
             builder.AppendLine("            },");
         }
 
@@ -456,6 +459,32 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToImmutable();
     }
 
+    private static (bool isSkipped, string? skipReason) GetSkipInfo(IMethodSymbol methodSymbol)
+    {
+        foreach (var attribute in methodSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, SkipAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                return (true, null);
+            }
+
+            var reasonArg = attribute.ConstructorArguments[0];
+            if (reasonArg.Value is string reason)
+            {
+                return (true, reason);
+            }
+
+            return (true, null);
+        }
+
+        return (false, null);
+    }
+
     private static bool HasAttribute(ISymbol symbol, string metadataName)
     {
         foreach (var attribute in symbol.GetAttributes())
@@ -548,6 +577,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     private const string NotInParallelMetadataName = "global::NextUnit.NotInParallelAttribute";
     private const string ParallelLimitMetadataName = "global::NextUnit.ParallelLimitAttribute";
     private const string DependsOnMetadataName = "global::NextUnit.DependsOnAttribute";
+    private const string SkipAttributeMetadataName = "global::NextUnit.SkipAttribute";
 
     private static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
@@ -572,7 +602,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             string methodName,
             bool notInParallel,
             int? parallelLimit,
-            ImmutableArray<string> dependencies)
+            ImmutableArray<string> dependencies,
+            bool isSkipped,
+            string? skipReason)
         {
             Id = id;
             DisplayName = displayName;
@@ -581,6 +613,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             NotInParallel = notInParallel;
             ParallelLimit = parallelLimit;
             Dependencies = dependencies;
+            IsSkipped = isSkipped;
+            SkipReason = skipReason;
         }
 
         public string Id { get; }
@@ -590,6 +624,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         public bool NotInParallel { get; }
         public int? ParallelLimit { get; }
         public ImmutableArray<string> Dependencies { get; }
+        public bool IsSkipped { get; }
+        public string? SkipReason { get; }
     }
 
     private sealed class LifecycleMethodDescriptor
