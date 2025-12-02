@@ -460,16 +460,16 @@ dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
 | Location | Comment | Milestone | Priority |
 |----------|---------|-----------|----------|
 | NextUnitFramework.cs:80 | Will be used in future implementation | None | Low |
-| NextUnitFramework.cs:106 | Will be used in future implementation | None | Low |
-| NextUnitFramework.cs:121 | Remove this fallback before v1.0 | M1 | **High** |
-| NextUnitFramework.cs:131 | Remove this fallback before v1.0 | M1 | **High** |
+| NextUnitFramework.cs:112 | Will be used in future implementation | None | Low |
+| NextUnitFramework.cs:125 | Remove this fallback before v1.0 | M1 | **High** |
+| NextUnitFramework.cs:160 | Remove this fallback before v1.0 | M1 | **High** |
 | TestDescriptorProvider.cs:4 | Replace with generator-only approach before v1.0 | M1 | **High** |
 | TestDescriptorProvider.cs:11 | Replace with generator-only approach | M1 | **High** |
 | ParallelScheduler.cs:29 | Parallel execution constraints will be enforced in M3 | M3 | Medium |
 
 **Observations:**
 - ✅ Most TODOs have milestone references
-- ⚠️ Two TODOs lack milestone references (lines 80, 106)
+- ⚠️ Two TODOs lack milestone references (lines 80, 112 in NextUnitFramework.cs)
 - ✅ Clear action items for M1 completion
 
 ### 8.2 Code Marked for Removal ⚠️ TRACKED
@@ -647,7 +647,7 @@ context.ReportDiagnostic(Diagnostic.Create(
    - Verify <50ms target
 
 4. **Fix TODO Comments** ⏰ 15 minutes
-   - Add milestone references to lines 80, 106 in NextUnitFramework.cs
+   - Add milestone references to lines 80, 112 in NextUnitFramework.cs
 
 ### 11.2 Medium Priority (M2-M3)
 
