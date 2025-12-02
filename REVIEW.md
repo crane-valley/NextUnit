@@ -463,8 +463,8 @@ dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
 | NextUnitFramework.cs:112 | Will be used in future implementation | None | Low |
 | NextUnitFramework.cs:125 | Remove this fallback before v1.0 | M1 | **High** |
 | NextUnitFramework.cs:160 | Remove this fallback before v1.0 | M1 | **High** |
-| TestDescriptorProvider.cs:4 | Replace with generator-only approach before v1.0 | M1 | **High** |
-| TestDescriptorProvider.cs:11 | Replace with generator-only approach | M1 | **High** |
+| TestDescriptorProvider.cs:10 | Replace with generator-only approach before v1.0 | M1 | **High** |
+| TestDescriptorProvider.cs:23 | Replace with generator-only approach | M1 | **High** |
 | ParallelScheduler.cs:29 | Parallel execution constraints will be enforced in M3 | M3 | Medium |
 
 **Observations:**
