@@ -7,12 +7,12 @@
 **All code, comments, and documentation must be written in English.**
 
 This includes:
-- ? **Code comments** - All inline comments, XML documentation comments, TODO markers
-- ? **Documentation files** - README.md, PLANS.md, DEVLOG.md, all .md files
-- ? **Commit messages** - Git commit messages and pull request descriptions
-- ? **Variable/method names** - All identifiers must use English words
-- ? **String literals** - User-facing messages and error messages
-- ? **Test names** - Test method names and test descriptions
+- âœ… **Code comments** - All inline comments, XML documentation comments, TODO markers
+- âœ… **Documentation files** - README.md, PLANS.md, DEVLOG.md, all .md files
+- âœ… **Commit messages** - Git commit messages and pull request descriptions
+- âœ… **Variable/method names** - All identifiers must use English words
+- âœ… **String literals** - User-facing messages and error messages
+- âœ… **Test names** - Test method names and test descriptions
 
 **Rationale:**
 - International collaboration and open-source contribution
@@ -22,16 +22,16 @@ This includes:
 
 **Examples:**
 
-? **Bad** (Japanese comments):
+âŒ **Bad** (Japanese comments):
 ```csharp
-// ˆË‘¶ŠÖŒW‚ğƒ`ƒFƒbƒN
+// ä¾å­˜é–¢ä¿‚ã‚’ãƒã‚§ãƒƒã‚¯
 if (!completed.Contains(depId))
 {
-    return true; // ƒXƒLƒbƒv
+    return true; // ã‚¹ã‚­ãƒƒãƒ—
 }
 ```
 
-? **Good** (English comments):
+âœ… **Good** (English comments):
 ```csharp
 // Check if all dependencies have completed
 if (!completed.Contains(depId))
@@ -81,16 +81,16 @@ TODO comments must:
 
 **Examples:**
 
-? **Good TODO comments:**
+âœ… **Good TODO comments:**
 ```csharp
 // TODO M1: Remove this reflection fallback before v1.0
 // TODO M2: Implement Assembly-scoped lifecycle hooks
 // TODO M3: Enforce ParallelLimit constraints in scheduler
 ```
 
-? **Bad TODO comments:**
+âŒ **Bad TODO comments:**
 ```csharp
-// TODO: «—ˆ‚ÌÀ‘•‚Åg—p (Japanese)
+// TODO: å°†æ¥ã®å®Ÿè£…ã§ä½¿ç”¨ (Japanese)
 // TODO: fix this (too vague)
 // TODO (no description)
 ```
@@ -101,17 +101,17 @@ TODO comments must:
 
 ```
 NextUnit/
-„¥„Ÿ„Ÿ src/
-„    „¥„Ÿ„Ÿ NextUnit.Core/          # Core framework (attributes, assertions, execution)
-„    „¥„Ÿ„Ÿ NextUnit.Generator/     # Source generator
-„    „¤„Ÿ„Ÿ NextUnit.Platform/      # Microsoft.Testing.Platform integration
-„¥„Ÿ„Ÿ samples/
-„    „¤„Ÿ„Ÿ NextUnit.SampleTests/   # Sample tests for validation
-„¥„Ÿ„Ÿ docs/                       # Documentation files
-„¥„Ÿ„Ÿ README.md                   # Project overview (English only)
-„¥„Ÿ„Ÿ PLANS.md                    # Implementation roadmap (English only)
-„¥„Ÿ„Ÿ DEVLOG.md                   # Development log (English only)
-„¤„Ÿ„Ÿ CODING_STANDARDS.md         # This file
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ NextUnit.Core/          # Core framework (attributes, assertions, execution)
+â”‚   â”œâ”€â”€ NextUnit.Generator/     # Source generator
+â”‚   â””â”€â”€ NextUnit.Platform/      # Microsoft.Testing.Platform integration
+â”œâ”€â”€ samples/
+â”‚   â””â”€â”€ NextUnit.SampleTests/   # Sample tests for validation
+â”œâ”€â”€ docs/                       # Documentation files
+â”œâ”€â”€ README.md                   # Project overview (English only)
+â”œâ”€â”€ PLANS.md                    # Implementation roadmap (English only)
+â”œâ”€â”€ DEVLOG.md                   # Development log (English only)
+â””â”€â”€ CODING_STANDARDS.md         # This file
 ```
 
 ### File Headers
@@ -152,7 +152,7 @@ Commit messages must be in English and follow this format:
 
 **Examples:**
 
-? **Good commit messages:**
+âœ… **Good commit messages:**
 ```
 feat: Add source generator delegate emission
 fix: Correct ParallelInfo serialization in generator
@@ -160,10 +160,10 @@ docs: Update README with M1 progress
 refactor: Remove reflection from execution engine
 ```
 
-? **Bad commit messages:**
+âŒ **Bad commit messages:**
 ```
 update (too vague)
-C³ (Japanese)
+ä¿®æ­£ (Japanese)
 WIP (not descriptive)
 ```
 
