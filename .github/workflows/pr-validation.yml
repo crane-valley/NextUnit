@@ -121,16 +121,14 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     
-    - name: Build with all warnings as errors
+    - name: Build Release (strict mode)
       run: |
-        dotnet build --configuration Release --no-restore \
-          /p:TreatWarningsAsErrors=true \
-          /p:EnforceCodeStyleInBuild=true \
-          /p:AnalysisLevel=latest \
-          /p:EnableNETAnalyzers=true
+        echo "Building with strict code quality checks (enforced by Directory.Build.props)..."
+        dotnet build --configuration Release --no-restore
     
-    - name: Check for compiler warnings
+    - name: Verify no warnings
       run: |
+        echo "Verifying build has no warnings..."
         dotnet build --configuration Release --no-restore --verbosity detailed 2>&1 | tee build.log
         if grep -i "warning" build.log; then
           echo "⚠️ Build warnings found"

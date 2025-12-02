@@ -35,14 +35,21 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     
-    - name: Build (Debug)
-      run: dotnet build --configuration Debug --no-restore
+    - name: Build (Debug) - Lenient for development
+      run: |
+        echo "Building Debug configuration (lenient settings for development)..."
+        dotnet build --configuration Debug --no-restore
     
-    - name: Build (Release)
-      run: dotnet build --configuration Release --no-restore
+    - name: Build (Release) - Strict enforcement
+      run: |
+        echo "Building Release configuration (strict settings matching CI/CD)..."
+        dotnet build --configuration Release --no-restore
     
-    - name: Run code analysis
-      run: dotnet build --configuration Release --no-restore /p:EnforceCodeStyleInBuild=true /p:TreatWarningsAsErrors=true
+    - name: Verify Release build quality
+      run: |
+        echo "Release builds enforce TreatWarningsAsErrors and EnforceCodeStyleInBuild via Directory.Build.props"
+        echo "This ensures IDE developers see the same errors as CI when building Release configuration"
+        dotnet build --configuration Release --no-restore /p:EnforceCodeStyleInBuild=true /p:TreatWarningsAsErrors=true
       continue-on-error: false
 
   # Job 2: Run tests with coverage

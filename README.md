@@ -238,6 +238,31 @@ NextUnit is in early development. Contributions welcome!
 
 **Important**: This project follows an **English-only policy** for all code, comments, documentation, and commit messages to ensure international collaboration and consistency with .NET ecosystem standards.
 
+### Development Workflow
+
+**Build Configurations:**
+- **Debug**: Lenient settings for fast iteration (warnings allowed)
+- **Release**: Strict settings matching CI/CD (warnings as errors)
+
+**Before submitting a PR:**
+```bash
+# Build in Release mode to catch issues before CI
+dotnet build --configuration Release
+
+# Format code to match style guidelines
+dotnet format
+
+# Run tests
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+```
+
+**Why two configurations?**
+- Debug builds let you iterate quickly without fixing every warning immediately
+- Release builds enforce the same strict quality checks as GitHub Actions
+- This prevents surprises when your PR fails CI checks
+
+**Tip**: Set Visual Studio to build Release configuration before commits to catch issues early!
+
 ## License
 
 [MIT License](LICENSE) - See LICENSE file for details

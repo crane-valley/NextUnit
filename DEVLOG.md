@@ -393,6 +393,32 @@ Duration: ~758ms
 
 ## Troubleshooting Guide
 
+### Build Configuration: Debug vs Release
+
+**Problem**: Local build succeeds but CI/CD fails with code style errors.
+
+**Solution**: NextUnit uses different strictness levels for Debug and Release builds:
+
+| Setting | Debug Build | Release Build |
+|---------|-------------|---------------|
+| `TreatWarningsAsErrors` | `false` | `true` |
+| `EnforceCodeStyleInBuild` | `false` | `true` |
+| Purpose | Fast iteration | CI/CD quality |
+
+**Before submitting PRs:**
+```bash
+# Always build in Release mode to match CI
+dotnet build --configuration Release
+
+# Auto-fix formatting issues
+dotnet format
+```
+
+**Visual Studio users:**
+1. Switch to **Release** configuration before committing
+2. Or set default build configuration to Release in solution properties
+3. This ensures you see the same errors as GitHub Actions
+
 ### Running Tests
 
 NextUnit uses **Microsoft.Testing.Platform**, not traditional `dotnet test`. Use these commands:
