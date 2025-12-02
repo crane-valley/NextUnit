@@ -4,6 +4,7 @@
     <File Path="DEVLOG.md" />
     <File Path="PLANS.md" />
     <File Path="README.md" />
+    <File Path="REVIEW.md" />
   </Folder>
   <Folder Name="/github/">
     <File Path=".github/workflows/dotnet.yml" />

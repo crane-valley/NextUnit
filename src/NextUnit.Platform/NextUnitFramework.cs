@@ -25,6 +25,7 @@ internal sealed class NextUnitFramework :
     private readonly IServiceProvider _services;
 #pragma warning restore IDE0052
     private readonly TestExecutionEngine _engine = new();
+    private IReadOnlyList<TestCaseDescriptor>? _testCases;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NextUnitFramework"/> class.
@@ -116,21 +117,48 @@ internal sealed class NextUnitFramework :
         return Task.FromResult(new CloseTestSessionResult { IsSuccess = true });
     }
 
+    private IReadOnlyList<TestCaseDescriptor> GetTestCases()
+    {
+        if (_testCases is not null)
+        {
+            return _testCases;
+        }
+
+        // Try to find generated test registry using reflection
+        // This is a one-time operation during test discovery, not during test execution
+        var testAssemblyPath = Environment.GetCommandLineArgs()[0];
+        var testAssembly = Assembly.LoadFrom(testAssemblyPath);
+
+        // Look for NextUnit.Generated.GeneratedTestRegistry.TestCases
+        var generatedRegistryType = testAssembly.GetType("NextUnit.Generated.GeneratedTestRegistry");
+        if (generatedRegistryType is not null)
+        {
+            var testCasesProperty = generatedRegistryType.GetProperty(
+                "TestCases",
+                BindingFlags.Public | BindingFlags.Static);
+
+            if (testCasesProperty is not null)
+            {
+                _testCases = (IReadOnlyList<TestCaseDescriptor>?)testCasesProperty.GetValue(null);
+                if (_testCases is not null)
+                {
+                    return _testCases;
+                }
+            }
+        }
+
+        // If no generated registry found, return empty list
+        // This allows the framework to work even if generator hasn't run yet
+        _testCases = Array.Empty<TestCaseDescriptor>();
+        return _testCases;
+    }
+
     private async Task DiscoverAsync(
         DiscoverTestExecutionRequest request,
         IMessageBus messageBus,
         CancellationToken cancellationToken)
     {
-#if false // Generated registry will be available in test projects only
-        // Try to use generated registry first (zero reflection!)
-        IReadOnlyList<TestCaseDescriptor> testCases = NextUnit.Generated.GeneratedTestRegistry.TestCases;
-#else
-        // TODO M1: Remove this fallback before v1.0
-        // Development fallback - uses reflection for test discovery
-        var testAssemblyPath = Environment.GetCommandLineArgs()[0];
-        var testAssembly = Assembly.LoadFrom(testAssemblyPath);
-        var testCases = TestDescriptorProvider.GetTestCases(testAssembly);
-#endif
+        var testCases = GetTestCases();
 
         foreach (var testCase in testCases)
         {
@@ -156,17 +184,7 @@ internal sealed class NextUnitFramework :
         IMessageBus messageBus,
         CancellationToken cancellationToken)
     {
-#if false // Generated registry will be available in test projects only
-        // Try to use generated registry first (zero reflection!)
-        IReadOnlyList<TestCaseDescriptor> testCases = NextUnit.Generated.GeneratedTestRegistry.TestCases;
-#else
-        // TODO M1: Remove this fallback before v1.0
-        // Development fallback - uses reflection for test discovery
-        var testAssemblyPath = Environment.GetCommandLineArgs()[0];
-        var testAssembly = Assembly.LoadFrom(testAssemblyPath);
-        var testCases = TestDescriptorProvider.GetTestCases(testAssembly);
-#endif
-
+        var testCases = GetTestCases();
         var sink = new MessageBusSink(messageBus, request.Session.SessionUid, this);
 
         await _engine.RunAsync(testCases, sink, cancellationToken).ConfigureAwait(false);
