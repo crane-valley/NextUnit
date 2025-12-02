@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>NextUnit.Platform</AssemblyName>
+    <RootNamespace>NextUnit.Platform</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NextUnit.Core\NextUnit.Core.csproj" />
+    <PackageReference Include="Microsoft.Testing.Platform" />
+  </ItemGroup>
+</Project>

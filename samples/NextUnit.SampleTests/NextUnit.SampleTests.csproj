@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NextUnit.SampleTests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Testing.Platform" />
+    <ProjectReference Include="..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
+    <ProjectReference Include="..\..\src\NextUnit.Platform\NextUnit.Platform.csproj" />
+    <ProjectReference Include="..\..\src\NextUnit.Generator\NextUnit.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>
