@@ -50,7 +50,7 @@ src/
 │       └── ReflectionTestDescriptorBuilder.cs (marked for removal)
 ├── NextUnit.Generator/     # Source generator (616 lines)
 │   └── NextUnitGenerator.cs
-└── NextUnit.Platform/      # Microsoft.Testing.Platform integration (235 lines)
+└── NextUnit.Platform/      # Microsoft.Testing.Platform integration (272 lines)
     ├── NextUnitFramework.cs
     └── NextUnitApplicationBuilderExtensions.cs
 ```
