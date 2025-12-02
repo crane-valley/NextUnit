@@ -393,6 +393,43 @@ Duration: ~758ms
 
 ## Troubleshooting Guide
 
+### Running Tests
+
+NextUnit uses **Microsoft.Testing.Platform**, not traditional `dotnet test`. Use these commands:
+
+**Local development:**
+```bash
+# Run all sample tests
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+
+# Run with specific minimum test count check
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --minimum-expected-tests 20
+
+# Generate TRX report
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --results-directory ./TestResults --report-trx
+
+# View all available options
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --help
+```
+
+**CI/CD:**
+```bash
+# Build first
+dotnet build --configuration Release
+
+# Run tests (no-build to use already built assemblies)
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj \
+  --configuration Release \
+  --no-build \
+  -- --minimum-expected-tests 20
+```
+
+**Why not `dotnet test`?**
+- NextUnit uses Microsoft.Testing.Platform as a console app (`OutputType=Exe`)
+- This provides better integration with modern IDE tooling
+- Enables Native AOT compilation
+- Gives more control over test execution lifecycle
+
 ### Source Generator Debugging
 
 If the source generator is not producing output, follow these steps:

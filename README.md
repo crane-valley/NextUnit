@@ -41,6 +41,26 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 dotnet build
 ```
 
+### Running Tests
+
+NextUnit uses **Microsoft.Testing.Platform** for test execution. To run tests:
+
+```bash
+# Run all tests in a project
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+
+# Run with specific options
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --help
+
+# Run with minimum expected tests check
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --minimum-expected-tests 20
+
+# Generate test results
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --results-directory ./TestResults --report-trx
+```
+
+**Note**: Unlike traditional test frameworks, NextUnit does **not** use `dotnet test`. Tests are executed as a console application using Microsoft.Testing.Platform.
+
 ### Writing Tests
 
 ```csharp

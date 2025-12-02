@@ -119,6 +119,24 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 - ✅ Generated code properly resolves dependencies
 - 📝 Reflection fallback still present but clearly marked with TODO for removal
 
+### Components
+- **NextUnit.Core** - Attributes, assertions, test execution engine
+- **NextUnit.Generator** - Source generator for test discovery (in development)
+- **NextUnit.Platform** - Microsoft.Testing.Platform integration
+- **NextUnit.SampleTests** - Example tests and validation
+
+**Test Execution**: NextUnit uses Microsoft.Testing.Platform as a console application. Tests are executed with `dotnet run` instead of `dotnet test`:
+
+```bash
+dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+```
+
+This approach provides:
+- Native AOT compatibility
+- Better IDE integration
+- More control over test lifecycle
+- Consistent behavior across platforms
+
 ### Milestone Details
 
 #### M0 - Basic Framework ✅ (Complete)
