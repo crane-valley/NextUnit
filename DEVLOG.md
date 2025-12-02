@@ -390,3 +390,77 @@ Duration: ~758ms
 **Session Duration**: ~3 hours total  
 **Status**: M1 at 80%, on track for completion  
 **Next Session**: Complete M1, start M2
+
+## Troubleshooting Guide
+
+### Source Generator Debugging
+
+If the source generator is not producing output, follow these steps:
+
+**1. Verify generator is referenced:**
+```bash
+dotnet list samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj reference
+```
+
+**2. Clean and rebuild:**
+```bash
+dotnet clean samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+dotnet build samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --verbosity detailed
+```
+
+**3. Enable compiler-generated files:**
+```bash
+dotnet build samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj \
+  /p:EmitCompilerGeneratedFiles=true \
+  /p:CompilerGeneratedFilesOutputPath=obj/GeneratedFiles
+```
+
+**4. Check for generated files:**
+```bash
+# Look for generated files
+find samples/NextUnit.SampleTests -name "*.g.cs" -type f
+
+# Check specific generator output
+find samples/NextUnit.SampleTests -name "*GeneratedTestRegistry*.cs" -type f
+
+# View generated file content
+cat samples/NextUnit.SampleTests/obj/GeneratedFiles/NextUnit.Generator/NextUnit.Generator.NextUnitGenerator/GeneratedTestRegistry.g.cs
+```
+
+**5. Check for generator diagnostics:**
+```bash
+# Build with detailed output and look for generator messages
+dotnet build samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj \
+  --verbosity detailed 2>&1 | grep -i "nextunit\|generator"
+```
+
+**Common Issues:**
+- **No files generated**: 
+  - Generator may be behind `#if false` (check `NextUnitFramework.cs`)
+  - Ensure `[Test]` attribute is present on test methods
+  - Verify generator project builds successfully
+
+- **Build errors with generated code**:
+  - Check generator output for syntax errors
+  - Verify delegate signatures match method signatures
+  - Look for generator diagnostics (NEXTUNIT001, NEXTUNIT002)
+
+- **Tests not discovered**:
+  - Ensure `GeneratedTestRegistry.TestCases` is accessible
+  - Check conditional compilation in `NextUnitFramework.cs`
+  - Verify test project references generator
+
+### GitHub Actions Generator Validation
+
+The CI pipeline includes comprehensive generator validation:
+
+- **Multiple search patterns** for generated files
+- **Detailed diagnostics** output
+- **Non-blocking warnings** during M1 development
+- **Graceful degradation** if generator is conditionally disabled
+
+If CI generator validation fails:
+1. Check if it's a warning (non-critical) or error (critical)
+2. Review the "Display generated file content" step for details
+3. Verify local build works: `dotnet build` should succeed
+4. Generator issues during M1 are expected and non-blocking
