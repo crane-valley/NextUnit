@@ -95,6 +95,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var parallelLimit = methodParallelLimit ?? typeParallelLimit;
         var dependencies = GetDependencies(methodSymbol);
         var (isSkipped, skipReason) = GetSkipInfo(methodSymbol);
+        var argumentSets = GetArgumentSets(methodSymbol);
+        var parameters = methodSymbol.Parameters;
 
         return new TestMethodDescriptor(
             id,
@@ -105,7 +107,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             parallelLimit,
             dependencies,
             isSkipped,
-            skipReason);
+            skipReason,
+            argumentSets,
+            parameters);
     }
 
     /// <summary>
@@ -309,23 +313,20 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                 ? methods
                 : new List<LifecycleMethodDescriptor>();
 
-            builder.AppendLine("            new global::NextUnit.Internal.TestCaseDescriptor");
-            builder.AppendLine("            {");
-            builder.AppendLine($"                Id = new global::NextUnit.Internal.TestCaseId({ToLiteral(test.Id)}),");
-            builder.AppendLine($"                DisplayName = {ToLiteral(test.DisplayName)},");
-            builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
-            builder.AppendLine($"                MethodName = {ToLiteral(test.MethodName)},");
-            builder.AppendLine($"                TestMethod = {BuildTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName)},");
-            builder.AppendLine($"                Lifecycle = {BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
-            builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
-            builder.AppendLine("                {");
-            builder.AppendLine($"                    NotInParallel = {test.NotInParallel.ToString().ToLowerInvariant()},");
-            builder.AppendLine($"                    ParallelLimit = {(test.ParallelLimit is int limit ? limit.ToString(CultureInfo.InvariantCulture) : "null")}");
-            builder.AppendLine("                },");
-            builder.AppendLine($"                Dependencies = {BuildDependenciesLiteral(test.Dependencies)},");
-            builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
-            builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? ToLiteral(test.SkipReason) : "null")}");
-            builder.AppendLine("            },");
+            // Generate test cases for parameterized tests (multiple argument sets) or single test case
+            if (test.ArgumentSets.IsDefaultOrEmpty)
+            {
+                // Non-parameterized test - single test case
+                EmitTestCase(builder, test, lifecycleMethods, null, -1);
+            }
+            else
+            {
+                // Parameterized test - one test case per argument set
+                for (var i = 0; i < test.ArgumentSets.Length; i++)
+                {
+                    EmitTestCase(builder, test, lifecycleMethods, test.ArgumentSets[i], i);
+                }
+            }
         }
 
         builder.AppendLine("        };");
@@ -333,9 +334,183 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
+    private static void EmitTestCase(
+        StringBuilder builder,
+        TestMethodDescriptor test,
+        List<LifecycleMethodDescriptor> lifecycleMethods,
+        ImmutableArray<TypedConstant>? arguments,
+        int argumentSetIndex)
+    {
+        // Build test ID and display name
+        var testId = test.Id;
+        var displayName = test.DisplayName;
+
+        if (arguments.HasValue)
+        {
+            testId = $"{test.Id}[{argumentSetIndex}]";
+            displayName = $"{test.DisplayName}[{argumentSetIndex}]";
+        }
+
+        builder.AppendLine("            new global::NextUnit.Internal.TestCaseDescriptor");
+        builder.AppendLine("            {");
+        builder.AppendLine($"                Id = new global::NextUnit.Internal.TestCaseId({ToLiteral(testId)}),");
+        builder.AppendLine($"                DisplayName = {ToLiteral(displayName)},");
+        builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
+        builder.AppendLine($"                MethodName = {ToLiteral(test.MethodName)},");
+
+        if (arguments.HasValue)
+        {
+            builder.AppendLine($"                TestMethod = {BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, arguments.Value)},");
+        }
+        else
+        {
+            builder.AppendLine($"                TestMethod = {BuildTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName)},");
+        }
+
+        builder.AppendLine($"                Lifecycle = {BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
+        builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
+        builder.AppendLine("                {");
+        builder.AppendLine($"                    NotInParallel = {test.NotInParallel.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    ParallelLimit = {(test.ParallelLimit is int limit ? limit.ToString(CultureInfo.InvariantCulture) : "null")}");
+        builder.AppendLine("                },");
+        builder.AppendLine($"                Dependencies = {BuildDependenciesLiteral(test.Dependencies)},");
+        builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? ToLiteral(test.SkipReason) : "null")},");
+
+        if (arguments.HasValue)
+        {
+            builder.AppendLine($"                Arguments = {BuildArgumentsLiteral(arguments.Value)}");
+        }
+        else
+        {
+            builder.AppendLine("                Arguments = null");
+        }
+
+        builder.AppendLine("            },");
+    }
+
     private static string BuildTestMethodDelegate(string typeName, string methodName)
     {
         return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
+    }
+
+    private static string BuildParameterizedTestMethodDelegate(
+        string typeName,
+        string methodName,
+        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<TypedConstant> arguments)
+    {
+        var argsBuilder = new StringBuilder();
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            if (i > 0)
+            {
+                argsBuilder.Append(", ");
+            }
+
+            var arg = arguments[i];
+            var param = i < parameters.Length ? parameters[i] : null;
+
+            argsBuilder.Append(FormatArgumentValue(arg, param?.Type));
+        }
+
+        return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(() => typedInstance.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}";
+    }
+
+    private static string FormatArgumentValue(TypedConstant argument, ITypeSymbol? targetType)
+    {
+        if (argument.IsNull)
+        {
+            if (targetType != null && targetType.IsValueType)
+            {
+                return $"default({targetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)})";
+            }
+            return "null";
+        }
+
+        return argument.Kind switch
+        {
+            TypedConstantKind.Primitive => FormatPrimitiveValue(argument.Value!, argument.Type!),
+            TypedConstantKind.Enum => $"({argument.Type!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}){argument.Value}",
+            TypedConstantKind.Type => $"typeof({((ITypeSymbol)argument.Value!).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)})",
+            TypedConstantKind.Array => FormatArrayValue(argument),
+            _ => "null"
+        };
+    }
+
+    private static string FormatPrimitiveValue(object value, ITypeSymbol type)
+    {
+        return value switch
+        {
+            string str => ToLiteral(str),
+            char c => $"'{c}'",
+            bool b => b.ToString().ToLowerInvariant(),
+            byte or sbyte or short or ushort or int or uint => value.ToString()!,
+            long l => $"{l}L",
+            ulong ul => $"{ul}UL",
+            float f => $"{f.ToString(CultureInfo.InvariantCulture)}f",
+            double d => $"{d.ToString(CultureInfo.InvariantCulture)}d",
+            decimal m => $"{m.ToString(CultureInfo.InvariantCulture)}m",
+            _ => value.ToString() ?? "null"
+        };
+    }
+
+    private static string FormatArrayValue(TypedConstant argument)
+    {
+        var elementType = ((IArrayTypeSymbol)argument.Type!).ElementType;
+        var elements = argument.Values;
+
+        if (elements.IsEmpty)
+        {
+            return $"global::System.Array.Empty<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>()";
+        }
+
+        var builder = new StringBuilder();
+        builder.Append($"new {elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}[] {{ ");
+
+        for (var i = 0; i < elements.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+            builder.Append(FormatArgumentValue(elements[i], elementType));
+        }
+
+        builder.Append(" }");
+        return builder.ToString();
+    }
+
+    private static string BuildArgumentsLiteral(ImmutableArray<TypedConstant> arguments)
+    {
+        if (arguments.IsEmpty)
+        {
+            return "global::System.Array.Empty<object?>()";
+        }
+
+        var builder = new StringBuilder();
+        builder.Append("new object?[] { ");
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+
+            var arg = arguments[i];
+            if (arg.IsNull)
+            {
+                builder.Append("null");
+            }
+            else
+            {
+                builder.Append(FormatArgumentValue(arg, null));
+            }
+        }
+
+        builder.Append(" }");
+        return builder.ToString();
     }
 
     private static string BuildLifecycleMethodDelegate(string typeName, string methodName)
@@ -485,6 +660,32 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return (false, null);
     }
 
+    private static ImmutableArray<ImmutableArray<TypedConstant>> GetArgumentSets(IMethodSymbol methodSymbol)
+    {
+        var builder = ImmutableArray.CreateBuilder<ImmutableArray<TypedConstant>>();
+
+        foreach (var attribute in methodSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, ArgumentsAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            var argsArray = attribute.ConstructorArguments[0];
+            if (argsArray.Kind == TypedConstantKind.Array)
+            {
+                builder.Add(argsArray.Values);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
     private static bool HasAttribute(ISymbol symbol, string metadataName)
     {
         foreach (var attribute in symbol.GetAttributes())
@@ -578,6 +779,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     private const string ParallelLimitMetadataName = "global::NextUnit.ParallelLimitAttribute";
     private const string DependsOnMetadataName = "global::NextUnit.DependsOnAttribute";
     private const string SkipAttributeMetadataName = "global::NextUnit.SkipAttribute";
+    private const string ArgumentsAttributeMetadataName = "global::NextUnit.ArgumentsAttribute";
 
     private static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
@@ -604,7 +806,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             int? parallelLimit,
             ImmutableArray<string> dependencies,
             bool isSkipped,
-            string? skipReason)
+            string? skipReason,
+            ImmutableArray<ImmutableArray<TypedConstant>> argumentSets,
+            ImmutableArray<IParameterSymbol> parameters)
         {
             Id = id;
             DisplayName = displayName;
@@ -615,6 +819,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             Dependencies = dependencies;
             IsSkipped = isSkipped;
             SkipReason = skipReason;
+            ArgumentSets = argumentSets;
+            Parameters = parameters;
         }
 
         public string Id { get; }
@@ -626,6 +832,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         public ImmutableArray<string> Dependencies { get; }
         public bool IsSkipped { get; }
         public string? SkipReason { get; }
+        public ImmutableArray<ImmutableArray<TypedConstant>> ArgumentSets { get; }
+        public ImmutableArray<IParameterSymbol> Parameters { get; }
     }
 
     private sealed class LifecycleMethodDescriptor

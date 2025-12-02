@@ -49,7 +49,7 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 | xUnit Feature | NextUnit Equivalent | Status | Notes |
 |---------------|---------------------|--------|-------|
 | `[Fact]` | `[Test]` | ✅ Implemented | Clearer naming |
-| `[Theory]` with `[InlineData]` | `[Test]` with `[Arguments]` | 📋 M1.5 - Planned | Source generator support |
+| `[Theory]` with `[InlineData]` | `[Test]` with `[Arguments]` | ✅ Implemented | Source generator support |
 | `[MemberData]` | `[TestData]` | 📋 M1.5 - Planned | AOT-compatible data source |
 | `[ClassData]` | `[TestData]` | 📋 M1.5 - Planned | Unified data source API |
 | Constructor injection (fixtures) | Constructor injection | 📋 M2 - Planned | Class-scoped lifecycle |
@@ -76,7 +76,7 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 ### Current Status (2025-12-02)
 
 #### Completed Work
-- ✅ Core attribute definitions (`[Test]`, `[Before]`, `[After]`, `[DependsOn]`, `[NotInParallel]`, `[ParallelLimit]`, `[Skip]`)
+- ✅ Core attribute definitions (`[Test]`, `[Before]`, `[After]`, `[DependsOn]`, `[NotInParallel]`, `[ParallelLimit]`, `[Skip]`, `[Arguments]`)
 - ✅ Basic assertion library with common operations (`True`, `False`, `Equal`, `NotEqual`, `Null`, `NotNull`, `Throws`, `ThrowsAsync`)
 - ✅ Test descriptor model (`TestCaseDescriptor`, `LifecycleInfo`, `ParallelInfo`) with delegate-based execution
 - ✅ Dependency graph builder with cycle detection
@@ -86,13 +86,13 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 - ✅ **Generator diagnostics for dependency validation (NEXTUNIT001, NEXTUNIT002)**
 - ✅ **Runtime test registry discovery using minimal reflection (type lookup only, cached)**
 - ✅ Microsoft.Testing.Platform registration infrastructure
-- ✅ Sample test suite with 24 tests demonstrating core features (including Skip tests)
-- ✅ All sample tests passing (22/22 passed, 2/2 skipped)
+- ✅ Sample test suite with 35 tests demonstrating core features (including Skip and parameterized tests)
+- ✅ All sample tests passing (33/33 passed, 2/2 skipped)
 - ✅ **M1 Complete - Zero-reflection test execution with source generator**
 - ✅ **Skip Support - `[Skip("reason")]` attribute fully implemented**
+- ✅ **Parameterized Tests - `[Arguments(params object?[])]` attribute fully implemented**
 
 #### Known Gaps - xUnit Feature Parity
-- ❌ **Parameterized tests** - `[Arguments]`, `[TestData]` attributes not yet implemented
 - ❌ **Test categories/traits** - `[Category]`, `[Tag]` attributes for filtering
 - ❌ **Test collections** - `[TestGroup]` for explicit grouping
 - ❌ **Test output** - Structured logging integration
@@ -238,5 +238,4 @@ This is an acceptable engineering trade-off that maintains high performance whil
 ---
 
 **Last Updated**: 2025-12-02  
-**Status**: M1 completed! Skip support implemented! Ready for next M1.5 feature (Parameterized Tests)  
-**Next Milestone**: M1.5 - Add parameterized tests (`[Arguments]`, `[TestData]`), generator unit tests
+**Status**: M1 completed! Skip support implemented! Parameterized tests in progress

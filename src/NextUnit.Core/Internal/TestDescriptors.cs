@@ -139,4 +139,12 @@ public sealed class TestCaseDescriptor
     /// Gets or initializes the reason why the test is skipped, or <c>null</c> if not skipped.
     /// </summary>
     public string? SkipReason { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the arguments to pass to the test method for parameterized tests.
+    /// </summary>
+    /// <remarks>
+    /// This will be <c>null</c> for non-parameterized tests, or an array of arguments for parameterized tests.
+    /// </remarks>
+    public object?[]? Arguments { get; init; }
 }
