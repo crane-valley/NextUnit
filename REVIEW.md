@@ -757,7 +757,7 @@ This project demonstrates exceptional quality and is on track to deliver a compe
 
 ### Code Metrics
 - **Total Lines of Code:** ~1,409 (excluding generated/obj files)
-- **Source Files:** 11 main files
+- **Source Files:** 11 main files (across Core, Generator, Platform)
 - **Test Files:** 4 sample test files
 - **Documentation Files:** 4 markdown files
 - **Projects:** 3 (Core, Generator, Platform)
