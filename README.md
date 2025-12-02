@@ -1,5 +1,7 @@
 # NextUnit
 
+[![.NET](https://github.com/kiyoaki/NextUnit/actions/workflows/dotnet.yml/badge.svg)](https://github.com/kiyoaki/NextUnit/actions/workflows/dotnet.yml)
+
 A modern, high-performance test framework for .NET 10+ that combines TUnit's architecture with xUnit's familiar assertions.
 
 ## Vision
