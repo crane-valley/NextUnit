@@ -39,7 +39,7 @@ NextUnit is a well-structured, modern .NET 10+ test framework that successfully 
 
 ```
 src/
-├── NextUnit.Core/          # Core framework (11 files, ~1,409 total LOC)
+├── NextUnit.Core/          # Core framework (8 files, ~1,409 total LOC)
 │   ├── Assert.cs          # Assertion library (171 lines)
 │   ├── Attributes.cs      # Test attributes (119 lines)
 │   └── Internal/          # Engine implementation
