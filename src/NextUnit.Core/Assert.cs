@@ -1,4 +1,4 @@
-﻿namespace NextUnit;
+namespace NextUnit;
 
 /// <summary>
 /// Provides assertion methods for verifying test conditions.
@@ -152,11 +152,16 @@ public static class Assert
 public sealed class AssertionFailedException : Exception
 {
     /// <summary>
+    /// Initializes a new instance of the <see cref="AssertionFailedException"/> class.
+    /// </summary>
+    public AssertionFailedException() : base() { }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="AssertionFailedException"/> class with a specified error message.
     /// </summary>
     /// <param name="message">The message that describes the assertion failure.</param>
     public AssertionFailedException(string message) : base(message) { }
-    
+
     /// <summary>
     /// Initializes a new instance of the <see cref="AssertionFailedException"/> class with a specified error message and inner exception.
     /// </summary>
