@@ -1,5 +1,3 @@
-using NextUnit;
-
 namespace NextUnit.SampleTests;
 
 /// <summary>
