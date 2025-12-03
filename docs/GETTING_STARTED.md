@@ -1,0 +1,335 @@
+# Getting Started with NextUnit
+
+Welcome to NextUnit! This guide will help you get up and running with NextUnit in minutes.
+
+## What is NextUnit?
+
+NextUnit is a modern, high-performance test framework for .NET that combines:
+- **Zero-reflection test execution** via source generators (50x faster discovery)
+- **xUnit-style assertions** (familiar `Assert.Equal`, `Assert.True`, etc.)
+- **Fine-grained parallel execution** with `[ParallelLimit]` and `[NotInParallel]`
+- **Multi-scope lifecycle** (Test, Class, Assembly scopes)
+- **Native AOT compatibility** for maximum performance
+
+## Installation
+
+### Prerequisites
+- .NET 10 or later
+- Visual Studio 2026 or VS Code with C# Dev Kit
+
+### Create a New Test Project
+
+```bash
+# Create a new console application
+dotnet new console -n MyProject.Tests -f net10.0
+
+# Navigate to the project directory
+cd MyProject.Tests
+```
+
+### Add NextUnit Packages
+
+```bash
+# Add NextUnit core package
+dotnet add package NextUnit.Core
+
+# Add NextUnit source generator
+dotnet add package NextUnit.Generator
+
+# Add NextUnit platform integration
+dotnet add package NextUnit.Platform
+
+# Add Microsoft.Testing.Platform
+dotnet add package Microsoft.Testing.Platform
+```
+
+### Configure Your Project
+
+Update your `.csproj` file:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NextUnit.Core" Version="1.0.0" />
+    <PackageReference Include="NextUnit.Generator" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <PackageReference Include="NextUnit.Platform" Version="1.0.0" />
+    <PackageReference Include="Microsoft.Testing.Platform" />
+  </ItemGroup>
+</Project>
+```
+
+### Create Program.cs
+
+```csharp
+using Microsoft.Testing.Platform.Builder;
+using NextUnit.Platform;
+
+var builder = await TestApplication.CreateBuilderAsync(args);
+builder.AddNextUnit();
+using var app = await builder.BuildAsync();
+return await app.RunAsync();
+```
+
+## Writing Your First Test
+
+Create a new file `CalculatorTests.cs`:
+
+```csharp
+namespace MyProject.Tests;
+
+public class CalculatorTests
+{
+    [Test]
+    public void Add_TwoNumbers_ReturnsSum()
+    {
+        var result = 2 + 2;
+        Assert.Equal(4, result);
+    }
+
+    [Test]
+    public void Divide_ByZero_ThrowsException()
+    {
+        Assert.Throws<DivideByZeroException>(() => 10 / 0);
+    }
+
+    [Test]
+    [Arguments(1, 2, 3)]
+    [Arguments(5, 5, 10)]
+    [Arguments(10, -5, 5)]
+    public void Add_ParameterizedTests(int a, int b, int expected)
+    {
+        var result = a + b;
+        Assert.Equal(expected, result);
+    }
+}
+```
+
+## Running Tests
+
+### Command Line
+
+```bash
+# Run all tests
+dotnet run
+
+# Run with no build
+dotnet run --no-build
+
+# Run specific tests (using Microsoft.Testing.Platform filters)
+dotnet run -- --filter "FullyQualifiedName~Calculator"
+```
+
+### Visual Studio
+
+1. Build your project (Ctrl+Shift+B)
+2. Open Test Explorer (Ctrl+E, T)
+3. Click "Run All" or right-click specific tests
+
+### VS Code
+
+1. Install "C# Dev Kit" extension
+2. Open Test Explorer (Testing icon in sidebar)
+3. Click "Run All Tests" or run individual tests
+
+## Common Assertions
+
+NextUnit provides xUnit-compatible assertion methods:
+
+### Basic Assertions
+
+```csharp
+Assert.True(condition);               // Verify condition is true
+Assert.False(condition);              // Verify condition is false
+Assert.Equal(expected, actual);       // Verify equality
+Assert.NotEqual(notExpected, actual); // Verify inequality
+Assert.Null(value);                   // Verify null
+Assert.NotNull(value);                // Verify not null
+```
+
+### Collection Assertions
+
+```csharp
+Assert.Contains(item, collection);          // Item exists in collection
+Assert.DoesNotContain(item, collection);    // Item not in collection
+Assert.Empty(collection);                   // Collection is empty
+Assert.NotEmpty(collection);                // Collection has elements
+Assert.Single(collection);                  // Exactly one element
+Assert.All(collection, item => { ... });    // All items satisfy condition
+```
+
+### String Assertions
+
+```csharp
+Assert.StartsWith("Hello", text);      // Text starts with prefix
+Assert.EndsWith("World", text);        // Text ends with suffix
+Assert.Contains("substring", text);    // Text contains substring
+```
+
+### Numeric Assertions
+
+```csharp
+Assert.InRange(value, min, max);       // Value in range [min, max]
+Assert.NotInRange(value, min, max);    // Value outside range
+```
+
+### Exception Assertions
+
+```csharp
+Assert.Throws<Exception>(() => { ... });              // Sync code throws
+Assert.ThrowsAsync<Exception>(async () => { ... });   // Async code throws
+```
+
+## Lifecycle Methods
+
+NextUnit supports multi-scope lifecycle methods:
+
+```csharp
+public class DatabaseTests
+{
+    // Runs before each test
+    [Before(LifecycleScope.Test)]
+    public void SetupTest()
+    {
+        // Initialize per-test resources
+    }
+
+    // Runs after each test
+    [After(LifecycleScope.Test)]
+    public void CleanupTest()
+    {
+        // Clean up per-test resources
+    }
+
+    // Runs once before all tests in this class
+    [Before(LifecycleScope.Class)]
+    public void SetupClass()
+    {
+        // Initialize shared resources
+    }
+
+    // Runs once after all tests in this class
+    [After(LifecycleScope.Class)]
+    public void CleanupClass()
+    {
+        // Clean up shared resources
+    }
+
+    [Test]
+    public void FirstTest() { }
+
+    [Test]
+    public void SecondTest() { }
+}
+```
+
+## Parallel Execution
+
+NextUnit runs tests in parallel by default for maximum performance:
+
+```csharp
+// This class's tests run serially (not in parallel with each other)
+[NotInParallel]
+public class SerialTests
+{
+    [Test]
+    public void Test1() { }
+
+    [Test]
+    public void Test2() { }
+}
+
+// Limit parallel execution to 4 concurrent tests
+[ParallelLimit(4)]
+public class LimitedParallelTests
+{
+    [Test]
+    public void Test1() { }
+
+    [Test]
+    public void Test2() { }
+}
+```
+
+## Test Dependencies
+
+Ensure tests run in a specific order:
+
+```csharp
+public class IntegrationTests
+{
+    [Test]
+    public void Step1_Initialize() { }
+
+    [Test]
+    [DependsOn(nameof(Step1_Initialize))]
+    public void Step2_Process() { }
+
+    [Test]
+    [DependsOn(nameof(Step2_Process))]
+    public void Step3_Verify() { }
+}
+```
+
+## Skipping Tests
+
+```csharp
+// Skip with reason
+[Test]
+[Skip("Waiting for bug fix #123")]
+public void PendingTest() { }
+
+// Conditional skip (in code)
+[Test]
+public void WindowsOnlyTest()
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        Assert.Skip("Windows only");
+    }
+    
+    // Test implementation
+}
+```
+
+## Best Practices
+
+1. **Use descriptive test names**: `MethodName_Scenario_ExpectedResult`
+2. **Keep tests focused**: One assertion per test when possible
+3. **Use parameterized tests**: Reduce duplication with `[Arguments]`
+4. **Leverage parallel execution**: Most tests should run in parallel
+5. **Use lifecycle scopes wisely**: Share expensive setup at class/assembly level
+6. **Add skip reasons**: Always explain why a test is skipped
+
+## Next Steps
+
+- Read [Best Practices Guide](BEST_PRACTICES.md) for advanced patterns
+- See [Migration Guide](MIGRATION_FROM_XUNIT.md) if coming from xUnit
+- Check [API Reference](API_REFERENCE.md) for complete documentation
+- View [Performance Tuning Guide](PERFORMANCE_TUNING.md) for optimization tips
+
+## Getting Help
+
+- **GitHub Issues**: https://github.com/kiyoaki/NextUnit/issues
+- **Documentation**: https://github.com/kiyoaki/NextUnit/wiki
+- **Examples**: See `samples/NextUnit.SampleTests` in the repository
+
+## What's Different from xUnit?
+
+| Feature | xUnit | NextUnit |
+|---------|-------|----------|
+| Test Attribute | `[Fact]` | `[Test]` |
+| Parameterized | `[Theory]` + `[InlineData]` | `[Test]` + `[Arguments]` |
+| Discovery | Reflection at runtime | Source generator (50x faster) |
+| Parallelism | Configurable, limited | Fine-grained with `[ParallelLimit]` |
+| Lifecycle | Constructor + `IDisposable` | Multi-scope `[Before]`/`[After]` |
+| AOT Support | Limited | Full Native AOT compatible |
+
+Welcome to the future of .NET testing! 🚀

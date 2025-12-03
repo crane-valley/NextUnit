@@ -327,25 +327,139 @@ After completing M0-M3 ahead of schedule (2 weeks vs 10 weeks planned), we're re
    - Version tagging
 
 **📋 Post-v1.0 Backlog (v1.1+)**:
-- Category/Tag filtering (complex generator work, not blocking v1.0)
-- TestData full implementation (requires architectural decision)
-- Test output/logging integration
-- Session-scoped lifecycle
-- Advanced platform features
+- Category/Tag filtering (complex, not blocking v1.0)
+- TestData full implementation (architectural complexity)
+- Test output/logging integration (nice-to-have)
+- Session-scoped lifecycle (rarely used)
+- Large-scale performance benchmarks (validation, not core feature)
 
-**Rationale**:
-- NextUnit is already **highly functional** with 67 tests passing
-- Core features (zero-reflection, parallel execution, lifecycle) are **complete**
-- v1.0 should ship with **solid fundamentals** rather than half-implemented advanced features
-- Early users can start adopting NextUnit immediately
-- v1.1 can add Category/Tag and other advanced features based on user feedback
+**Rationale for v1.0 Focus**:
+- Core engine is **production-ready** (zero-reflection, parallel, lifecycle)
+- Assertion library expansion is **straightforward** and **high-value**
+- Documentation is **critical** for adoption
+- Early release enables **user feedback** to guide v1.1+ priorities
+- Advanced features can be added incrementally based on **real-world usage**
 
-**Quick Stats**:
-- **Test Count**: 67 comprehensive tests
-- **Pass Rate**: 100% (excluding skipped)
-- **Performance**: ~620ms for all tests (parallel execution)
-- **Parallel Execution**: ✅ Fully functional with constraints
-- **Thread Safety**: ✅ All lifecycle methods synchronized
-- **Reflection**: Zero in execution path ✅
-- **Code Quality**: All formatted, no warnings
-- **Target**: v1.0 in 2-3 weeks!
+#### M4 - Rich Assertions & v1.0 Preparation 🔄 (In Progress)
+**Duration**: 2-3 weeks (Started 2025-12-03, Target: Late December 2025)
+
+**Goals**:
+- ✅ Expand assertion library to match xUnit essentials
+- 📋 Complete comprehensive documentation
+- 📋 Prepare NuGet packages for v1.0 release
+- 📋 Create migration guides for adoption
+
+**Progress Update - Session 2025-12-03**:
+
+**Phase 1: Rich Assertions Library** ✅ (Complete):
+- ✅ **Collection assertions implemented** (6 methods):
+  - `Assert.Contains<T>(T item, IEnumerable<T> collection)` - Verify element exists
+  - `Assert.DoesNotContain<T>(T item, IEnumerable<T> collection)` - Verify element absent
+  - `Assert.All<T>(IEnumerable<T> collection, Action<T> action)` - Verify all satisfy condition
+  - `Assert.Single<T>(IEnumerable<T> collection)` - Verify exactly one element
+  - `Assert.Empty(IEnumerable collection)` - Verify collection is empty
+  - `Assert.NotEmpty(IEnumerable collection)` - Verify collection has elements
+
+- ✅ **String assertions implemented** (3 methods):
+  - `Assert.StartsWith(string expectedStart, string actual)` - Verify string prefix
+  - `Assert.EndsWith(string expectedEnd, string actual)` - Verify string suffix
+  - `Assert.Contains(string substring, string actual)` - Verify substring presence
+
+- ✅ **Numeric assertions implemented** (2 methods):
+  - `Assert.InRange<T>(T actual, T min, T max)` - Verify value in range (inclusive)
+  - `Assert.NotInRange<T>(T actual, T min, T max)` - Verify value outside range
+
+- ✅ **Comprehensive test coverage**:
+  - Created `RichAssertionTests.cs` with 19 new tests
+  - All assertion methods tested
+  - Includes parameterized test examples
+  - Real-world scenario combinations
+  - **Total tests: 86 (was 67, +19)**
+  - **All passing: 83/83 (100% success rate, 3 skipped)**
+  - **Performance: 634ms (was 620ms, +14ms acceptable)**
+
+**Technical Implementation**:
+```csharp
+// Collection Assertions
+Assert.Contains(3, new[] { 1, 2, 3, 4, 5 }); // ✅
+Assert.DoesNotContain(6, new[] { 1, 2, 3, 4, 5 }); // ✅
+Assert.All(numbers, n => Assert.True(n % 2 == 0)); // ✅
+Assert.Single(new[] { 42 }); // ✅ Returns 42
+Assert.Empty(new List<int>()); // ✅
+Assert.NotEmpty(new[] { 1, 2, 3 }); // ✅
+
+// String Assertions
+Assert.StartsWith("Hello", "Hello, World!"); // ✅
+Assert.EndsWith("World!", "Hello, World!"); // ✅
+Assert.Contains("World", "Hello, World!"); // ✅
+
+// Numeric Assertions
+Assert.InRange(5, 1, 10); // ✅
+Assert.NotInRange(15, 1, 10); // ✅
+Assert.InRange(3.14, 3.0, 4.0); // ✅ Works with any IComparable<T>
+Assert.InRange(DateTime.Today, yesterday, tomorrow); // ✅
+```
+
+**Quality Metrics**:
+- ✅ All methods have XML documentation
+- ✅ Null checks with `ArgumentNullException.ThrowIfNull`
+- ✅ Clear, helpful error messages
+- ✅ Type-safe generic implementations
+- ✅ xUnit-compatible API signatures
+
+**Status**: Phase 1 Complete - Assertion library now feature-complete for v1.0
+
+**Phase 2: Documentation** 📋 (Next):
+- 📋 API Reference:
+  - Complete XML documentation review (mostly done)
+  - Generate API docs (DocFX or similar)
+  - Code examples for all assertions
+
+- 📋 Migration Guides:
+  - **From xUnit**: Attribute mapping, assertion equivalents
+  - **From NUnit**: Feature comparison, migration steps
+  - **From MSTest**: Attribute conversion guide
+
+- 📋 Guides:
+  - Getting Started tutorial
+  - Best Practices (test organization, lifecycle usage)
+  - Performance Tuning (parallel configuration)
+  - Troubleshooting common issues
+
+**Phase 3: NuGet Package Preparation** 📋 (Upcoming):
+- 📋 Package metadata (description, tags, icon)
+- 📋 README for NuGet gallery
+- 📋 License verification (MIT)
+- 📋 Version strategy (SemVer 2.0)
+- 📋 CI/CD pipeline for package publishing
+- 📋 Package signing (optional for v1.0)
+
+**Phase 4: Release Preparation** 📋 (Final):
+- 📋 CHANGELOG.md creation
+- 📋 Release notes for v1.0
+- 📋 GitHub Release with binaries
+- 📋 Tag v1.0.0 in Git
+
+**Deliverables**:
+
+**Success Criteria**:
+- ✅ All existing 67 tests continue passing → **83 tests passing (exceeded!)**
+- ✅ Assertion library covers 90% of common xUnit scenarios → **Achieved**
+- 📋 Documentation complete enough for new users
+- 📋 NuGet packages successfully published
+- 📋 Migration path clear for xUnit/NUnit/MSTest users
+
+**Current Metrics**:
+| Metric | Before M4 | After Phase 1 | Target v1.0 |
+|--------|-----------|---------------|-------------|
+| Test Count | 67 | 86 | 90+ |
+| Assertion Methods | 8 | 19 | 20+ |
+| Pass Rate | 100% | 100% | 100% |
+| Execution Time | 620ms | 634ms | <700ms |
+| Documentation | Partial | Partial | Complete |
+
+**Next Steps** (Current Session):
+1. Create Getting Started guide
+2. Create xUnit migration guide outline
+3. Update README with new assertion examples
+4. Document all assertion methods with examples

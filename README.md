@@ -12,9 +12,13 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 
 ## Features
 
-### Implemented (v0.3-alpha)
+### Implemented (v0.4-alpha)
 - ✅ **Clear attribute naming** - `[Test]`, `[Before]`, `[After]` (not `[Fact]` or `[Theory]`)
-- ✅ **Classic assertions** - `Assert.Equal`, `Assert.True`, `Assert.Throws` (familiar to xUnit/NUnit/MSTest users)
+- ✅ **Rich assertions** - Collection, String, Numeric assertions with great error messages
+  - Collection: `Contains`, `DoesNotContain`, `All`, `Single`, `Empty`, `NotEmpty`
+  - String: `StartsWith`, `EndsWith`, `Contains`
+  - Numeric: `InRange`, `NotInRange`
+  - Basic: `Equal`, `True`, `Throws` (familiar to xUnit/NUnit/MSTest users)
 - ✅ **Multi-scope lifecycle** - `[Before(LifecycleScope.Test/Class/Assembly)]`, `[After(LifecycleScope.Test/Class/Assembly)]`
 - ✅ **Dependency ordering** - `[DependsOn(nameof(OtherTest))]` ensures execution order
 - ✅ **Parallel control** - `[NotInParallel]`, `[ParallelLimit(4)]` for fine-grained concurrency (fully enforced!)
@@ -31,7 +35,6 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 ### Planned (see [PLANS.md](PLANS.md))
 - 📋 **Advanced test data** - `[TestData]` attribute for method/property data sources (M2.5)
 - 📋 **Smart scheduler** - Parallel execution with constraint enforcement (M3)
-- 📋 **Rich assertions** - Collections, strings, numerics with great error messages (M5)
 - 📋 **Session lifecycle** - Session-scoped setup/teardown (M4)
 - 📋 **Test traits** - `[Category]`, `[Tag]` for filtering (M4)
 
@@ -51,16 +54,16 @@ NextUnit uses **Microsoft.Testing.Platform** for test execution. To run tests:
 
 ```bash
 # Run all tests in a project
-dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+dotness run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
 
 # Run with specific options
-dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --help
+dotness run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --help
 
 # Run with minimum expected tests check
-dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --minimum-expected-tests 20
+dotness run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --minimum-expected-tests 20
 
 # Generate test results
-dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --results-directory ./TestResults --report-trx
+dotness run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --results-directory ./TestResults --report-trx
 ```
 
 **Note**: Unlike traditional test frameworks, NextUnit does **not** use `dotnet test`. Tests are executed as a console application using Microsoft.Testing.Platform.
@@ -93,6 +96,35 @@ public class CalculatorTests
         {
             var x = 1 / 0;
         });
+    }
+
+    // Collection assertions
+    [Test]
+    public void List_ContainsExpectedItems()
+    {
+        var numbers = new[] { 1, 2, 3, 4, 5 };
+        Assert.Contains(3, numbers);
+        Assert.DoesNotContain(6, numbers);
+        Assert.NotEmpty(numbers);
+        Assert.All(numbers, n => Assert.InRange(n, 1, 5));
+    }
+
+    // String assertions
+    [Test]
+    public void Email_HasValidFormat()
+    {
+        var email = "user@example.com";
+        Assert.Contains("@", email);
+        Assert.EndsWith(".com", email);
+        Assert.StartsWith("user", email);
+    }
+
+    // Numeric assertions
+    [Test]
+    public void Temperature_IsInValidRange()
+    {
+        var temperature = 23.5;
+        Assert.InRange(temperature, 20.0, 25.0);
     }
 }
 ```
@@ -417,20 +449,20 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 0.3-alpha (Development)
+**Current Version**: 0.4-alpha (Development)
 
-**v1.0 Release Plan** (2-3 weeks):
+**v1.0 Release Plan** (1-2 weeks):
 - ✅ M0 - Basic framework (Complete)
 - ✅ M1 - Source Generator & Discovery (Complete - 2025-12-02)
 - ✅ M1.5 - Parameterized Tests & Skip Support (Complete - 2025-12-02)
 - ✅ M2 - Lifecycle Scopes (Complete - 2025-12-02)
 - ✅ M2.5 - Polish & Testing (Complete - 2025-12-02)
 - ✅ M3 - Parallel Scheduler (Complete - 2025-12-03)
-- 📋 M4 - Rich Assertions & v1.0 Prep (Current - 2-3 weeks)
+- 🔄 M4 - Rich Assertions & v1.0 Prep (Phase 1 Complete - 2025-12-03, Phase 2 In Progress)
 
-**Target v1.0 Release**: Late December 2025
+**Target v1.0 Release**: Mid-Late December 2025
 
-**Latest Progress** (2025-12-03 - M3 Complete):
+**Latest Progress** (2025-12-03 - M4 Phase 1 Complete):
 - ✅ M1: Source generator with zero-reflection test execution
 - ✅ M1.5: Skip attribute with reason reporting
 - ✅ M1.5: Parameterized tests with Arguments attribute
@@ -440,25 +472,16 @@ NextUnit is inspired by:
 - ✅ M2.5: Comprehensive documentation and 67 test examples
 - ✅ M3: True parallel execution with ParallelLimit enforcement
 - ✅ M3: Thread-safe lifecycle management (ConcurrentDictionary + SemaphoreSlim)
-- ✅ 67 tests passing (64 passed, 3 skipped, 0 failed)
-- ✅ ~620ms execution time with parallel scheduler
+- ✅ M4 Phase 1: Rich Assertions Library (11 new assertion methods)
+  - Collection assertions: Contains, DoesNotContain, All, Single, Empty, NotEmpty
+  - String assertions: StartsWith, EndsWith, Contains
+  - Numeric assertions: InRange, NotInRange
+- ✅ 86 tests passing (83 passed, 3 skipped, 0 failed) - was 67, +19 tests
+- ✅ ~634ms execution time (was ~620ms, +14ms acceptable)
 - ✅ Zero reflection maintained across all features
 
 **v1.0 Focus**:
-- 📋 Rich Assertions (Collection, String, Numeric assertions with better error messages)
-- 📋 Complete Documentation (API reference, migration guides, best practices)
+- ✅ Rich Assertions (COMPLETE - Collection, String, Numeric assertions)
+- 🔄 Complete Documentation (In Progress - Getting Started, Migration Guide created)
 - 📋 NuGet Package (Published to nuget.org)
 - 📋 Release Ready (Changelog, GitHub releases, version tagging)
-
-**Post-v1.0 Roadmap** (v1.1+):
-- Category/Tag filtering
-- TestData full implementation
-- Test output/logging integration
-- Session-scoped lifecycle
-- Performance benchmarks with large test suites
-
-See [PLANS.md](PLANS.md) for detailed technical specifications and rationale.
-
----
-
-**Built with ❤️ for .NET 10+ developers who want TUnit's power with xUnit's simplicity**
