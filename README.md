@@ -12,12 +12,14 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 
 ## Features
 
-### Implemented (v0.1-alpha)
+### Implemented (v0.2-alpha)
 - ✅ **Clear attribute naming** - `[Test]`, `[Before]`, `[After]` (not `[Fact]` or `[Theory]`)
 - ✅ **Classic assertions** - `Assert.Equal`, `Assert.True`, `Assert.Throws` (familiar to xUnit/NUnit/MSTest users)
-- ✅ **Lifecycle hooks** - `[Before(LifecycleScope.Test)]`, `[After(LifecycleScope.Test)]`
+- ✅ **Multi-scope lifecycle** - `[Before(LifecycleScope.Test/Class/Assembly)]`, `[After(LifecycleScope.Test/Class/Assembly)]`
 - ✅ **Dependency ordering** - `[DependsOn(nameof(OtherTest))]` ensures execution order
 - ✅ **Parallel control** - `[NotInParallel]`, `[ParallelLimit(4)]` for fine-grained concurrency
+- ✅ **Skip support** - `[Skip("reason")]` to skip tests with optional reason
+- ✅ **Parameterized tests** - `[Arguments(1, 2, 3)]` for inline test data with human-readable display names
 - ✅ **Instance-per-test** - Each test gets a fresh class instance (maximizes isolation)
 - ✅ **Async support** - `async Task` tests, `Assert.ThrowsAsync<T>` for async assertions
 - ✅ **Proper disposal** - Automatic `IDisposable`/`IAsyncDisposable` cleanup
@@ -26,11 +28,11 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **Zero-reflection execution** - Test methods invoked via delegates, not reflection
 
 ### Planned (see [PLANS.md](PLANS.md))
-- 📋 **Parameterized tests** - `[Arguments]` and `[TestData]` attributes (M1.5)
-- 📋 **Advanced lifecycle** - Assembly/Class/Session scopes (M2)
+- 📋 **Advanced test data** - `[TestData]` attribute for method/property data sources (M2.5)
 - 📋 **Smart scheduler** - Parallel execution with constraint enforcement (M3)
 - 📋 **Rich assertions** - Collections, strings, numerics with great error messages (M5)
-- 📋 **Full Native AOT** - Eliminate remaining type discovery reflection (Future optimization)
+- 📋 **Session lifecycle** - Session-scoped setup/teardown (M4)
+- 📋 **Test traits** - `[Category]`, `[Tag]` for filtering (M4)
 
 ## Quick Start
 
@@ -101,12 +103,14 @@ public class DatabaseTests
 {
     Database? _db;
 
+    // Runs before each test
     [Before(LifecycleScope.Test)]
     public void Setup()
     {
         _db = new Database();
     }
 
+    // Runs after each test
     [After(LifecycleScope.Test)]
     public void Cleanup()
     {
@@ -118,6 +122,115 @@ public class DatabaseTests
     {
         _db!.Insert(new Record());
         Assert.Equal(1, _db.Count);
+    }
+}
+
+// Class-scoped lifecycle
+public class ExpensiveResourceTests
+{
+    static ExpensiveResource? _resource;
+
+    // Runs once before all tests in class
+    [Before(LifecycleScope.Class)]
+    public void ClassSetup()
+    {
+        _resource = new ExpensiveResource();
+    }
+
+    // Runs once after all tests in class
+    [After(LifecycleScope.Class)]
+    public void ClassTeardown()
+    {
+        _resource?.Dispose();
+    }
+
+    [Test]
+    public void Test1()
+    {
+        Assert.NotNull(_resource);
+    }
+
+    [Test]
+    public void Test2()
+    {
+        Assert.NotNull(_resource);
+    }
+}
+
+// Assembly-scoped lifecycle
+public class GlobalSetupTests
+{
+    // Runs once before all tests in assembly
+    [Before(LifecycleScope.Assembly)]
+    public void AssemblySetup()
+    {
+        // Initialize global resources
+    }
+
+    // Runs once after all tests in assembly
+    [After(LifecycleScope.Assembly)]
+    public void AssemblyTeardown()
+    {
+        // Cleanup global resources
+    }
+
+    [Test]
+    public void SomeTest()
+    {
+        // Test code
+    }
+}
+```
+
+### Parameterized Tests
+
+```csharp
+public class MathTests
+{
+    // Multiple test cases with inline data
+    [Test]
+    [Arguments(2, 3, 5)]
+    [Arguments(1, 1, 2)]
+    [Arguments(-1, 1, 0)]
+    [Arguments(0, 0, 0)]
+    public void Add_ReturnsCorrectSum(int a, int b, int expected)
+    {
+        var result = a + b;
+        Assert.Equal(expected, result);
+    }
+
+    // Display names show argument values: "Add_ReturnsCorrectSum(2, 3, 5)"
+}
+
+public class StringTests
+{
+    [Test]
+    [Arguments("hello", 5)]
+    [Arguments("world", 5)]
+    [Arguments("", 0)]
+    public void String_HasCorrectLength(string text, int expectedLength)
+    {
+        Assert.Equal(expectedLength, text.Length);
+    }
+}
+```
+
+### Skip Tests
+
+```csharp
+public class FeatureTests
+{
+    [Test]
+    [Skip("Waiting for bug fix #123")]
+    public void NewFeature_Works()
+    {
+        // This test will be skipped with reason displayed
+    }
+
+    [Test]
+    public void ExistingFeature_Works()
+    {
+        // This test runs normally
     }
 }
 ```
@@ -303,30 +416,30 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 0.1-alpha (Development)
+**Current Version**: 0.2-alpha (Development)
 
 **Next Milestones**:
 - ✅ M0 - Basic framework (Complete)
 - ✅ M1 - Source Generator & Discovery (Complete - 2025-12-02)
-- 📋 M1.5 - Parameterized Tests & Skip Support (Next - 2 weeks)
-- 📋 M2 - Lifecycle & Execution (4 weeks)
+- ✅ M1.5 - Parameterized Tests & Skip Support (Complete - 2025-12-02)
+- ✅ M2 - Lifecycle Scopes (Complete - 2025-12-02)
+- 📋 M2.5 - Polish & Testing (Current - 1 week)
 - 📋 M3 - Parallel Scheduler (2 weeks)
 - 📋 M4 - Platform Integration (4 weeks)
 - 📋 M5 - Assertions & DX (2 weeks)
 - 📋 M6 - Documentation & Samples (2 weeks)
 
-**Target v1.0 Preview**: ~20 weeks from now (Early May 2025)
+**Target v1.0 Preview**: ~17 weeks from now (Late April 2025)
 
-**Latest Progress** (2025-12-02 - M1 Complete):
-- ✅ Source generator emits complete test registry with delegates
-- ✅ Zero reflection in test execution path (delegates only)
-- ✅ Minimal reflection for test discovery (type lookup only, cached)
-- ✅ Generator diagnostics (cycle detection, unresolved dependencies)
-- ✅ All 20 sample tests passing with generated code
-- ✅ Removed ReflectionTestDescriptorBuilder and TestDescriptorProvider
-- ✅ M1 milestone complete - ready for M1.5
-
-**M1 Key Achievement**: Zero-reflection test execution with source generator-based test registration. Tests are invoked via delegates, not `MethodInfo.Invoke()`, enabling high performance and Native AOT compatibility.
+**Latest Progress** (2025-12-02 - M2 Complete):
+- ✅ M1: Source generator with zero-reflection test execution
+- ✅ M1.5: Skip attribute with reason reporting
+- ✅ M1.5: Parameterized tests with Arguments attribute
+- ✅ M1.5: Enhanced display names showing argument values
+- ✅ M2: Class-scoped lifecycle (`[Before/After(LifecycleScope.Class)]`)
+- ✅ M2: Assembly-scoped lifecycle (`[Before/After(LifecycleScope.Assembly)]`)
+- ✅ 46 tests passing (44 passed, 2 skipped, 0 failed)
+- ✅ Zero reflection maintained across all scopes
 
 See [PLANS.md](PLANS.md) for detailed timeline and technical specifications.
 

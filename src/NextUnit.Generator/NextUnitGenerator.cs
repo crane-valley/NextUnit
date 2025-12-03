@@ -581,27 +581,27 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var builder = new StringBuilder();
         builder.AppendLine("new global::NextUnit.Internal.LifecycleInfo");
         builder.AppendLine("                {");
-        
+
         builder.Append("                    BeforeTestMethods = ");
         AppendLifecycleMethodArray(builder, typeName, beforeTest);
         builder.AppendLine(",");
-        
+
         builder.Append("                    AfterTestMethods = ");
         AppendLifecycleMethodArray(builder, typeName, afterTest);
         builder.AppendLine(",");
-        
+
         builder.Append("                    BeforeClassMethods = ");
         AppendLifecycleMethodArray(builder, typeName, beforeClass);
         builder.AppendLine(",");
-        
+
         builder.Append("                    AfterClassMethods = ");
         AppendLifecycleMethodArray(builder, typeName, afterClass);
         builder.AppendLine(",");
-        
+
         builder.Append("                    BeforeAssemblyMethods = ");
         AppendLifecycleMethodArray(builder, typeName, beforeAssembly);
         builder.AppendLine(",");
-        
+
         builder.Append("                    AfterAssemblyMethods = ");
         AppendLifecycleMethodArray(builder, typeName, afterAssembly);
         builder.AppendLine();

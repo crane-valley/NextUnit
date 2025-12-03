@@ -59,7 +59,7 @@ public sealed class TestExecutionEngine
         CancellationToken cancellationToken)
     {
         var testCasesList = testCases.ToList();
-        
+
         // Collect assembly-level lifecycle methods from the first test
         if (testCasesList.Count > 0)
         {
@@ -67,7 +67,7 @@ public sealed class TestExecutionEngine
             _assemblyBeforeMethods.AddRange(firstTest.Lifecycle.BeforeAssemblyMethods);
             _assemblyAfterMethods.AddRange(firstTest.Lifecycle.AfterAssemblyMethods);
         }
-        
+
         var graph = DependencyGraph.Build(testCasesList);
         var scheduler = new ParallelScheduler(graph);
 
@@ -85,7 +85,7 @@ public sealed class TestExecutionEngine
         {
             // Execute class teardown and cleanup
             await CleanupClassInstancesAsync(cancellationToken).ConfigureAwait(false);
-            
+
             // Execute assembly-level teardown
             await ExecuteAssemblyTeardownAsync(testCasesList, cancellationToken).ConfigureAwait(false);
         }
