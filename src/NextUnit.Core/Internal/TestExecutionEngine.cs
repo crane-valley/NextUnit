@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace NextUnit.Internal;
 
 /// <summary>
@@ -41,7 +43,8 @@ public interface ITestExecutionSink
 /// </summary>
 public sealed class TestExecutionEngine
 {
-    private readonly Dictionary<Type, ClassExecutionContext> _classContexts = new();
+    private readonly ConcurrentDictionary<Type, ClassExecutionContext> _classContexts = new();
+    private readonly SemaphoreSlim _assemblySetupLock = new(1, 1);
     private bool _assemblySetupExecuted;
     private readonly List<LifecycleMethodDelegate> _assemblyBeforeMethods = new();
     private readonly List<LifecycleMethodDelegate> _assemblyAfterMethods = new();
@@ -76,9 +79,10 @@ public sealed class TestExecutionEngine
             // Execute assembly-level setup
             await ExecuteAssemblySetupAsync(testCasesList, cancellationToken).ConfigureAwait(false);
 
-            await foreach (var test in scheduler.GetExecutionOrderAsync(cancellationToken).ConfigureAwait(false))
+            // Execute tests in batches with parallel constraints
+            await foreach (var batch in scheduler.GetExecutionBatchesAsync(cancellationToken).ConfigureAwait(false))
             {
-                await ExecuteSingleAsync(test, sink, cancellationToken).ConfigureAwait(false);
+                await ExecuteBatchAsync(batch, sink, cancellationToken).ConfigureAwait(false);
             }
         }
         finally
@@ -92,35 +96,85 @@ public sealed class TestExecutionEngine
     }
 
     /// <summary>
+    /// Executes a batch of tests in parallel with the specified degree of parallelism.
+    /// </summary>
+    /// <param name="batch">The batch of tests to execute.</param>
+    /// <param name="sink">The sink for reporting test results.</param>
+    /// <param name="cancellationToken">A cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task ExecuteBatchAsync(
+        TestBatch batch,
+        ITestExecutionSink sink,
+        CancellationToken cancellationToken)
+    {
+        if (batch.IsSerial || batch.MaxDegreeOfParallelism == 1)
+        {
+            // Execute serially
+            foreach (var test in batch.Tests)
+            {
+                await ExecuteSingleAsync(test, sink, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        else
+        {
+            // Execute in parallel with limit
+            var options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = batch.MaxDegreeOfParallelism,
+                CancellationToken = cancellationToken
+            };
+
+            await Parallel.ForEachAsync(batch.Tests, options, async (test, ct) =>
+            {
+                await ExecuteSingleAsync(test, sink, ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// Executes assembly-level setup methods.
     /// </summary>
     private async Task ExecuteAssemblySetupAsync(List<TestCaseDescriptor> testCases, CancellationToken cancellationToken)
     {
-        if (_assemblySetupExecuted || testCases.Count == 0)
+        if (testCases.Count == 0)
         {
             return;
         }
 
-        // Use the first test class for assembly-level lifecycle
-        var firstTestClass = testCases[0].TestClass;
-        var assemblyInstance = Activator.CreateInstance(firstTestClass)!;
-
-        foreach (var beforeMethod in _assemblyBeforeMethods)
+        // Use semaphore to ensure assembly setup runs only once even in parallel execution
+        await _assemblySetupLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            await beforeMethod(assemblyInstance, cancellationToken).ConfigureAwait(false);
-        }
+            if (_assemblySetupExecuted)
+            {
+                return;
+            }
 
-        // Dispose the temporary instance
-        if (assemblyInstance is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
-        else if (assemblyInstance is IAsyncDisposable asyncDisposable)
-        {
-            await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-        }
+            // Use the first test class for assembly-level lifecycle
+            var firstTestClass = testCases[0].TestClass;
+            var assemblyInstance = Activator.CreateInstance(firstTestClass)!;
 
-        _assemblySetupExecuted = true;
+            foreach (var beforeMethod in _assemblyBeforeMethods)
+            {
+                await beforeMethod(assemblyInstance, cancellationToken).ConfigureAwait(false);
+            }
+
+            // Dispose the temporary instance
+            if (assemblyInstance is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+            else if (assemblyInstance is IAsyncDisposable asyncDisposable)
+            {
+                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+            }
+
+            _assemblySetupExecuted = true;
+        }
+        finally
+        {
+            _assemblySetupLock.Release();
+        }
     }
 
     /// <summary>
@@ -216,7 +270,7 @@ public sealed class TestExecutionEngine
         }
         catch (Exception ex)
         {
-            await sink.ReportErrorAsync(testCase, ex).ConfigureAwait(false);
+            await sink.ReportErrorAsync(testCase, ex). ConfigureAwait(false);
         }
         finally
         {
@@ -238,25 +292,31 @@ public sealed class TestExecutionEngine
     {
         var testClass = testCase.TestClass;
 
-        // Get or create class context
-        if (!_classContexts.TryGetValue(testClass, out var context))
+        // Get or create class context (thread-safe)
+        var context = _classContexts.GetOrAdd(testClass, _ => new ClassExecutionContext
         {
-            context = new ClassExecutionContext
-            {
-                Instance = Activator.CreateInstance(testClass)!,
-                Lifecycle = testCase.Lifecycle
-            };
-            _classContexts[testClass] = context;
-        }
+            Instance = Activator.CreateInstance(testClass)!,
+            Lifecycle = testCase.Lifecycle,
+            SetupLock = new SemaphoreSlim(1, 1)
+        });
 
-        // Execute BeforeClass methods if not already done
-        if (!context.SetupExecuted)
+        // Use semaphore to ensure class setup runs only once even in parallel execution
+        await context.SetupLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            foreach (var beforeClassMethod in testCase.Lifecycle.BeforeClassMethods)
+            // Execute BeforeClass methods if not already done
+            if (!context.SetupExecuted)
             {
-                await beforeClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
+                foreach (var beforeClassMethod in testCase.Lifecycle.BeforeClassMethods)
+                {
+                    await beforeClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
+                }
+                context.SetupExecuted = true;
             }
-            context.SetupExecuted = true;
+        }
+        finally
+        {
+            context.SetupLock.Release();
         }
     }
 
@@ -291,9 +351,15 @@ public sealed class TestExecutionEngine
             {
                 // Suppress cleanup errors
             }
+            finally
+            {
+                // Dispose semaphore
+                context.SetupLock.Dispose();
+            }
         }
 
         _classContexts.Clear();
+        _assemblySetupLock.Dispose();
     }
 
     /// <summary>
@@ -304,5 +370,6 @@ public sealed class TestExecutionEngine
         public object Instance { get; init; } = null!;
         public LifecycleInfo Lifecycle { get; init; } = null!;
         public bool SetupExecuted { get; set; }
+        public SemaphoreSlim SetupLock { get; init; } = null!;
     }
 }

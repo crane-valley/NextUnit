@@ -3,6 +3,7 @@ namespace NextUnit.SampleTests;
 /// <summary>
 /// Tests demonstrating class-scoped lifecycle functionality.
 /// </summary>
+[NotInParallel]
 public class ClassLifecycleTests
 {
     private static int _classSetupCount;
