@@ -270,7 +270,7 @@ public sealed class TestExecutionEngine
         }
         catch (Exception ex)
         {
-            await sink.ReportErrorAsync(testCase, ex). ConfigureAwait(false);
+            await sink.ReportErrorAsync(testCase, ex).ConfigureAwait(false);
         }
         finally
         {
