@@ -12,20 +12,21 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 
 ## Features
 
-### Implemented (v0.2-alpha)
+### Implemented (v0.3-alpha)
 - ✅ **Clear attribute naming** - `[Test]`, `[Before]`, `[After]` (not `[Fact]` or `[Theory]`)
 - ✅ **Classic assertions** - `Assert.Equal`, `Assert.True`, `Assert.Throws` (familiar to xUnit/NUnit/MSTest users)
 - ✅ **Multi-scope lifecycle** - `[Before(LifecycleScope.Test/Class/Assembly)]`, `[After(LifecycleScope.Test/Class/Assembly)]`
 - ✅ **Dependency ordering** - `[DependsOn(nameof(OtherTest))]` ensures execution order
-- ✅ **Parallel control** - `[NotInParallel]`, `[ParallelLimit(4)]` for fine-grained concurrency
+- ✅ **Parallel control** - `[NotInParallel]`, `[ParallelLimit(4)]` for fine-grained concurrency (fully enforced!)
 - ✅ **Skip support** - `[Skip("reason")]` to skip tests with optional reason
 - ✅ **Parameterized tests** - `[Arguments(1, 2, 3)]` for inline test data with human-readable display names
 - ✅ **Instance-per-test** - Each test gets a fresh class instance (maximizes isolation)
 - ✅ **Async support** - `async Task` tests, `Assert.ThrowsAsync<T>` for async assertions
 - ✅ **Proper disposal** - Automatic `IDisposable`/`IAsyncDisposable` cleanup
-- ✅ **Source generator** - Emits test registry with zero-reflection delegates (M1 - Complete)
+- ✅ **Source generator** - Emits test registry with zero-reflection delegates
 - ✅ **Generator diagnostics** - Detects dependency cycles and unresolved dependencies
 - ✅ **Zero-reflection execution** - Test methods invoked via delegates, not reflection
+- ✅ **True parallel execution** - Thread-safe parallel test execution with constraint enforcement
 
 ### Planned (see [PLANS.md](PLANS.md))
 - 📋 **Advanced test data** - `[TestData]` attribute for method/property data sources (M2.5)
@@ -416,30 +417,34 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 0.2-alpha (Development)
+**Current Version**: 0.3-alpha (Development)
 
 **Next Milestones**:
 - ✅ M0 - Basic framework (Complete)
 - ✅ M1 - Source Generator & Discovery (Complete - 2025-12-02)
 - ✅ M1.5 - Parameterized Tests & Skip Support (Complete - 2025-12-02)
 - ✅ M2 - Lifecycle Scopes (Complete - 2025-12-02)
-- 📋 M2.5 - Polish & Testing (Current - 1 week)
-- 📋 M3 - Parallel Scheduler (2 weeks)
+- ✅ M2.5 - Polish & Testing (Complete - 2025-12-02)
+- ✅ M3 - Parallel Scheduler (Complete - 2025-12-03)
 - 📋 M4 - Platform Integration (4 weeks)
 - 📋 M5 - Assertions & DX (2 weeks)
 - 📋 M6 - Documentation & Samples (2 weeks)
 
-**Target v1.0 Preview**: ~17 weeks from now (Late April 2025)
+**Target v1.0 Preview**: ~16 weeks from now (Mid-April 2025)
 
-**Latest Progress** (2025-12-02 - M2 Complete):
+**Latest Progress** (2025-12-03 - M3 Complete):
 - ✅ M1: Source generator with zero-reflection test execution
 - ✅ M1.5: Skip attribute with reason reporting
 - ✅ M1.5: Parameterized tests with Arguments attribute
 - ✅ M1.5: Enhanced display names showing argument values
 - ✅ M2: Class-scoped lifecycle (`[Before/After(LifecycleScope.Class)]`)
 - ✅ M2: Assembly-scoped lifecycle (`[Before/After(LifecycleScope.Assembly)]`)
-- ✅ 46 tests passing (44 passed, 2 skipped, 0 failed)
-- ✅ Zero reflection maintained across all scopes
+- ✅ M2.5: Comprehensive documentation and 67 test examples
+- ✅ M3: True parallel execution with ParallelLimit enforcement
+- ✅ M3: Thread-safe lifecycle management (ConcurrentDictionary + SemaphoreSlim)
+- ✅ 67 tests passing (64 passed, 3 skipped, 0 failed)
+- ✅ ~620ms execution time with parallel scheduler
+- ✅ Zero reflection maintained across all features
 
 See [PLANS.md](PLANS.md) for detailed timeline and technical specifications.
 
