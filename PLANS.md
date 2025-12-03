@@ -365,7 +365,7 @@ After completing M0-M3 ahead of schedule (2 weeks vs 10 weeks planned), we're re
   - Lifecycle methods, parallel execution, dependencies
   - Running tests (CLI, VS, VS Code)
   - Best practices, help resources
-  - Fixed Visual Studio requirement (2022+)
+  - Fixed Visual Studio requirement (2026 for .NET 10)
 
 - ✅ **MIGRATION_FROM_XUNIT.md** - Comprehensive migration guide
   - Step-by-step migration checklist
