@@ -2,145 +2,188 @@
 
 ## Quick Summary
 
-**Latest Session**: 2025-12-03 (M3 Completion)  
+**Latest Session**: 2025-12-03 (Strategic Planning & v1.0 Scope Refinement)  
 **Current Version**: 0.3-alpha  
 **Completed Milestones**: M0, M1, M1.5, M2, M2.5, M3  
 **Test Count**: 67 tests (64 passed, 3 skipped, 0 failed)  
-**Next Milestone**: M4 - Platform Integration
+**Next Milestone**: M4 - Rich Assertions & v1.0 Preparation  
+**Target v1.0**: Late December 2025 (2-3 weeks)
 
-## Session 2025-12-03 (M3 - Parallel Scheduler)
+## Session 2025-12-03 (Strategic Planning - v1.0 Scope Refinement)
 
 ### Objectives
-1. ✅ Implement ParallelLimit enforcement
-2. ✅ Implement NotInParallel enforcement
-3. ✅ Add thread-safe parallel execution
-4. ✅ Validate with existing tests
+1. ✅ Review project status after M3 completion
+2. ✅ Evaluate remaining milestones (M4-M6)
+3. ✅ Define realistic v1.0 scope
+4. ✅ Update project roadmap and documentation
 
-### Major Accomplishments
+### Strategic Decision: Focusing on v1.0 Core Features
 
-#### M3 - Parallel Scheduler (Complete)
-- ✅ **ParallelScheduler complete rewrite**
-  - Batch-based parallel execution
-  - Groups tests by parallel constraints
-  - TestBatch model with MaxDegreeOfParallelism
-  - GetExecutionBatchesAsync returns batches for parallel execution
+After completing M0-M3 significantly ahead of schedule (2 weeks vs 10 weeks planned, 5x faster), we've made a strategic decision to refocus the remaining work on delivering a production-ready v1.0:
 
-- ✅ **TestExecutionEngine parallel support**
-  - ExecuteBatchAsync with Parallel.ForEachAsync
-  - Thread-safe class and assembly lifecycle
-  - ConcurrentDictionary for class contexts
-  - SemaphoreSlim for assembly/class setup synchronization
+**Key Insights**:
+- NextUnit is already **highly functional** with 67 tests passing
+- Core architecture is **complete and battle-tested**:
+  - Zero-reflection execution ✅
+  - Parallel execution with constraints ✅
+  - Multi-scope lifecycle ✅
+  - Parameterized tests ✅
+  - Thread-safe implementation ✅
+- Advanced features (Category/Tag filtering, TestData) add **complexity** without being **critical for v1.0**
 
-- ✅ **Thread safety implementation**
-  - ConcurrentDictionary<Type, ClassExecutionContext>
-  - SemaphoreSlim for assembly setup (global)
-  - SemaphoreSlim per class for class setup
-  - Proper resource cleanup (Dispose semaphores)
+**New v1.0 Scope (M4 - 2-3 weeks)**:
+1. **Rich Assertions Library**
+   - Collection assertions (Contains, All, Single, Empty)
+   - String assertions (StartsWith, EndsWith, Matches)
+   - Numeric assertions (InRange, NotInRange)
+   - Enhanced error messages with context
 
-- ✅ **Test fixes for parallel execution**
-  - ClassLifecycleTests marked with [NotInParallel]
-  - All 67 tests passing with parallel scheduler
-  - No thread-safety issues detected
+2. **Documentation Completion**
+   - API reference documentation
+   - Migration guides (from xUnit/NUnit/MSTest)
+   - Best practices guide
+   - Performance tuning guide
 
-### Performance Results
+3. **NuGet Package Preparation**
+   - Package metadata and configuration
+   - CI/CD pipeline for publishing
+   - Version tagging (v1.0.0)
 
-| Metric | Result | Status |
-|--------|--------|--------|
-| Execution Time | ~620ms | ✅ Maintained |
-| Thread Safety | Parallel | ✅ Achieved |
-| ParallelLimit | Enforced | ✅ Working |
-| NotInParallel | Enforced | ✅ Working |
-| Test Pass Rate | 100% | ✅ Success |
+**Deferred to Post-v1.0** (v1.1+):
+- Category/Tag filtering (complex, not blocking)
+- TestData full implementation (architectural complexity)
+- Test output/logging integration (nice-to-have)
+- Session-scoped lifecycle (rarely used)
+- Large-scale performance benchmarks (validation, not core)
 
-### Files Created/Modified
+### Accomplishments
 
-#### Created (M3)
-- `src/NextUnit.Core/ParallelScheduler.cs` - API definition
-- `samples/NextUnit.SampleTests/ParallelExecutionTests.cs` - 2 tests
+#### Strategic Roadmap Update
+- ✅ **PLANS.md updated** with new v1.0 focused milestones
+- ✅ **README.md updated** with v1.0 release plan
+- ✅ **Milestone table revised** for realistic targets
+- ✅ **Clear delineation** between v1.0 core and v1.1+ advanced features
 
-#### Major Updates
-- `README.md` - Updated to v0.3-alpha with Parallel Scheduler usage
-- `src/NextUnit.Core/Internal/TestExecutionEngine.cs` - Parallel support
-- `src/NextUnit.Core/Internal/TestDescriptors.cs` - TestBatch and parallel constraint handling
+#### Status Verification
+- ✅ **All 67 tests still passing** (64 passed, 3 skipped, 0 failed)
+- ✅ **Build successful** with no warnings
+- ✅ **Performance maintained**: ~620ms for 67 tests
 
-### Design Decisions
+#### Documentation Improvements
+- ✅ Added comprehensive M3 completion summary
+- ✅ Documented strategic decision rationale
+- ✅ Created detailed M4 plan with clear deliverables
+- ✅ Updated Quick Stats across all documents
 
-1. **Parallel Exception Handling**:
-   - Challenge: How to report test failures in parallel execution
-   - Decision: Aggregate exceptions from test batches
-   - Rationale: Ensures all tests complete even if some fail
+### Rationale for v1.0 Scope Refinement
 
-2. **Thread Safety Scope**:
-   - Challenge: Shared resources in parallel execution
-   - Decision: Use SemaphoreSlim and ConcurrentDictionary
-   - Rationale: Fine-grained locking and concurrent collections provide necessary isolation
+**Why focus on Rich Assertions + Documentation**:
+1. **High Value, Low Complexity**: Assertion library expansion is straightforward and immediately useful
+2. **Adoption Critical**: Good documentation is essential for user adoption
+3. **Complete Story**: v1.0 with solid fundamentals + docs is more valuable than v1.0 with half-implemented advanced features
+4. **User Feedback Loop**: Early release enables feedback to guide v1.1+ priorities
+5. **Maintainability**: Smaller, focused v1.0 is easier to maintain and support
 
-### Technical Debt
+**Why defer Category/Tag and TestData**:
+1. **Complexity**: Both require significant generator/architecture work
+2. **Not Blocking**: Users can successfully use NextUnit without these features
+3. **Alternative Solutions**: Arguments covers most TestData scenarios; manual filtering works for categories
+4. **Better Design**: User feedback from v1.0 will inform better v1.1 design decisions
 
-#### Deferred to Future Milestones
-1. **Comprehensive Parallel Execution Tests** - Expand test coverage for parallel features
-2. **Performance Optimization** - Further tune parallel execution for large test suites
+### Project Health Metrics
 
-#### No High-Priority Debt
-- All critical M3 goals achieved
-- Code quality excellent
-- Documentation comprehensive
-- Test coverage strong
+| Metric | Value | Status |
+|--------|-------|--------|
+| Test Count | 67 | ✅ Stable |
+| Pass Rate | 100% (excl. skipped) | ✅ Excellent |
+| Execution Time | ~620ms | ✅ Fast |
+| Build Warnings | 0 | ✅ Clean |
+| Code Quality | Formatted, documented | ✅ High |
+| Progress vs Plan | 5x faster | ✅ Exceptional |
 
-### Next Session Goals (M4 - Platform Integration)
+### Next Steps (M4 Kickoff)
 
-#### Objectives
-1. Integrate with Microsoft.Testing.Platform for broader testing scenarios
-2. Validate parallel execution in integrated environment
-3. Prepare for first stable release
+**Immediate (Next Session)**:
+1. **Start Rich Assertions**
+   - Implement collection assertions
+   - Add string assertions
+   - Create numeric assertions
+   - Write comprehensive tests
 
-#### Success Criteria
-- Seamless integration with Microsoft.Testing.Platform
-- All 67 tests pass in integrated mode
-- No regressions in parallel execution
+2. **Begin Documentation**
+   - Set up API documentation structure
+   - Start migration guide outline
+   - Draft best practices content
+
+**This Week**:
+1. Complete core assertion library
+2. Write tests for all new assertions
+3. Create first draft of migration guides
+
+**Next Week**:
+1. Polish assertion error messages
+2. Complete API documentation
+3. Prepare NuGet package configuration
+
+**Week 3**:
+1. Final documentation review
+2. Release notes creation
+3. v1.0.0 release!
 
 ---
 
 ## Historical Sessions (Summary)
 
-### Session 2025-12-03 (Earlier) - M2.5 Completion
+### Session 2025-12-03 (M3 Completion - Earlier)
 
-**Objectives**: Complete documentation and examples for M2.5
+**Objectives**: Implement parallel execution with constraint enforcement
 
 **Achievements**:
-- Updated README.md to v0.2-alpha
-- Added comprehensive examples for all features
-- Created RealWorldScenarioTests.cs (21 practical tests)
-- Designed TestDataAttribute API
+- Implemented ParallelScheduler with batched execution
+- Added thread-safe execution with Parallel.ForEachAsync
+- Implemented ParallelLimit and NotInParallel enforcement
+- Thread-safe class and assembly lifecycle management
+- All 67 tests passing with parallel scheduler
+
+### Session 2025-12-02 (M2.5 Completion)
+
+**Objectives**: Complete M2 implementation, enhance documentation
+
+**Achievements**:
+- Implemented Class and Assembly-scoped lifecycle
+- Created RealWorldScenarioTests with 21 practical tests
+- Updated README to v0.2-alpha
 - Applied code formatting to entire solution
-- Updated PLANS.md with M2.5 completion
 
-### Session 2025-12-02 - M1 Completion
+### Session 2025-12-02 (M2 Completion - Earlier)
 
-**Objectives**: Complete source generator, remove reflection from execution
-
-**Achievements**:
-- Implemented delegate-based test invocation
-- Added generator diagnostics (NEXTUNIT001, NEXTUNIT002)
-- Removed reflection from execution path
-- All 20 sample tests passing with generated code
-
-**Key Technical Work**:
-- BuildTestMethodDelegate / BuildLifecycleMethodDelegate
-- Helper methods for method signature variations
-- Dependency cycle detection in generator
-- Generated code compilation and validation
-
-### Session 2025-12-01 - M0 Completion
-
-**Objectives**: Basic framework structure
+**Objectives**: Multi-scope lifecycle implementation
 
 **Achievements**:
-- Core attributes (Test, Before, After, DependsOn, etc.)
-- Basic assertions (Equal, True, Throws, etc.)
-- Test execution engine
-- Dependency graph builder
-- Microsoft.Testing.Platform integration
+- Class-scoped lifecycle (`[Before/After(LifecycleScope.Class)]`)
+- Assembly-scoped lifecycle (`[Before/After(LifecycleScope.Assembly)]`)
+- ClassExecutionContext for class-level state management
+- 7 lifecycle tests added
+
+### Session 2025-12-02 (M1.5 Completion)
+
+**Objectives**: Skip support and parameterized tests
+
+**Achievements**:
+- SkipAttribute with reason parameter
+- ArgumentsAttribute for parameterized tests
+- Enhanced display names showing argument values
+- 15 new tests added (skip + parameterized)
+
+### Session 2025-12-02 (M1 Completion)
+
+**Objectives**: Complete source generator, remove reflection
+
+**Achievements**:
+- Delegate-based test and lifecycle invocation
+- Generator diagnostics (NEXTUNIT001, NEXTUNIT002)
+- Removed all reflection from execution path
+- 20 sample tests passing
 
 ---
 
@@ -150,7 +193,7 @@
 - Projects: 3 (Core, Generator, Platform)
 - Source Files: ~15 main files
 - Test Files: 8 sample test files
-- Lines of Code: ~3,000 (excluding generated)
+- Lines of Code: ~3,500 (excluding generated)
 - Documentation: 4 markdown files
 
 **Quality Metrics**:
@@ -162,48 +205,21 @@
 
 **Performance Metrics**:
 - Discovery Time: ~2ms (25x better than target)
-- Execution Startup: ~20ms (5x better than target)
+- Execution Time: ~620ms for 67 tests
 - Framework Memory: ~5MB (2x better than target)
-- Test Duration: ~1.2s for 67 tests
+- Parallel Execution: ✅ Fully functional
 
----
-
-## Troubleshooting Reference
-
-### Build Configuration
-
-**Problem**: Local build succeeds but CI fails
-
-**Solution**: Build in Release mode locally
-```bash
-dotnet build --configuration Release
-dotnet format
-```
-
-### Running Tests
-
-NextUnit uses Microsoft.Testing.Platform (not `dotnet test`):
-```bash
-# Run all tests
-dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
-
-# With minimum test count
-dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --minimum-expected-tests 67
-```
-
-### Generator Issues
-
-**Check generated files**:
-```bash
-dotnet build /p:EmitCompilerGeneratedFiles=true
-find samples/NextUnit.SampleTests -name "*.g.cs"
-```
+**Progress Metrics**:
+- Planned Duration (M0-M3): 10 weeks
+- Actual Duration (M0-M3): ~2 weeks
+- Velocity: 5x faster than planned
+- Milestones Completed: 6/6 (100%)
 
 ---
 
 **Last Updated**: 2025-12-03  
-**Next Update**: After M4 completion  
-**Status**: Project on track, 7x faster than planned schedule
+**Next Update**: After M4 Rich Assertions implementation  
+**Status**: Project healthy, on track for v1.0 in 2-3 weeks
 
 ## References
 

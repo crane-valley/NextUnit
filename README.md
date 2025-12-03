@@ -419,18 +419,16 @@ NextUnit is inspired by:
 
 **Current Version**: 0.3-alpha (Development)
 
-**Next Milestones**:
+**v1.0 Release Plan** (2-3 weeks):
 - ✅ M0 - Basic framework (Complete)
 - ✅ M1 - Source Generator & Discovery (Complete - 2025-12-02)
 - ✅ M1.5 - Parameterized Tests & Skip Support (Complete - 2025-12-02)
 - ✅ M2 - Lifecycle Scopes (Complete - 2025-12-02)
 - ✅ M2.5 - Polish & Testing (Complete - 2025-12-02)
 - ✅ M3 - Parallel Scheduler (Complete - 2025-12-03)
-- 📋 M4 - Platform Integration (4 weeks)
-- 📋 M5 - Assertions & DX (2 weeks)
-- 📋 M6 - Documentation & Samples (2 weeks)
+- 📋 M4 - Rich Assertions & v1.0 Prep (Current - 2-3 weeks)
 
-**Target v1.0 Preview**: ~16 weeks from now (Mid-April 2025)
+**Target v1.0 Release**: Late December 2025
 
 **Latest Progress** (2025-12-03 - M3 Complete):
 - ✅ M1: Source generator with zero-reflection test execution
@@ -446,7 +444,20 @@ NextUnit is inspired by:
 - ✅ ~620ms execution time with parallel scheduler
 - ✅ Zero reflection maintained across all features
 
-See [PLANS.md](PLANS.md) for detailed timeline and technical specifications.
+**v1.0 Focus**:
+- 📋 Rich Assertions (Collection, String, Numeric assertions with better error messages)
+- 📋 Complete Documentation (API reference, migration guides, best practices)
+- 📋 NuGet Package (Published to nuget.org)
+- 📋 Release Ready (Changelog, GitHub releases, version tagging)
+
+**Post-v1.0 Roadmap** (v1.1+):
+- Category/Tag filtering
+- TestData full implementation
+- Test output/logging integration
+- Session-scoped lifecycle
+- Performance benchmarks with large test suites
+
+See [PLANS.md](PLANS.md) for detailed technical specifications and rationale.
 
 ---
 

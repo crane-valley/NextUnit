@@ -268,7 +268,7 @@ public static IEnumerable<object[]> TestDataProperty => new[]
 - Per-test overhead: ~18ms average (includes test logic)
 - Zero reflection maintained ✅
 
-**Milestone Status Update**
+**Milestone Status Update - Revised for v1.0**
 
 | Milestone | Duration | Status | Notes |
 |-----------|----------|--------|-------|
@@ -278,35 +278,67 @@ public static IEnumerable<object[]> TestDataProperty => new[]
 | M2 - Lifecycle Scopes | 1 week | ✅ Complete | Test/Class/Assembly scopes implemented |
 | M2.5 - Polish, Docs & Examples | 1 day | ✅ Complete | 67 comprehensive tests, documentation updated |
 | M3 - Parallel Scheduler | 1 day | ✅ Complete | Parallel constraints enforced, thread-safe execution |
-| M4 - Platform Integration | 4 weeks | 📋 Planned | Traits, filtering, output, Session scope |
-| M5 - Rich Assertions | 2 weeks | 📋 Planned | xUnit assertion parity, better error messages |
-| M6 - Documentation | 2 weeks | 📋 Planned | Polish and release prep |
-| **Total** | **~24 weeks** | | ~6 months to v1.0 |
+| M4 - Rich Assertions & v1.0 Prep | 2-3 weeks | 📋 Current | Core assertions + docs for v1.0 |
+| Post-v1.0 - Advanced Features | TBD | 📋 Backlog | Category/Tag filtering, TestData, advanced platform features |
 
-**Target v1.0 Preview**: ~16 weeks from now (Mid-April 2025) - All early milestones completed ahead of schedule
+**Revised Target**: v1.0 Preview in **2-3 weeks** (Late December 2025)
 
 **Progress Velocity**: 
 - Planned: 10 weeks for M0-M3
 - Actual: ~2 weeks (5x faster than planned)
 - Quality: 67 tests, 100% pass rate, thread-safe parallel execution
+- **Decision**: Focus on v1.0 core features, defer advanced integrations to v1.1+
 
 ---
 
 **Last Updated**: 2025-12-03  
-**Status**: ✅ M3 Complete! Parallel execution with full constraint enforcement. Ready for M4 (Platform Integration)  
-**Next Milestone**: M4 - Platform Integration (traits, filtering, test output, Session scope)
+**Status**: ✅ M3 Complete! Focusing on v1.0 core features for rapid release  
+**Next Milestone**: M4 - Rich Assertions & v1.0 Preparation
 
-**Recent Achievements**:
+**Strategic Decision - v1.0 Scope Refinement**:
+
+After completing M0-M3 ahead of schedule (2 weeks vs 10 weeks planned), we're refocusing on delivering a production-ready v1.0 with core features that matter most:
+
+**✅ Already Implemented (v0.3-alpha)**:
 - 🎉 M1: Zero-reflection test execution with source generators
 - 🎉 M1.5: Skip attribute + parameterized tests with Arguments
 - 🎉 M2: Class-scoped and Assembly-scoped lifecycle
 - 🎉 M2.5: Comprehensive documentation (67 test examples)
 - 🎉 M3: True parallel execution with ParallelLimit/NotInParallel enforcement
 - 🎉 M3: Thread-safe lifecycle management (ConcurrentDictionary + SemaphoreSlim)
-- 🎉 M3: 67 tests passing with parallel scheduler
-- 🎉 M3: Improved performance metrics and code quality
-- 🎉 Velocity: 5x faster than planned (2 weeks vs 10 weeks planned)
-- 🎉 Quality: 100% pass rate, thread-safe, zero reflection
+
+**🎯 v1.0 Focus (M4 - 2-3 weeks)**:
+1. **Rich Assertions Library**
+   - Collection assertions (`Assert.Contains`, `Assert.All`, `Assert.Single`)
+   - String assertions (`Assert.StartsWith`, `Assert.EndsWith`, `Assert.Matches`)
+   - Numeric assertions (`Assert.InRange`, `Assert.NotInRange`)
+   - Better error messages with detailed context
+
+2. **Documentation Completion**
+   - API reference documentation
+   - Migration guides from xUnit/NUnit/MSTest
+   - Best practices guide
+   - Performance tuning guide
+
+3. **v1.0 Release Preparation**
+   - NuGet package configuration
+   - Release notes
+   - GitHub releases setup
+   - Version tagging
+
+**📋 Post-v1.0 Backlog (v1.1+)**:
+- Category/Tag filtering (complex generator work, not blocking v1.0)
+- TestData full implementation (requires architectural decision)
+- Test output/logging integration
+- Session-scoped lifecycle
+- Advanced platform features
+
+**Rationale**:
+- NextUnit is already **highly functional** with 67 tests passing
+- Core features (zero-reflection, parallel execution, lifecycle) are **complete**
+- v1.0 should ship with **solid fundamentals** rather than half-implemented advanced features
+- Early users can start adopting NextUnit immediately
+- v1.1 can add Category/Tag and other advanced features based on user feedback
 
 **Quick Stats**:
 - **Test Count**: 67 comprehensive tests
@@ -316,3 +348,4 @@ public static IEnumerable<object[]> TestDataProperty => new[]
 - **Thread Safety**: ✅ All lifecycle methods synchronized
 - **Reflection**: Zero in execution path ✅
 - **Code Quality**: All formatted, no warnings
+- **Target**: v1.0 in 2-3 weeks!
