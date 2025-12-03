@@ -53,21 +53,11 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         });
     }
 
-    /// <summary>
-    /// Determines whether a syntax node is a candidate for test method discovery.
-    /// </summary>
-    /// <param name="node">The syntax node to evaluate.</param>
-    /// <returns><c>true</c> if the node is a method with attributes; otherwise, <c>false</c>.</returns>
     private static bool IsCandidate(SyntaxNode node)
     {
         return node is MethodDeclarationSyntax { AttributeLists.Count: > 0 };
     }
 
-    /// <summary>
-    /// Transforms a syntax context into a test method descriptor.
-    /// </summary>
-    /// <param name="context">The generator syntax context.</param>
-    /// <returns>A test method descriptor, or null if not a test method.</returns>
     private static object? TransformMethod(GeneratorSyntaxContext context)
     {
         if (context.Node is not MethodDeclarationSyntax methodSyntax)
@@ -112,11 +102,6 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             parameters);
     }
 
-    /// <summary>
-    /// Transforms a syntax context into a lifecycle method descriptor.
-    /// </summary>
-    /// <param name="context">The generator syntax context.</param>
-    /// <returns>A lifecycle method descriptor, or null if not a lifecycle method.</returns>
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
     {
         if (context.Node is not MethodDeclarationSyntax methodSyntax)
@@ -147,13 +132,6 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             afterScopes);
     }
 
-    /// <summary>
-    /// Emits the test registry source code.
-    /// </summary>
-    /// <param name="context">The source production context.</param>
-    /// <param name="compilation">The compilation.</param>
-    /// <param name="testGroups">The discovered test methods grouped by type.</param>
-    /// <param name="lifecycleGroups">The discovered lifecycle methods grouped by type.</param>
     private static void EmitRegistry(
         SourceProductionContext context,
         Compilation compilation,
@@ -172,7 +150,6 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
             .ToImmutableArray();
 
-        // Validate test descriptors and emit diagnostics
         ValidateAndReportDiagnostics(context, allTests, lifecycleByType);
 
         var source = GenerateSource(allTests, lifecycleByType);
@@ -184,7 +161,6 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         ImmutableArray<TestMethodDescriptor> tests,
         Dictionary<string, List<LifecycleMethodDescriptor>> lifecycleByType)
     {
-        // Check for dependency cycles
         var dependencyGraph = new Dictionary<string, HashSet<string>>();
         foreach (var test in tests)
         {
@@ -207,7 +183,6 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                     test.Id));
             }
 
-            // Check for unresolved dependencies
             foreach (var depId in test.Dependencies)
             {
                 if (!dependencyGraph.ContainsKey(depId))
@@ -232,7 +207,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     {
         if (!visited.Add(testId))
         {
-            return true; // Cycle detected
+            return true;
         }
 
         if (!graph.TryGetValue(testId, out var dependencies))
@@ -269,7 +244,6 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         builder.AppendLine("internal static class GeneratedTestRegistry");
         builder.AppendLine("{");
 
-        // Add helper methods for invoking test and lifecycle methods
         builder.AppendLine("    private static async Task InvokeTestMethodAsync(Action method, CancellationToken ct)");
         builder.AppendLine("    {");
         builder.AppendLine("        method();");
@@ -294,7 +268,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         builder.AppendLine();
         builder.AppendLine("    private static async Task InvokeLifecycleMethodAsync(Func<Task> method, CancellationToken ct)");
         builder.AppendLine("    {");
-        builder.AppendLine("        await Task.CompletedTask.ConfigureAwait(false);");
+        builder.AppendLine("        await method().ConfigureAwait(false);");
         builder.AppendLine("    }");
         builder.AppendLine();
         builder.AppendLine("    private static async Task InvokeLifecycleMethodAsync(Func<CancellationToken, Task> method, CancellationToken ct)");
@@ -313,15 +287,12 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                 ? methods
                 : new List<LifecycleMethodDescriptor>();
 
-            // Generate test cases for parameterized tests (multiple argument sets) or single test case
             if (test.ArgumentSets.IsDefaultOrEmpty)
             {
-                // Non-parameterized test - single test case
                 EmitTestCase(builder, test, lifecycleMethods, null, -1);
             }
             else
             {
-                // Parameterized test - one test case per argument set
                 for (var i = 0; i < test.ArgumentSets.Length; i++)
                 {
                     EmitTestCase(builder, test, lifecycleMethods, test.ArgumentSets[i], i);
@@ -341,7 +312,6 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         ImmutableArray<TypedConstant>? arguments,
         int argumentSetIndex)
     {
-        // Build test ID and display name
         var testId = test.Id;
         var displayName = test.DisplayName;
 
@@ -601,55 +571,61 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
 
     private static string BuildLifecycleInfoLiteral(string typeName, List<LifecycleMethodDescriptor> lifecycleMethods)
     {
-        var beforeTestMethods = lifecycleMethods
-            .Where(m => m.BeforeScopes.Contains(0)) // LifecycleScope.Test = 0
-            .Select(m => m.MethodName)
-            .ToList();
-
-        var afterTestMethods = lifecycleMethods
-            .Where(m => m.AfterScopes.Contains(0)) // LifecycleScope.Test = 0
-            .Select(m => m.MethodName)
-            .ToList();
+        var beforeTest = lifecycleMethods.Where(m => m.BeforeScopes.Contains(0)).Select(m => m.MethodName).ToList();
+        var afterTest = lifecycleMethods.Where(m => m.AfterScopes.Contains(0)).Select(m => m.MethodName).ToList();
+        var beforeClass = lifecycleMethods.Where(m => m.BeforeScopes.Contains(1)).Select(m => m.MethodName).ToList();
+        var afterClass = lifecycleMethods.Where(m => m.AfterScopes.Contains(1)).Select(m => m.MethodName).ToList();
+        var beforeAssembly = lifecycleMethods.Where(m => m.BeforeScopes.Contains(2)).Select(m => m.MethodName).ToList();
+        var afterAssembly = lifecycleMethods.Where(m => m.AfterScopes.Contains(2)).Select(m => m.MethodName).ToList();
 
         var builder = new StringBuilder();
         builder.AppendLine("new global::NextUnit.Internal.LifecycleInfo");
         builder.AppendLine("                {");
+        
         builder.Append("                    BeforeTestMethods = ");
-
-        if (beforeTestMethods.Count == 0)
-        {
-            builder.AppendLine("global::System.Array.Empty<global::NextUnit.Internal.LifecycleMethodDelegate>(),");
-        }
-        else
-        {
-            builder.AppendLine("new global::NextUnit.Internal.LifecycleMethodDelegate[]");
-            builder.AppendLine("                    {");
-            foreach (var methodName in beforeTestMethods)
-            {
-                builder.AppendLine($"                        {BuildLifecycleMethodDelegate(typeName, methodName)},");
-            }
-            builder.AppendLine("                    },");
-        }
-
+        AppendLifecycleMethodArray(builder, typeName, beforeTest);
+        builder.AppendLine(",");
+        
         builder.Append("                    AfterTestMethods = ");
-
-        if (afterTestMethods.Count == 0)
-        {
-            builder.AppendLine("global::System.Array.Empty<global::NextUnit.Internal.LifecycleMethodDelegate>()");
-        }
-        else
-        {
-            builder.AppendLine("new global::NextUnit.Internal.LifecycleMethodDelegate[]");
-            builder.AppendLine("                    {");
-            foreach (var methodName in afterTestMethods)
-            {
-                builder.AppendLine($"                        {BuildLifecycleMethodDelegate(typeName, methodName)},");
-            }
-            builder.AppendLine("                    }");
-        }
+        AppendLifecycleMethodArray(builder, typeName, afterTest);
+        builder.AppendLine(",");
+        
+        builder.Append("                    BeforeClassMethods = ");
+        AppendLifecycleMethodArray(builder, typeName, beforeClass);
+        builder.AppendLine(",");
+        
+        builder.Append("                    AfterClassMethods = ");
+        AppendLifecycleMethodArray(builder, typeName, afterClass);
+        builder.AppendLine(",");
+        
+        builder.Append("                    BeforeAssemblyMethods = ");
+        AppendLifecycleMethodArray(builder, typeName, beforeAssembly);
+        builder.AppendLine(",");
+        
+        builder.Append("                    AfterAssemblyMethods = ");
+        AppendLifecycleMethodArray(builder, typeName, afterAssembly);
+        builder.AppendLine();
 
         builder.Append("                }");
         return builder.ToString();
+    }
+
+    private static void AppendLifecycleMethodArray(StringBuilder builder, string typeName, List<string> methodNames)
+    {
+        if (methodNames.Count == 0)
+        {
+            builder.Append("global::System.Array.Empty<global::NextUnit.Internal.LifecycleMethodDelegate>()");
+        }
+        else
+        {
+            builder.AppendLine("new global::NextUnit.Internal.LifecycleMethodDelegate[]");
+            builder.AppendLine("                    {");
+            foreach (var methodName in methodNames)
+            {
+                builder.AppendLine($"                        {BuildLifecycleMethodDelegate(typeName, methodName)},");
+            }
+            builder.Append("                    }");
+        }
     }
 
     private static string BuildDependenciesLiteral(ImmutableArray<string> dependencies)

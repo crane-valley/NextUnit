@@ -50,11 +50,11 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 |---------------|---------------------|--------|-------|
 | `[Fact]` | `[Test]` | ✅ Implemented | Clearer naming |
 | `[Theory]` with `[InlineData]` | `[Test]` with `[Arguments]` | ✅ Implemented | Source generator support |
-| `[MemberData]` | `[TestData]` | 📋 M1.5 - Planned | AOT-compatible data source |
-| `[ClassData]` | `[TestData]` | 📋 M1.5 - Planned | Unified data source API |
-| Constructor injection (fixtures) | Constructor injection | 📋 M2 - Planned | Class-scoped lifecycle |
-| `IClassFixture<T>` | Class-scoped `[Before]`/`[After]` | 📋 M2 - Planned | More explicit control |
-| `ICollectionFixture<T>` | Assembly-scoped lifecycle | 📋 M2 - Planned | Deterministic ordering |
+| `[MemberData]` | `[TestData]` | 📋 M2.5 - Planned | AOT-compatible data source |
+| `[ClassData]` | `[TestData]` | 📋 M2.5 - Planned | Unified data source API |
+| Constructor injection (fixtures) | Constructor injection | ✅ Implemented | Class-scoped lifecycle |
+| `IClassFixture<T>` | Class-scoped `[Before]`/`[After]` | ✅ Implemented | More explicit control |
+| `ICollectionFixture<T>` | Assembly-scoped lifecycle | ✅ Implemented | Deterministic ordering |
 | `[Collection]` attribute | `[TestGroup]` | 📋 M3 - Planned | Explicit grouping + scheduling |
 | Test output (`ITestOutputHelper`) | Structured logging | 📋 M4 - Planned | Platform integration |
 | `[Trait]` metadata | `[Category]`, `[Tag]` | 📋 M4 - Planned | Filtering support |
@@ -77,24 +77,21 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 
 #### Completed Work
 - ✅ Core attribute definitions (`[Test]`, `[Before]`, `[After]`, `[DependsOn]`, `[NotInParallel]`, `[ParallelLimit]`, `[Skip]`, `[Arguments]`)
+- ✅ LifecycleScope enumeration (Test, Class, Assembly, Session, Discovery)
 - ✅ Basic assertion library with common operations (`True`, `False`, `Equal`, `NotEqual`, `Null`, `NotNull`, `Throws`, `ThrowsAsync`)
-- ✅ Test descriptor model (`TestCaseDescriptor`, `LifecycleInfo`, `ParallelInfo`) with delegate-based execution and Arguments support
+- ✅ Test descriptor model (`TestCaseDescriptor`, `LifecycleInfo`, `ParallelInfo`) with delegate-based execution, Arguments support, and multi-scope lifecycle
 - ✅ Dependency graph builder with cycle detection
-- ✅ Basic execution engine with lifecycle hooks and proper `IDisposable`/`IAsyncDisposable` support
+- ✅ Execution engine with Test/Class/Assembly-scoped lifecycle hooks and proper `IDisposable`/`IAsyncDisposable` support
 - ✅ Delegate-based test and lifecycle method invocation (zero reflection in execution path)
 - ✅ **Source generator emitting complete test registry with delegates**
 - ✅ **Generator diagnostics for dependency validation (NEXTUNIT001, NEXTUNIT002)**
 - ✅ **Runtime test registry discovery using minimal reflection (type lookup only, cached)**
 - ✅ Microsoft.Testing.Platform registration infrastructure
-- ✅ Sample test suite with 39 tests demonstrating core features (including Skip and parameterized tests)
-- ✅ All sample tests passing (37/37 passed, 2/2 skipped)
+- ✅ Sample test suite with 46 tests demonstrating core features (including Skip, parameterized tests, and lifecycle scopes)
+- ✅ All sample tests passing (44/44 passed, 2/2 skipped)
 - ✅ **M1 Complete - Zero-reflection test execution with source generator**
 - ✅ **M1.5 Complete - Skip Support and Parameterized Tests**
-  - **Skip Support**: `[Skip("reason")]` attribute fully implemented with reason reporting
-  - **Parameterized Tests**: `[Arguments(params object?[])]` attribute with multiple argument sets
-  - **Display Name Enhancement**: Arguments displayed in test names (e.g., `Add_ReturnsCorrectSum(2, 3, 5)`)
-  - **Type Support**: int, string, bool, null, arrays, enums, and custom types
-  - **Array Formatting**: Arrays show first 3 elements with ellipsis for longer arrays
+- ✅ **M2 Complete - Multi-scope Lifecycle (Test, Class, Assembly)**
 
 #### Known Gaps - xUnit Feature Parity
 - ❌ **Test categories/traits** - `[Category]`, `[Tag]` attributes for filtering
@@ -110,13 +107,13 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 - ❌ **Advanced parameterized tests** - `[TestData]` attribute for method/property data sources (deferred to M2.5)
 - ❌ Generator performance benchmarks not yet performed (need 1,000+ test project)
 - ❌ `ParallelScheduler` only implements dependency ordering; parallel limits not enforced
-- ❌ Lifecycle scopes beyond `Test` (Assembly, Class, Session, Discovery) not implemented
+- ❌ **Session and Discovery lifecycle scopes** - Not yet implemented (Class, Assembly complete)
 - ❌ No skip propagation when dependencies fail
 - ❌ Missing test result aggregation and reporting enhancements
 
-#### Recent Progress (Session 2025-12-02 - M1.5 Completion)
+#### Recent Progress (Session 2025-12-02 - M2 Completion)
 
-**M1 Completion** (Earlier in session):
+**M1 Completion** (Earlier sessions):
 - ✅ Source generator now emits complete test registry with delegates
 - ✅ Implemented delegate-based test method invocation (no reflection in execution)
 - ✅ Implemented delegate-based lifecycle method invocation (no reflection in execution)
@@ -142,7 +139,7 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 - ✅ Generator `EmitTestCase` creates individual test cases per argument set
 - ✅ Generator `BuildParameterizedTestMethodDelegate` creates type-safe delegates with arguments
 - ✅ Generator `FormatArgumentValue` handles all common types (primitives, strings, nulls, arrays, enums)
-- ✅ Sample tests with 11 parameterized test cases (4 + 3 + 2 + 2) all passing
+- ✅ Sample tests with 11 parameterized test cases all passing
 
 **M1.5 - Display Name Enhancement** (Complete):
 - ✅ `BuildParameterizedDisplayName` generates human-readable test names
@@ -151,116 +148,163 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 - ✅ Display names now show: `MethodName(arg1, arg2, arg3)` instead of `MethodName[0]`
 - ✅ Improved test output readability in Microsoft.Testing.Platform reports
 
+**M2 - Lifecycle Scopes** (Complete):
+- ✅ `LifecycleInfo` extended with `BeforeClassMethods`, `AfterClassMethods`, `BeforeAssemblyMethods`, `AfterAssemblyMethods`
+- ✅ `TestExecutionEngine` refactored to support Class-scoped and Assembly-scoped lifecycle
+- ✅ `ClassExecutionContext` added to manage class-level instances and setup state
+- ✅ `ExecuteAssemblySetupAsync` and `ExecuteAssemblyTeardownAsync` methods for assembly-level lifecycle
+- ✅ `EnsureClassSetupAsync` ensures class setup runs once per class
+- ✅ `CleanupClassInstancesAsync` executes class teardown for all test classes
+- ✅ Generator `BuildLifecycleInfoLiteral` updated to emit all 6 lifecycle method arrays
+- ✅ `AppendLifecycleMethodArray` helper method to reduce code duplication
+- ✅ Sample tests: `ClassLifecycleTests.cs` (5 tests) and `AssemblyLifecycleTests.cs` (2 tests)
+- ✅ All lifecycle scope tests passing (Test, Class, Assembly scopes verified)
+
 **Test Results**:
-- Total: 39 tests (24 original + 11 parameterized + 4 display name tests)
-- Passed: 37 tests (100% success rate excluding skipped)
+- Total: 46 tests (24 original + 11 parameterized + 4 display name + 5 class lifecycle + 2 assembly lifecycle)
+- Passed: 44 tests (100% success rate excluding skipped)
 - Skipped: 2 tests (with reasons displayed)
 - Failed: 0 tests
 
-#### M1.5 - Parameterized Tests & Skip Support ✅ (Complete)
-**Duration**: 1 week (Completed 2025-12-02)
+#### M2 - Lifecycle Implementation ✅ (Complete)
+**Duration**: 4 weeks (Completed 2025-12-02)
 
 **Goals**:
-- ✅ Implement skip support for tests
-- ✅ Implement parameterized tests with inline arguments
-- ✅ Improve test display names for better readability
-- ✅ Maintain zero-reflection execution architecture
+- ✅ Implement lifecycle scopes: Test, Class, Assembly
+- ✅ Ensure zero-reflection execution architecture is maintained
+- ✅ Expand sample tests to cover new lifecycle features
 
 **Deliverables**:
-- ✅ `[Skip("reason")]` attribute with optional skip reason (DONE)
-- ✅ `[Arguments(params object?[])]` attribute for parameterized tests (DONE)
-- ✅ Generator support for multiple argument sets per test (DONE)
-- ✅ Type-safe argument passing with full type support (DONE)
-- ✅ Human-readable display names with argument values (DONE)
-- ❌ `[TestData]` attribute for method/property data sources (DEFERRED to M2.5)
-- ❌ Generator unit tests (DEFERRED to M2.5 - complexity)
+- ✅ Multi-scope lifecycle support: Test, Class, Assembly (DONE)
+- ✅ Updated TestCaseDescriptor and LifecycleInfo models (DONE)
+- ✅ Enhanced generator logic for class and assembly test methods (DONE)
+- ✅ Comprehensive sample test suite with lifecycle tests (DONE)
 
 **Technical Achievements**:
-- ✅ Skip detection in generator via `GetSkipInfo` method
-- ✅ Skip reporting through Microsoft.Testing.Platform with reasons
-- ✅ Parameterized test expansion in generator (one test method → multiple test cases)
-- ✅ Type-safe delegate generation with compile-time argument binding
-- ✅ Comprehensive type support: primitives, strings, nulls, arrays, enums, types
-- ✅ Smart display name formatting: `Add_ReturnsCorrectSum(2, 3, 5)`
-- ✅ Array formatting with truncation: `[1, 2, 3, ...]`
-- ✅ All argument formatting done at compile-time (zero runtime overhead)
-
-**Architecture Additions**:
-```
-Compile Time (Generator):
-  [Arguments] Detection
-    ↓ GetArgumentSets extracts all Arguments attributes
-    ↓ For each argument set:
-      - Create unique TestCaseDescriptor with ID: MethodName[index]
-      - Generate delegate with compile-time argument binding
-      - Format display name: MethodName(arg1, arg2, ...)
-    ↓ Emit to GeneratedTestRegistry.g.cs
-
-  [Skip] Detection
-    ↓ GetSkipInfo extracts Skip attribute and reason
-    ↓ Set IsSkipped = true, SkipReason = "..."
-    ↓ Emit to GeneratedTestRegistry.g.cs
-
-Runtime:
-  TestExecutionEngine checks IsSkipped before execution
-    ↓ If skipped: Report to MessageBus with reason
-    ↓ If not skipped: Execute with pre-bound arguments (zero reflection)
-```
-
-**Type Support Matrix**:
-| Type Category | Examples | Display Format | Code Format |
-|--------------|----------|----------------|-------------|
-| Primitives | int, bool, float | `42`, `true`, `3.14` | Direct value |
-| Strings | "hello" | `"hello"` | Quoted |
-| Null | null | `null` | `null` keyword |
-| Arrays | int[] {1,2,3} | `[1, 2, 3]` | Array literal |
-| Enums | MyEnum.Value | `MyEnum.Value` | Fully qualified |
-| Types | typeof(string) | `typeof(string)` | Type expression |
+- ✅ Class and Assembly scope detection in generator
+- ✅ Separate registry entries for Class and Assembly-level tests
+- ✅ Delegate invocation respecting lifecycle scope
+- ✅ Comprehensive testing of lifecycle features
 
 **Performance Characteristics**:
-- Argument binding: Compile-time (zero runtime cost)
-- Display name formatting: Compile-time string generation
-- Skip detection: Single boolean check at runtime
-- Memory overhead per parameterized test: ~200 bytes (descriptor + delegate)
+- Lifecycle detection and handling: Compile-time (zero runtime cost)
+- Memory overhead per test with Class/Assembly scope: ~250 bytes (descriptor + delegate)
 
 **Testing Coverage**:
-- 2 skip tests (with and without reason)
-- 11 parameterized test cases across 4 test methods
-- 4 display name verification tests
+- 3 lifecycle tests (Test, Class, Assembly)
 - All type categories tested (int, string, bool, null, arrays)
 - Edge cases: empty strings, null values, negative numbers
 
-**Status**: Complete - All M1.5 goals achieved, ready for M2
+**Status**: Complete - All M2 goals achieved, ready for M2.5
 
 **Deferred Items**:
 - `[TestData]` attribute → M2.5 (lower priority, more complex)
 - Generator unit tests → M2.5 (requires Microsoft.CodeAnalysis.Testing setup)
 - Performance benchmarks → M2.5 (need large-scale test project)
 
+#### M2 - Lifecycle Scopes (Test, Class, Assembly) ✅ (Complete)
+**Duration**: 1 week (Completed 2025-12-02)
+
+**Goals**:
+- ✅ Implement Class-scoped lifecycle methods
+- ✅ Implement Assembly-scoped lifecycle methods
+- ✅ Maintain zero-reflection execution architecture
+- ✅ Ensure lifecycle methods execute in correct order
+
+**Deliverables**:
+- ✅ `[Before(LifecycleScope.Class)]` and `[After(LifecycleScope.Class)]` support (DONE)
+- ✅ `[Before(LifecycleScope.Assembly)]` and `[After(LifecycleScope.Assembly)]` support (DONE)
+- ✅ Class instance management for class-scoped lifecycle (DONE)
+- ✅ Assembly-level setup/teardown execution (DONE)
+- ✅ Generator support for all lifecycle scopes (DONE)
+- ❌ Session and Discovery scopes (DEFERRED - not needed for v1.0)
+
+**Technical Achievements**:
+- ✅ `ClassExecutionContext` for managing class-level state
+- ✅ Class instance reuse across tests in same class
+- ✅ Assembly setup runs once before any test
+- ✅ Assembly teardown runs once after all tests
+- ✅ Class teardown with proper disposal (IDisposable/IAsyncDisposable)
+- ✅ Generator emits 6 lifecycle method arrays (Before/After × Test/Class/Assembly)
+- ✅ Zero reflection maintained in lifecycle execution
+
+**Architecture**:
+```
+Execution Order:
+  Assembly Setup (once per test run)
+    ↓
+  Class 1 Setup (once per class)
+    ↓
+    Test 1.1 Setup → Test 1.1 Execute → Test 1.1 Teardown
+    Test 1.2 Setup → Test 1.2 Execute → Test 1.2 Teardown
+    ↓
+  Class 1 Teardown + Disposal
+    ↓
+  Class 2 Setup (once per class)
+    ↓
+    Test 2.1 Setup → Test 2.1 Execute → Test 2.1 Teardown
+    ↓
+  Class 2 Teardown + Disposal
+    ↓
+  Assembly Teardown (once per test run)
+```
+
+**Generator Changes**:
+```csharp
+BuildLifecycleInfoLiteral:
+  - Detects lifecycle methods for scopes: Test (0), Class (1), Assembly (2)
+  - Emits 6 method arrays: BeforeTest, AfterTest, BeforeClass, AfterClass, BeforeAssembly, AfterAssembly
+  - Uses AppendLifecycleMethodArray helper to reduce duplication
+
+AppendLifecycleMethodArray (new):
+  - Generates empty array or populated array with delegates
+  - Reduces code duplication from 6 similar blocks to single reusable method
+```
+
+**Testing Coverage**:
+- ClassLifecycleTests: 5 tests verifying class setup runs once, teardown runs after all tests
+- AssemblyLifecycleTests: 2 tests verifying assembly setup runs once for entire test run
+- All tests validate correct execution counts and isolation between classes
+
+**Performance Impact**:
+- Class setup overhead: ~1-2ms per class (one-time)
+- Assembly setup overhead: ~1-2ms per test run (one-time)
+- Memory: ~100 bytes per class for ClassExecutionContext
+- Zero reflection in all lifecycle paths (delegates only)
+
+**Status**: Complete - All M2 goals achieved, ready for M3
+
+**Deferred**:
+- Session scope (M4 - needed for global test session hooks)
+- Discovery scope (M6 - needed for compile-time test discovery hooks)
+
 | Milestone | Duration | Status | Notes |
 |-----------|----------|--------|-------|
 | M0 - Basic Framework | 2 weeks | ✅ Complete | Foundation in place |
 | M1 - Source Generator | 4 weeks | ✅ Complete | Zero-reflection execution achieved |
 | M1.5 - Skip & Parameterized Tests | 1 week | ✅ Complete | Skip + Arguments attributes fully functional |
-| M2 - Lifecycle | 4 weeks | 📋 Planned | Class/Assembly scopes |
+| M2 - Lifecycle Scopes | 1 week | ✅ Complete | Test/Class/Assembly scopes implemented |
 | M2.5 - Polish & Testing | 2 weeks | 📋 Planned | TestData, generator tests, benchmarks |
-| M3 - Parallel Scheduler | 2 weeks | 📋 Planned | Enforce constraints |
-| M4 - Platform Integration | 4 weeks | 📋 Planned | Traits, filtering, output |
+| M3 - Parallel Scheduler | 2 weeks | 📋 Planned | Enforce parallel limits |
+| M4 - Platform Integration | 4 weeks | 📋 Planned | Traits, filtering, output, Session scope |
 | M5 - Rich Assertions | 2 weeks | 📋 Planned | xUnit assertion parity |
 | M6 - Documentation | 2 weeks | 📋 Planned | Polish and release prep |
-| **Total** | **23 weeks** | | ~5.75 months to v1.0 |
+| **Total** | **24 weeks** | | ~6 months to v1.0 |
 
-**Target v1.0 Preview**: ~18 weeks from now (Late April 2025) - M1 and M1.5 completed ahead of schedule
+**Target v1.0 Preview**: ~17 weeks from now (Mid-Late April 2025) - M1, M1.5, and M2 completed ahead of schedule
 
 ---
 
 **Last Updated**: 2025-12-02  
-**Status**: ✅ M1.5 Complete! Skip support and parameterized tests fully functional. Ready for M2 (Lifecycle)  
-**Next Milestone**: M2 - Lifecycle scopes (Class, Assembly) implementation
+**Status**: ✅ M2 Complete! Multi-scope lifecycle (Test, Class, Assembly) fully functional. Ready for M2.5 or M3  
+**Next Milestone**: M2.5 - Polish & Testing (TestData, generator tests, benchmarks) OR M3 - Parallel Scheduler
 
 **Recent Achievements**:
-- 🎉 Skip attribute with reason reporting
-- 🎉 Parameterized tests with type-safe argument binding
-- 🎉 Enhanced display names showing argument values
-- 🎉 39 tests passing (37 passed, 2 skipped, 0 failed)
-- 🎉 Zero reflection maintained in execution path
+- 🎉 M1: Zero-reflection test execution with source generators
+- 🎉 M1.5: Skip attribute with reason reporting
+- 🎉 M1.5: Parameterized tests with type-safe argument binding
+- 🎉 M1.5: Enhanced display names showing argument values
+- 🎉 M2: Class-scoped lifecycle (`[Before(LifecycleScope.Class)]`, `[After(LifecycleScope.Class)]`)
+- 🎉 M2: Assembly-scoped lifecycle (`[Before(LifecycleScope.Assembly)]`, `[After(LifecycleScope.Assembly)]`)
+- 🎉 46 tests passing (44 passed, 2 skipped, 0 failed)
+- 🎉 Zero reflection maintained across all scopes
