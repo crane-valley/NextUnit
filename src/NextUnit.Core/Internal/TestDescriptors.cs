@@ -167,4 +167,14 @@ public sealed class TestCaseDescriptor
     /// This will be <c>null</c> for non-parameterized tests, or an array of arguments for parameterized tests.
     /// </remarks>
     public object?[]? Arguments { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the categories assigned to the test.
+    /// </summary>
+    public IReadOnlyList<string> Categories { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or initializes the tags assigned to the test.
+    /// </summary>
+    public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
 }
