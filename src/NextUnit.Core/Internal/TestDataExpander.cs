@@ -123,9 +123,13 @@ public static class TestDataExpander
         var displayName = BuildDisplayName(descriptor.DisplayName, arguments);
 
         // Get the test method via reflection for creating the delegate
+        // Specify parameter types to avoid AmbiguousMatchException when method is overloaded
         var methodInfo = descriptor.TestClass.GetMethod(
             descriptor.MethodName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+            binder: null,
+            types: descriptor.ParameterTypes,
+            modifiers: null);
 
         TestMethodDelegate? testMethod = null;
 
