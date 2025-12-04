@@ -129,27 +129,47 @@ internal sealed class NextUnitFramework :
         var testAssemblyPath = Environment.GetCommandLineArgs()[0];
         var testAssembly = Assembly.LoadFrom(testAssemblyPath);
 
-        // Look for NextUnit.Generated.GeneratedTestRegistry.TestCases
+        // Look for NextUnit.Generated.GeneratedTestRegistry
         var generatedRegistryType = testAssembly.GetType("NextUnit.Generated.GeneratedTestRegistry");
-        if (generatedRegistryType is not null)
+        if (generatedRegistryType is null)
         {
-            var testCasesProperty = generatedRegistryType.GetProperty(
-                "TestCases",
-                BindingFlags.Public | BindingFlags.Static);
+            _testCases = Array.Empty<TestCaseDescriptor>();
+            return _testCases;
+        }
 
-            if (testCasesProperty is not null)
+        var allTestCases = new List<TestCaseDescriptor>();
+
+        // Get static test cases from TestCases property
+        var testCasesProperty = generatedRegistryType.GetProperty(
+            "TestCases",
+            BindingFlags.Public | BindingFlags.Static);
+
+        if (testCasesProperty is not null)
+        {
+            var staticTestCases = (IReadOnlyList<TestCaseDescriptor>?)testCasesProperty.GetValue(null);
+            if (staticTestCases is not null)
             {
-                _testCases = (IReadOnlyList<TestCaseDescriptor>?)testCasesProperty.GetValue(null);
-                if (_testCases is not null)
-                {
-                    return _testCases;
-                }
+                allTestCases.AddRange(staticTestCases);
             }
         }
 
-        // If no generated registry found, return empty list
-        // This allows the framework to work even if generator hasn't run yet
-        _testCases = Array.Empty<TestCaseDescriptor>();
+        // Get dynamic test cases from TestDataDescriptors property
+        var testDataDescriptorsProperty = generatedRegistryType.GetProperty(
+            "TestDataDescriptors",
+            BindingFlags.Public | BindingFlags.Static);
+
+        if (testDataDescriptorsProperty is not null)
+        {
+            var testDataDescriptors = (IReadOnlyList<TestDataDescriptor>?)testDataDescriptorsProperty.GetValue(null);
+            if (testDataDescriptors is not null)
+            {
+                // Expand TestDataDescriptors into TestCaseDescriptors at runtime
+                var expandedTests = TestDataExpander.Expand(testDataDescriptors);
+                allTestCases.AddRange(expandedTests);
+            }
+        }
+
+        _testCases = allTestCases;
         return _testCases;
     }
 

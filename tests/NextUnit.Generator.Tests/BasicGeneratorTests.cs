@@ -177,6 +177,88 @@ public class TestClass
         await VerifyGeneratorRunsWithoutErrorsAsync(source);
     }
 
+    [Fact]
+    public async Task TestDataAttribute_GeneratesTestDataDescriptorAsync()
+    {
+        var source = @"
+using NextUnit;
+using System.Collections.Generic;
+
+namespace TestProject;
+
+public class TestClass
+{
+    public static IEnumerable<object[]> TestCases()
+    {
+        yield return new object[] { 1, 2 };
+        yield return new object[] { 3, 4 };
+    }
+
+    [Test]
+    [TestData(nameof(TestCases))]
+    public void DataDrivenTest(int a, int b)
+    {
+    }
+}";
+
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
+    }
+
+    [Fact]
+    public async Task TestDataAttribute_WithMemberType_GeneratesTestDataDescriptorAsync()
+    {
+        var source = @"
+using NextUnit;
+using System.Collections.Generic;
+
+namespace TestProject;
+
+public static class TestDataSource
+{
+    public static IEnumerable<object[]> TestCases => new[]
+    {
+        new object[] { 1, 2 },
+        new object[] { 3, 4 }
+    };
+}
+
+public class TestClass
+{
+    [Test]
+    [TestData(nameof(TestDataSource.TestCases), MemberType = typeof(TestDataSource))]
+    public void DataDrivenTestWithExternalSource(int a, int b)
+    {
+    }
+}";
+
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
+    }
+
+    [Fact]
+    public async Task MultipleTestDataAttributes_GeneratesMultipleDescriptorsAsync()
+    {
+        var source = @"
+using NextUnit;
+using System.Collections.Generic;
+
+namespace TestProject;
+
+public class TestClass
+{
+    public static IEnumerable<object[]> Source1 => new[] { new object[] { 1 } };
+    public static IEnumerable<object[]> Source2 => new[] { new object[] { 2 } };
+
+    [Test]
+    [TestData(nameof(Source1))]
+    [TestData(nameof(Source2))]
+    public void MultiSourceTest(int a)
+    {
+    }
+}";
+
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
+    }
+
     private static async Task VerifyGeneratorRunsWithoutErrorsAsync(string source)
     {
         // Simple verification that the generator runs without throwing

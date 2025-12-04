@@ -24,6 +24,7 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **Parallel control** - `[NotInParallel]`, `[ParallelLimit(4)]` for fine-grained concurrency (fully enforced!)
 - ✅ **Skip support** - `[Skip("reason")]` to skip tests with optional reason
 - ✅ **Parameterized tests** - `[Arguments(1, 2, 3)]` for inline test data with human-readable display names
+- ✅ **Test data sources** - `[TestData(nameof(DataMethod))]` for method/property data sources with `MemberType` support
 - ✅ **Instance-per-test** - Each test gets a fresh class instance (maximizes isolation)
 - ✅ **Async support** - `async Task` tests, `Assert.ThrowsAsync<T>` for async assertions
 - ✅ **Proper disposal** - Automatic `IDisposable`/`IAsyncDisposable` cleanup
@@ -33,8 +34,6 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **True parallel execution** - Thread-safe parallel test execution with constraint enforcement
 
 ### Planned (see [PLANS.md](PLANS.md))
-- 📋 **Advanced test data** - `[TestData]` attribute for method/property data sources (M2.5)
-- 📋 **Smart scheduler** - Parallel execution with constraint enforcement (M3)
 - 📋 **Session lifecycle** - Session-scoped setup/teardown (M4)
 - 📋 **Test traits** - `[Category]`, `[Tag]` for filtering (M4)
 
@@ -244,6 +243,78 @@ public class StringTests
     public void String_HasCorrectLength(string text, int expectedLength)
     {
         Assert.Equal(expectedLength, text.Length);
+    }
+}
+```
+
+### Test Data from Methods or Properties
+
+For more complex test data, use the `[TestData]` attribute to reference a static method or property:
+
+```csharp
+public class CalculatorTests
+{
+    // Data from a static method
+    public static IEnumerable<object[]> AdditionTestCases()
+    {
+        yield return new object[] { 1, 2, 3 };
+        yield return new object[] { 2, 3, 5 };
+        yield return new object[] { -1, 1, 0 };
+    }
+
+    [Test]
+    [TestData(nameof(AdditionTestCases))]
+    public void Add_ReturnsCorrectSum(int a, int b, int expected)
+    {
+        var result = a + b;
+        Assert.Equal(expected, result);
+    }
+
+    // Data from a static property
+    public static IEnumerable<object[]> MultiplicationCases =>
+    [
+        [2, 3, 6],
+        [4, 5, 20],
+        [0, 100, 0]
+    ];
+
+    [Test]
+    [TestData(nameof(MultiplicationCases))]
+    public void Multiply_Works(int a, int b, int expected)
+    {
+        var result = a * b;
+        Assert.Equal(expected, result);
+    }
+
+    // Data from an external class using MemberType
+    [Test]
+    [TestData(nameof(SharedTestData.DivisionCases), MemberType = typeof(SharedTestData))]
+    public void Divide_Works(int a, int b, int expected)
+    {
+        var result = a / b;
+        Assert.Equal(expected, result);
+    }
+
+    // Multiple data sources can be combined
+    [Test]
+    [TestData(nameof(PositiveNumbers))]
+    [TestData(nameof(NegativeNumbers))]
+    public void Abs_ReturnsAbsoluteValue(int value, int expected)
+    {
+        var result = Math.Abs(value);
+        Assert.Equal(expected, result);
+    }
+
+    public static IEnumerable<object[]> PositiveNumbers => [[5, 5], [10, 10]];
+    public static IEnumerable<object[]> NegativeNumbers => [[-5, 5], [-10, 10]];
+}
+
+public static class SharedTestData
+{
+    public static IEnumerable<object[]> DivisionCases()
+    {
+        yield return new object[] { 10, 2, 5 };
+        yield return new object[] { 100, 10, 10 };
     }
 }
 ```

@@ -178,3 +178,79 @@ public sealed class TestCaseDescriptor
     /// </summary>
     public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
 }
+
+/// <summary>
+/// Describes a test data source that provides test cases at runtime.
+/// </summary>
+/// <remarks>
+/// This descriptor is generated for tests using [TestData] attribute.
+/// At runtime, the data source is invoked to produce the actual test cases.
+/// </remarks>
+public sealed class TestDataDescriptor
+{
+    /// <summary>
+    /// Gets or initializes the base test case ID (without data index).
+    /// </summary>
+    public string BaseId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the display name template for the test.
+    /// </summary>
+    public string DisplayName { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the type of the test class containing the test method.
+    /// </summary>
+    public Type TestClass { get; init; } = typeof(object);
+
+    /// <summary>
+    /// Gets or initializes the name of the test method.
+    /// </summary>
+    public string MethodName { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the name of the data source member (method or property).
+    /// </summary>
+    public string DataSourceName { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the type that contains the data source member.
+    /// If null, the test class itself is used.
+    /// </summary>
+    public Type? DataSourceType { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the lifecycle hooks configuration for the test.
+    /// </summary>
+    public LifecycleInfo Lifecycle { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the parallel execution configuration for the test.
+    /// </summary>
+    public ParallelInfo Parallel { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the collection of test case identifiers that this test depends on.
+    /// </summary>
+    public IReadOnlyList<TestCaseId> Dependencies { get; init; } = Array.Empty<TestCaseId>();
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test should be skipped.
+    /// </summary>
+    public bool IsSkipped { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the reason why the test is skipped, or <c>null</c> if not skipped.
+    /// </summary>
+    public string? SkipReason { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the categories assigned to the test.
+    /// </summary>
+    public IReadOnlyList<string> Categories { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or initializes the tags assigned to the test.
+    /// </summary>
+    public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
+}
