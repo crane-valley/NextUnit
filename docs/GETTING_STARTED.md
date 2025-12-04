@@ -317,8 +317,8 @@ public void WindowsOnlyTest()
 
 ## Getting Help
 
-- **GitHub Issues**: https://github.com/kiyoaki/NextUnit/issues
-- **Documentation**: https://github.com/kiyoaki/NextUnit/wiki
+- **GitHub Issues**: https://github.com/crane-valley/NextUnit/issues
+- **Documentation**: https://github.com/crane-valley/NextUnit/wiki
 - **Examples**: See `samples/NextUnit.SampleTests` in the repository
 
 ## What's Different from xUnit?

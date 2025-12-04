@@ -18,12 +18,12 @@
     <Description>Source generator for NextUnit test framework. Provides zero-reflection test discovery via compile-time code generation. Emits test registry with delegate-based method invocation for maximum performance and Native AOT compatibility.</Description>
     <PackageTags>testing;test;framework;sourcegenerator;analyzer;roslyn;nextunit;aot;codegen</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/kiyoaki/NextUnit</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/kiyoaki/NextUnit</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/crane-valley/NextUnit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/crane-valley/NextUnit</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>Copyright (c) 2025 NextUnit Contributors</Copyright>
-    <PackageReleaseNotes>See https://github.com/kiyoaki/NextUnit/blob/main/CHANGELOG.md for release notes.</PackageReleaseNotes>
+    <PackageReleaseNotes>See https://github.com/crane-valley/NextUnit/blob/main/CHANGELOG.md for release notes.</PackageReleaseNotes>
 
     <!-- Source Generator Settings -->
     <DevelopmentDependency>true</DevelopmentDependency>

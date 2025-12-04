@@ -20,4 +20,5 @@
   <Project Path="src/NextUnit.Core/NextUnit.Core.csproj" />
   <Project Path="src/NextUnit.Generator/NextUnit.Generator.csproj" />
   <Project Path="src/NextUnit.Platform/NextUnit.Platform.csproj" />
+  <Project Path="src/NextUnit/NextUnit.csproj" />
 </Solution>

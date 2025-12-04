@@ -1,7 +1,7 @@
 # NextUnit - Modern Testing for .NET 10+
 
 [![NuGet](https://img.shields.io/nuget/v/NextUnit.svg)](https://www.nuget.org/packages/NextUnit/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/kiyoaki/NextUnit/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/crane-valley/NextUnit/blob/main/LICENSE)
 
 **NextUnit** is a modern, high-performance test framework for .NET 10+ that combines:
 - **TUnit's modern architecture** - Microsoft.Testing.Platform, Native AOT, source generators
@@ -110,10 +110,10 @@ dotnet run
 
 ## 📚 Documentation
 
-- **[Getting Started Guide](https://github.com/kiyoaki/NextUnit/blob/main/docs/GETTING_STARTED.md)**
-- **[Migration from xUnit](https://github.com/kiyoaki/NextUnit/blob/main/docs/MIGRATION_FROM_XUNIT.md)**
-- **[Best Practices](https://github.com/kiyoaki/NextUnit/blob/main/docs/BEST_PRACTICES.md)**
-- **[Full Documentation](https://github.com/kiyoaki/NextUnit)**
+- **[Getting Started Guide](https://github.com/crane-valley/NextUnit/blob/main/docs/GETTING_STARTED.md)**
+- **[Migration from xUnit](https://github.com/crane-valley/NextUnit/blob/main/docs/MIGRATION_FROM_XUNIT.md)**
+- **[Best Practices](https://github.com/crane-valley/NextUnit/blob/main/docs/BEST_PRACTICES.md)**
+- **[Full Documentation](https://github.com/crane-valley/NextUnit)**
 
 ## 🔥 What's Different from xUnit?
 
@@ -133,13 +133,13 @@ dotnet run
 - **Framework Memory**: ~5MB baseline
 - **Zero reflection** in execution path
 
-## 🤝 Contributing
+## 🤁EContributing
 
-Contributions welcome! See our [Contributing Guide](https://github.com/kiyoaki/NextUnit#contributing).
+Contributions welcome! See our [Contributing Guide](https://github.com/crane-valley/NextUnit#contributing).
 
 ## 📄 License
 
-[MIT License](https://github.com/kiyoaki/NextUnit/blob/main/LICENSE)
+[MIT License](https://github.com/crane-valley/NextUnit/blob/main/LICENSE)
 
 ## 🙏 Acknowledgments
 
@@ -150,4 +150,4 @@ Inspired by:
 
 ---
 
-**Built with ❤️ for .NET 10+ developers who want modern performance with familiar syntax**
+**Built with ❤�E�Efor .NET 10+ developers who want modern performance with familiar syntax**
