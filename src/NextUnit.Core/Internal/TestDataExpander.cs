@@ -37,7 +37,9 @@ public static class TestDataExpander
 
         if (data is null)
         {
-            yield break;
+            // Throwing here to make missing data source explicit to the user
+            throw new InvalidOperationException(
+                $"Test data source '{descriptor.DataSourceName}' not found in type '{dataSourceType.FullName}'");
         }
 
         var index = 0;
