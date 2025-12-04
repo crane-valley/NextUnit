@@ -52,37 +52,54 @@ public static class TestDataExpander
 
     private static IEnumerable? GetTestData(Type sourceType, string memberName)
     {
-        // Try to find a static method first
-        var method = sourceType.GetMethod(
-            memberName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-
-        if (method is not null)
+        try
         {
-            return method.Invoke(null, null) as IEnumerable;
+            // Try to find a static method first
+            var method = sourceType.GetMethod(
+                memberName,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+            if (method is not null)
+            {
+                return method.Invoke(null, null) as IEnumerable;
+            }
+
+            // Try to find a static property
+            var property = sourceType.GetProperty(
+                memberName,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+            if (property is not null)
+            {
+                return property.GetValue(null) as IEnumerable;
+            }
+
+            // Try to find a static field
+            var field = sourceType.GetField(
+                memberName,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+            if (field is not null)
+            {
+                return field.GetValue(null) as IEnumerable;
+            }
+
+            return null;
         }
-
-        // Try to find a static property
-        var property = sourceType.GetProperty(
-            memberName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-
-        if (property is not null)
+        catch (TargetInvocationException ex)
         {
-            return property.GetValue(null) as IEnumerable;
+            // Unwrap and rethrow the inner exception to preserve original error information
+            throw new InvalidOperationException(
+                $"Failed to get test data from '{memberName}' in type '{sourceType.FullName}'",
+                ex.InnerException ?? ex);
         }
-
-        // Try to find a static field
-        var field = sourceType.GetField(
-            memberName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-
-        if (field is not null)
+        catch (Exception ex)
         {
-            return field.GetValue(null) as IEnumerable;
+            // Handle other reflection-related errors
+            throw new InvalidOperationException(
+                $"Failed to access test data source '{memberName}' in type '{sourceType.FullName}'",
+                ex);
         }
-
-        return null;
     }
 
     private static object?[] ConvertToObjectArray(object? dataRow)
@@ -161,10 +178,12 @@ public static class TestDataExpander
 
     private static string FormatEnumerable(IEnumerable enumerable)
     {
-        var items = enumerable.Cast<object?>().Take(4).ToList();
-        var formatted = string.Join(", ", items.Take(3).Select(FormatArgument));
+        var items = enumerable.Cast<object?>().Take(3).ToList();
+        var formatted = string.Join(", ", items.Select(FormatArgument));
 
-        if (items.Count > 3)
+        // Check if there are more items
+        var hasMore = enumerable.Cast<object?>().Skip(3).Any();
+        if (hasMore)
         {
             formatted += ", ...";
         }
@@ -176,11 +195,23 @@ public static class TestDataExpander
     {
         return async (instance, ct) =>
         {
-            var result = methodInfo.Invoke(instance, arguments);
-
-            if (result is Task task)
+            try
             {
-                await task.ConfigureAwait(false);
+                var result = methodInfo.Invoke(instance, arguments);
+
+                if (result is Task task)
+                {
+                    await task.ConfigureAwait(false);
+                }
+            }
+            catch (TargetInvocationException ex)
+            {
+                // Unwrap the inner exception to preserve the original test failure
+                if (ex.InnerException is not null)
+                {
+                    throw ex.InnerException;
+                }
+                throw;
             }
         };
     }

@@ -825,8 +825,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                 continue;
             }
 
-            var memberName = attribute.ConstructorArguments[0].Value as string;
-            if (string.IsNullOrEmpty(memberName))
+            if (attribute.ConstructorArguments[0].Value is not string memberName ||
+                string.IsNullOrEmpty(memberName))
             {
                 continue;
             }
@@ -841,7 +841,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                 }
             }
 
-            builder.Add(new TestDataSource(memberName!, memberTypeName));
+            builder.Add(new TestDataSource(memberName, memberTypeName));
         }
 
         return builder.ToImmutable();
