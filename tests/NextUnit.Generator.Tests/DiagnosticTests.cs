@@ -34,6 +34,7 @@ public class TestClass
         var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
         {
             TestCode = source,
+            TestBehaviors = Microsoft.CodeAnalysis.Testing.TestBehaviors.SkipGeneratedSourcesCheck,
         };
 
         // Expect NEXTUNIT001 diagnostic for circular dependency
@@ -64,6 +65,7 @@ public class TestClass
         var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
         {
             TestCode = source,
+            TestBehaviors = Microsoft.CodeAnalysis.Testing.TestBehaviors.SkipGeneratedSourcesCheck,
         };
 
         // Expect NEXTUNIT002 diagnostic for unresolved dependency
@@ -99,6 +101,7 @@ public class TestClass
         var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
         {
             TestCode = source,
+            TestBehaviors = Microsoft.CodeAnalysis.Testing.TestBehaviors.SkipGeneratedSourcesCheck,
         };
 
         // No diagnostics expected
@@ -125,6 +128,7 @@ public class TestClass
         var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
         {
             TestCode = source,
+            TestBehaviors = Microsoft.CodeAnalysis.Testing.TestBehaviors.SkipGeneratedSourcesCheck,
         };
 
         // Expect NEXTUNIT001 diagnostic for self-dependency (cycle)

@@ -183,6 +183,8 @@ public class TestClass
         var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
         {
             TestCode = source,
+            // Skip verifying generated source files, we just want to verify no errors
+            TestBehaviors = Microsoft.CodeAnalysis.Testing.TestBehaviors.SkipGeneratedSourcesCheck,
         };
 
         await test.RunAsync();
