@@ -300,3 +300,8 @@ dotnet_diagnostic.RCS1036.severity = suggestion
 
 # RCS1090: Add call to 'ConfigureAwait' (or vice versa)
 dotnet_diagnostic.RCS1090.severity = none
+
+# Source Generators
+[**/NextUnitGenerator.cs]
+# Suppress naming warnings for generated lambda parameters
+dotnet_diagnostic.IDE1006.severity = none
