@@ -42,14 +42,14 @@ public class BasicTests
     }
 
     [Test]
-    public async Task AsyncTest()
+    public async Task AsyncTestAsync()
     {
         await Task.Delay(10);
         Assert.True(true);
     }
 
     [Test]
-    public async Task AsyncExceptionHandling()
+    public async Task AsyncExceptionHandlingAsync()
     {
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
