@@ -253,4 +253,10 @@ public sealed class TestDataDescriptor
     /// Gets or initializes the tags assigned to the test.
     /// </summary>
     public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or initializes the parameter types for the test method.
+    /// Used to resolve the correct method overload when invoking via reflection.
+    /// </summary>
+    public Type[] ParameterTypes { get; init; } = [];
 }

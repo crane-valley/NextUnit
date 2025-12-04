@@ -120,8 +120,10 @@ public static class TestDataExpander
         object?[] arguments,
         int index)
     {
-        // Include data source name in test ID to ensure uniqueness when multiple [TestData] attributes are used
-        var testId = $"{descriptor.BaseId}:{descriptor.DataSourceName}[{index}]";
+        // Include data source type and name in test ID to ensure uniqueness
+        // This handles cases where multiple [TestData] attributes point to identically named members on different classes
+        var dataSourceType = descriptor.DataSourceType ?? descriptor.TestClass;
+        var testId = $"{descriptor.BaseId}:{dataSourceType.FullName}.{descriptor.DataSourceName}[{index}]";
         var displayName = BuildDisplayName(descriptor.DisplayName, arguments);
 
         // Get the test method via reflection for creating the delegate
@@ -184,12 +186,11 @@ public static class TestDataExpander
 
     private static string FormatEnumerable(IEnumerable enumerable)
     {
-        var items = enumerable.Cast<object?>().Take(3).ToList();
-        var formatted = string.Join(", ", items.Select(FormatArgument));
+        // Take 4 items to check if there are more than 3
+        var items = enumerable.Cast<object?>().Take(4).ToList();
+        var formatted = string.Join(", ", items.Take(3).Select(FormatArgument));
 
-        // Check if there are more items
-        var hasMore = enumerable.Cast<object?>().Skip(3).Any();
-        if (hasMore)
+        if (items.Count > 3)
         {
             formatted += ", ...";
         }

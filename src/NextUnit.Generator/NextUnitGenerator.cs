@@ -202,6 +202,21 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                         depId));
                 }
             }
+
+            // Warn when both [Arguments] and [TestData] are used on the same method
+            if (!test.ArgumentSets.IsDefaultOrEmpty && !test.TestDataSources.IsDefaultOrEmpty)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    new DiagnosticDescriptor(
+                        "NEXTUNIT003",
+                        "Conflicting test data attributes",
+                        "Test '{0}' has both [Arguments] and [TestData] attributes. Only [TestData] will be processed.",
+                        "NextUnit",
+                        DiagnosticSeverity.Warning,
+                        isEnabledByDefault: true),
+                    Location.None,
+                    test.Id));
+            }
         }
     }
 
@@ -359,6 +374,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         builder.AppendLine($"                MethodName = {ToLiteral(test.MethodName)},");
         builder.AppendLine($"                DataSourceName = {ToLiteral(dataSource.MemberName)},");
         builder.AppendLine($"                DataSourceType = typeof({dataSourceType}),");
+        builder.AppendLine($"                ParameterTypes = {BuildParameterTypesLiteral(test.Parameters)},");
         builder.AppendLine($"                Lifecycle = {BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
         builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
         builder.AppendLine("                {");
@@ -718,6 +734,30 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
+    private static string BuildParameterTypesLiteral(ImmutableArray<IParameterSymbol> parameters)
+    {
+        if (parameters.IsDefaultOrEmpty)
+        {
+            return "global::System.Array.Empty<global::System.Type>()";
+        }
+
+        var builder = new StringBuilder();
+        builder.Append("new global::System.Type[] { ");
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+
+            builder.Append($"typeof({parameters[i].Type.ToDisplayString(FullyQualifiedTypeFormat)})");
+        }
+
+        builder.Append(" }");
+        return builder.ToString();
+    }
+
     private static ImmutableArray<string> GetDependencies(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<string>();
@@ -833,11 +873,12 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
 
             // Check for MemberType named argument
             string? memberTypeName = null;
-            foreach (var namedArg in attribute.NamedArguments)
+            foreach (var arg in attribute.NamedArguments)
             {
-                if (namedArg.Key == "MemberType" && namedArg.Value.Value is INamedTypeSymbol typeSymbol)
+                if (arg.Key == "MemberType" && arg.Value.Value is INamedTypeSymbol typeSymbol)
                 {
                     memberTypeName = typeSymbol.ToDisplayString(FullyQualifiedTypeFormat);
+                    break;
                 }
             }
 
@@ -849,15 +890,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
 
     private static bool HasAttribute(ISymbol symbol, string metadataName)
     {
-        foreach (var attribute in symbol.GetAttributes())
-        {
-            if (IsAttribute(attribute, metadataName))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return symbol.GetAttributes().Any(attribute => IsAttribute(attribute, metadataName));
     }
 
     private static bool IsAttribute(AttributeData attribute, string metadataName)
