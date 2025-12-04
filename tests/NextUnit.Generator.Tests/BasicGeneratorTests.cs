@@ -1,5 +1,3 @@
-using Xunit;
-
 namespace NextUnit.Generator.Tests;
 
 /// <summary>
@@ -8,7 +6,7 @@ namespace NextUnit.Generator.Tests;
 public class BasicGeneratorTests
 {
     [Fact]
-    public async Task SimpleTestMethod_GeneratesTestRegistry()
+    public async Task SimpleTestMethod_GeneratesTestRegistryAsync()
     {
         var source = @"
 using NextUnit;
@@ -25,11 +23,11 @@ public class TestClass
 
         // We're just verifying it compiles and generates something
         // Full verification of generated code would be very complex
-        await VerifyGeneratorRunsWithoutErrors(source);
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
     }
 
     [Fact]
-    public async Task MultipleTestMethods_GeneratesTestRegistry()
+    public async Task MultipleTestMethods_GeneratesTestRegistryAsync()
     {
         var source = @"
 using NextUnit;
@@ -55,11 +53,11 @@ public class TestClass
     }
 }";
 
-        await VerifyGeneratorRunsWithoutErrors(source);
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
     }
 
     [Fact]
-    public async Task ParameterizedTest_GeneratesMultipleTestCases()
+    public async Task ParameterizedTest_GeneratesMultipleTestCasesAsync()
     {
         var source = @"
 using NextUnit;
@@ -76,11 +74,11 @@ public class TestClass
     }
 }";
 
-        await VerifyGeneratorRunsWithoutErrors(source);
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
     }
 
     [Fact]
-    public async Task SkippedTest_GeneratesWithSkipInfo()
+    public async Task SkippedTest_GeneratesWithSkipInfoAsync()
     {
         var source = @"
 using NextUnit;
@@ -96,11 +94,11 @@ public class TestClass
     }
 }";
 
-        await VerifyGeneratorRunsWithoutErrors(source);
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
     }
 
     [Fact]
-    public async Task TestWithLifecycle_GeneratesLifecycleHooks()
+    public async Task TestWithLifecycle_GeneratesLifecycleHooksAsync()
     {
         var source = @"
 using NextUnit;
@@ -125,11 +123,11 @@ public class TestClass
     }
 }";
 
-        await VerifyGeneratorRunsWithoutErrors(source);
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
     }
 
     [Fact]
-    public async Task TestWithDependencies_GeneratesDependencyInfo()
+    public async Task TestWithDependencies_GeneratesDependencyInfoAsync()
     {
         var source = @"
 using NextUnit;
@@ -150,11 +148,11 @@ public class TestClass
     }
 }";
 
-        await VerifyGeneratorRunsWithoutErrors(source);
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
     }
 
     [Fact]
-    public async Task ParallelConfiguration_GeneratesParallelInfo()
+    public async Task ParallelConfiguration_GeneratesParallelInfoAsync()
     {
         var source = @"
 using NextUnit;
@@ -176,10 +174,10 @@ public class TestClass
     }
 }";
 
-        await VerifyGeneratorRunsWithoutErrors(source);
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
     }
 
-    private static async Task VerifyGeneratorRunsWithoutErrors(string source)
+    private static async Task VerifyGeneratorRunsWithoutErrorsAsync(string source)
     {
         // Simple verification that the generator runs without throwing
         var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test

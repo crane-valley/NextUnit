@@ -2,7 +2,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
-using Microsoft.CodeAnalysis.Testing.Verifiers;
 
 namespace NextUnit.Generator.Tests;
 
@@ -10,17 +9,22 @@ namespace NextUnit.Generator.Tests;
 /// Test helper for NextUnit source generator tests.
 /// </summary>
 public static class CSharpSourceGeneratorVerifier<TSourceGenerator>
-    where TSourceGenerator : ISourceGenerator, new()
+    where TSourceGenerator : IIncrementalGenerator, new()
 {
-    public class Test : CSharpSourceGeneratorTest<TSourceGenerator, XUnitVerifier>
+    public class Test : CSharpSourceGeneratorTest<EmptySourceGeneratorProvider, DefaultVerifier>
     {
         public Test()
         {
             // Add NextUnit.Core assembly reference
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
-            
+
             // Add required assembly references
             TestState.AdditionalReferences.Add(typeof(TestAttribute).Assembly);
+        }
+
+        protected override IEnumerable<Type> GetSourceGenerators()
+        {
+            yield return typeof(TSourceGenerator);
         }
 
         protected override CompilationOptions CreateCompilationOptions()

@@ -24,7 +24,7 @@ public class RealWorldScenarioTests
 
     [Test]
     [Skip("Requires external API")]
-    public async Task ApiEndpoint_ReturnsSuccess()
+    public async Task ApiEndpoint_ReturnsSuccessAsync()
     {
         var response = await _httpClient!.GetAsync("/health");
         response.EnsureSuccessStatusCode();
@@ -50,7 +50,7 @@ public class RealWorldScenarioTests
     }
 
     [Test]
-    public async Task AsyncOperation_CompletesSuccessfully()
+    public async Task AsyncOperation_CompletesSuccessfullyAsync()
     {
         await Task.Delay(10);
         Assert.True(true);
@@ -119,7 +119,7 @@ public class OrderedIntegrationTests
 public class ResourceIntensiveTests
 {
     [Test]
-    public async Task HeavyComputation1()
+    public async Task HeavyComputation1Async()
     {
         await Task.Delay(100); // Simulate heavy work
         var result = PerformComputation();
@@ -127,7 +127,7 @@ public class ResourceIntensiveTests
     }
 
     [Test]
-    public async Task HeavyComputation2()
+    public async Task HeavyComputation2Async()
     {
         await Task.Delay(100); // Simulate heavy work
         var result = PerformComputation();
@@ -135,7 +135,7 @@ public class ResourceIntensiveTests
     }
 
     [Test]
-    public async Task HeavyComputation3()
+    public async Task HeavyComputation3Async()
     {
         await Task.Delay(100); // Simulate heavy work
         var result = PerformComputation();
@@ -167,7 +167,7 @@ public class ExceptionHandlingTests
     }
 
     [Test]
-    public async Task AsyncOperation_ThrowsException()
+    public async Task AsyncOperation_ThrowsExceptionAsync()
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {

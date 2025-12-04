@@ -1,5 +1,5 @@
 using Microsoft.CodeAnalysis;
-using Xunit;
+using Microsoft.CodeAnalysis.Testing;
 
 namespace NextUnit.Generator.Tests;
 
@@ -9,7 +9,7 @@ namespace NextUnit.Generator.Tests;
 public class DiagnosticTests
 {
     [Fact]
-    public async Task CircularDependency_ReportsError()
+    public async Task CircularDependency_ReportsErrorAsync()
     {
         var source = @"
 using NextUnit;
@@ -45,7 +45,7 @@ public class TestClass
     }
 
     [Fact]
-    public async Task UnresolvedDependency_ReportsWarning()
+    public async Task UnresolvedDependency_ReportsWarningAsync()
     {
         var source = @"
 using NextUnit;
@@ -75,7 +75,7 @@ public class TestClass
     }
 
     [Fact]
-    public async Task ValidDependency_NoWarning()
+    public async Task ValidDependency_NoWarningAsync()
     {
         var source = @"
 using NextUnit;
@@ -106,7 +106,7 @@ public class TestClass
     }
 
     [Fact]
-    public async Task SelfDependency_ReportsError()
+    public async Task SelfDependency_ReportsErrorAsync()
     {
         var source = @"
 using NextUnit;

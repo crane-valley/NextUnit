@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    
+    <!-- Package Information -->
+    <IsPackable>true</IsPackable>
+    <PackageId>NextUnit</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>NextUnit Contributors</Authors>
+    <Company>NextUnit</Company>
+    <Product>NextUnit</Product>
+    <Description>NextUnit - A modern, high-performance test framework for .NET 10+ that combines TUnit's architecture with xUnit's familiar assertions. This meta-package includes all required components for getting started with NextUnit.</Description>
+    <PackageTags>testing;test;framework;xunit;tunit;unittest;nextunit;metapackage</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/kiyoaki/NextUnit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/kiyoaki/NextUnit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>Copyright (c) 2025 NextUnit Contributors</Copyright>
+    <PackageReleaseNotes>See https://github.com/kiyoaki/NextUnit/blob/main/CHANGELOG.md for release notes.</PackageReleaseNotes>
+
+    <!-- Meta-package Settings -->
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <DevelopmentDependency>false</DevelopmentDependency>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- All NextUnit packages as project references for local build -->
+    <ProjectReference Include="..\NextUnit.Core\NextUnit.Core.csproj" PrivateAssets="none" />
+    <ProjectReference Include="..\NextUnit.Generator\NextUnit.Generator.csproj" PrivateAssets="none" />
+    <ProjectReference Include="..\NextUnit.Platform\NextUnit.Platform.csproj" PrivateAssets="none" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\NUGET_README.md" Pack="true" PackagePath="\README.md" />
+  </ItemGroup>
+
+</Project>

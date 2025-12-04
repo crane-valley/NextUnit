@@ -9,24 +9,24 @@ public class ParallelTests
     private static readonly object _lock = new();
 
     [Test]
-    public async Task ParallelTest1()
+    public async Task ParallelTest1Async()
     {
-        await SimulateWork();
+        await SimulateWorkAsync();
     }
 
     [Test]
-    public async Task ParallelTest2()
+    public async Task ParallelTest2Async()
     {
-        await SimulateWork();
+        await SimulateWorkAsync();
     }
 
     [Test]
-    public async Task ParallelTest3()
+    public async Task ParallelTest3Async()
     {
-        await SimulateWork();
+        await SimulateWorkAsync();
     }
 
-    private static async Task SimulateWork()
+    private static async Task SimulateWorkAsync()
     {
         lock (_lock)
         {
@@ -51,7 +51,7 @@ public class SerialTests
     private static int _runningTests;
 
     [Test]
-    public async Task SerialTest1()
+    public async Task SerialTest1Async()
     {
         _runningTests++;
         Assert.Equal(1, _runningTests);
@@ -60,7 +60,7 @@ public class SerialTests
     }
 
     [Test]
-    public async Task SerialTest2()
+    public async Task SerialTest2Async()
     {
         _runningTests++;
         Assert.Equal(1, _runningTests);
@@ -76,14 +76,14 @@ public class SerialTests
 public class LimitedParallelTests
 {
     [Test]
-    public async Task LimitedTest1() => await Task.Delay(50);
+    public async Task LimitedTest1Async() => await Task.Delay(50);
 
     [Test]
-    public async Task LimitedTest2() => await Task.Delay(50);
+    public async Task LimitedTest2Async() => await Task.Delay(50);
 
     [Test]
-    public async Task LimitedTest3() => await Task.Delay(50);
+    public async Task LimitedTest3Async() => await Task.Delay(50);
 
     [Test]
-    public async Task LimitedTest4() => await Task.Delay(50);
+    public async Task LimitedTest4Async() => await Task.Delay(50);
 }

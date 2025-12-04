@@ -8,14 +8,39 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Package Information -->
+    <PackageId>NextUnit.Generator</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>NextUnit Contributors</Authors>
+    <Company>NextUnit</Company>
+    <Product>NextUnit</Product>
+    <Description>Source generator for NextUnit test framework. Provides zero-reflection test discovery via compile-time code generation. Emits test registry with delegate-based method invocation for maximum performance and Native AOT compatibility.</Description>
+    <PackageTags>testing;test;framework;sourcegenerator;analyzer;roslyn;nextunit;aot;codegen</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/kiyoaki/NextUnit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/kiyoaki/NextUnit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>Copyright (c) 2025 NextUnit Contributors</Copyright>
+    <PackageReleaseNotes>See https://github.com/kiyoaki/NextUnit/blob/main/CHANGELOG.md for release notes.</PackageReleaseNotes>
+
+    <!-- Source Generator Settings -->
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

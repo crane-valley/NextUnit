@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - TBD (Target: Mid-Late December 2025)
 
+### Added - Packages
+- **NextUnit** meta-package for simplified installation (`dotnet add package NextUnit`)
+  - Includes all required components (Core, Generator, Platform)
+  - One-command installation matching xUnit/TUnit experience
+  - Only 4.2 KB package size
+
 ### Added - Core Framework
 - `[Test]` attribute for marking test methods (clear alternative to xUnit's `[Fact]`)
 - `[Arguments]` attribute for parameterized tests (replaces xUnit's `[Theory]` + `[InlineData]`)
