@@ -201,8 +201,20 @@ public static class TestDataExpander
         {
             try
             {
-                var result = methodInfo.Invoke(instance, arguments);
+                // Check if the method expects a CancellationToken as the last parameter
+                var parameters = methodInfo.GetParameters();
+                object?[] actualArguments = arguments;
+                if (parameters.Length > 0 &&
+                    parameters[^1].ParameterType == typeof(System.Threading.CancellationToken) &&
+                    (arguments.Length != parameters.Length || arguments[^1]?.GetType() != typeof(System.Threading.CancellationToken)))
+                {
+                    // Append ct to the arguments array
+                    actualArguments = new object?[arguments.Length + 1];
+                    arguments.CopyTo(actualArguments, 0);
+                    actualArguments[arguments.Length] = ct;
+                }
 
+                var result = methodInfo.Invoke(instance, actualArguments);
                 if (result is Task task)
                 {
                     await task.ConfigureAwait(false);
