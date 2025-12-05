@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`[TestData]` attribute support** - Source generator now processes `[TestData]` attributes for runtime test data expansion
+  - Static method data sources via `[TestData(nameof(MethodName))]`
+  - Static property data sources via `[TestData(nameof(PropertyName))]`
+  - External class data sources via `MemberType` property
+  - Multiple `[TestData]` attributes on same method
+  - Unique test IDs including source type to prevent collisions
+- **`TestDataDescriptor`** - Runtime descriptor for dynamic test data expansion
+- **`TestDataExpander`** - Resolves data sources at runtime and expands into test cases
+- **Generator diagnostic `NEXTUNIT003`** - Warning when both `[Arguments]` and `[TestData]` are used on same method
+
 ### Planned for v1.1
 - Category/Tag filtering with `[Category]` and `[Tag]` attributes
-- TestData full implementation with `[TestData]` attribute
 - Test output/logging integration
 - Session-scoped lifecycle
 - Performance benchmarks with large test suites (1,000+ tests)

@@ -2,12 +2,88 @@
 
 ## Quick Summary
 
-**Latest Session**: 2025-12-04 (M4 Phase 3 - NuGet Package Complete)  
+**Latest Session**: 2025-12-04 (TestData Attribute Implementation)  
 **Current Version**: 1.0.0-rc1 (Release Candidate)  
 **Completed Milestones**: M0, M1, M1.5, M2, M2.5, M3, M4 (All Phases Complete!)  
-**Test Count**: 86 tests (83 passed, 3 skipped, 0 failed)  
+**Test Count**: 102 tests (99 passed, 3 skipped, 0 failed)  
 **Next Milestone**: v1.0 Release!  
 **Target v1.0**: Ready for Release (This Week!)
+
+## Session 2025-12-04 (TestData Attribute Implementation)
+
+### Objectives
+1. ✅ Implement source generator support for `[TestData]` attribute
+2. ✅ Add runtime test data expansion via `TestDataDescriptor` and `TestDataExpander`
+3. ✅ Support static method, property, and external class data sources
+4. ✅ Handle multiple `[TestData]` attributes per test method
+5. ✅ Add diagnostic for conflicting `[Arguments]` and `[TestData]` usage
+
+### Major Accomplishments
+
+#### TestData Attribute Support Complete ✅
+
+**Source Generator Enhancements**:
+- ✅ Detect `[TestData(nameof(DataSource))]` attributes
+- ✅ Extract `MemberType` property for external class data sources
+- ✅ Generate `TestDataDescriptor` entries in registry
+- ✅ Include `ParameterTypes` for method overload resolution
+- ✅ Add diagnostic `NEXTUNIT003` when both `[Arguments]` and `[TestData]` are used
+
+**Runtime Expansion**:
+- ✅ `TestDataDescriptor` class for describing data sources
+- ✅ `TestDataExpander` helper for runtime data expansion
+- ✅ Support for static methods, properties, and fields as data sources
+- ✅ CancellationToken parameter handling for test methods
+- ✅ Unique test IDs including source type to prevent collisions
+
+**Sample Tests Added**:
+- ✅ Static method data source (`MultiplyTestCases`)
+- ✅ Static property data source (`DivisionTestCases`)
+- ✅ External class with `MemberType` (`ExternalTestDataSource`)
+- ✅ Multiple `[TestData]` attributes (`PositiveNumberCases` + `NegativeNumberCases`)
+
+### Test Results
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Test Count | 86 | 102 | +16 (+19%) |
+| Passed | 83 | 99 | +16 |
+| Skipped | 3 | 3 | 0 |
+| Failed | 0 | 0 | 0 |
+| Pass Rate | 100% | 100% | Maintained ✅ |
+
+### Technical Details
+
+**Test ID Format** (prevents collisions):
+```
+{BaseId}:{DataSourceType.FullName}.{DataSourceName}[index]
+```
+
+**Usage Examples**:
+```csharp
+// Static method data source
+public static IEnumerable<object[]> TestCases()
+{
+    yield return new object[] { 1, 2, 3 };
+}
+
+[Test]
+[TestData(nameof(TestCases))]
+public void Add_Works(int a, int b, int expected) { }
+
+// External class data source
+[Test]
+[TestData(nameof(SharedData.Cases), MemberType = typeof(SharedData))]
+public void Test(int value) { }
+
+// Multiple data sources
+[Test]
+[TestData(nameof(PositiveCases))]
+[TestData(nameof(NegativeCases))]
+public void Abs_Works(int value, int expected) { }
+```
+
+---
 
 ## Session 2025-12-04 (M4 Phase 3 - NuGet Package Preparation Complete)
 

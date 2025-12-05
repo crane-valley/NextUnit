@@ -50,8 +50,8 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 |---------------|---------------------|--------|-------|
 | `[Fact]` | `[Test]` | ✅ Implemented | Clearer naming |
 | `[Theory]` with `[InlineData]` | `[Test]` with `[Arguments]` | ✅ Implemented | Source generator support |
-| `[MemberData]` | `[TestData]` | 📋 M2.5 - Planned | AOT-compatible data source |
-| `[ClassData]` | `[TestData]` | 📋 M2.5 - Planned | Unified data source API |
+| `[MemberData]` | `[TestData]` | ✅ Implemented | Runtime data source expansion |
+| `[ClassData]` | `[TestData]` | ✅ Implemented | Unified data source API |
 | Constructor injection (fixtures) | Constructor injection | ✅ Implemented | Class-scoped lifecycle |
 | `IClassFixture<T>` | Class-scoped `[Before]`/`[After]` | ✅ Implemented | More explicit control |
 | `ICollectionFixture<T>` | Assembly-scoped lifecycle | ✅ Implemented | Deterministic ordering |
@@ -182,13 +182,13 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 - ✅ Comprehensive usage examples for all features (DONE)
 - ✅ RealWorldScenarioTests.cs with 21 practical test cases (DONE)
 - ✅ Code formatting applied to entire solution (DONE)
-- ❌ TestData full implementation (DEFERRED - requires runtime reflection)
+- ✅ TestData full implementation (IMPLEMENTED - runtime expansion via TestDataDescriptor)
 - ❌ Generator unit tests with Microsoft.CodeAnalysis.Testing (DEFERRED - package compatibility)
 - ❌ Performance benchmarks (DEFERRED to M3+ - needs large test project)
 
 **Technical Achievements**:
-- ✅ TestDataAttribute API designed for future implementation
-- ✅ 67 comprehensive test cases covering all features
+- ✅ TestDataAttribute fully implemented with runtime expansion
+- ✅ 102 comprehensive test cases covering all features (including 16 TestData tests)
 - ✅ Real-world scenarios: HTTP, async, exceptions, ordering, parallelism
 - ✅ Documentation quality significantly improved
 - ✅ All code formatted to project standards
@@ -198,6 +198,7 @@ NextUnit aims to provide **all essential xUnit features** with higher performanc
 README.md additions:
 - Multi-scope lifecycle examples (Test/Class/Assembly)
 - Parameterized test examples with Arguments
+- TestData attribute examples (methods, properties, external classes)
 - Skip test examples with reasons
 - Real-world integration patterns
 - Updated feature list to v0.2-alpha
@@ -213,6 +214,11 @@ Sample Tests additions:
   * Ordered integration tests with DependsOn
   * Resource-intensive tests with ParallelLimit
   * Exception handling patterns
+- ParameterizedTests.cs (16 TestData tests):
+  * Static method data sources
+  * Static property data sources
+  * External class data sources with MemberType
+  * Multiple TestData attributes
 ```
 
 **Test Coverage Expansion**:
@@ -220,17 +226,27 @@ Sample Tests additions:
 |--------------|------------|---------|
 | Basic Tests | 24 | Core functionality validation |
 | Parameterized Tests | 11 | Arguments attribute validation |
+| TestData Tests | 16 | TestData attribute validation |
 | Display Name Tests | 4 | Display name formatting |
 | Class Lifecycle | 5 | Class-scoped lifecycle |
 | Assembly Lifecycle | 2 | Assembly-scoped lifecycle |
 | Real-World Scenarios | 21 | Practical usage patterns |
-| **Total** | **67** | **Comprehensive coverage** |
+| **Total** | **102** | **Comprehensive coverage** |
 
-**TestDataAttribute Design**:
+**TestData Implementation** (COMPLETE):
 ```csharp
+// Static method data source
 [TestData(nameof(TestDataMethod))]
+
+// Static property data source
 [TestData(nameof(TestDataProperty))]
+
+// External class data source
 [TestData(nameof(ExternalClass.DataSource), MemberType = typeof(ExternalClass))]
+
+// Multiple data sources (all tests combined)
+[TestData(nameof(PositiveCases))]
+[TestData(nameof(NegativeCases))]
 
 public static IEnumerable<object[]> TestDataMethod()
 {
@@ -245,16 +261,11 @@ public static IEnumerable<object[]> TestDataProperty => new[]
 };
 ```
 
-**Design Decision: TestData Implementation Deferred**
-- **Challenge**: Source generators cannot execute methods to retrieve data at compile time
-- **Requirement**: Would need runtime reflection to invoke data source methods
-- **Conflict**: Violates zero-reflection execution principle
-- **Decision**: Defer full implementation to future milestone when architecture solution is determined
-- **Alternative**: Arguments attribute provides sufficient coverage for inline data scenarios
-- **Future Options**: 
-  1. Limited reflection for TestData only (acceptable trade-off)
-  2. Compile-time constant data sources only
-  3. Hybrid approach with optional runtime expansion
+**TestData Architecture**:
+- **Design**: Source generator emits `TestDataDescriptor` entries, runtime expands to test cases
+- **ID Format**: `{BaseId}:{DataSourceType.FullName}.{DataSourceName}[index]` prevents collisions
+- **Reflection Usage**: Limited to data source invocation only (acceptable trade-off)
+- **Features**: Method overload resolution via ParameterTypes, CancellationToken support
 
 **Code Quality**:
 - ✅ dotnet format applied to entire solution
@@ -328,7 +339,6 @@ After completing M0-M3 ahead of schedule (2 weeks vs 10 weeks planned), we're re
 
 **📋 Post-v1.0 Backlog (v1.1+)**:
 - Category/Tag filtering (complex, not blocking v1.0)
-- TestData full implementation (architectural complexity)
 - Test output/logging integration (nice-to-have)
 - Session-scoped lifecycle (rarely used)
 - Large-scale performance benchmarks (validation, not core feature)

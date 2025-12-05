@@ -86,6 +86,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var dependencies = GetDependencies(methodSymbol);
         var (isSkipped, skipReason) = GetSkipInfo(methodSymbol);
         var argumentSets = GetArgumentSets(methodSymbol);
+        var testDataSources = GetTestDataSources(methodSymbol);
         var parameters = methodSymbol.Parameters;
 
         return new TestMethodDescriptor(
@@ -99,6 +100,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             isSkipped,
             skipReason,
             argumentSets,
+            testDataSources,
             parameters);
     }
 
@@ -200,6 +202,21 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                         depId));
                 }
             }
+
+            // Warn when both [Arguments] and [TestData] are used on the same method
+            if (!test.ArgumentSets.IsDefaultOrEmpty && !test.TestDataSources.IsDefaultOrEmpty)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    new DiagnosticDescriptor(
+                        "NEXTUNIT003",
+                        "Conflicting test data attributes",
+                        "Test '{0}' has both [Arguments] and [TestData] attributes. [Arguments] will be ignored and only [TestData] will be processed. Remove one of them to avoid confusion.",
+                        "NextUnit",
+                        DiagnosticSeverity.Warning,
+                        isEnabledByDefault: true),
+                    Location.None,
+                    test.Id));
+            }
         }
     }
 
@@ -277,11 +294,27 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         builder.AppendLine("    }");
         builder.AppendLine();
 
+        // Separate tests with TestData from regular tests
+        var regularTests = new List<TestMethodDescriptor>();
+        var testDataTests = new List<TestMethodDescriptor>();
+
+        foreach (var test in tests)
+        {
+            if (test.TestDataSources.IsDefaultOrEmpty)
+            {
+                regularTests.Add(test);
+            }
+            else
+            {
+                testDataTests.Add(test);
+            }
+        }
+
         builder.AppendLine("    public static global::System.Collections.Generic.IReadOnlyList<global::NextUnit.Internal.TestCaseDescriptor> TestCases { get; } =");
         builder.AppendLine("        new global::NextUnit.Internal.TestCaseDescriptor[]");
         builder.AppendLine("        {");
 
-        foreach (var test in tests)
+        foreach (var test in regularTests)
         {
             var lifecycleMethods = lifecycleByType.TryGetValue(test.FullyQualifiedTypeName, out var methods)
                 ? methods
@@ -301,8 +334,57 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         }
 
         builder.AppendLine("        };");
+        builder.AppendLine();
+
+        // Generate TestDataDescriptors for tests using [TestData]
+        builder.AppendLine("    public static global::System.Collections.Generic.IReadOnlyList<global::NextUnit.Internal.TestDataDescriptor> TestDataDescriptors { get; } =");
+        builder.AppendLine("        new global::NextUnit.Internal.TestDataDescriptor[]");
+        builder.AppendLine("        {");
+
+        foreach (var test in testDataTests)
+        {
+            var lifecycleMethods = lifecycleByType.TryGetValue(test.FullyQualifiedTypeName, out var methods)
+                ? methods
+                : new List<LifecycleMethodDescriptor>();
+
+            foreach (var dataSource in test.TestDataSources)
+            {
+                EmitTestDataDescriptor(builder, test, lifecycleMethods, dataSource);
+            }
+        }
+
+        builder.AppendLine("        };");
         builder.AppendLine("}");
         return builder.ToString();
+    }
+
+    private static void EmitTestDataDescriptor(
+        StringBuilder builder,
+        TestMethodDescriptor test,
+        List<LifecycleMethodDescriptor> lifecycleMethods,
+        TestDataSource dataSource)
+    {
+        var dataSourceType = dataSource.MemberTypeName ?? test.FullyQualifiedTypeName;
+
+        builder.AppendLine("            new global::NextUnit.Internal.TestDataDescriptor");
+        builder.AppendLine("            {");
+        builder.AppendLine($"                BaseId = {ToLiteral(test.Id)},");
+        builder.AppendLine($"                DisplayName = {ToLiteral(test.DisplayName)},");
+        builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
+        builder.AppendLine($"                MethodName = {ToLiteral(test.MethodName)},");
+        builder.AppendLine($"                DataSourceName = {ToLiteral(dataSource.MemberName)},");
+        builder.AppendLine($"                DataSourceType = typeof({dataSourceType}),");
+        builder.AppendLine($"                ParameterTypes = {BuildParameterTypesLiteral(test.Parameters)},");
+        builder.AppendLine($"                Lifecycle = {BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
+        builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
+        builder.AppendLine("                {");
+        builder.AppendLine($"                    NotInParallel = {test.NotInParallel.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    ParallelLimit = {(test.ParallelLimit is int limit ? limit.ToString(CultureInfo.InvariantCulture) : "null")}");
+        builder.AppendLine("                },");
+        builder.AppendLine($"                Dependencies = {BuildDependenciesLiteral(test.Dependencies)},");
+        builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? ToLiteral(test.SkipReason) : "null")}");
+        builder.AppendLine("            },");
     }
 
     private static void EmitTestCase(
@@ -652,6 +734,30 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
+    private static string BuildParameterTypesLiteral(ImmutableArray<IParameterSymbol> parameters)
+    {
+        if (parameters.IsDefaultOrEmpty)
+        {
+            return "global::System.Array.Empty<global::System.Type>()";
+        }
+
+        var builder = new StringBuilder();
+        builder.Append("new global::System.Type[] { ");
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+
+            builder.Append($"typeof({parameters[i].Type.ToDisplayString(FullyQualifiedTypeFormat)})");
+        }
+
+        builder.Append(" }");
+        return builder.ToString();
+    }
+
     private static ImmutableArray<string> GetDependencies(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<string>();
@@ -743,17 +849,45 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToImmutable();
     }
 
-    private static bool HasAttribute(ISymbol symbol, string metadataName)
+    private static ImmutableArray<TestDataSource> GetTestDataSources(IMethodSymbol methodSymbol)
     {
-        foreach (var attribute in symbol.GetAttributes())
+        var builder = ImmutableArray.CreateBuilder<TestDataSource>();
+
+        foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (IsAttribute(attribute, metadataName))
+            if (!IsAttribute(attribute, TestDataAttributeMetadataName))
             {
-                return true;
+                continue;
             }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments[0].Value is not string memberName ||
+                string.IsNullOrEmpty(memberName))
+            {
+                continue;
+            }
+
+            // Check for MemberType named argument
+            var memberTypeArg = attribute.NamedArguments
+                .Where(arg => arg.Key == "MemberType" && arg.Value.Value is INamedTypeSymbol)
+                .Select(arg => (INamedTypeSymbol)arg.Value.Value!)
+                .FirstOrDefault();
+
+            string? memberTypeName = memberTypeArg?.ToDisplayString(FullyQualifiedTypeFormat);
+
+            builder.Add(new TestDataSource(memberName, memberTypeName));
         }
 
-        return false;
+        return builder.ToImmutable();
+    }
+
+    private static bool HasAttribute(ISymbol symbol, string metadataName)
+    {
+        return symbol.GetAttributes().Any(attribute => IsAttribute(attribute, metadataName));
     }
 
     private static bool IsAttribute(AttributeData attribute, string metadataName)
@@ -837,6 +971,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     private const string DependsOnMetadataName = "global::NextUnit.DependsOnAttribute";
     private const string SkipAttributeMetadataName = "global::NextUnit.SkipAttribute";
     private const string ArgumentsAttributeMetadataName = "global::NextUnit.ArgumentsAttribute";
+    private const string TestDataAttributeMetadataName = "global::NextUnit.TestDataAttribute";
 
     private static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
@@ -865,6 +1000,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             bool isSkipped,
             string? skipReason,
             ImmutableArray<ImmutableArray<TypedConstant>> argumentSets,
+            ImmutableArray<TestDataSource> testDataSources,
             ImmutableArray<IParameterSymbol> parameters)
         {
             Id = id;
@@ -877,6 +1013,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             IsSkipped = isSkipped;
             SkipReason = skipReason;
             ArgumentSets = argumentSets;
+            TestDataSources = testDataSources;
             Parameters = parameters;
         }
 
@@ -890,6 +1027,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         public bool IsSkipped { get; }
         public string? SkipReason { get; }
         public ImmutableArray<ImmutableArray<TypedConstant>> ArgumentSets { get; }
+        public ImmutableArray<TestDataSource> TestDataSources { get; }
         public ImmutableArray<IParameterSymbol> Parameters { get; }
     }
 
@@ -911,5 +1049,17 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         public string MethodName { get; }
         public ImmutableArray<int> BeforeScopes { get; }
         public ImmutableArray<int> AfterScopes { get; }
+    }
+
+    private sealed class TestDataSource
+    {
+        public TestDataSource(string memberName, string? memberTypeName)
+        {
+            MemberName = memberName;
+            MemberTypeName = memberTypeName;
+        }
+
+        public string MemberName { get; }
+        public string? MemberTypeName { get; }
     }
 }
