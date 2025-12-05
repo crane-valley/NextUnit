@@ -210,7 +210,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                     new DiagnosticDescriptor(
                         "NEXTUNIT003",
                         "Conflicting test data attributes",
-                        "Test '{0}' has both [Arguments] and [TestData] attributes. Only [TestData] will be processed.",
+                        "Test '{0}' has both [Arguments] and [TestData] attributes. [Arguments] will be ignored and only [TestData] will be processed. Remove one of them to avoid confusion.",
                         "NextUnit",
                         DiagnosticSeverity.Warning,
                         isEnabledByDefault: true),

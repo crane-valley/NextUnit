@@ -205,11 +205,12 @@ public static class TestDataExpander
             try
             {
                 // Check if the method expects a CancellationToken as the last parameter
+                // and we need to append it to the arguments
                 var parameters = methodInfo.GetParameters();
                 object?[] actualArguments = arguments;
                 if (parameters.Length > 0 &&
                     parameters[^1].ParameterType == typeof(System.Threading.CancellationToken) &&
-                    (arguments.Length != parameters.Length || arguments[^1]?.GetType() != typeof(System.Threading.CancellationToken)))
+                    arguments.Length < parameters.Length)
                 {
                     // Append ct to the arguments array
                     actualArguments = new object?[arguments.Length + 1];
