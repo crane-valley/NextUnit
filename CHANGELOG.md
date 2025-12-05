@@ -20,7 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned for v1.1
 - Category/Tag filtering with `[Category]` and `[Tag]` attributes
-- TestData full implementation with `[TestData]` attribute
 - Test output/logging integration
 - Session-scoped lifecycle
 - Performance benchmarks with large test suites (1,000+ tests)
