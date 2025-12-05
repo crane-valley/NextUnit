@@ -872,15 +872,12 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             }
 
             // Check for MemberType named argument
-            string? memberTypeName = null;
-            foreach (var arg in attribute.NamedArguments)
-            {
-                if (arg.Key == "MemberType" && arg.Value.Value is INamedTypeSymbol typeSymbol)
-                {
-                    memberTypeName = typeSymbol.ToDisplayString(FullyQualifiedTypeFormat);
-                    break;
-                }
-            }
+            var memberTypeArg = attribute.NamedArguments
+                .Where(arg => arg.Key == "MemberType" && arg.Value.Value is INamedTypeSymbol)
+                .Select(arg => (INamedTypeSymbol)arg.Value.Value!)
+                .FirstOrDefault();
+
+            string? memberTypeName = memberTypeArg?.ToDisplayString(FullyQualifiedTypeFormat);
 
             builder.Add(new TestDataSource(memberName, memberTypeName));
         }
