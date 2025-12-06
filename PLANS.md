@@ -509,7 +509,7 @@ All technical milestones complete. NextUnit v1.0 is production-ready with:
   - `NEXTUNIT_EXCLUDE_TAGS` - Exclude matching tags
 - ✅ Updated `NextUnitFramework` to apply filters during test discovery
 - ✅ Exclude filters take precedence over include filters
-- ✅ AND logic between category and tag filters
+- ✅ OR logic between category and tag filters
 - ✅ Case-insensitive filtering
 - ✅ Multiple values supported via comma-separated lists
 
