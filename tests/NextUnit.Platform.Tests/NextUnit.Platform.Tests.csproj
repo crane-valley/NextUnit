@@ -27,8 +27,4 @@
     <ProjectReference Include="..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <InternalsVisibleTo Include="NextUnit.Platform.Tests" />
-  </ItemGroup>
-
 </Project>
