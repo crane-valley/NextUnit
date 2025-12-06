@@ -135,7 +135,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             fullyQualifiedTypeName,
             methodSymbol.Name,
             beforeScopes,
-            afterScopes);
+            afterScopes,
+            methodSymbol.IsStatic);
     }
 
     private static void EmitRegistry(
@@ -655,19 +656,30 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
-    private static string BuildLifecycleMethodDelegate(string typeName, string methodName)
+    private static string BuildLifecycleMethodDelegate(string typeName, string methodName, bool isStatic)
     {
-        return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeLifecycleMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
+        if (isStatic)
+        {
+            // Static methods don't need an instance
+            return $"static async (instance, ct) => {{ await InvokeLifecycleMethodAsync({typeName}.{methodName}, ct).ConfigureAwait(false); }}";
+        }
+        else
+        {
+            // Instance methods need to cast the instance
+            return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeLifecycleMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
+        }
     }
 
     private static string BuildLifecycleInfoLiteral(string typeName, List<LifecycleMethodDescriptor> lifecycleMethods)
     {
-        var beforeTest = lifecycleMethods.Where(m => m.BeforeScopes.Contains(0)).Select(m => m.MethodName).ToList();
-        var afterTest = lifecycleMethods.Where(m => m.AfterScopes.Contains(0)).Select(m => m.MethodName).ToList();
-        var beforeClass = lifecycleMethods.Where(m => m.BeforeScopes.Contains(1)).Select(m => m.MethodName).ToList();
-        var afterClass = lifecycleMethods.Where(m => m.AfterScopes.Contains(1)).Select(m => m.MethodName).ToList();
-        var beforeAssembly = lifecycleMethods.Where(m => m.BeforeScopes.Contains(2)).Select(m => m.MethodName).ToList();
-        var afterAssembly = lifecycleMethods.Where(m => m.AfterScopes.Contains(2)).Select(m => m.MethodName).ToList();
+        var beforeTest = lifecycleMethods.Where(m => m.BeforeScopes.Contains(0)).ToList();
+        var afterTest = lifecycleMethods.Where(m => m.AfterScopes.Contains(0)).ToList();
+        var beforeClass = lifecycleMethods.Where(m => m.BeforeScopes.Contains(1)).ToList();
+        var afterClass = lifecycleMethods.Where(m => m.AfterScopes.Contains(1)).ToList();
+        var beforeAssembly = lifecycleMethods.Where(m => m.BeforeScopes.Contains(2)).ToList();
+        var afterAssembly = lifecycleMethods.Where(m => m.AfterScopes.Contains(2)).ToList();
+        var beforeSession = lifecycleMethods.Where(m => m.BeforeScopes.Contains(3)).ToList();
+        var afterSession = lifecycleMethods.Where(m => m.AfterScopes.Contains(3)).ToList();
 
         var builder = new StringBuilder();
         builder.AppendLine("new global::NextUnit.Internal.LifecycleInfo");
@@ -695,15 +707,23 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
 
         builder.Append("                    AfterAssemblyMethods = ");
         AppendLifecycleMethodArray(builder, typeName, afterAssembly);
+        builder.AppendLine(",");
+
+        builder.Append("                    BeforeSessionMethods = ");
+        AppendLifecycleMethodArray(builder, typeName, beforeSession);
+        builder.AppendLine(",");
+
+        builder.Append("                    AfterSessionMethods = ");
+        AppendLifecycleMethodArray(builder, typeName, afterSession);
         builder.AppendLine();
 
         builder.Append("                }");
         return builder.ToString();
     }
 
-    private static void AppendLifecycleMethodArray(StringBuilder builder, string typeName, List<string> methodNames)
+    private static void AppendLifecycleMethodArray(StringBuilder builder, string typeName, List<LifecycleMethodDescriptor> methods)
     {
-        if (methodNames.Count == 0)
+        if (methods.Count == 0)
         {
             builder.Append("global::System.Array.Empty<global::NextUnit.Internal.LifecycleMethodDelegate>()");
         }
@@ -711,9 +731,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         {
             builder.AppendLine("new global::NextUnit.Internal.LifecycleMethodDelegate[]");
             builder.AppendLine("                    {");
-            foreach (var methodName in methodNames)
+            foreach (var method in methods)
             {
-                builder.AppendLine($"                        {BuildLifecycleMethodDelegate(typeName, methodName)},");
+                builder.AppendLine($"                        {BuildLifecycleMethodDelegate(typeName, method.MethodName, method.IsStatic)},");
             }
             builder.Append("                    }");
         }
@@ -1160,18 +1180,21 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             string fullyQualifiedTypeName,
             string methodName,
             ImmutableArray<int> beforeScopes,
-            ImmutableArray<int> afterScopes)
+            ImmutableArray<int> afterScopes,
+            bool isStatic)
         {
             FullyQualifiedTypeName = fullyQualifiedTypeName;
             MethodName = methodName;
             BeforeScopes = beforeScopes;
             AfterScopes = afterScopes;
+            IsStatic = isStatic;
         }
 
         public string FullyQualifiedTypeName { get; }
         public string MethodName { get; }
         public ImmutableArray<int> BeforeScopes { get; }
         public ImmutableArray<int> AfterScopes { get; }
+        public bool IsStatic { get; }
     }
 
     private sealed class TestDataSource

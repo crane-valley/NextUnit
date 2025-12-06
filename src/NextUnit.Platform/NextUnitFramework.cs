@@ -29,6 +29,9 @@ internal sealed class NextUnitFramework :
     private readonly TestExecutionEngine _engine = new();
     private IReadOnlyList<TestCaseDescriptor>? _testCases;
     private readonly TestFilterConfiguration _filterConfig;
+    private bool _sessionSetupExecuted;
+    private readonly List<LifecycleMethodDelegate> _sessionBeforeMethods = new();
+    private readonly List<LifecycleMethodDelegate> _sessionAfterMethods = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NextUnitFramework"/> class.
@@ -83,10 +86,22 @@ internal sealed class NextUnitFramework :
     /// </summary>
     /// <param name="context">The context for creating the test session.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the test session creation.</returns>
-    public Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
+    public async Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
     {
-        _ = context; // TODO: Will be used in future implementation
-        return Task.FromResult(new CreateTestSessionResult { IsSuccess = true });
+        // Collect session-level lifecycle methods from test cases
+        var testCases = GetTestCases();
+        if (testCases.Count > 0 && !_sessionSetupExecuted)
+        {
+            var firstTest = testCases[0];
+            _sessionBeforeMethods.AddRange(firstTest.Lifecycle.BeforeSessionMethods);
+            _sessionAfterMethods.AddRange(firstTest.Lifecycle.AfterSessionMethods);
+
+            // Execute session setup methods
+            await ExecuteSessionSetupAsync(context.CancellationToken).ConfigureAwait(false);
+            _sessionSetupExecuted = true;
+        }
+
+        return new CreateTestSessionResult { IsSuccess = true };
     }
 
     /// <summary>
@@ -115,10 +130,12 @@ internal sealed class NextUnitFramework :
     /// </summary>
     /// <param name="context">The context for closing the test session.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the test session closure.</returns>
-    public Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
+    public async Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
     {
-        _ = context; // TODO: Will be used in future implementation
-        return Task.FromResult(new CloseTestSessionResult { IsSuccess = true });
+        // Execute session teardown methods
+        await ExecuteSessionTeardownAsync(context.CancellationToken).ConfigureAwait(false);
+
+        return new CloseTestSessionResult { IsSuccess = true };
     }
 
     private IReadOnlyList<TestCaseDescriptor> GetTestCases()
@@ -257,6 +274,25 @@ internal sealed class NextUnitFramework :
         }
 
         return Array.Empty<string>();
+    }
+
+    private async Task ExecuteSessionSetupAsync(CancellationToken cancellationToken)
+    {
+        // Session-scoped lifecycle methods don't require an instance (they should be static)
+        // We use null as the instance since session methods should be static
+        foreach (var beforeMethod in _sessionBeforeMethods)
+        {
+            await beforeMethod(null!, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ExecuteSessionTeardownAsync(CancellationToken cancellationToken)
+    {
+        // Execute session teardown methods in reverse order
+        for (int i = _sessionAfterMethods.Count - 1; i >= 0; i--)
+        {
+            await _sessionAfterMethods[i](null!, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async Task DiscoverAsync(
