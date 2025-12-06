@@ -1,7 +1,6 @@
 # GitHub Copilot Instructions (Short Version)
 
 ## Language Rules
-- Chat responses must be **Japanese**.
 - All **source code comments** must be **English**.
 - Code comments should explain **why**, not what.
 
@@ -24,7 +23,6 @@
   - Code snippets should already follow typical `dotnet format` conventions.
 
 ## Interaction Rules
-- Explanations outside code → **Japanese**.
 - Code blocks → language only + English comments.
 - Avoid unnecessary dependencies or boilerplate.
 
