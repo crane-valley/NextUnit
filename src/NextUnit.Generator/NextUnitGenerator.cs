@@ -88,6 +88,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var argumentSets = GetArgumentSets(methodSymbol);
         var testDataSources = GetTestDataSources(methodSymbol);
         var parameters = methodSymbol.Parameters;
+        var categories = GetCategories(methodSymbol, typeSymbol);
+        var tags = GetTags(methodSymbol, typeSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -101,7 +103,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             skipReason,
             argumentSets,
             testDataSources,
-            parameters);
+            parameters,
+            categories,
+            tags);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
@@ -383,7 +387,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         builder.AppendLine("                },");
         builder.AppendLine($"                Dependencies = {BuildDependenciesLiteral(test.Dependencies)},");
         builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
-        builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? ToLiteral(test.SkipReason) : "null")}");
+        builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? ToLiteral(test.SkipReason) : "null")},");
+        builder.AppendLine($"                Categories = {BuildStringArrayLiteral(test.Categories)},");
+        builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)}");
         builder.AppendLine("            },");
     }
 
@@ -431,12 +437,15 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
 
         if (arguments.HasValue)
         {
-            builder.AppendLine($"                Arguments = {BuildArgumentsLiteral(arguments.Value)}");
+            builder.AppendLine($"                Arguments = {BuildArgumentsLiteral(arguments.Value)},");
         }
         else
         {
-            builder.AppendLine("                Arguments = null");
+            builder.AppendLine("                Arguments = null,");
         }
+
+        builder.AppendLine($"                Categories = {BuildStringArrayLiteral(test.Categories)},");
+        builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)}");
 
         builder.AppendLine("            },");
     }
@@ -734,6 +743,30 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
+    private static string BuildStringArrayLiteral(ImmutableArray<string> strings)
+    {
+        if (strings.IsDefaultOrEmpty)
+        {
+            return "global::System.Array.Empty<string>()";
+        }
+
+        var builder = new StringBuilder();
+        builder.Append("new string[] { ");
+
+        for (var i = 0; i < strings.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+
+            builder.Append(ToLiteral(strings[i]));
+        }
+
+        builder.Append(" }");
+        return builder.ToString();
+    }
+
     private static string BuildParameterTypesLiteral(ImmutableArray<IParameterSymbol> parameters)
     {
         if (parameters.IsDefaultOrEmpty)
@@ -889,6 +922,84 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToImmutable();
     }
 
+    private static ImmutableArray<string> GetCategories(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        var builder = ImmutableArray.CreateBuilder<string>();
+
+        // Get categories from method
+        foreach (var attribute in methodSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, CategoryAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length > 0 &&
+                attribute.ConstructorArguments[0].Value is string categoryName &&
+                !string.IsNullOrWhiteSpace(categoryName))
+            {
+                builder.Add(categoryName);
+            }
+        }
+
+        // Get categories from class
+        foreach (var attribute in typeSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, CategoryAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length > 0 &&
+                attribute.ConstructorArguments[0].Value is string categoryName &&
+                !string.IsNullOrWhiteSpace(categoryName))
+            {
+                builder.Add(categoryName);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static ImmutableArray<string> GetTags(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        var builder = ImmutableArray.CreateBuilder<string>();
+
+        // Get tags from method
+        foreach (var attribute in methodSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, TagAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length > 0 &&
+                attribute.ConstructorArguments[0].Value is string tagName &&
+                !string.IsNullOrWhiteSpace(tagName))
+            {
+                builder.Add(tagName);
+            }
+        }
+
+        // Get tags from class
+        foreach (var attribute in typeSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, TagAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length > 0 &&
+                attribute.ConstructorArguments[0].Value is string tagName &&
+                !string.IsNullOrWhiteSpace(tagName))
+            {
+                builder.Add(tagName);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
     private static bool HasAttribute(ISymbol symbol, string metadataName)
     {
         return symbol.GetAttributes().Any(attribute => IsAttribute(attribute, metadataName));
@@ -976,6 +1087,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     private const string SkipAttributeMetadataName = "global::NextUnit.SkipAttribute";
     private const string ArgumentsAttributeMetadataName = "global::NextUnit.ArgumentsAttribute";
     private const string TestDataAttributeMetadataName = "global::NextUnit.TestDataAttribute";
+    private const string CategoryAttributeMetadataName = "global::NextUnit.CategoryAttribute";
+    private const string TagAttributeMetadataName = "global::NextUnit.TagAttribute";
 
     private static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
@@ -1005,7 +1118,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             string? skipReason,
             ImmutableArray<ImmutableArray<TypedConstant>> argumentSets,
             ImmutableArray<TestDataSource> testDataSources,
-            ImmutableArray<IParameterSymbol> parameters)
+            ImmutableArray<IParameterSymbol> parameters,
+            ImmutableArray<string> categories,
+            ImmutableArray<string> tags)
         {
             Id = id;
             DisplayName = displayName;
@@ -1019,6 +1134,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             ArgumentSets = argumentSets;
             TestDataSources = testDataSources;
             Parameters = parameters;
+            Categories = categories;
+            Tags = tags;
         }
 
         public string Id { get; }
@@ -1033,6 +1150,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         public ImmutableArray<ImmutableArray<TypedConstant>> ArgumentSets { get; }
         public ImmutableArray<TestDataSource> TestDataSources { get; }
         public ImmutableArray<IParameterSymbol> Parameters { get; }
+        public ImmutableArray<string> Categories { get; }
+        public ImmutableArray<string> Tags { get; }
     }
 
     private sealed class LifecycleMethodDescriptor
