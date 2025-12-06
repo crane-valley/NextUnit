@@ -7,11 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for v1.1
-- Category/Tag filtering with `[Category]` and `[Tag]` attributes
+### Planned for v1.2
+- CLI arguments for category/tag filtering (--category, --tag, --exclude-category, --exclude-tag)
 - Test output/logging integration
 - Session-scoped lifecycle
 - Performance benchmarks with large test suites (1,000+ tests)
+
+## [1.1.0] - 2025-12-06
+
+### Added - Category and Tag Filtering
+- **`[Category]` attribute** - Organize tests into broad categories (e.g., "Integration", "Unit")
+  - Can be applied to classes and methods
+  - Method attributes are combined with class-level attributes
+  - Multiple categories supported via multiple attributes
+- **`[Tag]` attribute** - Fine-grained test classification (e.g., "Slow", "RequiresNetwork")
+  - Can be applied to classes and methods
+  - Method attributes are combined with class-level attributes
+  - Multiple tags supported via multiple attributes
+- **Test filtering via environment variables**:
+  - `NEXTUNIT_INCLUDE_CATEGORIES` - Run only tests with specified categories (comma-separated)
+  - `NEXTUNIT_EXCLUDE_CATEGORIES` - Exclude tests with specified categories (comma-separated)
+  - `NEXTUNIT_INCLUDE_TAGS` - Run only tests with specified tags (comma-separated)
+  - `NEXTUNIT_EXCLUDE_TAGS` - Exclude tests with specified tags (comma-separated)
+- **`TestFilterConfiguration` class** - Flexible filtering logic
+  - Exclude filters take precedence over include filters
+  - OR logic between category and tag filters
+  - OR logic within same filter type (e.g., multiple categories)
+- **Source generator enhancements**:
+  - Extract `[Category]` attributes from both method and class level
+  - Extract `[Tag]` attributes from both method and class level
+  - Emit categories and tags in generated `TestCaseDescriptor` and `TestDataDescriptor`
+  - Added `BuildStringArrayLiteral` helper for code generation
+
+### Changed
+- Test count increased from 102 to 113 tests
+  - Added 11 new tests demonstrating category/tag filtering functionality
+  - `CategoryAndTagTests` class (6 tests)
+  - `FilterValidationTests` class (5 tests)
 
 ## [1.0.0] - 2025-12-06
 
