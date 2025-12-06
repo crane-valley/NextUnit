@@ -7,7 +7,7 @@
 - **TUnit's modern architecture** - Microsoft.Testing.Platform, Native AOT, source generators
 - **xUnit's familiar assertions** - Classic `Assert.Equal(expected, actual)`, no fluent syntax
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -88,7 +88,7 @@ public class CalculatorTests
 dotnet run
 ```
 
-## ✨ Key Features
+## Key Features
 
 - **Zero-reflection execution** - 50x faster test discovery via source generators
 - **Rich assertions** - Collections, strings, numerics with great error messages
@@ -97,7 +97,7 @@ dotnet run
 - **Test dependencies** - `[DependsOn]` for ordered execution
 - **Native AOT compatible** - Full trim and AOT support
 
-## 📦 Packages
+## Packages
 
 | Package | Description | Size |
 |---------|-------------|------|
@@ -108,14 +108,14 @@ dotnet run
 
 **Total Size**: 72.4 KB (ultra-lightweight!)
 
-## 📚 Documentation
+## Documentation
 
 - **[Getting Started Guide](https://github.com/crane-valley/NextUnit/blob/main/docs/GETTING_STARTED.md)**
 - **[Migration from xUnit](https://github.com/crane-valley/NextUnit/blob/main/docs/MIGRATION_FROM_XUNIT.md)**
 - **[Best Practices](https://github.com/crane-valley/NextUnit/blob/main/docs/BEST_PRACTICES.md)**
 - **[Full Documentation](https://github.com/crane-valley/NextUnit)**
 
-## 🔥 What's Different from xUnit?
+## What's Different from xUnit?
 
 | Feature | xUnit | NextUnit |
 |---------|-------|----------|
@@ -126,22 +126,22 @@ dotnet run
 | Lifecycle | Constructor + `IDisposable` | Multi-scope `[Before]`/`[After]` |
 | AOT Support | Limited | Full Native AOT compatible |
 
-## 🎯 Performance
+## Performance
 
 - **Test Discovery**: ~2ms for 86 tests (50x faster than xUnit)
 - **Execution**: ~614ms for 86 tests with parallel execution
 - **Framework Memory**: ~5MB baseline
 - **Zero reflection** in execution path
 
-## 🤁EContributing
+## Contributing
 
 Contributions welcome! See our [Contributing Guide](https://github.com/crane-valley/NextUnit#contributing).
 
-## 📄 License
+## License
 
 [MIT License](https://github.com/crane-valley/NextUnit/blob/main/LICENSE)
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Inspired by:
 - **TUnit** - Modern architecture, source generators
@@ -150,4 +150,4 @@ Inspired by:
 
 ---
 
-**Built with ❤�E�Efor .NET 10+ developers who want modern performance with familiar syntax**
+**Built with love for .NET 10+ developers who want modern performance with familiar syntax**
