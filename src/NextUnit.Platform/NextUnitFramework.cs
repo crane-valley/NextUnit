@@ -26,6 +26,7 @@ internal sealed class NextUnitFramework :
 #pragma warning restore IDE0052
     private readonly TestExecutionEngine _engine = new();
     private IReadOnlyList<TestCaseDescriptor>? _testCases;
+    private readonly TestFilterConfiguration _filterConfig;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NextUnitFramework"/> class.
@@ -38,6 +39,7 @@ internal sealed class NextUnitFramework :
     {
         _services = services;
         _ = capabilities; // Suppress unused parameter warning
+        _filterConfig = LoadFilterConfiguration();
     }
 
     /// <summary>
@@ -169,8 +171,43 @@ internal sealed class NextUnitFramework :
             }
         }
 
-        _testCases = allTestCases;
+        // Apply category and tag filtering
+        var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags)).ToList();
+
+        _testCases = filteredTestCases;
         return _testCases;
+    }
+
+    private static TestFilterConfiguration LoadFilterConfiguration()
+    {
+        var config = new TestFilterConfiguration();
+
+        // Load from environment variables (temporary solution until proper CLI integration)
+        var includeCategories = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_CATEGORIES");
+        if (!string.IsNullOrWhiteSpace(includeCategories))
+        {
+            config.IncludeCategories = includeCategories.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+
+        var excludeCategories = Environment.GetEnvironmentVariable("NEXTUNIT_EXCLUDE_CATEGORIES");
+        if (!string.IsNullOrWhiteSpace(excludeCategories))
+        {
+            config.ExcludeCategories = excludeCategories.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+
+        var includeTags = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_TAGS");
+        if (!string.IsNullOrWhiteSpace(includeTags))
+        {
+            config.IncludeTags = includeTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+
+        var excludeTags = Environment.GetEnvironmentVariable("NEXTUNIT_EXCLUDE_TAGS");
+        if (!string.IsNullOrWhiteSpace(excludeTags))
+        {
+            config.ExcludeTags = excludeTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+
+        return config;
     }
 
     private async Task DiscoverAsync(
