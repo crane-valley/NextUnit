@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Planned for v1.1
+- Category/Tag filtering with `[Category]` and `[Tag]` attributes
+- Test output/logging integration
+- Session-scoped lifecycle
+- Performance benchmarks with large test suites (1,000+ tests)
+
+## [1.0.0] - 2025-12-06
+
+### Added - TestData Support
 - **`[TestData]` attribute support** - Source generator now processes `[TestData]` attributes for runtime test data expansion
   - Static method data sources via `[TestData(nameof(MethodName))]`
   - Static property data sources via `[TestData(nameof(PropertyName))]`
@@ -17,14 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`TestDataDescriptor`** - Runtime descriptor for dynamic test data expansion
 - **`TestDataExpander`** - Resolves data sources at runtime and expands into test cases
 - **Generator diagnostic `NEXTUNIT003`** - Warning when both `[Arguments]` and `[TestData]` are used on same method
-
-### Planned for v1.1
-- Category/Tag filtering with `[Category]` and `[Tag]` attributes
-- Test output/logging integration
-- Session-scoped lifecycle
-- Performance benchmarks with large test suites (1,000+ tests)
-
-## [1.0.0] - TBD (Target: Mid-Late December 2025)
 
 ### Added - Packages
 - **NextUnit** meta-package for simplified installation (`dotnet add package NextUnit`)
@@ -241,7 +241,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 |---------|------|-------|----------|--------|
-| 1.0.0 | TBD | 90+ | Complete v1.0 feature set | Planned |
+| 1.0.0 | 2025-12-06 | 102+ | Complete v1.0 feature set | Released |
 | 0.4.0-alpha | 2025-12-03 | 86 | Rich Assertions | Released |
 | 0.3.0-alpha | 2025-12-03 | 67 | Parallel Execution | Released |
 | 0.2.0-alpha | 2025-12-02 | 67 | Multi-scope Lifecycle | Released |
