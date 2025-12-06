@@ -31,6 +31,7 @@ public class TestClass
     {
         var source = @"
 using NextUnit;
+using System.Threading.Tasks;
 
 namespace TestProject;
 
