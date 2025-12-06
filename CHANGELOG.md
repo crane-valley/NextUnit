@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `NEXTUNIT_EXCLUDE_TAGS` - Exclude tests with specified tags (comma-separated)
 - **`TestFilterConfiguration` class** - Flexible filtering logic
   - Exclude filters take precedence over include filters
-  - AND logic between category and tag filters
+  - OR logic between category and tag filters
   - OR logic within same filter type (e.g., multiple categories)
 - **Source generator enhancements**:
   - Extract `[Category]` attributes from both method and class level
