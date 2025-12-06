@@ -660,12 +660,14 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     {
         if (isStatic)
         {
-            // Static methods don't need an instance
+            // Static methods don't use the instance parameter, but we keep the same delegate signature
+            // (object instance, CancellationToken ct) for consistency across all lifecycle methods.
+            // The 'instance' parameter will be null when calling session-scoped static methods.
             return $"static async (instance, ct) => {{ await InvokeLifecycleMethodAsync({typeName}.{methodName}, ct).ConfigureAwait(false); }}";
         }
         else
         {
-            // Instance methods need to cast the instance
+            // Instance methods need to cast the instance parameter to the correct type
             return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeLifecycleMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
         }
     }

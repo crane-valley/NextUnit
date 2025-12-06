@@ -88,13 +88,29 @@ internal sealed class NextUnitFramework :
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the test session creation.</returns>
     public async Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
     {
-        // Collect session-level lifecycle methods from test cases
+        // Collect session-level lifecycle methods from all test cases
         var testCases = GetTestCases();
         if (testCases.Count > 0 && !_sessionSetupExecuted)
         {
-            var firstTest = testCases[0];
-            _sessionBeforeMethods.AddRange(firstTest.Lifecycle.BeforeSessionMethods);
-            _sessionAfterMethods.AddRange(firstTest.Lifecycle.AfterSessionMethods);
+            // Collect unique session methods from all test cases
+            // Use a HashSet to avoid duplicates if same methods appear in multiple test classes
+            var beforeMethods = new HashSet<LifecycleMethodDelegate>();
+            var afterMethods = new HashSet<LifecycleMethodDelegate>();
+
+            foreach (var testCase in testCases)
+            {
+                foreach (var method in testCase.Lifecycle.BeforeSessionMethods)
+                {
+                    beforeMethods.Add(method);
+                }
+                foreach (var method in testCase.Lifecycle.AfterSessionMethods)
+                {
+                    afterMethods.Add(method);
+                }
+            }
+
+            _sessionBeforeMethods.AddRange(beforeMethods);
+            _sessionAfterMethods.AddRange(afterMethods);
 
             // Execute session setup methods
             await ExecuteSessionSetupAsync(context.CancellationToken).ConfigureAwait(false);
@@ -278,8 +294,9 @@ internal sealed class NextUnitFramework :
 
     private async Task ExecuteSessionSetupAsync(CancellationToken cancellationToken)
     {
-        // Session-scoped lifecycle methods don't require an instance (they should be static)
-        // We use null as the instance since session methods should be static
+        // Session lifecycle methods MUST be static (enforced by generator/runtime)
+        // The null! instance parameter is safe because generated delegates for static methods
+        // do not use the instance parameter - they call TypeName.Method() directly
         foreach (var beforeMethod in _sessionBeforeMethods)
         {
             await beforeMethod(null!, cancellationToken).ConfigureAwait(false);
@@ -288,6 +305,9 @@ internal sealed class NextUnitFramework :
 
     private async Task ExecuteSessionTeardownAsync(CancellationToken cancellationToken)
     {
+        // Session lifecycle methods MUST be static (enforced by generator/runtime)
+        // The null! instance parameter is safe because generated delegates for static methods
+        // do not use the instance parameter - they call TypeName.Method() directly
         // Execute session teardown methods in reverse order
         for (int i = _sessionAfterMethods.Count - 1; i >= 0; i--)
         {
