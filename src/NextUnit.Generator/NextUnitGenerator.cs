@@ -784,13 +784,17 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                 {
                     if (value.Value is string name && !string.IsNullOrWhiteSpace(name))
                     {
-                        builder.Add($"{typeName}.{name}");
+                        // Support both short method names (from nameof) and fully qualified names
+                        var dependencyId = name.Contains('.') ? name : $"{typeName}.{name}";
+                        builder.Add(dependencyId);
                     }
                 }
             }
             else if (argument.Value is string singleName && !string.IsNullOrWhiteSpace(singleName))
             {
-                builder.Add($"{typeName}.{singleName}");
+                // Support both short method names (from nameof) and fully qualified names
+                var dependencyId = singleName.Contains('.') ? singleName : $"{typeName}.{singleName}";
+                builder.Add(dependencyId);
             }
         }
 
