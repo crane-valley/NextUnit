@@ -10,7 +10,7 @@ updates:
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 5
     reviewers:
-      - "crane-valley"
+      - "kiyoaki"
     labels:
       - "dependencies"
       - "nuget"
@@ -50,7 +50,7 @@ updates:
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 3
     reviewers:
-      - "crane-valley"
+      - "kiyoaki"
     labels:
       - "dependencies"
       - "github-actions"
