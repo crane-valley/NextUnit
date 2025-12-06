@@ -1,9 +1,11 @@
 using System.Reflection;
 using Microsoft.Testing.Platform.Capabilities.TestFramework;
+using Microsoft.Testing.Platform.CommandLine;
 using Microsoft.Testing.Platform.Extensions.Messages;
 using Microsoft.Testing.Platform.Extensions.TestFramework;
 using Microsoft.Testing.Platform.Messages;
 using Microsoft.Testing.Platform.Requests;
+using Microsoft.Testing.Platform.Services;
 using Microsoft.Testing.Platform.TestHost;
 using NextUnit.Internal;
 
@@ -39,7 +41,7 @@ internal sealed class NextUnitFramework :
     {
         _services = services;
         _ = capabilities; // Suppress unused parameter warning
-        _filterConfig = LoadFilterConfiguration();
+        _filterConfig = LoadFilterConfiguration(services);
     }
 
     /// <summary>
@@ -50,7 +52,7 @@ internal sealed class NextUnitFramework :
     /// <summary>
     /// Gets the version of the NextUnit framework.
     /// </summary>
-    public string Version => "1.1.0";
+    public string Version => "1.2.0";
 
     /// <summary>
     /// Gets the display name of the NextUnit framework.
@@ -183,36 +185,78 @@ internal sealed class NextUnitFramework :
         return _testCases;
     }
 
-    private static TestFilterConfiguration LoadFilterConfiguration()
+    private static TestFilterConfiguration LoadFilterConfiguration(IServiceProvider services)
     {
         var config = new TestFilterConfiguration();
 
-        // Load from environment variables (temporary solution until proper CLI integration)
-        var includeCategories = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_CATEGORIES");
-        if (!string.IsNullOrWhiteSpace(includeCategories))
+        // Try to get command-line options service
+        var commandLineOptions = services.GetService<ICommandLineOptions>();
+
+        // Priority: CLI arguments > Environment variables
+
+        // Load categories from CLI or environment
+        var includeCategories = GetFilterValues(
+            commandLineOptions,
+            NextUnitCommandLineOptionsProvider.CategoryOption,
+            "NEXTUNIT_INCLUDE_CATEGORIES");
+        if (includeCategories.Count > 0)
         {
-            config.IncludeCategories = includeCategories.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            config.IncludeCategories = includeCategories;
         }
 
-        var excludeCategories = Environment.GetEnvironmentVariable("NEXTUNIT_EXCLUDE_CATEGORIES");
-        if (!string.IsNullOrWhiteSpace(excludeCategories))
+        var excludeCategories = GetFilterValues(
+            commandLineOptions,
+            NextUnitCommandLineOptionsProvider.ExcludeCategoryOption,
+            "NEXTUNIT_EXCLUDE_CATEGORIES");
+        if (excludeCategories.Count > 0)
         {
-            config.ExcludeCategories = excludeCategories.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            config.ExcludeCategories = excludeCategories;
         }
 
-        var includeTags = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_TAGS");
-        if (!string.IsNullOrWhiteSpace(includeTags))
+        // Load tags from CLI or environment
+        var includeTags = GetFilterValues(
+            commandLineOptions,
+            NextUnitCommandLineOptionsProvider.TagOption,
+            "NEXTUNIT_INCLUDE_TAGS");
+        if (includeTags.Count > 0)
         {
-            config.IncludeTags = includeTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            config.IncludeTags = includeTags;
         }
 
-        var excludeTags = Environment.GetEnvironmentVariable("NEXTUNIT_EXCLUDE_TAGS");
-        if (!string.IsNullOrWhiteSpace(excludeTags))
+        var excludeTags = GetFilterValues(
+            commandLineOptions,
+            NextUnitCommandLineOptionsProvider.ExcludeTagOption,
+            "NEXTUNIT_EXCLUDE_TAGS");
+        if (excludeTags.Count > 0)
         {
-            config.ExcludeTags = excludeTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            config.ExcludeTags = excludeTags;
         }
 
         return config;
+    }
+
+    private static IReadOnlyList<string> GetFilterValues(
+        ICommandLineOptions? commandLineOptions,
+        string optionName,
+        string environmentVariableName)
+    {
+        // Try CLI arguments first (higher priority)
+        if (commandLineOptions is not null && commandLineOptions.IsOptionSet(optionName))
+        {
+            if (commandLineOptions.TryGetOptionArgumentList(optionName, out var arguments) && arguments is not null)
+            {
+                return arguments.ToList();
+            }
+        }
+
+        // Fall back to environment variable
+        var envValue = Environment.GetEnvironmentVariable(environmentVariableName);
+        if (!string.IsNullOrWhiteSpace(envValue))
+        {
+            return envValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+
+        return Array.Empty<string>();
     }
 
     private async Task DiscoverAsync(

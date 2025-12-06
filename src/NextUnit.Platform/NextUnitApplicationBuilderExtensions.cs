@@ -19,6 +19,9 @@ public static class NextUnitApplicationBuilderExtensions
             _ => new NextUnitFrameworkCapabilities(),
             (caps, services) => new NextUnitFramework(caps, services));
 
+        // Register command-line options provider for filtering
+        builder.CommandLine.AddProvider(() => new NextUnitCommandLineOptionsProvider());
+
         return builder;
     }
 }
