@@ -165,13 +165,18 @@ internal sealed class NextUnitFramework :
             var testDataDescriptors = (IReadOnlyList<TestDataDescriptor>?)testDataDescriptorsProperty.GetValue(null);
             if (testDataDescriptors is not null)
             {
-                // Expand TestDataDescriptors into TestCaseDescriptors at runtime
-                var expandedTests = TestDataExpander.Expand(testDataDescriptors);
+                // Filter TestDataDescriptors BEFORE expansion to avoid executing data providers for excluded tests
+                var filteredDescriptors = testDataDescriptors
+                    .Where(td => _filterConfig.ShouldIncludeTest(td.Categories, td.Tags))
+                    .ToList();
+
+                // Expand only the filtered TestDataDescriptors into TestCaseDescriptors at runtime
+                var expandedTests = TestDataExpander.Expand(filteredDescriptors);
                 allTestCases.AddRange(expandedTests);
             }
         }
 
-        // Apply category and tag filtering
+        // Apply category and tag filtering to static test cases
         var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags)).ToList();
 
         _testCases = filteredTestCases;
