@@ -30,16 +30,16 @@ cd MyProject.Tests
 ### Add NextUnit Packages
 
 ```bash
-# Add NextUnit core package
+# Add NextUnit (includes Core, Generator, Platform, and Microsoft.Testing.Platform)
+dotnet add package NextUnit
+```
+
+**Alternative - Advanced Usage**: If you need fine-grained control over package versions, you can install individual packages:
+
+```bash
 dotnet add package NextUnit.Core
-
-# Add NextUnit source generator
 dotnet add package NextUnit.Generator
-
-# Add NextUnit platform integration
 dotnet add package NextUnit.Platform
-
-# Add Microsoft.Testing.Platform
 dotnet add package Microsoft.Testing.Platform
 ```
 
@@ -58,13 +58,12 @@ Update your `.csproj` file:
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit.Core" Version="1.0.0" />
-    <PackageReference Include="NextUnit.Generator" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    <PackageReference Include="NextUnit.Platform" Version="1.0.0" />
-    <PackageReference Include="Microsoft.Testing.Platform" />
+    <PackageReference Include="NextUnit" Version="1.0.0" />
   </ItemGroup>
 </Project>
 ```
+
+**Note**: The `NextUnit` meta-package automatically includes all required dependencies (NextUnit.Core, NextUnit.Generator, NextUnit.Platform, and Microsoft.Testing.Platform).
 
 ### Create Program.cs
 
