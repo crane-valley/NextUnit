@@ -12,6 +12,10 @@
     <File Path=".github/workflows/nightly.yml" />
     <File Path=".github/workflows/pr-validation.yml" />
   </Folder>
+  <Folder Name="/props/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
   <Folder Name="/sample/">
     <Project Path="samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj" Id="cc1ced14-e28b-41b6-be0f-9e4536c6225a" />
   </Folder>
