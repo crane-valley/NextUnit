@@ -9,7 +9,7 @@ updates:
       time: "09:00"
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 5
-    reviewers:
+    assignees:
       - "kiyoaki"
     labels:
       - "dependencies"
@@ -50,7 +50,7 @@ updates:
       time: "09:00"
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 3
-    reviewers:
+    assignees:
       - "kiyoaki"
     labels:
       - "dependencies"
