@@ -1,6 +1,8 @@
 # NextUnit
 
 [![.NET](https://github.com/crane-valley/NextUnit/actions/workflows/dotnet.yml/badge.svg)](https://github.com/crane-valley/NextUnit/actions/workflows/dotnet.yml)
+[![NuGet](https://img.shields.io/nuget/v/NextUnit.svg)](https://www.nuget.org/packages/NextUnit/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A modern, high-performance test framework for .NET 10+ that combines TUnit's architecture with xUnit's familiar assertions.
 
@@ -12,7 +14,7 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 
 ## Features
 
-### Implemented (v0.4-alpha)
+### Core Features (v1.0)
 - ✅ **Clear attribute naming** - `[Test]`, `[Before]`, `[After]` (not `[Fact]` or `[Theory]`)
 - ✅ **Rich assertions** - Collection, String, Numeric assertions with great error messages
   - Collection: `Contains`, `DoesNotContain`, `All`, `Single`, `Empty`, `NotEmpty`
@@ -34,17 +36,21 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **True parallel execution** - Thread-safe parallel test execution with constraint enforcement
 
 ### Planned (see [PLANS.md](PLANS.md))
-- 📋 **Session lifecycle** - Session-scoped setup/teardown (M4)
-- 📋 **Test traits** - `[Category]`, `[Tag]` for filtering (M4)
+- 📋 **Session lifecycle** - Session-scoped setup/teardown (v1.1)
+- 📋 **Test traits** - `[Category]`, `[Tag]` for filtering (v1.1)
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-# Coming soon to NuGet
-# For now, build from source
-dotnet build
+# Install NextUnit meta-package (includes Core, Generator, and Platform)
+dotnet add package NextUnit
+
+# Or install individual packages
+dotnet add package NextUnit.Core
+dotnet add package NextUnit.Generator
+dotnet add package NextUnit.Platform
 ```
 
 ### Running Tests
@@ -53,16 +59,16 @@ NextUnit uses **Microsoft.Testing.Platform** for test execution. To run tests:
 
 ```bash
 # Run all tests in a project
-dotness run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+dotnet run --project YourTestProject/YourTestProject.csproj
 
 # Run with specific options
-dotness run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --help
+dotnet run --project YourTestProject/YourTestProject.csproj -- --help
 
 # Run with minimum expected tests check
-dotness run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --minimum-expected-tests 20
+dotnet run --project YourTestProject/YourTestProject.csproj -- --minimum-expected-tests 20
 
 # Generate test results
-dotness run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj -- --results-directory ./TestResults --report-trx
+dotnet run --project YourTestProject/YourTestProject.csproj -- --results-directory ./TestResults --report-trx
 ```
 
 **Note**: Unlike traditional test frameworks, NextUnit does **not** use `dotnet test`. Tests are executed as a console application using Microsoft.Testing.Platform.
@@ -520,39 +526,33 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 0.4-alpha (Development)
+**Current Version**: 1.0.0 (Stable)
 
-**v1.0 Release Plan** (1-2 weeks):
+**v1.0 Milestones** (All Complete):
 - ✅ M0 - Basic framework (Complete)
 - ✅ M1 - Source Generator & Discovery (Complete - 2025-12-02)
 - ✅ M1.5 - Parameterized Tests & Skip Support (Complete - 2025-12-02)
 - ✅ M2 - Lifecycle Scopes (Complete - 2025-12-02)
 - ✅ M2.5 - Polish & Testing (Complete - 2025-12-02)
 - ✅ M3 - Parallel Scheduler (Complete - 2025-12-03)
-- 🔄 M4 - Rich Assertions & v1.0 Prep (Phase 1 Complete - 2025-12-03, Phase 2 In Progress)
+- ✅ M4 - Rich Assertions & v1.0 Prep (Complete - 2025-12-06)
 
-**Target v1.0 Release**: Mid-Late December 2025
+**v1.0 Release**: 2025-12-06
 
-**Latest Progress** (2025-12-03 - M4 Phase 1 Complete):
-- ✅ M1: Source generator with zero-reflection test execution
-- ✅ M1.5: Skip attribute with reason reporting
-- ✅ M1.5: Parameterized tests with Arguments attribute
-- ✅ M1.5: Enhanced display names showing argument values
-- ✅ M2: Class-scoped lifecycle (`[Before/After(LifecycleScope.Class)]`)
-- ✅ M2: Assembly-scoped lifecycle (`[Before/After(LifecycleScope.Assembly)]`)
-- ✅ M2.5: Comprehensive documentation and 67 test examples
-- ✅ M3: True parallel execution with ParallelLimit enforcement
-- ✅ M3: Thread-safe lifecycle management (ConcurrentDictionary + SemaphoreSlim)
-- ✅ M4 Phase 1: Rich Assertions Library (11 new assertion methods)
-  - Collection assertions: Contains, DoesNotContain, All, Single, Empty, NotEmpty
-  - String assertions: StartsWith, EndsWith, Contains
-  - Numeric assertions: InRange, NotInRange
-- ✅ 86 tests passing (83 passed, 3 skipped, 0 failed) - was 67, +19 tests
-- ✅ ~634ms execution time (was ~620ms, +14ms acceptable)
-- ✅ Zero reflection maintained across all features
+**v1.0 Features**:
+- ✅ Zero-reflection test execution with source generators
+- ✅ Rich assertion library (Collection, String, Numeric assertions)
+- ✅ Multi-scope lifecycle (Test, Class, Assembly)
+- ✅ Parameterized tests with Arguments and TestData
+- ✅ Skip support with reason reporting
+- ✅ True parallel execution with ParallelLimit enforcement
+- ✅ Thread-safe lifecycle management
+- ✅ Comprehensive documentation
+- ✅ 102 tests passing (99 passed, 3 skipped, 0 failed)
+- ✅ ~880ms execution time for 102 tests
 
-**v1.0 Focus**:
-- ✅ Rich Assertions (COMPLETE - Collection, String, Numeric assertions)
-- 🔄 Complete Documentation (In Progress - Getting Started, Migration Guide created)
-- 📋 NuGet Package (Published to nuget.org)
-- 📋 Release Ready (Changelog, GitHub releases, version tagging)
+**Planned for v1.1**:
+- 📋 Category/Tag filtering (`[Category]`, `[Tag]` attributes)
+- 📋 Test output/logging integration
+- 📋 Session-scoped lifecycle
+- 📋 Performance benchmarks with large test suites (1,000+ tests)
