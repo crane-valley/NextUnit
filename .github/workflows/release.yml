@@ -65,7 +65,9 @@ jobs:
           CORE_PKG=$(ls ./artifacts/NextUnit.Core.*.nupkg 2>/dev/null || echo "")
           GEN_PKG=$(ls ./artifacts/NextUnit.Generator.*.nupkg 2>/dev/null || echo "")
           PLAT_PKG=$(ls ./artifacts/NextUnit.Platform.*.nupkg 2>/dev/null || echo "")
-          META_PKG=$(ls ./artifacts/NextUnit.1.*.nupkg 2>/dev/null || echo "")
+          # Meta-package: exclude Core, Generator, Platform from the pattern
+          META_PKG=$(ls ./artifacts/NextUnit.*.nupkg 2>/dev/null | \
+            grep -v "Core\|Generator\|Platform" || echo "")
 
           if [ -z "$CORE_PKG" ]; then
             echo "Error: NextUnit.Core package not found"
