@@ -44,16 +44,17 @@ internal sealed class TestFilterConfiguration
             return false;
         }
 
-        // If include filters are specified, test must match at least one
+        // If no include filters are specified, test passes
         var hasIncludeFilters = IncludeCategories.Count > 0 || IncludeTags.Count > 0;
         if (!hasIncludeFilters)
         {
-            return true; // No include filters, test passes
+            return true;
         }
 
-        var matchesCategory = IncludeCategories.Count == 0 || categories.Any(c => IncludeCategories.Contains(c, StringComparer.OrdinalIgnoreCase));
-        var matchesTag = IncludeTags.Count == 0 || tags.Any(t => IncludeTags.Contains(t, StringComparer.OrdinalIgnoreCase));
+        // Test must match at least one include filter (OR logic)
+        var matchesCategory = IncludeCategories.Count > 0 && categories.Any(c => IncludeCategories.Contains(c, StringComparer.OrdinalIgnoreCase));
+        var matchesTag = IncludeTags.Count > 0 && tags.Any(t => IncludeTags.Contains(t, StringComparer.OrdinalIgnoreCase));
 
-        return matchesCategory && matchesTag;
+        return matchesCategory || matchesTag;
     }
 }

@@ -125,8 +125,9 @@ NEXTUNIT_INCLUDE_CATEGORIES=Database,API dotnet run
 **Filter behavior:**
 - Categories and tags can be applied to both classes and methods
 - Method-level attributes are combined with class-level attributes
-- Exclude filters take precedence over include filters
-- When multiple include filters are specified, tests must match at least one from each type (AND logic between category and tag filters)
+- **Exclude filters** take precedence over include filters
+- **OR logic** for include filters: tests matching ANY include filter will run
+- Within each filter type (categories or tags), matching ANY value passes (OR logic)
 
 ### Writing Tests
 
