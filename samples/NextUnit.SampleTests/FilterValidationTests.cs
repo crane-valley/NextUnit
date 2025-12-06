@@ -20,7 +20,7 @@ public class FilterValidationTests
     [Test]
     [Category("Validation")]
     [Tag("Integration")]
-    public void CategoryFiltering_ExcludesNonMatchingTests()
+    public void CategoryFiltering_IncludesAllMatchingTests()
     {
         // This test also has Validation category
         Assert.True(true);
