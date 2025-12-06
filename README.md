@@ -35,9 +35,14 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **Zero-reflection execution** - Test methods invoked via delegates, not reflection
 - ✅ **True parallel execution** - Thread-safe parallel test execution with constraint enforcement
 
+### New in v1.1
+- ✅ **Category filtering** - `[Category("Integration")]` to organize and filter tests
+- ✅ **Tag filtering** - `[Tag("Slow")]` for fine-grained test classification
+
 ### Planned (see [PLANS.md](PLANS.md))
-- 📋 **Session lifecycle** - Session-scoped setup/teardown (v1.1)
-- 📋 **Test traits** - `[Category]`, `[Tag]` for filtering (v1.1)
+- 📋 **Session lifecycle** - Session-scoped setup/teardown (v1.2)
+- 📋 **CLI filtering arguments** - Command-line arguments for category/tag filtering (v1.2)
+- 📋 **Structured test output** - Enhanced logging and output capture (v1.2)
 
 ## Quick Start
 
@@ -72,6 +77,56 @@ dotnet run --project YourTestProject/YourTestProject.csproj -- --results-directo
 ```
 
 **Note**: Unlike traditional test frameworks, NextUnit does **not** use `dotnet test`. Tests are executed as a console application using Microsoft.Testing.Platform.
+
+### Filtering Tests by Category and Tag
+
+NextUnit supports organizing and filtering tests using `[Category]` and `[Tag]` attributes. Categories are typically used for broad classifications (like "Integration" or "Unit"), while tags are used for finer-grained metadata (like "Slow" or "RequiresNetwork").
+
+```csharp
+[Category("Integration")]
+public class DatabaseTests
+{
+    [Test]
+    [Category("Database")]
+    [Tag("Slow")]
+    public void QueryUsers_ReturnsResults()
+    {
+        // Test implementation
+    }
+
+    [Test]
+    [Tag("Fast")]
+    public void GetCachedData_Succeeds()
+    {
+        // Inherits "Integration" category from class
+    }
+}
+```
+
+To filter tests at runtime, use environment variables:
+
+```bash
+# Run only tests in the Database category
+NEXTUNIT_INCLUDE_CATEGORIES=Database dotnet run
+
+# Run only tests with the Fast tag
+NEXTUNIT_INCLUDE_TAGS=Fast dotnet run
+
+# Exclude tests with the Slow tag
+NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run
+
+# Combine filters (include Integration category, exclude Slow tag)
+NEXTUNIT_INCLUDE_CATEGORIES=Integration NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run
+
+# Multiple categories (comma-separated)
+NEXTUNIT_INCLUDE_CATEGORIES=Database,API dotnet run
+```
+
+**Filter behavior:**
+- Categories and tags can be applied to both classes and methods
+- Method-level attributes are combined with class-level attributes
+- Exclude filters take precedence over include filters
+- When multiple include filters are specified, tests must match at least one from each type (AND logic between category and tag filters)
 
 ### Writing Tests
 
@@ -526,7 +581,7 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 1.0.0 (Stable)
+**Current Version**: 1.1.0 (Stable)
 
 **v1.0 Milestones** (All Complete):
 - ✅ M0 - Basic framework (Complete)
@@ -551,8 +606,16 @@ NextUnit is inspired by:
 - ✅ 102 tests passing (99 passed, 3 skipped, 0 failed)
 - ✅ ~880ms execution time for 102 tests
 
-**Planned for v1.1**:
-- 📋 Category/Tag filtering (`[Category]`, `[Tag]` attributes)
+**v1.1 Release**: 2025-12-06
+
+**v1.1 Features**:
+- ✅ Category and Tag filtering with environment variables
+- ✅ Source generator support for extracting categories and tags
+- ✅ Flexible filtering logic (include/exclude by category or tag)
+- ✅ 113 tests passing (110 passed, 3 skipped, 0 failed)
+
+**Planned for v1.2**:
+- 📋 CLI arguments for filtering (--category, --tag, --exclude-category, --exclude-tag)
 - 📋 Test output/logging integration
 - 📋 Session-scoped lifecycle
 - 📋 Performance benchmarks with large test suites (1,000+ tests)

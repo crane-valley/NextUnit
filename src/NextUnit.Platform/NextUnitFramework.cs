@@ -50,7 +50,7 @@ internal sealed class NextUnitFramework :
     /// <summary>
     /// Gets the version of the NextUnit framework.
     /// </summary>
-    public string Version => "1.0.0";
+    public string Version => "1.1.0";
 
     /// <summary>
     /// Gets the display name of the NextUnit framework.
