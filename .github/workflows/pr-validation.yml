@@ -129,8 +129,9 @@ jobs:
     - name: Verify no warnings
       run: |
         echo "Verifying build has no warnings..."
-        dotnet build --configuration Release --no-restore --verbosity detailed 2>&1 | tee build.log
-        if grep -i "warning" build.log; then
+        dotnet build --configuration Release --no-restore 2>&1 | tee build.log
+        # Check for actual compiler/analyzer warnings (format: "path(line,col): warning CODE: message")
+        if grep -E ": warning [A-Z]{2,}[0-9]+:" build.log; then
           echo "⚠️ Build warnings found"
           exit 1
         else
