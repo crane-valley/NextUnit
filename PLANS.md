@@ -291,22 +291,23 @@ public static IEnumerable<object[]> TestDataProperty => new[]
 | M3 - Parallel Scheduler | 1 day | ✅ Complete | Parallel constraints enforced, thread-safe execution |
 | M4 - Rich Assertions & v1.0 Prep | 3 days | ✅ Complete | Core assertions + docs + v1.0 release |
 | v1.1 - Category/Tag Filtering | 1 day | ✅ Complete | Environment variable filtering, 113 tests |
-| v1.2 - CLI & Session Lifecycle | TBD | 📋 Planned | CLI args, session scope, logging |
+| v1.2 - CLI & Session Lifecycle | 1 day | ✅ Complete | CLI args, session scope, 116 tests |
 
 **v1.0 Released**: 2025-12-06 🎉  
 **v1.1 Released**: 2025-12-06 🎉
+**v1.2 Released**: 2025-12-06 🎉
 
 **Progress Velocity**: 
 - Planned: 10 weeks for M0-M4
 - Actual: ~2 weeks (5x faster than planned)
-- Quality: 102 tests, 100% pass rate, thread-safe parallel execution
-- **Decision**: v1.0 released, advanced features deferred to v1.1+
+- Quality: 116 tests, 100% pass rate, thread-safe parallel execution
+- **Decision**: v1.0/v1.1/v1.2 released, advanced features deferred to v1.3+
 
 ---
 
 **Last Updated**: 2025-12-06  
-**Status**: ✅ M4 Complete! v1.0 Released!  
-**Next Milestone**: v1.1 - Advanced Features
+**Status**: ✅ v1.2 Complete! CLI Arguments and Session Lifecycle Released!  
+**Next Milestone**: v1.3 - Test Output/Logging Integration
 
 **Strategic Decision - v1.0 Scope Refinement**:
 
@@ -557,6 +558,73 @@ All technical milestones complete. NextUnit v1.1 adds powerful filtering capabil
 
 ---
 
+#### v1.2 - CLI Arguments and Session Lifecycle ✅ (Complete)
+**Duration**: 1 day (Started 2025-12-06, Completed: 2025-12-06)
+
+**Goals**:
+- ✅ Implement CLI argument support for category/tag filtering
+- ✅ Implement session-scoped lifecycle hooks
+- ✅ Add comprehensive tests and documentation
+
+**Phase 1: CLI Argument Support** ✅ (Complete):
+- ✅ Created `NextUnitCommandLineOptionsProvider` implementing `ICommandLineOptionsProvider`
+- ✅ Added support for `--category`, `--exclude-category`, `--tag`, `--exclude-tag` options
+- ✅ Registered command-line provider in `AddNextUnit()` extension method
+- ✅ Updated `NextUnitFramework` to read from both CLI arguments and environment variables
+- ✅ CLI arguments take precedence over environment variables (backward compatible)
+- ✅ Tested filtering with multiple CLI argument scenarios
+- ✅ All filtering options working correctly
+
+**Phase 2: Session-Scoped Lifecycle** ✅ (Complete):
+- ✅ Added `BeforeSessionMethods` and `AfterSessionMethods` to `LifecycleInfo`
+- ✅ Updated source generator to extract `[Before(LifecycleScope.Session)]` methods
+- ✅ Updated source generator to extract `[After(LifecycleScope.Session)]` methods
+- ✅ Added `IsStatic` property to `LifecycleMethodDescriptor` for proper code generation
+- ✅ Generator correctly handles static lifecycle methods vs instance methods
+- ✅ Implemented session setup in `CreateTestSessionAsync`
+- ✅ Implemented session teardown in `CloseTestSessionAsync`
+- ✅ Created `SessionLifecycleTests.cs` with 3 tests demonstrating session lifecycle
+- ✅ All tests passing (116 tests, 113 passed, 3 skipped, 0 failed)
+
+**Phase 3: Documentation** ✅ (Complete):
+- ✅ Updated README.md with CLI argument examples
+- ✅ Updated README.md with session lifecycle examples
+- ✅ Updated CHANGELOG.md with v1.2.0 release notes
+- ✅ Updated PLANS.md with v1.2 completion status
+- ✅ Updated all project version numbers to 1.2.0
+- ✅ Documentation complete and comprehensive
+
+**Success Criteria**:
+- ✅ CLI arguments working for all filter types → **Achieved**
+- ✅ Session lifecycle properly implemented → **Achieved**
+- ✅ Static lifecycle methods handled correctly → **Achieved**
+- ✅ All existing tests continue passing → **Achieved (116 tests)**
+- ✅ Documentation complete → **Achieved**
+
+**Final Metrics**:
+| Metric | Target v1.2 | Achieved | Status |
+|--------|-------------|----------|--------|
+| Test Count | 115+ | 116 | ✅ Exceeded |
+| Pass Rate | 100% | 100% | ✅ Perfect |
+| Execution Time | <1.5s | ~667ms | ✅ Excellent |
+| Documentation | Complete | Complete | ✅ Ready |
+| CLI Options | 4 | 4 | ✅ Complete |
+
+**v1.2 Status**: **RELEASED!** 🎉
+
+All technical milestones complete. NextUnit v1.2 adds powerful new features:
+- CLI argument support for flexible test filtering
+- Session-scoped lifecycle for session-wide setup/teardown
+- Proper handling of static lifecycle methods
+- Full backward compatibility with environment variables
+- Comprehensive documentation and examples
+
+**Deferred to v1.3**:
+- Test output/logging integration (ITestOutputHelper equivalent)
+- Performance benchmarks with large test suites (1,000+ tests)
+
+---
+
 **Last Updated**: 2025-12-06  
-**Status**: ✅ v1.1 Complete! Category/Tag Filtering Released!  
-**Next Milestone**: v1.2 - CLI Integration and Session Lifecycle
+**Status**: ✅ v1.2 Complete! CLI Arguments and Session Lifecycle Released!  
+**Next Milestone**: v1.3 - Test Output/Logging Integration

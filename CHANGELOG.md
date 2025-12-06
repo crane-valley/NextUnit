@@ -7,11 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for v1.2
-- CLI arguments for category/tag filtering (--category, --tag, --exclude-category, --exclude-tag)
-- Test output/logging integration
-- Session-scoped lifecycle
+### Planned for v1.3
+- Test output/logging integration (ITestOutputHelper equivalent)
 - Performance benchmarks with large test suites (1,000+ tests)
+- Additional assertion methods
+
+## [1.2.0] - 2025-12-06
+
+### Added - CLI Arguments and Session Lifecycle
+- **CLI argument support for test filtering**:
+  - `--category <name>` - Include only tests with the specified category (can be specified multiple times)
+  - `--exclude-category <name>` - Exclude tests with the specified category (can be specified multiple times)
+  - `--tag <name>` - Include only tests with the specified tag (can be specified multiple times)
+  - `--exclude-tag <name>` - Exclude tests with the specified tag (can be specified multiple times)
+  - CLI arguments take precedence over environment variables for flexibility
+- **`NextUnitCommandLineOptionsProvider`** - Command-line options provider for Microsoft.Testing.Platform integration
+  - Implements `ICommandLineOptionsProvider` for proper CLI registration
+  - Supports ArgumentArity.OneOrMore for multiple filter values
+- **Session-scoped lifecycle support**:
+  - `[Before(LifecycleScope.Session)]` - Execute setup once before all tests in the test session
+  - `[After(LifecycleScope.Session)]` - Execute teardown once after all tests in the test session
+  - Session lifecycle methods must be static (no instance required)
+  - Session setup runs in `CreateTestSessionAsync`
+  - Session teardown runs in `CloseTestSessionAsync`
+- **Source generator enhancements**:
+  - Extract `BeforeSessionMethods` and `AfterSessionMethods` from test classes
+  - Properly handle static lifecycle methods (generate correct delegate code)
+  - Added `IsStatic` property to `LifecycleMethodDescriptor`
+  - Generate appropriate delegates for static vs instance methods
+
+### Changed
+- Test count increased from 113 to 116 tests
+  - Added 3 new tests demonstrating session-scoped lifecycle
+  - `SessionLifecycleTests` class validates session setup/teardown execution order
+- Framework version bumped to 1.2.0
+- CLI arguments now preferred over environment variables (backward compatible)
+
+### Fixed
+- Generator now correctly handles static lifecycle methods
+- Session lifecycle properly executes before first test and after last test
 
 ## [1.1.0] - 2025-12-06
 
