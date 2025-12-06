@@ -41,6 +41,9 @@ public class TestClass
         test.ExpectedDiagnostics.Add(
             new DiagnosticResult("NEXTUNIT001", DiagnosticSeverity.Error)
         );
+        test.ExpectedDiagnostics.Add(
+            new DiagnosticResult("NEXTUNIT001", DiagnosticSeverity.Error)
+        );
 
         await test.RunAsync();
     }
