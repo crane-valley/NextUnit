@@ -34,7 +34,8 @@ updates:
           - "patch"
       test-frameworks:
         patterns:
-          - "xunit*"
+          - "xunit"
+          - "xunit.*"
           - "coverlet.*"
         update-types:
           - "minor"
