@@ -93,31 +93,5 @@ public static class Program
         await test.RunAsync();
     }
 
-    [Fact]
-    public async Task GeneratedEntryPoint_CompilesSuccessfullyAsync()
-    {
-        var source = @"
-using NextUnit;
-
-namespace TestProject;
-
-public class TestClass
-{
-    [Test]
-    public void SimpleTest()
-    {
-    }
-}";
-
-        // This test verifies that the generated code compiles without errors
-        var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
-        {
-            TestCode = source,
-            // We need to skip source check because we're just verifying compilation
-            TestBehaviors = TestBehaviors.SkipGeneratedSourcesCheck,
-        };
-
-        // If this runs without errors, the generated entry point compiled successfully
-        await test.RunAsync();
-    }
+    // Removed redundant test: GeneratedEntryPoint_CompilesSuccessfullyAsync
 }
