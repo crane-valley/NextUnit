@@ -563,16 +563,10 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             argsBuilder.Append(FormatArgumentValue(arg, param?.Type));
         }
 
-        if (isStatic)
-        {
-            // Static methods don't use the instance parameter
-            return $"static async (instance, ct) => {{ await InvokeTestMethodAsync(() => {typeName}.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}";
-        }
-        else
-        {
-            // Instance methods need to cast the instance parameter to the correct type
-            return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(() => typedInstance.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}";
-        }
+        // Static methods don't use the instance parameter; instance methods need to cast the instance.
+        return isStatic
+            ? $"static async (instance, ct) => {{ await InvokeTestMethodAsync(() => {typeName}.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}"
+            : $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(() => typedInstance.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}";
     }
 
     private static string FormatArgumentValue(TypedConstant argument, ITypeSymbol? targetType)
