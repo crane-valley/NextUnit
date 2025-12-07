@@ -44,6 +44,7 @@ jobs:
       run: dotnet build --configuration Release --no-restore
     
     - name: Run NextUnit sample tests
+      # Single line to avoid PowerShell issues with backslash line continuation on Windows
       run: |
         echo "Running NextUnit sample tests..."
         dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --configuration Release --no-build -- --minimum-expected-tests 20
