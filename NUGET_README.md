@@ -46,7 +46,16 @@ dotnet add package Microsoft.Testing.Platform
 </Project>
 ```
 
-### Create Program.cs
+### Entry Point (Optional)
+
+The NextUnit source generator automatically creates a Program.cs entry point for your test project if one doesn't exist. You can skip this step unless you need custom configuration.
+
+**When to provide your own Program.cs:**
+- Custom test application configuration
+- Additional testing extensions or middleware
+- Custom logging or diagnostic setup
+
+If you need customization, create a Program.cs file:
 
 ```csharp
 using Microsoft.Testing.Platform.Builder;
@@ -54,6 +63,7 @@ using NextUnit.Platform;
 
 var builder = await TestApplication.CreateBuilderAsync(args);
 builder.AddNextUnit();
+// Add your custom configuration here
 using var app = await builder.BuildAsync();
 return await app.RunAsync();
 ```
