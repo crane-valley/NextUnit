@@ -274,12 +274,12 @@ internal sealed class NextUnitFramework :
         string environmentVariableName)
     {
         // Try CLI arguments first (higher priority)
-        if (commandLineOptions is not null && commandLineOptions.IsOptionSet(optionName))
+        if (commandLineOptions is not null
+            && commandLineOptions.IsOptionSet(optionName)
+            && commandLineOptions.TryGetOptionArgumentList(optionName, out var arguments)
+            && arguments is not null)
         {
-            if (commandLineOptions.TryGetOptionArgumentList(optionName, out var arguments) && arguments is not null)
-            {
-                return arguments.ToList();
-            }
+            return arguments.ToList();
         }
 
         // Fall back to environment variable
