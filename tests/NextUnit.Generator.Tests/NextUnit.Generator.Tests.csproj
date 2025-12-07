@@ -27,6 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\NextUnit.Generator\NextUnit.Generator.csproj" />
     <ProjectReference Include="..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
+    <ProjectReference Include="..\..\src\NextUnit.Platform\NextUnit.Platform.csproj" />
   </ItemGroup>
 
 </Project>
