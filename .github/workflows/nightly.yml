@@ -46,10 +46,7 @@ jobs:
     - name: Run NextUnit sample tests
       run: |
         echo "Running NextUnit sample tests..."
-        dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj \
-          --configuration Release \
-          --no-build \
-          -- --minimum-expected-tests 20
+        dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --configuration Release --no-build -- --minimum-expected-tests 20
 
   # Native AOT compilation test
   native-aot-test:
