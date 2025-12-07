@@ -535,16 +535,11 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
 
     private static string BuildTestMethodDelegate(string typeName, string methodName, bool isStatic)
     {
-        if (isStatic)
-        {
-            // Static methods don't use the instance parameter
-            return $"static async (instance, ct) => {{ await InvokeTestMethodAsync({typeName}.{methodName}, ct).ConfigureAwait(false); }}";
-        }
-        else
-        {
-            // Instance methods need to cast the instance parameter to the correct type
-            return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
-        }
+        // Static methods don't use the instance parameter.
+        // Instance methods need to cast the instance parameter to the correct type.
+        return isStatic
+            ? $"static async (instance, ct) => {{ await InvokeTestMethodAsync({typeName}.{methodName}, ct).ConfigureAwait(false); }}"
+            : $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
     }
 
     private static string BuildParameterizedTestMethodDelegate(
