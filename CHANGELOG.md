@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance benchmarks with large test suites (1,000+ tests)
 - Additional assertion methods
 
+## [1.2.1] - 2025-12-07
+
+### Fixed - Application Dependencies
+- **Critical Fix for `deps.json` resolution**:
+  - Enforced `OutputType=Exe` for test projects using the `NextUnit` meta-package
+  - Added auto-generation of `Program.Main` entry point for proper MTP initialization
+  - Resolved `Assembly not found` errors (e.g., `CsvHelper`, `Newtonsoft.Json`) caused by library execution context
+  - Ensure correct `deps.json` is generated and used by the test host
+
 ## [1.2.0] - 2025-12-06
 
 ### Added - CLI Arguments and Session Lifecycle
@@ -169,8 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Per-test Overhead**: ~7ms average (includes test logic)
 - **Framework Memory**: ~5MB baseline
 - **Zero reflection** in test execution path
-
-### Technical Details
+- **Technical Details**
 - **Target Framework**: .NET 10+
 - **Native AOT Compatible**: Full support
 - **C# Version**: 12.0+
