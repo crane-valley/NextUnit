@@ -31,9 +31,17 @@ public class TestClass
             TestBehaviors = TestBehaviors.SkipGeneratedSourcesCheck,
         };
 
+        // Set the output kind to ConsoleApplication so the entry point is recognized
+        test.SolutionTransforms.Add((solution, projectId) =>
+        {
+            var project = solution.GetProject(projectId)!;
+            var compilationOptions = project.CompilationOptions!;
+            compilationOptions = compilationOptions.WithOutputKind(OutputKind.ConsoleApplication);
+            return solution.WithProjectCompilationOptions(projectId, compilationOptions);
+        });
+
         // The test passing means the generated entry point compiled successfully
         await test.RunAsync();
-    }
 
     [Fact]
     public async Task ExistingEntryPoint_DoesNotGenerateEntryPointAsync()
