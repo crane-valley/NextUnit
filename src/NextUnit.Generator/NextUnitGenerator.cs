@@ -183,7 +183,7 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
-        var builder = await TestingApplication.CreateBuilderAsync(args);
+        var builder = await TestApplication.CreateBuilderAsync(args);
         builder.AddNextUnit();
         using var app = await builder.BuildAsync();
         return await app.RunAsync();
