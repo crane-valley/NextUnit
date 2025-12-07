@@ -94,18 +94,32 @@ internal sealed class NextUnitFramework :
         {
             // Collect unique session methods from all test cases
             // Use a HashSet to avoid duplicates if same methods appear in multiple test classes
-            var beforeMethods = new HashSet<LifecycleMethodDelegate>();
-            var afterMethods = new HashSet<LifecycleMethodDelegate>();
+            // Use method identity (declaring type + method name) for deduplication
+            var beforeMethods = new List<LifecycleMethodDelegate>();
+            var afterMethods = new List<LifecycleMethodDelegate>();
+            var seenBefore = new HashSet<string>();
+            var seenAfter = new HashSet<string>();
 
             foreach (var testCase in testCases)
             {
                 foreach (var method in testCase.Lifecycle.BeforeSessionMethods)
                 {
-                    beforeMethods.Add(method);
+                    var methodInfo = method.Method;
+                    // Use fully qualified name as deduplication key
+                    var key = methodInfo.DeclaringType?.FullName + "." + methodInfo.Name;
+                    if (seenBefore.Add(key))
+                    {
+                        beforeMethods.Add(method);
+                    }
                 }
                 foreach (var method in testCase.Lifecycle.AfterSessionMethods)
                 {
-                    afterMethods.Add(method);
+                    var methodInfo = method.Method;
+                    var key = methodInfo.DeclaringType?.FullName + "." + methodInfo.Name;
+                    if (seenAfter.Add(key))
+                    {
+                        afterMethods.Add(method);
+                    }
                 }
             }
 
