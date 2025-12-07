@@ -1,9 +1,11 @@
 using System.Reflection;
 using Microsoft.Testing.Platform.Capabilities.TestFramework;
+using Microsoft.Testing.Platform.CommandLine;
 using Microsoft.Testing.Platform.Extensions.Messages;
 using Microsoft.Testing.Platform.Extensions.TestFramework;
 using Microsoft.Testing.Platform.Messages;
 using Microsoft.Testing.Platform.Requests;
+using Microsoft.Testing.Platform.Services;
 using Microsoft.Testing.Platform.TestHost;
 using NextUnit.Internal;
 
@@ -27,6 +29,9 @@ internal sealed class NextUnitFramework :
     private readonly TestExecutionEngine _engine = new();
     private IReadOnlyList<TestCaseDescriptor>? _testCases;
     private readonly TestFilterConfiguration _filterConfig;
+    private bool _sessionSetupExecuted;
+    private readonly List<LifecycleMethodDelegate> _sessionBeforeMethods = new();
+    private readonly List<LifecycleMethodDelegate> _sessionAfterMethods = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NextUnitFramework"/> class.
@@ -39,7 +44,7 @@ internal sealed class NextUnitFramework :
     {
         _services = services;
         _ = capabilities; // Suppress unused parameter warning
-        _filterConfig = LoadFilterConfiguration();
+        _filterConfig = LoadFilterConfiguration(services);
     }
 
     /// <summary>
@@ -50,7 +55,7 @@ internal sealed class NextUnitFramework :
     /// <summary>
     /// Gets the version of the NextUnit framework.
     /// </summary>
-    public string Version => "1.1.0";
+    public string Version => "1.2.0";
 
     /// <summary>
     /// Gets the display name of the NextUnit framework.
@@ -81,10 +86,52 @@ internal sealed class NextUnitFramework :
     /// </summary>
     /// <param name="context">The context for creating the test session.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the test session creation.</returns>
-    public Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
+    public async Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
     {
-        _ = context; // TODO: Will be used in future implementation
-        return Task.FromResult(new CreateTestSessionResult { IsSuccess = true });
+        // Collect session-level lifecycle methods from all test cases
+        var testCases = GetTestCases();
+        if (testCases.Count > 0 && !_sessionSetupExecuted)
+        {
+            // Collect unique session methods from all test cases
+            // Use a HashSet to avoid duplicates if same methods appear in multiple test classes
+            // Use method identity (declaring type + method name) for deduplication
+            var beforeMethods = new List<LifecycleMethodDelegate>();
+            var afterMethods = new List<LifecycleMethodDelegate>();
+            var seenBefore = new HashSet<string>();
+            var seenAfter = new HashSet<string>();
+
+            foreach (var testCase in testCases)
+            {
+                foreach (var method in testCase.Lifecycle.BeforeSessionMethods)
+                {
+                    var methodInfo = method.Method;
+                    // Use fully qualified name as deduplication key
+                    var key = methodInfo.DeclaringType?.FullName + "." + methodInfo.Name;
+                    if (seenBefore.Add(key))
+                    {
+                        beforeMethods.Add(method);
+                    }
+                }
+                foreach (var method in testCase.Lifecycle.AfterSessionMethods)
+                {
+                    var methodInfo = method.Method;
+                    var key = methodInfo.DeclaringType?.FullName + "." + methodInfo.Name;
+                    if (seenAfter.Add(key))
+                    {
+                        afterMethods.Add(method);
+                    }
+                }
+            }
+
+            _sessionBeforeMethods.AddRange(beforeMethods);
+            _sessionAfterMethods.AddRange(afterMethods);
+
+            // Execute session setup methods
+            await ExecuteSessionSetupAsync(context.CancellationToken).ConfigureAwait(false);
+            _sessionSetupExecuted = true;
+        }
+
+        return new CreateTestSessionResult { IsSuccess = true };
     }
 
     /// <summary>
@@ -113,10 +160,12 @@ internal sealed class NextUnitFramework :
     /// </summary>
     /// <param name="context">The context for closing the test session.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the test session closure.</returns>
-    public Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
+    public async Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
     {
-        _ = context; // TODO: Will be used in future implementation
-        return Task.FromResult(new CloseTestSessionResult { IsSuccess = true });
+        // Execute session teardown methods
+        await ExecuteSessionTeardownAsync(context.CancellationToken).ConfigureAwait(false);
+
+        return new CloseTestSessionResult { IsSuccess = true };
     }
 
     private IReadOnlyList<TestCaseDescriptor> GetTestCases()
@@ -183,36 +232,101 @@ internal sealed class NextUnitFramework :
         return _testCases;
     }
 
-    private static TestFilterConfiguration LoadFilterConfiguration()
+    private static TestFilterConfiguration LoadFilterConfiguration(IServiceProvider services)
     {
         var config = new TestFilterConfiguration();
 
-        // Load from environment variables (temporary solution until proper CLI integration)
-        var includeCategories = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_CATEGORIES");
-        if (!string.IsNullOrWhiteSpace(includeCategories))
+        // Try to get command-line options service
+        var commandLineOptions = services.GetService<ICommandLineOptions>();
+
+        // Priority: CLI arguments > Environment variables
+
+        // Load categories from CLI or environment
+        var includeCategories = GetFilterValues(
+            commandLineOptions,
+            NextUnitCommandLineOptionsProvider.CategoryOption,
+            "NEXTUNIT_INCLUDE_CATEGORIES");
+        if (includeCategories.Count > 0)
         {
-            config.IncludeCategories = includeCategories.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            config.IncludeCategories = includeCategories;
         }
 
-        var excludeCategories = Environment.GetEnvironmentVariable("NEXTUNIT_EXCLUDE_CATEGORIES");
-        if (!string.IsNullOrWhiteSpace(excludeCategories))
+        var excludeCategories = GetFilterValues(
+            commandLineOptions,
+            NextUnitCommandLineOptionsProvider.ExcludeCategoryOption,
+            "NEXTUNIT_EXCLUDE_CATEGORIES");
+        if (excludeCategories.Count > 0)
         {
-            config.ExcludeCategories = excludeCategories.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            config.ExcludeCategories = excludeCategories;
         }
 
-        var includeTags = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_TAGS");
-        if (!string.IsNullOrWhiteSpace(includeTags))
+        // Load tags from CLI or environment
+        var includeTags = GetFilterValues(
+            commandLineOptions,
+            NextUnitCommandLineOptionsProvider.TagOption,
+            "NEXTUNIT_INCLUDE_TAGS");
+        if (includeTags.Count > 0)
         {
-            config.IncludeTags = includeTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            config.IncludeTags = includeTags;
         }
 
-        var excludeTags = Environment.GetEnvironmentVariable("NEXTUNIT_EXCLUDE_TAGS");
-        if (!string.IsNullOrWhiteSpace(excludeTags))
+        var excludeTags = GetFilterValues(
+            commandLineOptions,
+            NextUnitCommandLineOptionsProvider.ExcludeTagOption,
+            "NEXTUNIT_EXCLUDE_TAGS");
+        if (excludeTags.Count > 0)
         {
-            config.ExcludeTags = excludeTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            config.ExcludeTags = excludeTags;
         }
 
         return config;
+    }
+
+    private static IReadOnlyList<string> GetFilterValues(
+        ICommandLineOptions? commandLineOptions,
+        string optionName,
+        string environmentVariableName)
+    {
+        // Try CLI arguments first (higher priority)
+        if (commandLineOptions is not null
+            && commandLineOptions.IsOptionSet(optionName)
+            && commandLineOptions.TryGetOptionArgumentList(optionName, out var arguments)
+            && arguments is not null)
+        {
+            return arguments.ToList();
+        }
+
+        // Fall back to environment variable
+        var envValue = Environment.GetEnvironmentVariable(environmentVariableName);
+        if (!string.IsNullOrWhiteSpace(envValue))
+        {
+            return envValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+
+        return Array.Empty<string>();
+    }
+
+    private async Task ExecuteSessionSetupAsync(CancellationToken cancellationToken)
+    {
+        // Session lifecycle methods MUST be static (enforced by generator/runtime)
+        // The null! instance parameter is safe because generated delegates for static methods
+        // do not use the instance parameter - they call TypeName.Method() directly
+        foreach (var beforeMethod in _sessionBeforeMethods)
+        {
+            await beforeMethod(null!, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ExecuteSessionTeardownAsync(CancellationToken cancellationToken)
+    {
+        // Session lifecycle methods MUST be static (enforced by generator/runtime)
+        // The null! instance parameter is safe because generated delegates for static methods
+        // do not use the instance parameter - they call TypeName.Method() directly
+        // Execute session teardown methods in reverse order
+        for (int i = _sessionAfterMethods.Count - 1; i >= 0; i--)
+        {
+            await _sessionAfterMethods[i](null!, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async Task DiscoverAsync(

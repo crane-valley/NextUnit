@@ -38,11 +38,15 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 ### New in v1.1
 - ✅ **Category filtering** - `[Category("Integration")]` to organize and filter tests
 - ✅ **Tag filtering** - `[Tag("Slow")]` for fine-grained test classification
+- ✅ **Environment variable filtering** - Filter tests using `NEXTUNIT_INCLUDE_CATEGORIES`, `NEXTUNIT_EXCLUDE_CATEGORIES`, etc.
+
+### New in v1.2
+- ✅ **CLI argument filtering** - Command-line arguments for category/tag filtering (e.g., `--category Integration`)
+- ✅ **Session-scoped lifecycle** - `[Before(LifecycleScope.Session)]` and `[After(LifecycleScope.Session)]` for session-wide setup/teardown
 
 ### Planned (see [PLANS.md](PLANS.md))
-- 📋 **Session lifecycle** - Session-scoped setup/teardown (v1.2)
-- 📋 **CLI filtering arguments** - Command-line arguments for category/tag filtering (v1.2)
-- 📋 **Structured test output** - Enhanced logging and output capture (v1.2)
+- 📋 **Structured test output** - Enhanced logging and output capture (v1.3)
+- 📋 **Performance benchmarks** - Large-scale test suite validation (v1.3)
 
 ## Quick Start
 
@@ -103,9 +107,27 @@ public class DatabaseTests
 }
 ```
 
-To filter tests at runtime, use environment variables:
+To filter tests at runtime, use **command-line arguments** (recommended) or environment variables:
 
 ```bash
+# CLI arguments (v1.2+, recommended)
+# Run only tests in the Database category
+dotnet run --project YourTestProject -- --category Database
+
+# Run only tests with the Fast tag
+dotnet run --project YourTestProject -- --tag Fast
+
+# Exclude tests with the Slow tag
+dotnet run --project YourTestProject -- --exclude-tag Slow
+
+# Combine multiple filters
+dotnet run --project YourTestProject -- --category Integration --exclude-tag Slow
+
+# Multiple categories or tags (use multiple arguments)
+dotnet run --project YourTestProject -- --category Database --category API
+dotnet run --project YourTestProject -- --tag Fast --tag Instant
+
+# Environment variables (backward compatible)
 # Run only tests in the Database category
 NEXTUNIT_INCLUDE_CATEGORIES=Database dotnet run
 
@@ -121,6 +143,8 @@ NEXTUNIT_INCLUDE_CATEGORIES=Integration NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run
 # Multiple categories (comma-separated)
 NEXTUNIT_INCLUDE_CATEGORIES=Database,API dotnet run
 ```
+
+**Note**: CLI arguments take precedence over environment variables. This allows you to override environment-based defaults on a per-run basis.
 
 **Filter behavior:**
 - Categories and tags can be applied to both classes and methods
@@ -274,6 +298,43 @@ public class GlobalSetupTests
         // Test code
     }
 }
+
+// Session-scoped lifecycle (v1.2+)
+public class SessionSetupTests
+{
+    static int _sessionCounter;
+
+    // Runs once before all tests in the entire test session
+    // Session lifecycle methods MUST be static
+    [Before(LifecycleScope.Session)]
+    public static void SessionSetup()
+    {
+        _sessionCounter = 0;
+        // Initialize session-wide resources (e.g., test database, external services)
+    }
+
+    // Runs once after all tests in the entire test session
+    [After(LifecycleScope.Session)]
+    public static void SessionTeardown()
+    {
+        // Cleanup session-wide resources
+        _sessionCounter = 0;
+    }
+
+    [Test]
+    public void SessionTest()
+    {
+        _sessionCounter++;
+        Assert.True(_sessionCounter > 0);
+    }
+}
+```
+
+**Lifecycle Scope Summary:**
+- **Test**: Runs before/after each individual test (instance methods)
+- **Class**: Runs once before/after all tests in a class (static field recommended)
+- **Assembly**: Runs once before/after all tests in an assembly (static field recommended)
+- **Session**: Runs once before/after all tests in the entire test session (**must be static**, v1.2+)
 ```
 
 ### Parameterized Tests

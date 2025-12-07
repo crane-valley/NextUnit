@@ -87,6 +87,16 @@ public sealed class LifecycleInfo
     /// Gets or initializes the delegates to execute after all tests in an assembly.
     /// </summary>
     public IReadOnlyList<LifecycleMethodDelegate> AfterAssemblyMethods { get; init; } = Array.Empty<LifecycleMethodDelegate>();
+
+    /// <summary>
+    /// Gets or initializes the delegates to execute before all tests in a session.
+    /// </summary>
+    public IReadOnlyList<LifecycleMethodDelegate> BeforeSessionMethods { get; init; } = Array.Empty<LifecycleMethodDelegate>();
+
+    /// <summary>
+    /// Gets or initializes the delegates to execute after all tests in a session.
+    /// </summary>
+    public IReadOnlyList<LifecycleMethodDelegate> AfterSessionMethods { get; init; } = Array.Empty<LifecycleMethodDelegate>();
 }
 
 /// <summary>
