@@ -23,21 +23,21 @@ public class SessionLifecycleTests
     }
 
     [Test]
-    public void SessionTest1()
+    public static void SessionTest1()
     {
         _sessionCounter++;
         Assert.Equal(1, _sessionCounter);
     }
 
     [Test]
-    public void SessionTest2()
+    public static void SessionTest2()
     {
         _sessionCounter++;
         Assert.Equal(2, _sessionCounter);
     }
 
     [Test]
-    public void SessionTest3()
+    public static void SessionTest3()
     {
         _sessionCounter++;
         Assert.Equal(3, _sessionCounter);

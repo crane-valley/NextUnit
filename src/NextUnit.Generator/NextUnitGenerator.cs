@@ -105,7 +105,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             testDataSources,
             parameters,
             categories,
-            tags);
+            tags,
+            methodSymbol.IsStatic);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
@@ -419,11 +420,11 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
 
         if (arguments.HasValue)
         {
-            builder.AppendLine($"                TestMethod = {BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, arguments.Value)},");
+            builder.AppendLine($"                TestMethod = {BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, arguments.Value, test.IsStatic)},");
         }
         else
         {
-            builder.AppendLine($"                TestMethod = {BuildTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName)},");
+            builder.AppendLine($"                TestMethod = {BuildTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.IsStatic)},");
         }
 
         builder.AppendLine($"                Lifecycle = {BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
@@ -532,16 +533,26 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
-    private static string BuildTestMethodDelegate(string typeName, string methodName)
+    private static string BuildTestMethodDelegate(string typeName, string methodName, bool isStatic)
     {
-        return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
+        if (isStatic)
+        {
+            // Static methods don't use the instance parameter
+            return $"static async (instance, ct) => {{ await InvokeTestMethodAsync({typeName}.{methodName}, ct).ConfigureAwait(false); }}";
+        }
+        else
+        {
+            // Instance methods need to cast the instance parameter to the correct type
+            return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
+        }
     }
 
     private static string BuildParameterizedTestMethodDelegate(
         string typeName,
         string methodName,
         ImmutableArray<IParameterSymbol> parameters,
-        ImmutableArray<TypedConstant> arguments)
+        ImmutableArray<TypedConstant> arguments,
+        bool isStatic)
     {
         var argsBuilder = new StringBuilder();
         for (var i = 0; i < arguments.Length; i++)
@@ -557,7 +568,16 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             argsBuilder.Append(FormatArgumentValue(arg, param?.Type));
         }
 
-        return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(() => typedInstance.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}";
+        if (isStatic)
+        {
+            // Static methods don't use the instance parameter
+            return $"static async (instance, ct) => {{ await InvokeTestMethodAsync(() => {typeName}.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}";
+        }
+        else
+        {
+            // Instance methods need to cast the instance parameter to the correct type
+            return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(() => typedInstance.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}";
+        }
     }
 
     private static string FormatArgumentValue(TypedConstant argument, ITypeSymbol? targetType)
@@ -1142,7 +1162,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             ImmutableArray<TestDataSource> testDataSources,
             ImmutableArray<IParameterSymbol> parameters,
             ImmutableArray<string> categories,
-            ImmutableArray<string> tags)
+            ImmutableArray<string> tags,
+            bool isStatic)
         {
             Id = id;
             DisplayName = displayName;
@@ -1158,6 +1179,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             Parameters = parameters;
             Categories = categories;
             Tags = tags;
+            IsStatic = isStatic;
         }
 
         public string Id { get; }
@@ -1174,6 +1196,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         public ImmutableArray<IParameterSymbol> Parameters { get; }
         public ImmutableArray<string> Categories { get; }
         public ImmutableArray<string> Tags { get; }
+        public bool IsStatic { get; }
     }
 
     private sealed class LifecycleMethodDescriptor
