@@ -678,18 +678,10 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
 
     private static string BuildLifecycleMethodDelegate(string typeName, string methodName, bool isStatic)
     {
-        if (isStatic)
-        {
-            // Static methods don't use the instance parameter, but we keep the same delegate signature
-            // (object instance, CancellationToken ct) for consistency across all lifecycle methods.
-            // The 'instance' parameter will be null when calling session-scoped static methods.
-            return $"static async (instance, ct) => {{ await InvokeLifecycleMethodAsync({typeName}.{methodName}, ct).ConfigureAwait(false); }}";
-        }
-        else
-        {
-            // Instance methods need to cast the instance parameter to the correct type
-            return $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeLifecycleMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
-        }
+        // Static methods don't use the instance parameter; instance methods need to cast the instance.
+        return isStatic
+            ? $"static async (instance, ct) => {{ await InvokeLifecycleMethodAsync({typeName}.{methodName}, ct).ConfigureAwait(false); }}"
+            : $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeLifecycleMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
     }
 
     private static string BuildLifecycleInfoLiteral(string typeName, List<LifecycleMethodDescriptor> lifecycleMethods)
