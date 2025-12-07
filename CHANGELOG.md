@@ -178,7 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Per-test Overhead**: ~7ms average (includes test logic)
 - **Framework Memory**: ~5MB baseline
 - **Zero reflection** in test execution path
-- **Technical Details**
+### Technical Details
 - **Target Framework**: .NET 10+
 - **Native AOT Compatible**: Full support
 - **C# Version**: 12.0+
