@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <OutputType>Exe</OutputType>
+    <GenerateProgramFile>false</GenerateProgramFile>
+  </PropertyGroup>
+</Project>

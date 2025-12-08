@@ -9,7 +9,7 @@
     <!-- Package Information -->
     <IsPackable>true</IsPackable>
     <PackageId>NextUnit</PackageId>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <Authors>NextUnit Contributors</Authors>
     <Company>NextUnit</Company>
     <Product>NextUnit</Product>
@@ -37,6 +37,10 @@
 
   <ItemGroup>
     <None Include="..\..\NUGET_README.md" Pack="true" PackagePath="\README.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="build\NextUnit.targets" Pack="true" PackagePath="build" />
   </ItemGroup>
 
 </Project>
