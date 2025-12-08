@@ -255,7 +255,7 @@ public sealed class TestExecutionEngine
         TestOutputCapture? testOutput = testCase.RequiresTestOutput ? new TestOutputCapture() : null;
 
         // Create test instance (each test gets its own instance)
-        var instance = testCase.RequiresTestOutput && testOutput is not null
+        var instance = testCase.RequiresTestOutput
             ? Activator.CreateInstance(testCase.TestClass, testOutput)!
             : Activator.CreateInstance(testCase.TestClass)!;
 
