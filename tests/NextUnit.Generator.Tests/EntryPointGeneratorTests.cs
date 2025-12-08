@@ -42,6 +42,7 @@ public class TestClass
 
         // The test passing means the generated entry point compiled successfully
         await test.RunAsync();
+    }
 
     [Fact]
     public async Task ExistingEntryPoint_DoesNotGenerateEntryPointAsync()
