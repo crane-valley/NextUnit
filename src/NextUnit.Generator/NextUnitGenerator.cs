@@ -1135,8 +1135,15 @@ internal static class Program
 
     private static bool RequiresTestOutput(INamedTypeSymbol typeSymbol)
     {
+        // Only check public constructors since Activator.CreateInstance will only use public constructors
         foreach (var constructor in typeSymbol.InstanceConstructors)
         {
+            // Skip non-public constructors
+            if (constructor.DeclaredAccessibility != Accessibility.Public)
+            {
+                continue;
+            }
+
             foreach (var parameter in constructor.Parameters)
             {
                 var parameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
