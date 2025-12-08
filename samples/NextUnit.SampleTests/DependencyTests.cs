@@ -5,8 +5,8 @@ namespace NextUnit.SampleTests;
 /// </summary>
 public class DependencyTests
 {
-    private bool _testACompleted;
-    private bool _testBCompleted;
+    private static bool _testACompleted;
+    private static bool _testBCompleted;
 
     [Test]
     public void TestA_Setup()
