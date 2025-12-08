@@ -48,7 +48,7 @@ public class ParallelTests
 [NotInParallel]
 public class SerialTests
 {
-    private static int _runningTests;
+    private int _runningTests;
 
     [Test]
     public async Task SerialTest1Async()
