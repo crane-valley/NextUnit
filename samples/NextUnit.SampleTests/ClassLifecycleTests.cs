@@ -18,7 +18,7 @@ public class ClassLifecycleTests
     }
 
     [After(LifecycleScope.Class)]
-    public void ClassTeardown()
+    public static void ClassTeardown()
     {
         _classTeardownCount++;
     }
