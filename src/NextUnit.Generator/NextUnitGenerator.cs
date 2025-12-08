@@ -91,6 +91,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var parameters = methodSymbol.Parameters;
         var categories = GetCategories(methodSymbol, typeSymbol);
         var tags = GetTags(methodSymbol, typeSymbol);
+        var requiresTestOutput = RequiresTestOutput(typeSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -107,7 +108,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             parameters,
             categories,
             tags,
-            methodSymbol.IsStatic);
+            methodSymbol.IsStatic,
+            requiresTestOutput);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
@@ -419,7 +421,8 @@ internal static class Program
         builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? ToLiteral(test.SkipReason) : "null")},");
         builder.AppendLine($"                Categories = {BuildStringArrayLiteral(test.Categories)},");
-        builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)}");
+        builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)},");
+        builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()}");
         builder.AppendLine("            },");
     }
 
@@ -475,7 +478,8 @@ internal static class Program
         }
 
         builder.AppendLine($"                Categories = {BuildStringArrayLiteral(test.Categories)},");
-        builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)}");
+        builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)},");
+        builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()}");
 
         builder.AppendLine("            },");
     }
@@ -1129,6 +1133,23 @@ internal static class Program
         return builder.ToImmutable();
     }
 
+    private static bool RequiresTestOutput(INamedTypeSymbol typeSymbol)
+    {
+        foreach (var constructor in typeSymbol.InstanceConstructors)
+        {
+            foreach (var parameter in constructor.Parameters)
+            {
+                var parameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                if (parameterType == ITestOutputMetadataName)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private const string TestAttributeMetadataName = "global::NextUnit.TestAttribute";
     private const string BeforeAttributeMetadataName = "global::NextUnit.BeforeAttribute";
     private const string AfterAttributeMetadataName = "global::NextUnit.AfterAttribute";
@@ -1140,6 +1161,7 @@ internal static class Program
     private const string TestDataAttributeMetadataName = "global::NextUnit.TestDataAttribute";
     private const string CategoryAttributeMetadataName = "global::NextUnit.CategoryAttribute";
     private const string TagAttributeMetadataName = "global::NextUnit.TagAttribute";
+    private const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
 
     private static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
@@ -1172,7 +1194,8 @@ internal static class Program
             ImmutableArray<IParameterSymbol> parameters,
             ImmutableArray<string> categories,
             ImmutableArray<string> tags,
-            bool isStatic)
+            bool isStatic,
+            bool requiresTestOutput)
         {
             Id = id;
             DisplayName = displayName;
@@ -1189,6 +1212,7 @@ internal static class Program
             Categories = categories;
             Tags = tags;
             IsStatic = isStatic;
+            RequiresTestOutput = requiresTestOutput;
         }
 
         public string Id { get; }
@@ -1206,6 +1230,7 @@ internal static class Program
         public ImmutableArray<string> Categories { get; }
         public ImmutableArray<string> Tags { get; }
         public bool IsStatic { get; }
+        public bool RequiresTestOutput { get; }
     }
 
     private sealed class LifecycleMethodDescriptor

@@ -156,7 +156,8 @@ public static class TestDataExpander
             SkipReason = descriptor.SkipReason,
             Arguments = arguments,
             Categories = descriptor.Categories,
-            Tags = descriptor.Tags
+            Tags = descriptor.Tags,
+            RequiresTestOutput = descriptor.RequiresTestOutput
         };
     }
 

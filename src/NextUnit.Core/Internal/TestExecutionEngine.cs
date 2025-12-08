@@ -11,24 +11,27 @@ public interface ITestExecutionSink
     /// Reports that a test has passed successfully.
     /// </summary>
     /// <param name="test">The test case that passed.</param>
+    /// <param name="output">The test output captured during execution, or null if no output.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public Task ReportPassedAsync(TestCaseDescriptor test);
+    public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null);
 
     /// <summary>
     /// Reports that a test has failed due to an assertion failure.
     /// </summary>
     /// <param name="test">The test case that failed.</param>
     /// <param name="ex">The assertion exception that caused the failure.</param>
+    /// <param name="output">The test output captured during execution, or null if no output.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex);
+    public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null);
 
     /// <summary>
     /// Reports that a test encountered an unexpected error.
     /// </summary>
     /// <param name="test">The test case that encountered an error.</param>
     /// <param name="ex">The exception that was thrown.</param>
+    /// <param name="output">The test output captured during execution, or null if no output.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex);
+    public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null);
 
     /// <summary>
     /// Reports that a test was skipped.
@@ -152,7 +155,10 @@ public sealed class TestExecutionEngine
 
             // Use the first test class for assembly-level lifecycle
             var firstTestClass = testCases[0].TestClass;
-            var assemblyInstance = Activator.CreateInstance(firstTestClass)!;
+            var requiresTestOutput = testCases[0].RequiresTestOutput;
+            var assemblyInstance = requiresTestOutput
+                ? Activator.CreateInstance(firstTestClass, NullTestOutput.Instance)!
+                : Activator.CreateInstance(firstTestClass)!;
 
             foreach (var beforeMethod in _assemblyBeforeMethods)
             {
@@ -189,7 +195,10 @@ public sealed class TestExecutionEngine
 
         // Use the first test class for assembly-level lifecycle
         var firstTestClass = testCases[0].TestClass;
-        var assemblyInstance = Activator.CreateInstance(firstTestClass)!;
+        var requiresTestOutput = testCases[0].RequiresTestOutput;
+        var assemblyInstance = requiresTestOutput
+            ? Activator.CreateInstance(firstTestClass, NullTestOutput.Instance)!
+            : Activator.CreateInstance(firstTestClass)!;
 
         try
         {
@@ -242,8 +251,13 @@ public sealed class TestExecutionEngine
         // Execute class-level setup if not already done
         await EnsureClassSetupAsync(testCase, cancellationToken).ConfigureAwait(false);
 
+        // Create test output capture if needed
+        TestOutputCapture? testOutput = testCase.RequiresTestOutput ? new TestOutputCapture() : null;
+
         // Create test instance (each test gets its own instance)
-        var instance = Activator.CreateInstance(testCase.TestClass)!;
+        var instance = testCase.RequiresTestOutput && testOutput is not null
+            ? Activator.CreateInstance(testCase.TestClass, testOutput)!
+            : Activator.CreateInstance(testCase.TestClass)!;
 
         try
         {
@@ -262,15 +276,15 @@ public sealed class TestExecutionEngine
                 await afterMethod(instance, cancellationToken).ConfigureAwait(false);
             }
 
-            await sink.ReportPassedAsync(testCase).ConfigureAwait(false);
+            await sink.ReportPassedAsync(testCase, testOutput?.GetOutput()).ConfigureAwait(false);
         }
         catch (AssertionFailedException ex)
         {
-            await sink.ReportFailedAsync(testCase, ex).ConfigureAwait(false);
+            await sink.ReportFailedAsync(testCase, ex, testOutput?.GetOutput()).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            await sink.ReportErrorAsync(testCase, ex).ConfigureAwait(false);
+            await sink.ReportErrorAsync(testCase, ex, testOutput?.GetOutput()).ConfigureAwait(false);
         }
         finally
         {
@@ -293,11 +307,18 @@ public sealed class TestExecutionEngine
         var testClass = testCase.TestClass;
 
         // Get or create class context (thread-safe)
-        var context = _classContexts.GetOrAdd(testClass, _ => new ClassExecutionContext
+        var context = _classContexts.GetOrAdd(testClass, _ =>
         {
-            Instance = Activator.CreateInstance(testClass)!,
-            Lifecycle = testCase.Lifecycle,
-            SetupLock = new SemaphoreSlim(1, 1)
+            var instance = testCase.RequiresTestOutput
+                ? Activator.CreateInstance(testClass, NullTestOutput.Instance)!
+                : Activator.CreateInstance(testClass)!;
+
+            return new ClassExecutionContext
+            {
+                Instance = instance,
+                Lifecycle = testCase.Lifecycle,
+                SetupLock = new SemaphoreSlim(1, 1)
+            };
         });
 
         // Use semaphore to ensure class setup runs only once even in parallel execution
