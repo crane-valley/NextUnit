@@ -9,13 +9,13 @@ public class AssemblyLifecycleTests
     private static int _assemblyTeardownCount;
 
     [Before(LifecycleScope.Assembly)]
-    public void AssemblySetup()
+    public static void AssemblySetup()
     {
         _assemblySetupCount++;
     }
 
     [After(LifecycleScope.Assembly)]
-    public void AssemblyTeardown()
+    public static void AssemblyTeardown()
     {
         _assemblyTeardownCount++;
     }
