@@ -45,9 +45,13 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **CLI argument filtering** - Command-line arguments for category/tag filtering (e.g., `--category Integration`)
 - ✅ **Session-scoped lifecycle** - `[Before(LifecycleScope.Session)]` and `[After(LifecycleScope.Session)]` for session-wide setup/teardown
 
+### New in v1.3
+- ✅ **Test output capture** - `ITestOutput` interface for writing diagnostic messages during test execution
+- ✅ **Constructor injection** - Tests requiring output can accept `ITestOutput` parameter in constructor
+- ✅ **Output in test results** - Test output is automatically included in test results and visible in reports
+
 ### Planned (see [PLANS.md](PLANS.md))
-- 📋 **Structured test output** - Enhanced logging and output capture (v1.3)
-- 📋 **Performance benchmarks** - Large-scale test suite validation (v1.3)
+- 📋 **Performance benchmarks** - Large-scale test suite validation (v1.4+)
 
 ## Quick Start
 
@@ -528,6 +532,56 @@ public class ModerateTests
     public void Test3() { }
 }
 ```
+
+### Test Output
+
+NextUnit supports writing diagnostic output during test execution using the `ITestOutput` interface, similar to xUnit's `ITestOutputHelper`:
+
+```csharp
+using NextUnit.Core;
+
+public class DiagnosticTests
+{
+    private readonly ITestOutput _output;
+
+    // Inject ITestOutput via constructor
+    public DiagnosticTests(ITestOutput output)
+    {
+        _output = output;
+    }
+
+    [Test]
+    public void TestWithOutput()
+    {
+        _output.WriteLine("Starting test execution...");
+        
+        var result = PerformOperation();
+        _output.WriteLine("Result: {0}", result);
+        
+        Assert.Equal(42, result);
+        _output.WriteLine("Test completed successfully!");
+    }
+
+    [Test]
+    [Arguments(1, 2, 3)]
+    [Arguments(10, 20, 30)]
+    public void ParameterizedTestWithOutput(int a, int b, int expected)
+    {
+        _output.WriteLine("Testing: {0} + {1}", a, b);
+        var result = a + b;
+        _output.WriteLine("Result: {0}", result);
+        Assert.Equal(expected, result);
+    }
+
+    private int PerformOperation() => 42;
+}
+```
+
+**Key Features:**
+- Output is captured per-test and included in test results
+- Works with parameterized tests, lifecycle hooks, and all other features
+- Output is visible even when tests fail (helpful for debugging)
+- Thread-safe implementation for parallel test execution
 
 ## Architecture
 
