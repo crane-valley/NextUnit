@@ -1,6 +1,7 @@
 # NextUnit
 
 [![.NET](https://github.com/crane-valley/NextUnit/actions/workflows/dotnet.yml/badge.svg)](https://github.com/crane-valley/NextUnit/actions/workflows/dotnet.yml)
+[![Nightly Build](https://github.com/crane-valley/NextUnit/actions/workflows/nightly.yml/badge.svg)](https://github.com/crane-valley/NextUnit/actions/workflows/nightly.yml)
 [![NuGet](https://img.shields.io/nuget/v/NextUnit.svg)](https://www.nuget.org/packages/NextUnit/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
