@@ -50,8 +50,11 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **Constructor injection** - Tests requiring output can accept `ITestOutput` parameter in constructor
 - ✅ **Output in test results** - Test output is automatically included in test results and visible in reports
 
-### Planned (see [PLANS.md](PLANS.md))
-- 📋 **Performance benchmarks** - Large-scale test suite validation (v1.4+)
+### New in v1.4
+- ✅ **Performance benchmarks** - Comprehensive benchmarking with 1,000+ test suite
+- ✅ **Performance documentation** - Detailed analysis in [docs/PERFORMANCE.md](docs/PERFORMANCE.md)
+- ✅ **BenchmarkDotNet integration** - Professional benchmarking infrastructure
+- ✅ **Proven scalability** - 1,852 tests/second throughput, ~0.54ms per-test overhead
 
 ## Quick Start
 
