@@ -117,7 +117,7 @@ This error appears on .NET 10 SDK when using `dotnet test` without opting in to 
 
 - [Microsoft.Testing.Platform Documentation](https://learn.microsoft.com/dotnet/core/testing/unit-testing-platform-intro)
 - [.NET 10 SDK Test Changes](https://aka.ms/dotnet-test-mtp-error)
-- [NextUnit Getting Started](../docs/GETTING_STARTED.md)
+- [NextUnit Getting Started](./GETTING_STARTED.md)
 
 ## Why dotnet run?
 
