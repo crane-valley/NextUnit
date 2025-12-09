@@ -8,7 +8,7 @@ public class RealWorldScenarioTests
     private static HttpClient? _httpClient;
 
     [Before(LifecycleScope.Class)]
-    public void SetupHttpClient()
+    public static void SetupHttpClient()
     {
         _httpClient = new HttpClient
         {
@@ -17,7 +17,7 @@ public class RealWorldScenarioTests
     }
 
     [After(LifecycleScope.Class)]
-    public void CleanupHttpClient()
+    public static void CleanupHttpClient()
     {
         _httpClient?.Dispose();
     }

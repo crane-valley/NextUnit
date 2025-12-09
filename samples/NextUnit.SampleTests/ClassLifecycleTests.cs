@@ -11,14 +11,14 @@ public class ClassLifecycleTests
     private static int _testExecutionCount;
 
     [Before(LifecycleScope.Class)]
-    public void ClassSetup()
+    public static void ClassSetup()
     {
         _classSetupCount++;
         _testExecutionCount = 0;
     }
 
     [After(LifecycleScope.Class)]
-    public void ClassTeardown()
+    public static void ClassTeardown()
     {
         _classTeardownCount++;
     }

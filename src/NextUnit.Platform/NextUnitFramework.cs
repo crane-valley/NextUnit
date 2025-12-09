@@ -379,13 +379,20 @@ internal sealed class NextUnitFramework :
             _producer = producer;
         }
 
-        public async Task ReportPassedAsync(TestCaseDescriptor test)
+        public async Task ReportPassedAsync(TestCaseDescriptor test, string? output = null)
         {
+            var properties = new List<IProperty> { PassedTestNodeStateProperty.CachedInstance };
+
+            if (!string.IsNullOrEmpty(output))
+            {
+                properties.Add(new TestMetadataProperty("TestOutput", output));
+            }
+
             var testNode = new TestNode
             {
                 Uid = new TestNodeUid(test.Id.Value),
                 DisplayName = test.DisplayName,
-                Properties = new PropertyBag(PassedTestNodeStateProperty.CachedInstance)
+                Properties = new PropertyBag(properties.ToArray())
             };
 
             await _messageBus.PublishAsync(
@@ -395,14 +402,20 @@ internal sealed class NextUnitFramework :
                     testNode)).ConfigureAwait(false);
         }
 
-        public async Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex)
+        public async Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null)
         {
+            var properties = new List<IProperty> { new FailedTestNodeStateProperty(ex.Message) };
+
+            if (!string.IsNullOrEmpty(output))
+            {
+                properties.Add(new TestMetadataProperty("TestOutput", output));
+            }
+
             var testNode = new TestNode
             {
                 Uid = new TestNodeUid(test.Id.Value),
                 DisplayName = test.DisplayName,
-                Properties = new PropertyBag(
-                    new FailedTestNodeStateProperty(ex.Message))
+                Properties = new PropertyBag(properties.ToArray())
             };
 
             await _messageBus.PublishAsync(
@@ -412,14 +425,20 @@ internal sealed class NextUnitFramework :
                     testNode)).ConfigureAwait(false);
         }
 
-        public async Task ReportErrorAsync(TestCaseDescriptor test, Exception ex)
+        public async Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null)
         {
+            var properties = new List<IProperty> { new ErrorTestNodeStateProperty(ex) };
+
+            if (!string.IsNullOrEmpty(output))
+            {
+                properties.Add(new TestMetadataProperty("TestOutput", output));
+            }
+
             var testNode = new TestNode
             {
                 Uid = new TestNodeUid(test.Id.Value),
                 DisplayName = test.DisplayName,
-                Properties = new PropertyBag(
-                    new ErrorTestNodeStateProperty(ex))
+                Properties = new PropertyBag(properties.ToArray())
             };
 
             await _messageBus.PublishAsync(

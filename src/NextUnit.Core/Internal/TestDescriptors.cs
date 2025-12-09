@@ -187,6 +187,11 @@ public sealed class TestCaseDescriptor
     /// Gets or initializes the tags assigned to the test.
     /// </summary>
     public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test class constructor requires an ITestOutput parameter.
+    /// </summary>
+    public bool RequiresTestOutput { get; init; }
 }
 
 /// <summary>
@@ -269,4 +274,9 @@ public sealed class TestDataDescriptor
     /// Used to resolve the correct method overload when invoking via reflection.
     /// </summary>
     public Type[] ParameterTypes { get; init; } = [];
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test class constructor requires an ITestOutput parameter.
+    /// </summary>
+    public bool RequiresTestOutput { get; init; }
 }

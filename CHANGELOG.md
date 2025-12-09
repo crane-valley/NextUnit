@@ -7,10 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for v1.3
-- Test output/logging integration (ITestOutputHelper equivalent)
+### Planned for v1.4
 - Performance benchmarks with large test suites (1,000+ tests)
 - Additional assertion methods
+
+## [1.3.0] - 2025-12-08
+
+### Added - Test Output/Logging Integration
+- **`ITestOutput` interface** - xUnit-style test output capability for writing diagnostic messages during test execution
+  - `WriteLine(string message)` - Write a line of text to test output
+  - `WriteLine(string format, params object?[] args)` - Write formatted text to test output
+  - Constructor injection support (similar to xUnit's `ITestOutputHelper`)
+- **`TestOutputCapture`** - Thread-safe implementation that captures output for individual test cases
+  - Output is captured per-test and included in test results
+  - Thread-safe using lock for concurrent access
+- **`NullTestOutput`** - No-op implementation for class-level and assembly-level lifecycle instances
+  - Used when test class requires ITestOutput but is instantiated for lifecycle methods
+  - Singleton pattern for efficiency
+- **Source generator enhancements**:
+  - Detect constructor parameters requiring `ITestOutput`
+  - Add `RequiresTestOutput` property to `TestCaseDescriptor` and `TestDataDescriptor`
+  - Generate code to properly instantiate test classes with ITestOutput parameter
+- **`TestExecutionEngine` updates**:
+  - Create `TestOutputCapture` instance for each test requiring output
+  - Inject ITestOutput into test class constructor
+  - Capture output and pass to reporting sink
+  - Handle ITestOutput in class-level and assembly-level instances
+- **`ITestExecutionSink` updates**:
+  - Added optional `output` parameter to `ReportPassedAsync`, `ReportFailedAsync`, and `ReportErrorAsync`
+  - Output is included in test results via Microsoft.Testing.Platform messaging
+- **Microsoft.Testing.Platform integration**:
+  - Test output included in `TestNode` properties via `TestMetadataProperty`
+  - Output visible in test reports and IDE test explorers
+  - Output captured even when tests fail (helpful for debugging)
+
+### Changed
+- Test count increased from 116 to 123 tests
+  - Added 7 new tests demonstrating test output functionality (`TestOutputTests`)
+  - Tests cover simple output, formatted output, multiline output, parameterized tests, async tests, and failed tests with output
+- Framework version bumped to 1.3.0
 
 ## [1.2.1] - 2025-12-07
 
