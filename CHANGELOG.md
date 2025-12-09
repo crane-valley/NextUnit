@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - dotnet test Support Documentation
+- **`Microsoft.Testing.Platform.MSBuild` package reference** - Added to NextUnit.targets to enable `dotnet test` integration
+  - Provides MSBuild integration for Microsoft.Testing.Platform
+  - Enables optional `dotnet test` support on .NET 10 SDK with proper configuration
+- **dotnet test Support Guide** - Comprehensive documentation at `docs/DOTNET_TEST_SUPPORT.md`
+  - Explains `dotnet run` vs `dotnet test` differences
+  - Provides configuration steps for .NET 10 SDK `dotnet test` support
+  - Troubleshooting guide for common issues
+  - Clarifies that `dotnet run` is the recommended approach
+
+### Changed
+- **README.md** - Updated to reference dotnet test support guide
+- **NextUnit.targets** - Added Microsoft.Testing.Platform.MSBuild package reference with explanatory comments
+
+### Note
+- `dotnet run` remains the recommended way to run NextUnit tests
+- `dotnet test` requires additional SDK configuration on .NET 10 and later
+- See `docs/DOTNET_TEST_SUPPORT.md` for detailed setup instructions
+
 ### Planned for v1.4
 - Performance benchmarks with large test suites (1,000+ tests)
 - Additional assertion methods
