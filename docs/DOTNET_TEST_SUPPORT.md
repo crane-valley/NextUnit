@@ -54,8 +54,7 @@ Create or update a `global.json` file in your solution root:
     "version": "10.0.100",
     "rollForward": "latestFeature"
   },
-  "msbuild-sdks": {},
-  "msbuild-enableWorkloadResolver": true
+  "msbuild-sdks": {}
 }
 ```
 
