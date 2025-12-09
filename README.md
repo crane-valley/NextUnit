@@ -72,7 +72,7 @@ dotnet add package NextUnit.Platform
 NextUnit uses **Microsoft.Testing.Platform** for test execution. To run tests:
 
 ```bash
-# Run all tests in a project
+# Run all tests in a project (recommended)
 dotnet run --project YourTestProject/YourTestProject.csproj
 
 # Run with specific options
@@ -85,7 +85,7 @@ dotnet run --project YourTestProject/YourTestProject.csproj -- --minimum-expecte
 dotnet run --project YourTestProject/YourTestProject.csproj -- --results-directory ./TestResults --report-trx
 ```
 
-**Note**: Unlike traditional test frameworks, NextUnit does **not** use `dotnet test`. Tests are executed as a console application using Microsoft.Testing.Platform.
+**Note**: The recommended way to run NextUnit tests is with `dotnet run`. For `dotnet test` support on .NET 10 SDK and later, see [dotnet test Support Guide](docs/DOTNET_TEST_SUPPORT.md).
 
 ### Filtering Tests by Category and Tag
 
