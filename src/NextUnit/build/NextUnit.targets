@@ -3,11 +3,4 @@
     <OutputType>Exe</OutputType>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
-
-  <!-- Add Microsoft.Testing.Platform.MSBuild for dotnet test support -->
-  <!-- Note: On .NET 10 SDK, dotnet test requires opt-in to new test experience -->
-  <!-- See: https://aka.ms/dotnet-test-mtp-error -->
-  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
-    <PackageReference Include="Microsoft.Testing.Platform.MSBuild" Version="2.0.2" />
-  </ItemGroup>
 </Project>
