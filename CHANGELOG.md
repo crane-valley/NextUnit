@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned for v1.4
+- Performance benchmarks with large test suites (1,000+ tests)
+- Additional assertion methods
+
+## [1.3.1] - 2025-12-09
+
 ### Added - dotnet test Support Documentation
 - **`Microsoft.Testing.Platform.MSBuild` package dependency** - Added as a direct package reference to NextUnit meta-package
   - Ensures the package is properly restored for consumers
@@ -30,10 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dotnet run` remains the recommended way to run NextUnit tests
 - `dotnet test` requires additional SDK configuration on .NET 10 and later
 - See `docs/DOTNET_TEST_SUPPORT.md` for detailed setup instructions
-
-### Planned for v1.4
-- Performance benchmarks with large test suites (1,000+ tests)
-- Additional assertion methods
 
 ## [1.3.0] - 2025-12-08
 
