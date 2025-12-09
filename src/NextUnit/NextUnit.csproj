@@ -41,7 +41,6 @@
 
   <ItemGroup>
     <None Include="build\NextUnit.targets" Pack="true" PackagePath="build" />
-    <None Include="build\NextUnitMSBuildExtension.cs" Pack="true" PackagePath="build" />
   </ItemGroup>
 
 </Project>
