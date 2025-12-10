@@ -1,0 +1,80 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup Condition="'$(TestFramework)' == ''">
+        <TestFramework>NEXTUNIT</TestFramework>
+    </PropertyGroup>
+
+    <!-- Define constants based on TestFramework property -->
+    <PropertyGroup>
+        <DefineConstants Condition="'$(TestFramework)' == 'NEXTUNIT'">$(DefineConstants);NEXTUNIT</DefineConstants>
+        <DefineConstants Condition="'$(TestFramework)' == 'XUNIT'">$(DefineConstants);XUNIT</DefineConstants>
+        <DefineConstants Condition="'$(TestFramework)' == 'NUNIT'">$(DefineConstants);NUNIT</DefineConstants>
+        <DefineConstants Condition="'$(TestFramework)' == 'MSTEST'">$(DefineConstants);MSTEST</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <LangVersion>14</LangVersion>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+        <EnableMSTestRunner>true</EnableMSTestRunner>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <EnableNUnitRunner>true</EnableNUnitRunner>
+        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+        <OutputType>Exe</OutputType>
+        <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    </PropertyGroup>
+
+    <!-- Custom output paths based on TestFramework -->
+    <PropertyGroup Condition="'$(TestFramework)' != ''">
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(TestFramework)' != ''">
+        <OutputPath>bin\$(Configuration)-$(TestFramework)\$(TargetFramework)\</OutputPath>
+        <IntermediateOutputPath>obj\$(Configuration)-$(TestFramework)\$(TargetFramework)\</IntermediateOutputPath>
+    </PropertyGroup>
+
+    <!-- NextUnit packages -->
+    <ItemGroup Condition="'$(TestFramework)' == 'NEXTUNIT'">
+        <PackageReference Include="NextUnit" Version="1.4.0" />
+    </ItemGroup>
+
+    <!-- xUnit packages -->
+    <ItemGroup Condition="'$(TestFramework)' == 'XUNIT'">
+        <PackageReference Include="xunit" Version="2.9.3" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    </ItemGroup>
+
+    <!-- NUnit packages -->
+    <ItemGroup Condition="'$(TestFramework)' == 'NUNIT'">
+        <PackageReference Include="NUnit" Version="4.3.1" />
+        <PackageReference Include="NUnit3TestAdapter" Version="6.0.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    </ItemGroup>
+
+    <!-- MSTest packages -->
+    <ItemGroup Condition="'$(TestFramework)' == 'MSTEST'">
+        <PackageReference Include="MSTest" Version="3.7.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    </ItemGroup>
+
+    <!-- AOT and SingleFile configurations for NextUnit -->
+    <PropertyGroup Condition="'$(TestFramework)' == 'NEXTUNIT' AND '$(Aot)' == 'true'">
+        <PublishAot>true</PublishAot>
+        <PublishTrimmed>true</PublishTrimmed>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(TestFramework)' == 'NEXTUNIT' AND '$(SingleFile)' == 'true'">
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>true</SelfContained>
+    </PropertyGroup>
+
+</Project>

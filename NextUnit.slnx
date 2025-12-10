@@ -37,6 +37,8 @@
     <Project Path="tools/speed-comparison/src/SpeedComparison.NUnit/SpeedComparison.NUnit.csproj" />
     <Project Path="tools/speed-comparison/src/SpeedComparison.MSTest/SpeedComparison.MSTest.csproj" />
     <Project Path="tools/speed-comparison/src/SpeedComparison.Runner/SpeedComparison.Runner.csproj" />
+    <Project Path="tools/speed-comparison/UnifiedTests/UnifiedTests.csproj" />
+    <Project Path="tools/speed-comparison/Tests.Benchmark/Tests.Benchmark.csproj" />
   </Folder>
   <Project Path="src/NextUnit.Core/NextUnit.Core.csproj" />
   <Project Path="src/NextUnit.Generator/NextUnit.Generator.csproj" />
