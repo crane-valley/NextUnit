@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write  # Required to commit results back to repository
+  pull-requests: write  # Required to comment on pull requests
 
 env:
   DOTNET_VERSION: '10.0.x'
