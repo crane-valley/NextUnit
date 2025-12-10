@@ -14,7 +14,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     [BenchmarkCategory("Runtime", "AOT")]
     public async Task NextUnit_AOT()
     {
-        var aotPath = Path.Combine(UnifiedPath, "bin", "Release-NEXTUNIT-AOT", Framework);
+        var aotPath = Path.Combine(UnifiedPath, "bin", "Release-NEXTUNIT", Framework, "publish");
         var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "UnifiedTests.exe" : "UnifiedTests";
 
         await Cli.Wrap(Path.Combine(aotPath, exeName))
