@@ -10,9 +10,9 @@ namespace NextUnit.Benchmarks;
 [SimpleJob(warmupCount: 3, iterationCount: 10)]
 public class TestSuiteExecutionBenchmarks
 {
-    private static readonly string RepositoryRoot = GetRepositoryRoot();
-    private static readonly string LargeTestSuitePath = Path.Combine(RepositoryRoot, "samples", "NextUnit.LargeTestSuite", "NextUnit.LargeTestSuite.csproj");
-    private static readonly string SampleTestsPath = Path.Combine(RepositoryRoot, "samples", "NextUnit.SampleTests", "NextUnit.SampleTests.csproj");
+    private static readonly string _repositoryRoot = GetRepositoryRoot();
+    private static readonly string _largeTestSuitePath = Path.Combine(_repositoryRoot, "samples", "NextUnit.LargeTestSuite", "NextUnit.LargeTestSuite.csproj");
+    private static readonly string _sampleTestsPath = Path.Combine(_repositoryRoot, "samples", "NextUnit.SampleTests", "NextUnit.SampleTests.csproj");
 
     /// <summary>
     /// Locates the repository root by walking up from the assembly location.
@@ -23,7 +23,7 @@ public class TestSuiteExecutionBenchmarks
         // Start from the benchmark assembly location and walk up to find the repository root
         var assemblyLocation = AppContext.BaseDirectory;
         var directory = new DirectoryInfo(assemblyLocation);
-        
+
         while (directory != null)
         {
             // Look for a marker file that exists in the repository root (e.g., .git directory or a specific file)
@@ -34,19 +34,18 @@ public class TestSuiteExecutionBenchmarks
             }
             directory = directory.Parent;
         }
-        
+
         // Fallback: assume we're 3 levels deep from the repo root (benchmarks/NextUnit.Benchmarks/bin)
         throw new InvalidOperationException("Could not locate repository root. Ensure the benchmark is run from within the NextUnit repository.");
     }
 
     [Benchmark(Description = "NextUnit: 1000 tests execution time")]
-    public async Task<TimeSpan> NextUnit_1000Tests()
+    public async Task NextUnit_1000TestsAsync()
     {
-        var sw = Stopwatch.StartNew();
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --no-build --project {LargeTestSuitePath}",
+            Arguments = $"run --no-build --project {_largeTestSuitePath}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -58,25 +57,21 @@ public class TestSuiteExecutionBenchmarks
             throw new InvalidOperationException("Failed to start process");
 
         await process.WaitForExitAsync();
-        sw.Stop();
 
         if (process.ExitCode != 0)
         {
             var error = await process.StandardError.ReadToEndAsync();
             throw new InvalidOperationException($"Test execution failed: {error}");
         }
-
-        return sw.Elapsed;
     }
 
     [Benchmark(Description = "NextUnit: 125 tests execution time")]
-    public async Task<TimeSpan> NextUnit_125Tests()
+    public async Task NextUnit_125TestsAsync()
     {
-        var sw = Stopwatch.StartNew();
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --no-build --project {SampleTestsPath}",
+            Arguments = $"run --no-build --project {_sampleTestsPath}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -88,14 +83,11 @@ public class TestSuiteExecutionBenchmarks
             throw new InvalidOperationException("Failed to start process");
 
         await process.WaitForExitAsync();
-        sw.Stop();
 
         if (process.ExitCode != 0)
         {
             var error = await process.StandardError.ReadToEndAsync();
             throw new InvalidOperationException($"Test execution failed: {error}");
         }
-
-        return sw.Elapsed;
     }
 }

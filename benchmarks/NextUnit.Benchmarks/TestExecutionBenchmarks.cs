@@ -14,7 +14,7 @@ public class TestExecutionBenchmarks
     private readonly Consumer _consumer = new();
 
     [Benchmark(Description = "Execute 1000 simple tests")]
-    public async Task Execute1000Tests()
+    public async Task Execute1000TestsAsync()
     {
         // Simulate running the large test suite
         // In practice, this would launch the test executable, but for benchmark purposes
@@ -29,7 +29,7 @@ public class TestExecutionBenchmarks
     }
 
     [Benchmark(Description = "Execute 100 simple tests")]
-    public async Task Execute100Tests()
+    public async Task Execute100TestsAsync()
     {
         var tasks = new List<Task>();
         for (int i = 0; i < 100; i++)
@@ -40,7 +40,7 @@ public class TestExecutionBenchmarks
     }
 
     [Benchmark(Description = "Execute 10 simple tests")]
-    public async Task Execute10Tests()
+    public async Task Execute10TestsAsync()
     {
         var tasks = new List<Task>();
         for (int i = 0; i < 10; i++)
