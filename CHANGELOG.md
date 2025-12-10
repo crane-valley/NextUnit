@@ -277,8 +277,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MIGRATION_FROM_XUNIT.md** - Comprehensive xUnit migration guide
 - **BEST_PRACTICES.md** - Best practices and patterns
 - **README.md** - Project overview and quick start
-- **PLANS.md** - Implementation roadmap
-- **DEVLOG.md** - Development log
 
 ### Performance
 - **Test Discovery**: ~2ms for 86 tests (50x faster than xUnit)
