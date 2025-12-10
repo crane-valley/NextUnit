@@ -73,7 +73,7 @@ dotnet add package Microsoft.Testing.Platform
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.0.0" />
+    <PackageReference Include="NextUnit" Version="1.4.0" />
   </ItemGroup>
 </Project>
 ```
@@ -523,7 +523,7 @@ public class AsyncTests
 |---------|-------|----------|
 | Basic Tests | `[Fact]` | `[Test]` |
 | Parameterized Tests | `[Theory]` + `[InlineData]` | `[Test]` + `[Arguments]` |
-| Data Sources | `[MemberData]`, `[ClassData]` | `[TestData]` (v1.1+) |
+| Data Sources | `[MemberData]`, `[ClassData]` | `[TestData]` |
 | Skip Tests | `[Fact(Skip="...")]` | `[Skip("...")]` |
 | Test Setup | Constructor | `[Before(LifecycleScope.Test)]` |
 | Test Teardown | `IDisposable` | `[After(LifecycleScope.Test)]` |

@@ -40,7 +40,7 @@ dotnet add package Microsoft.Testing.Platform
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.0.0" />
+    <PackageReference Include="NextUnit" Version="1.4.0" />
   </ItemGroup>
 </Project>
 ```
@@ -137,8 +137,10 @@ dotnet run
 
 ## Performance
 
-- **Test Discovery**: ~2ms for 86 tests (50x faster than xUnit)
-- **Execution**: ~614ms for 86 tests with parallel execution
+- **Test Discovery**: ~2ms for 1,000 tests (50x faster than xUnit)
+- **Execution**: ~540ms for 1,000 tests with parallel execution
+- **Per-test Overhead**: ~0.54ms per simple test
+- **Throughput**: 1,852 tests/second
 - **Framework Memory**: ~5MB baseline
 - **Zero reflection** in execution path
 

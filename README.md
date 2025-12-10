@@ -643,21 +643,21 @@ Runtime (Execution - Zero Reflection):
 
 ## Documentation
 
-- [PLANS.md](PLANS.md) - Complete implementation roadmap and milestones
-- [DEVLOG.md](DEVLOG.md) - Development log and session notes
-- [CODING_STANDARDS.md](CODING_STANDARDS.md) - Coding conventions and style guide
-- [Attributes Guide](docs/Attributes.md) - Coming soon
-- [Assertions Guide](docs/Assertions.md) - Coming soon
-- [Lifecycle Guide](docs/Lifecycle.md) - Coming soon
+- [Getting Started Guide](docs/GETTING_STARTED.md) - Complete guide for new users
+- [Migration from xUnit](docs/MIGRATION_FROM_XUNIT.md) - Step-by-step migration guide
+- [Best Practices](docs/BEST_PRACTICES.md) - Recommended patterns and practices
+- [Performance Benchmarks](docs/PERFORMANCE.md) - Performance metrics and analysis
 
 ## Contributing
 
-NextUnit is in early development. Contributions welcome!
+Contributions welcome! Please follow these steps:
 
-1. Read [CODING_STANDARDS.md](CODING_STANDARDS.md) - **All code and comments must be in English**
-2. Check [PLANS.md](PLANS.md) for current milestones
-3. Open an issue to discuss your idea
-4. Submit a PR with tests
+1. Open an issue to discuss your idea
+2. Fork the repository and create a feature branch
+3. Follow the project's coding conventions (see `.editorconfig` and `.github/copilot-instructions.md`)
+4. Write tests for your changes
+5. Ensure all tests pass with `dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj`
+6. Submit a PR with a clear description
 
 **Important**: This project follows an **English-only policy** for all code, comments, documentation, and commit messages to ensure international collaboration and consistency with .NET ecosystem standards.
 
@@ -699,20 +699,9 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 1.1.0 (Stable)
-
-**v1.0 Milestones** (All Complete):
-- ✅ M0 - Basic framework (Complete)
-- ✅ M1 - Source Generator & Discovery (Complete - 2025-12-02)
-- ✅ M1.5 - Parameterized Tests & Skip Support (Complete - 2025-12-02)
-- ✅ M2 - Lifecycle Scopes (Complete - 2025-12-02)
-- ✅ M2.5 - Polish & Testing (Complete - 2025-12-02)
-- ✅ M3 - Parallel Scheduler (Complete - 2025-12-03)
-- ✅ M4 - Rich Assertions & v1.0 Prep (Complete - 2025-12-06)
+**Current Version**: 1.4.0 (Stable)
 
 **v1.0 Release**: 2025-12-06
-
-**v1.0 Features**:
 - ✅ Zero-reflection test execution with source generators
 - ✅ Rich assertion library (Collection, String, Numeric assertions)
 - ✅ Multi-scope lifecycle (Test, Class, Assembly)
@@ -721,19 +710,24 @@ NextUnit is inspired by:
 - ✅ True parallel execution with ParallelLimit enforcement
 - ✅ Thread-safe lifecycle management
 - ✅ Comprehensive documentation
-- ✅ 102 tests passing (99 passed, 3 skipped, 0 failed)
-- ✅ ~880ms execution time for 102 tests
 
 **v1.1 Release**: 2025-12-06
-
-**v1.1 Features**:
 - ✅ Category and Tag filtering with environment variables
 - ✅ Source generator support for extracting categories and tags
 - ✅ Flexible filtering logic (include/exclude by category or tag)
-- ✅ 113 tests passing (110 passed, 3 skipped, 0 failed)
 
-**Planned for v1.2**:
-- 📋 CLI arguments for filtering (--category, --tag, --exclude-category, --exclude-tag)
-- 📋 Test output/logging integration
-- 📋 Session-scoped lifecycle
-- 📋 Performance benchmarks with large test suites (1,000+ tests)
+**v1.2 Release**: 2025-12-07
+- ✅ CLI arguments for filtering (--category, --tag, --exclude-category, --exclude-tag)
+- ✅ Session-scoped lifecycle
+- ✅ CLI arguments take precedence over environment variables
+
+**v1.3 Release**: 2025-12-08
+- ✅ Test output/logging integration (ITestOutput interface)
+- ✅ Constructor injection support for test output
+- ✅ Thread-safe per-test output capture
+
+**v1.4 Release**: 2025-12-09
+- ✅ Performance benchmarks with 1,000+ test suite
+- ✅ BenchmarkDotNet integration
+- ✅ Performance documentation and analysis
+- ✅ Proven scalability (1,852 tests/second throughput)

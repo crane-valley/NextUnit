@@ -135,7 +135,7 @@ NextUnit v1.4 demonstrates excellent performance characteristics:
 4. **Scalable**: Linear performance scaling to 1,000+ tests
 5. **Efficient**: Zero-reflection execution minimizes overhead
 
-The framework is **production-ready** for large test suites and meets the performance goals set in PLANS.md.
+The framework is **production-ready** for large test suites with excellent performance characteristics.
 
 ---
 
