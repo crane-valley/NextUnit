@@ -99,7 +99,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         try
         {
             Console.WriteLine("AOT executable not found. Building AOT version (this may take several minutes)...");
-            Console.WriteLine("To skip this, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
+            Console.WriteLine("To build manually instead, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
             
             var result = await Cli.Wrap("dotnet")
                 .WithArguments(["publish", "-c", "Release", "-p:TestFramework=NEXTUNIT", "-p:PublishAot=true", "--framework", Framework, "--verbosity", "quiet"])
@@ -136,7 +136,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         {
             // Skip this benchmark if AOT executable doesn't exist
             // We return immediately to avoid measuring a failed run
-            throw new InvalidOperationException($"AOT executable not found at {_aotPath}. Run 'dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true' first, or let the automatic build complete in GlobalSetup.");
+            throw new InvalidOperationException($"AOT executable not found at {_aotPath}. Run 'dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true' first, or let the automatic build complete in GlobalSetup.");
         }
 
         await Cli.Wrap(_aotPath!)
