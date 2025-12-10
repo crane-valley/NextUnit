@@ -151,7 +151,7 @@ public class MarkdownGenerator
 
         foreach (var framework in frameworks)
         {
-            sb.AppendLine($"{framework.FrameworkName,-12} {framework.Version,-8} {framework.AverageTimeMs + "ms",-10} {framework.PerTestTimeMs:F2} + "ms",-12} {framework.PeakMemoryMB:F1} + "MB",-10} {framework.TestsPerSecond:F0},-12} {framework.PerformanceRating,-15}");
+            sb.AppendLine($"{framework.FrameworkName,-12} {framework.Version,-8} {framework.AverageTimeMs}ms {framework.PerTestTimeMs:F2}ms {framework.PeakMemoryMB:F1}MB {framework.TestsPerSecond:F0} {framework.PerformanceRating,-15}");
         }
 
         sb.AppendLine();
