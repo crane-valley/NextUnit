@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **dotnet test support** - Removed `Microsoft.Testing.Platform.MSBuild` package dependency
+  - Removed `docs/DOTNET_TEST_SUPPORT.md` documentation
+  - Removed `IsTestProject` condition from `NextUnit.targets`
+  - Tests should now be executed using `dotnet run` exclusively
+  - Simplified project configuration - no longer need `EnableMSTestRunner` property
+
+### Changed
+- **README.md** - Updated to state that tests should be executed using `dotnet run`
+- **NUGET_README.md** - Removed `EnableMSTestRunner` from example project configuration
+- **NextUnit.targets** - Removed conditional logic, now unconditionally sets `OutputType=Exe` and `GenerateProgramFile=false`
+
 ### Planned for v1.4
 - Performance benchmarks with large test suites (1,000+ tests)
 - Additional assertion methods
