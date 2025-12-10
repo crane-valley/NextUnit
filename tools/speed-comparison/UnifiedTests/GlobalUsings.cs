@@ -30,7 +30,7 @@ global using TestDataSourceAttribute = NUnit.Framework.TestCaseSourceAttribute;
 global using TestClassAttribute = NUnit.Framework.TestFixtureAttribute;
 #elif MSTEST
 global using TestAttribute = Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute;
-global using DataDrivenTestAttribute = Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute;
+global using DataDrivenTestAttribute = Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute;
 global using TestDataAttribute = Microsoft.VisualStudio.TestTools.UnitTesting.DataRowAttribute;
 global using TestDataSourceAttribute = Microsoft.VisualStudio.TestTools.UnitTesting.DynamicDataAttribute;
 global using TestClassAttribute = Microsoft.VisualStudio.TestTools.UnitTesting.TestClassAttribute;
