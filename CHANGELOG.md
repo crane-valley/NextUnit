@@ -11,15 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - Predicate-based Collection Assertions
 
-- **`Assert.Contains<T>(IEnumerable<T>, Func<T, bool>)`** - Verifies that a collection contains an element matching a predicate
-  - Enables xUnit-compatible syntax: `Assert.Contains(items, item => item.Id == expectedId)`
-  - Provides better error messages when no matching element is found
+- **`Assert.Contains<T>(IEnumerable<T>, Predicate<T>)`** - Verifies that a collection contains an element matching a predicate
+  - Returns the first matching element (not void) for chaining assertions
+  - Enables xUnit-compatible syntax: `var match = Assert.Contains(items, item => item.Id == expectedId)`
+  - Supports both lambda expressions and `Predicate<T>` delegates
   
-- **`Assert.DoesNotContain<T>(IEnumerable<T>, Func<T, bool>)`** - Verifies that a collection does not contain an element matching a predicate
+- **`Assert.DoesNotContain<T>(IEnumerable<T>, Predicate<T>)`** - Verifies that a collection does not contain an element matching a predicate
   - Complements the predicate-based Contains for consistency
   - Useful for verifying absence of items with specific properties
   
-- **`Assert.Single<T>(IEnumerable<T>, Func<T, bool>)`** - Verifies that a collection contains exactly one element matching a predicate
+- **`Assert.Single<T>(IEnumerable<T>, Predicate<T>)`** - Verifies that a collection contains exactly one element matching a predicate
   - Returns the single matching element for further assertions
   - Throws clear errors when zero or multiple elements match
 
@@ -29,9 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 
-- These additions complete xUnit API compatibility for collection assertions with predicates
+- These additions achieve complete xUnit API compatibility for collection assertions with predicates
 - All existing tests continue to pass
-- Migration from xUnit is now smoother with these commonly-used assertion overloads
+- Migration from xUnit is now fully supported with correct return types and parameter types
 
 ## [1.4.0] - 2025-12-09
 

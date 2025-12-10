@@ -185,19 +185,25 @@ public static class Assert
     /// </summary>
     /// <typeparam name="T">The type of elements in the collection.</typeparam>
     /// <param name="collection">The collection to search.</param>
-    /// <param name="predicate">The predicate to match elements against.</param>
+    /// <param name="filter">The predicate to match elements against.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <returns>The first element matching the predicate.</returns>
     /// <exception cref="AssertionFailedException">Thrown when the collection does not contain an element matching the predicate.</exception>
-    public static void Contains<T>(IEnumerable<T> collection, Func<T, bool> predicate, string? message = null)
+    public static T Contains<T>(IEnumerable<T> collection, Predicate<T> filter, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(collection);
-        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(filter);
 
-        if (!collection.Any(predicate))
+        foreach (var item in collection)
         {
-            throw new AssertionFailedException(
-                message ?? "Collection does not contain an element matching the predicate.");
+            if (filter(item))
+            {
+                return item;
+            }
         }
+
+        throw new AssertionFailedException(
+            message ?? "Collection does not contain an element matching the predicate.");
     }
 
     /// <summary>
@@ -224,18 +230,21 @@ public static class Assert
     /// </summary>
     /// <typeparam name="T">The type of elements in the collection.</typeparam>
     /// <param name="collection">The collection to search.</param>
-    /// <param name="predicate">The predicate to match elements against.</param>
+    /// <param name="filter">The predicate to match elements against.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <exception cref="AssertionFailedException">Thrown when the collection contains an element matching the predicate.</exception>
-    public static void DoesNotContain<T>(IEnumerable<T> collection, Func<T, bool> predicate, string? message = null)
+    public static void DoesNotContain<T>(IEnumerable<T> collection, Predicate<T> filter, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(collection);
-        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(filter);
 
-        if (collection.Any(predicate))
+        foreach (var item in collection)
         {
-            throw new AssertionFailedException(
-                message ?? "Collection should not contain an element matching the predicate.");
+            if (filter(item))
+            {
+                throw new AssertionFailedException(
+                    message ?? "Collection should not contain an element matching the predicate.");
+            }
         }
     }
 
@@ -301,29 +310,46 @@ public static class Assert
     /// </summary>
     /// <typeparam name="T">The type of elements in the collection.</typeparam>
     /// <param name="collection">The collection to search.</param>
-    /// <param name="predicate">The predicate to match elements against.</param>
+    /// <param name="filter">The predicate to match elements against.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <returns>The single element matching the predicate.</returns>
     /// <exception cref="AssertionFailedException">Thrown when the collection does not contain exactly one element matching the predicate.</exception>
-    public static T Single<T>(IEnumerable<T> collection, Func<T, bool> predicate, string? message = null)
+    public static T Single<T>(IEnumerable<T> collection, Predicate<T> filter, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(collection);
-        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(filter);
 
-        var matches = collection.Where(predicate).ToList();
-        if (matches.Count == 0)
+        T? match = default;
+        var hasMatch = false;
+        var multipleMatches = false;
+
+        foreach (var item in collection)
+        {
+            if (filter(item))
+            {
+                if (hasMatch)
+                {
+                    multipleMatches = true;
+                    break;
+                }
+                match = item;
+                hasMatch = true;
+            }
+        }
+
+        if (!hasMatch)
         {
             throw new AssertionFailedException(
                 message ?? "Collection does not contain an element matching the predicate. Expected exactly one matching element.");
         }
 
-        if (matches.Count > 1)
+        if (multipleMatches)
         {
             throw new AssertionFailedException(
-                message ?? $"Collection contains {matches.Count} elements matching the predicate. Expected exactly one matching element.");
+                message ?? "Collection contains multiple elements matching the predicate. Expected exactly one matching element.");
         }
 
-        return matches[0];
+        return match!;
     }
 
     /// <summary>

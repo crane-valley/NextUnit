@@ -45,8 +45,11 @@ public class RichAssertionTests
             new { Id = 2, Name = "Bob" },
             new { Id = 3, Name = "Charlie" }
         };
-        Assert.Contains(items, item => item.Id == 2);
-        Assert.Contains(items, item => item.Name == "Alice");
+        var match1 = Assert.Contains(items, item => item.Id == 2);
+        Assert.Equal("Bob", match1.Name);
+
+        var match2 = Assert.Contains(items, item => item.Name == "Alice");
+        Assert.Equal(1, match2.Id);
     }
 
     [Test]
