@@ -129,7 +129,7 @@ jobs:
     - name: Check required documentation files
       run: |
         echo "Checking for required documentation files..."
-        required_files=("README.md" "PLANS.md" "DEVLOG.md" "CODING_STANDARDS.md" ".editorconfig")
+        required_files=("README.md" ".editorconfig")
         for file in "${required_files[@]}"; do
           if [ ! -f "$file" ]; then
             echo "Error: Required file $file not found"
@@ -151,7 +151,7 @@ jobs:
         # Search for non-ASCII characters in .cs files (excluding comments might have legitimate Unicode)
         if grep -r -P '[^\x00-\x7F]' --include="*.cs" src/ samples/ 2>/dev/null | grep -v "// " | grep -v "/// " | grep -v "/\*"; then
           echo "Warning: Found non-ASCII characters in code files"
-          echo "Please review CODING_STANDARDS.md - All code must be in English"
+          echo "Please review .github/copilot-instructions.md - All code must be in English"
           exit 0  # Warning only, don't fail the build
         else
           echo "✓ All code files use ASCII characters only"

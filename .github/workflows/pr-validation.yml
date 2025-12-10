@@ -54,7 +54,7 @@ jobs:
         # Basic check for non-ASCII characters (potential non-English)
         if echo "$COMMITS" | grep -P '[^\x00-\x7F]'; then
           echo "⚠️ Warning: Commit messages may contain non-English characters"
-          echo "See CODING_STANDARDS.md - All commit messages should be in English"
+          echo "See .github/copilot-instructions.md - All commit messages should be in English"
         else
           echo "✅ All commit messages use ASCII characters"
         fi
@@ -102,7 +102,7 @@ jobs:
         
         if [ $CODE_CHANGES -gt 0 ] && [ $DOC_CHANGES -eq 0 ]; then
           echo "⚠️ Code was changed but documentation was not updated"
-          echo "Consider updating README.md or PLANS.md if needed"
+          echo "Consider updating README.md or documentation in docs/ if needed"
         else
           echo "✅ Documentation appears to be in sync"
         fi
@@ -294,7 +294,7 @@ jobs:
       run: |
         echo "### PR Checklist"
         echo ""
-        echo "- [ ] Code follows CODING_STANDARDS.md (English-only policy)"
+        echo "- [ ] Code follows .github/copilot-instructions.md (English-only policy)"
         echo "- [ ] All code and comments are in English"
         echo "- [ ] Commit messages follow conventional format"
         echo "- [ ] Tests added for new features"
