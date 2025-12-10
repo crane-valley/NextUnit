@@ -37,6 +37,56 @@ public class RichAssertionTests
     }
 
     [Test]
+    public void Contains_FindsElementMatchingPredicate()
+    {
+        var items = new[]
+        {
+            new { Id = 1, Name = "Alice" },
+            new { Id = 2, Name = "Bob" },
+            new { Id = 3, Name = "Charlie" }
+        };
+        var match1 = Assert.Contains(items, item => item.Id == 2);
+        Assert.Equal("Bob", match1.Name);
+
+        var match2 = Assert.Contains(items, item => item.Name == "Alice");
+        Assert.Equal(1, match2.Id);
+    }
+
+    [Test]
+    public void DoesNotContain_VerifiesNoElementMatchesPredicate()
+    {
+        var items = new[]
+        {
+            new { Id = 1, Name = "Alice" },
+            new { Id = 2, Name = "Bob" },
+            new { Id = 3, Name = "Charlie" }
+        };
+        Assert.DoesNotContain(items, item => item.Id == 99);
+        Assert.DoesNotContain(items, item => item.Name == "David");
+    }
+
+    [Test]
+    public void Single_ReturnsSingleElementMatchingPredicate()
+    {
+        var numbers = new[] { 1, 2, 3, 4, 5 };
+        var result = Assert.Single(numbers, n => n == 3);
+        Assert.Equal(3, result);
+    }
+
+    [Test]
+    public void Single_WithPredicate_FindsComplexMatch()
+    {
+        var items = new[]
+        {
+            new { Id = 1, Name = "Alice" },
+            new { Id = 2, Name = "Bob" },
+            new { Id = 3, Name = "Charlie" }
+        };
+        var result = Assert.Single(items, item => item.Id == 2);
+        Assert.Equal("Bob", result.Name);
+    }
+
+    [Test]
     public void Empty_VerifiesCollectionIsEmpty()
     {
         var emptyList = new List<int>();
