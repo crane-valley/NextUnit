@@ -80,8 +80,9 @@ public class FrameworkVersionColumn : IColumn
 
             return "";
         }
-        catch
+        catch (Exception)
         {
+            // Version detection is not critical - return empty string on any error
             return "";
         }
     }
@@ -113,8 +114,9 @@ public class FrameworkVersionColumn : IColumn
 
             return "";
         }
-        catch
+        catch (Exception)
         {
+            // Version detection is not critical - return empty string on any error
             return "";
         }
     }
@@ -146,8 +148,9 @@ public class FrameworkVersionColumn : IColumn
 
             return "";
         }
-        catch
+        catch (Exception)
         {
+            // Version detection is not critical - return empty string on any error
             return "";
         }
     }
@@ -179,8 +182,9 @@ public class FrameworkVersionColumn : IColumn
 
             return "";
         }
-        catch
+        catch (Exception)
         {
+            // Version detection is not critical - return empty string on any error
             return "";
         }
     }

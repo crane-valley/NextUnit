@@ -1,7 +1,11 @@
 namespace UnifiedTests;
 
 [TestClass]
+#if XUNIT
+public class SetupTeardownTests : IDisposable
+#else
 public class SetupTeardownTests
+#endif
 {
 #if NEXTUNIT
     [Before(LifecycleScope.Test)]

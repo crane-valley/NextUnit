@@ -34,6 +34,7 @@ public class ScaleTests
         {
             sum += i * i;
         }
-        var result = sum > 0;
+        // Verify computation happened
+        _ = sum > 0;
     }
 }
