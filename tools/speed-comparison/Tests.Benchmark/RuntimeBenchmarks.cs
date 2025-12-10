@@ -14,6 +14,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     private string? _nunitPath;
     private string? _msTestPath;
     private string? _xUnitPath;
+    private bool _aotBuildAttempted;
 
     [GlobalSetup]
     public void Setup()
@@ -37,6 +38,25 @@ public class RuntimeBenchmarks : BenchmarkBase
         BuildIfMissing("NUNIT", _nunitPath);
         BuildIfMissing("MSTEST", _msTestPath);
         BuildIfMissing("XUNIT", _xUnitPath);
+
+        // For AOT, only try to build it if AUTOBUILD_AOT environment variable is set
+        // This is because AOT builds can take 5-10 minutes
+        _aotBuildAttempted = false;
+        if (!File.Exists(_aotPath))
+        {
+            var autoBuildAot = Environment.GetEnvironmentVariable("AUTOBUILD_AOT");
+            if (!string.IsNullOrEmpty(autoBuildAot) && autoBuildAot.Equals("true", StringComparison.OrdinalIgnoreCase))
+            {
+                TryBuildAot();
+            }
+            else
+            {
+                Console.WriteLine($"AOT executable not found at {_aotPath}.");
+                Console.WriteLine("To build it automatically, set environment variable AUTOBUILD_AOT=true");
+                Console.WriteLine("Or run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
+                Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
+            }
+        }
     }
 
     private string GetExecutablePath(string framework, string exeName)
@@ -69,32 +89,58 @@ public class RuntimeBenchmarks : BenchmarkBase
         }
     }
 
+    private void TryBuildAot()
+    {
+        if (_aotBuildAttempted)
+        {
+            return;
+        }
+
+        _aotBuildAttempted = true;
+
+        try
+        {
+            Console.WriteLine("AOT executable not found. Building AOT version (this may take several minutes)...");
+            Console.WriteLine("To skip this, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
+            
+            var result = Cli.Wrap("dotnet")
+                .WithArguments(["publish", "-c", "Release", "-p:TestFramework=NEXTUNIT", "-p:PublishAot=true", "--framework", Framework, "--verbosity", "quiet"])
+                .WithWorkingDirectory(UnifiedPath)
+                .ExecuteBufferedAsync()
+                .GetAwaiter()
+                .GetResult();
+
+            if (result.ExitCode != 0)
+            {
+                Console.WriteLine($"Warning: Failed to build AOT version: {result.StandardError}");
+                Console.WriteLine("NextUnit_AOT benchmark will be skipped. Run the publish command manually to enable it.");
+            }
+            else if (!File.Exists(_aotPath))
+            {
+                Console.WriteLine($"Warning: AOT executable not found at {_aotPath} after publish.");
+                Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
+            }
+            else
+            {
+                Console.WriteLine("AOT build completed successfully.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Exception while building AOT version: {ex.Message}");
+            Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
+        }
+    }
+
     [Benchmark]
     [BenchmarkCategory("Runtime", "AOT")]
     public async Task NextUnit_AOT()
     {
-        // Build AOT version if it doesn't exist
-        // We do this in the benchmark method rather than Setup because:
-        // 1. AOT builds are very slow and should be optional
-        // 2. Not all users will want to run AOT benchmarks
         if (!File.Exists(_aotPath))
         {
-            Console.WriteLine($"AOT executable not found. Building AOT version (this may take several minutes)...");
-            var result = await Cli.Wrap("dotnet")
-                .WithArguments(["publish", "-c", "Release", "-p:TestFramework=NEXTUNIT", "-p:PublishAot=true", "--framework", Framework])
-                .WithWorkingDirectory(UnifiedPath)
-                .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream))
-                .ExecuteBufferedAsync();
-
-            if (result.ExitCode != 0)
-            {
-                throw new InvalidOperationException($"Failed to build AOT version: {result.StandardError}");
-            }
-
-            if (!File.Exists(_aotPath))
-            {
-                throw new InvalidOperationException($"AOT executable not found at {_aotPath} after publish. You may need to run 'dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true' manually.");
-            }
+            // Skip this benchmark if AOT executable doesn't exist
+            // We return immediately to avoid measuring a failed run
+            throw new InvalidOperationException($"AOT executable not found at {_aotPath}. Run 'dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true' first, or let the automatic build complete in GlobalSetup.");
         }
 
         await Cli.Wrap(_aotPath!)
