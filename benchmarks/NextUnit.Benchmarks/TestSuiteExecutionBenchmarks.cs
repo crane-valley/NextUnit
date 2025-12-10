@@ -11,8 +11,8 @@ namespace NextUnit.Benchmarks;
 public class TestSuiteExecutionBenchmarks
 {
     private static readonly string RepositoryRoot = GetRepositoryRoot();
-    private static readonly string LargeTestSuitePath = Path.Combine(RepositoryRoot, "samples/NextUnit.LargeTestSuite/NextUnit.LargeTestSuite.csproj");
-    private static readonly string SampleTestsPath = Path.Combine(RepositoryRoot, "samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj");
+    private static readonly string LargeTestSuitePath = Path.Combine(RepositoryRoot, "samples", "NextUnit.LargeTestSuite", "NextUnit.LargeTestSuite.csproj");
+    private static readonly string SampleTestsPath = Path.Combine(RepositoryRoot, "samples", "NextUnit.SampleTests", "NextUnit.SampleTests.csproj");
 
     /// <summary>
     /// Locates the repository root by walking up from the assembly location.
