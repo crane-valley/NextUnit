@@ -1,8 +1,8 @@
 using System.Text.Json;
 using SpeedComparison.Runner;
 
-// Get solution root directory
-var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+// Get repository root directory (7 levels up from bin/Release/net10.0/)
+var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", ".."));
 
 Console.WriteLine("NextUnit Speed Comparison Tool");
 Console.WriteLine("==============================");
@@ -18,7 +18,7 @@ Console.WriteLine(markdownGen.GenerateConsoleSummary(results));
 
 // Generate markdown report
 var markdown = markdownGen.Generate(results);
-var resultsDir = Path.Combine(solutionRoot, "results");
+var resultsDir = Path.Combine(solutionRoot, "tools", "speed-comparison", "results");
 Directory.CreateDirectory(resultsDir);
 
 var markdownPath = Path.Combine(resultsDir, "BENCHMARK_RESULTS.md");
