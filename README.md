@@ -641,6 +641,26 @@ Runtime (Execution - Zero Reflection):
 | Per-test overhead | <1ms | ✅ Achieved (~0.7ms) |
 | Assertion overhead | <1μs | 📋 M5 - Planned |
 
+## Speed Comparison with Other Frameworks
+
+NextUnit includes a comprehensive benchmarking system that compares performance against other popular .NET test frameworks (xUnit, NUnit, MSTest) using identical test cases.
+
+**View Latest Results**: [tools/speed-comparison/results/BENCHMARK_RESULTS.md](tools/speed-comparison/results/BENCHMARK_RESULTS.md)
+
+**Run Benchmarks Locally**:
+```bash
+cd tools/speed-comparison/src/SpeedComparison.Runner
+dotnet run --configuration Release
+```
+
+The benchmark system runs **200 identical tests** across all frameworks and measures:
+- ⏱️ Execution time (median, average, per-test)
+- 💾 Memory usage (peak working set)
+- 🚀 Throughput (tests per second)
+- 📊 Relative performance (compared to NextUnit baseline)
+
+All test implementations use framework-native patterns and best practices to ensure fairness. See [tools/speed-comparison/README.md](tools/speed-comparison/README.md) for detailed methodology.
+
 ## Documentation
 
 - [Getting Started Guide](docs/GETTING_STARTED.md) - Complete guide for new users
