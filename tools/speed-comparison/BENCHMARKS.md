@@ -43,6 +43,8 @@ dotnet run -c Release --project Tests.Benchmark
 dotnet run -c Release --project Tests.Benchmark -- --filter "*BuildBenchmarks*"
 
 # Runtime benchmarks for specific test class
+# Note: CLASS_NAME filtering applies to NUnit, MSTest, and xUnit.
+# NextUnit runs all tests since it uses Microsoft.Testing.Platform which has different filtering mechanisms.
 set CLASS_NAME=AsyncTests  # Windows
 export CLASS_NAME=AsyncTests  # Linux/Mac
 dotnet run -c Release --project Tests.Benchmark -- --filter "*RuntimeBenchmarks*"

@@ -138,8 +138,9 @@ public class RuntimeBenchmarks : BenchmarkBase
             throw new InvalidOperationException($"AOT executable not found at {_aotPath}. Build it first by running 'dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true' or set AUTOBUILD_AOT=true environment variable.");
         }
 
+        // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
+        // Run all tests since filtering by class name is not directly supported
         await Cli.Wrap(_aotPath!)
-            .WithArguments(["--filter", $"*{ClassName}*"])
             .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream))
             .ExecuteBufferedAsync();
     }
@@ -147,8 +148,9 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task NextUnit()
     {
+        // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
+        // Run all tests since filtering by class name is not directly supported
         await Cli.Wrap(_nextUnitPath!)
-            .WithArguments(["--filter", $"*{ClassName}*"])
             .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream))
             .ExecuteBufferedAsync();
     }
