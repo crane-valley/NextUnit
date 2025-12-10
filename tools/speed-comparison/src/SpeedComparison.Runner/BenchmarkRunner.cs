@@ -136,6 +136,8 @@ public class BenchmarkRunner
             await process.WaitForExitAsync();
             stopwatch.Stop();
             
+            // Refresh process info to ensure we have latest data before accessing properties
+            process.Refresh();
             var peakMemory = process.PeakWorkingSet64;
             
             metrics.ExecutionTimesMs.Add(stopwatch.ElapsedMilliseconds);
@@ -194,6 +196,8 @@ public class BenchmarkRunner
             await process.WaitForExitAsync();
             stopwatch.Stop();
             
+            // Refresh process info to ensure we have latest data before accessing properties
+            process.Refresh();
             var peakMemory = process.PeakWorkingSet64;
             
             metrics.ExecutionTimesMs.Add(stopwatch.ElapsedMilliseconds);
@@ -251,6 +255,8 @@ public class BenchmarkRunner
             await process.WaitForExitAsync();
             stopwatch.Stop();
             
+            // Refresh process info to ensure we have latest data before accessing properties
+            process.Refresh();
             var peakMemory = process.PeakWorkingSet64;
             
             metrics.ExecutionTimesMs.Add(stopwatch.ElapsedMilliseconds);
@@ -308,6 +314,8 @@ public class BenchmarkRunner
             await process.WaitForExitAsync();
             stopwatch.Stop();
             
+            // Refresh process info to ensure we have latest data before accessing properties
+            process.Refresh();
             var peakMemory = process.PeakWorkingSet64;
             
             metrics.ExecutionTimesMs.Add(stopwatch.ElapsedMilliseconds);
