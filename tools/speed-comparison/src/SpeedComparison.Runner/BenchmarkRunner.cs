@@ -133,12 +133,24 @@ public class BenchmarkRunner
                 continue;
             }
 
+            // Read output asynchronously before waiting for exit
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            
             await process.WaitForExitAsync();
             stopwatch.Stop();
             
-            // Refresh process info to ensure we have latest data before accessing properties
-            process.Refresh();
-            var peakMemory = process.PeakWorkingSet64;
+            // Try to get peak memory, with fallback to 0 if process info is no longer available
+            long peakMemory = 0;
+            try
+            {
+                peakMemory = process.PeakWorkingSet64;
+            }
+            catch (InvalidOperationException)
+            {
+                // Process has exited and info is no longer available, use 0 as fallback
+                peakMemory = 0;
+            }
             
             metrics.ExecutionTimesMs.Add(stopwatch.ElapsedMilliseconds);
             metrics.PeakMemoryBytes.Add(peakMemory);
@@ -148,7 +160,7 @@ public class BenchmarkRunner
             // Parse output for pass/fail counts (for first iteration)
             if (i == 0)
             {
-                var output = await process.StandardOutput.ReadToEndAsync();
+                var output = await outputTask;
                 ParseTestResults(output, metrics);
             }
         }
@@ -193,12 +205,24 @@ public class BenchmarkRunner
                 continue;
             }
 
+            // Read output asynchronously before waiting for exit
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            
             await process.WaitForExitAsync();
             stopwatch.Stop();
             
-            // Refresh process info to ensure we have latest data before accessing properties
-            process.Refresh();
-            var peakMemory = process.PeakWorkingSet64;
+            // Try to get peak memory, with fallback to 0 if process info is no longer available
+            long peakMemory = 0;
+            try
+            {
+                peakMemory = process.PeakWorkingSet64;
+            }
+            catch (InvalidOperationException)
+            {
+                // Process has exited and info is no longer available, use 0 as fallback
+                peakMemory = 0;
+            }
             
             metrics.ExecutionTimesMs.Add(stopwatch.ElapsedMilliseconds);
             metrics.PeakMemoryBytes.Add(peakMemory);
@@ -207,7 +231,7 @@ public class BenchmarkRunner
             
             if (i == 0)
             {
-                var output = await process.StandardOutput.ReadToEndAsync();
+                var output = await outputTask;
                 ParseTestResults(output, metrics);
             }
         }
@@ -252,12 +276,24 @@ public class BenchmarkRunner
                 continue;
             }
 
+            // Read output asynchronously before waiting for exit
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            
             await process.WaitForExitAsync();
             stopwatch.Stop();
             
-            // Refresh process info to ensure we have latest data before accessing properties
-            process.Refresh();
-            var peakMemory = process.PeakWorkingSet64;
+            // Try to get peak memory, with fallback to 0 if process info is no longer available
+            long peakMemory = 0;
+            try
+            {
+                peakMemory = process.PeakWorkingSet64;
+            }
+            catch (InvalidOperationException)
+            {
+                // Process has exited and info is no longer available, use 0 as fallback
+                peakMemory = 0;
+            }
             
             metrics.ExecutionTimesMs.Add(stopwatch.ElapsedMilliseconds);
             metrics.PeakMemoryBytes.Add(peakMemory);
@@ -266,7 +302,7 @@ public class BenchmarkRunner
             
             if (i == 0)
             {
-                var output = await process.StandardOutput.ReadToEndAsync();
+                var output = await outputTask;
                 ParseTestResults(output, metrics);
             }
         }
@@ -311,12 +347,24 @@ public class BenchmarkRunner
                 continue;
             }
 
+            // Read output asynchronously before waiting for exit
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            
             await process.WaitForExitAsync();
             stopwatch.Stop();
             
-            // Refresh process info to ensure we have latest data before accessing properties
-            process.Refresh();
-            var peakMemory = process.PeakWorkingSet64;
+            // Try to get peak memory, with fallback to 0 if process info is no longer available
+            long peakMemory = 0;
+            try
+            {
+                peakMemory = process.PeakWorkingSet64;
+            }
+            catch (InvalidOperationException)
+            {
+                // Process has exited and info is no longer available, use 0 as fallback
+                peakMemory = 0;
+            }
             
             metrics.ExecutionTimesMs.Add(stopwatch.ElapsedMilliseconds);
             metrics.PeakMemoryBytes.Add(peakMemory);
@@ -325,7 +373,7 @@ public class BenchmarkRunner
             
             if (i == 0)
             {
-                var output = await process.StandardOutput.ReadToEndAsync();
+                var output = await outputTask;
                 ParseTestResults(output, metrics);
             }
         }
