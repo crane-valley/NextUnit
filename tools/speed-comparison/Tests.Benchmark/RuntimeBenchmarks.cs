@@ -135,8 +135,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         if (!File.Exists(_aotPath))
         {
             // Skip this benchmark if AOT executable doesn't exist
-            // We return immediately to avoid measuring a failed run
-            throw new InvalidOperationException($"AOT executable not found at {_aotPath}. Run 'dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true' first, or let the automatic build complete in GlobalSetup.");
+            throw new InvalidOperationException($"AOT executable not found at {_aotPath}. Build it first by running 'dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true' or set AUTOBUILD_AOT=true environment variable.");
         }
 
         await Cli.Wrap(_aotPath!)
