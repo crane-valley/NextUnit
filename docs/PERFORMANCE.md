@@ -111,19 +111,23 @@ While we don't have direct xUnit benchmarks in this environment, industry benchm
 
 ## Running Benchmarks
 
-### Large Test Suite
-
-```bash
-cd samples/NextUnit.LargeTestSuite
-dotnet run --configuration Release
-```
-
 ### BenchmarkDotNet Suite
 
 ```bash
 cd benchmarks/NextUnit.Benchmarks
 dotnet run --configuration Release
 ```
+
+### Speed Comparison Benchmarks
+
+For comparing NextUnit with other frameworks (xUnit, NUnit, MSTest):
+
+```bash
+cd tools/speed-comparison
+dotnet run -c Release --project Tests.Benchmark
+```
+
+See [tools/speed-comparison/BENCHMARKS.md](../tools/speed-comparison/BENCHMARKS.md) for detailed benchmarking documentation.
 
 ## Conclusions
 
