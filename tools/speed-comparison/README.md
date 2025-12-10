@@ -2,6 +2,52 @@
 
 This tool benchmarks NextUnit against other popular .NET test frameworks (xUnit, NUnit, MSTest) using identical test cases to provide fair performance comparisons.
 
+## Two Approaches Available
+
+### 1. BenchmarkDotNet-based (Professional Benchmarking) ⭐ NEW
+
+For detailed performance analysis using industry-standard BenchmarkDotNet:
+
+```bash
+cd tools/speed-comparison
+dotnet run -c Release --project Tests.Benchmark
+```
+
+Features:
+- ✅ **Build benchmarks** - Measures compilation time
+- ✅ **Runtime benchmarks** - Measures execution time
+- ✅ **AOT support** - Tests Native AOT compilation
+- ✅ **Statistical analysis** - Mean, median, standard deviation
+- ✅ **Framework version detection** - Automatic version tracking
+- ✅ **Professional output** - Markdown tables with detailed metrics
+
+See [BENCHMARKS.md](BENCHMARKS.md) for detailed documentation.
+
+### 2. Simple Runner (Quick Comparisons)
+
+For quick comparisons and CI integration:
+
+```bash
+cd tools/speed-comparison/src/SpeedComparison.Runner
+dotnet run --configuration Release
+```
+
+Features:
+- ✅ **Fast execution** - Simple process-based measurements
+- ✅ **CI-friendly** - Easy to integrate with GitHub Actions
+- ✅ **Historical tracking** - JSON results with timestamps
+
+## UnifiedTests Architecture
+
+The new UnifiedTests project uses conditional compilation to support all frameworks from a single codebase:
+
+- **Single source files**: All test code shared across frameworks
+- **Framework-specific attributes**: Using preprocessor directives
+- **GlobalUsings.cs**: Framework-specific namespace imports
+- **Build-time framework selection**: Via `-p:TestFramework=NEXTUNIT|XUNIT|NUNIT|MSTEST`
+
+This ensures 100% identical test logic across all frameworks.
+
 ## Quick Start
 
 ### Running Benchmarks Locally
