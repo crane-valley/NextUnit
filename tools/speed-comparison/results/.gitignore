@@ -1,0 +1,12 @@
+# Keep the directory but ignore generated files by default
+*
+
+# Keep the .gitignore itself
+!.gitignore
+
+# Track the main benchmark results file (auto-updated by CI)
+!BENCHMARK_RESULTS.md
+
+# Track historical JSON results
+!history/
+!history/*.json

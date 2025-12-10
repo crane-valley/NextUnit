@@ -1,0 +1,4 @@
+<Project>
+  <!-- Disable Central Package Management for speed-comparison projects -->
+  <!-- This allows each project to specify its own package versions directly -->
+</Project>

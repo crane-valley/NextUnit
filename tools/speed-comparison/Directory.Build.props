@@ -1,0 +1,15 @@
+<Project>
+  <!-- Override root Directory.Build.props for speed-comparison test projects -->
+  <!-- These are benchmark test projects that don't need strict code quality enforcement -->
+  
+  <PropertyGroup>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;IDE0005</NoWarn>
+    
+    <!-- Disable Central Package Management for speed-comparison projects -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+</Project>

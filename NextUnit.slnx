@@ -30,6 +30,14 @@
   <Folder Name="/tests/">
     <Project Path="tests/NextUnit.Generator.Tests/NextUnit.Generator.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/speed-comparison/">
+    <Project Path="tools/speed-comparison/src/SpeedComparison.Shared/SpeedComparison.Shared.csproj" />
+    <Project Path="tools/speed-comparison/src/SpeedComparison.NextUnit/SpeedComparison.NextUnit.csproj" />
+    <Project Path="tools/speed-comparison/src/SpeedComparison.XUnit/SpeedComparison.XUnit.csproj" />
+    <Project Path="tools/speed-comparison/src/SpeedComparison.NUnit/SpeedComparison.NUnit.csproj" />
+    <Project Path="tools/speed-comparison/src/SpeedComparison.MSTest/SpeedComparison.MSTest.csproj" />
+    <Project Path="tools/speed-comparison/src/SpeedComparison.Runner/SpeedComparison.Runner.csproj" />
+  </Folder>
   <Project Path="src/NextUnit.Core/NextUnit.Core.csproj" />
   <Project Path="src/NextUnit.Generator/NextUnit.Generator.csproj" />
   <Project Path="src/NextUnit.Platform/NextUnit.Platform.csproj" />
