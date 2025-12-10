@@ -12,7 +12,7 @@ public class SetupTeardownTests
     public void Setup()
     {
         // Setup operations
-        var data = InitializeTestData();
+        _ = InitializeTestData();
     }
 
     [After(LifecycleScope.Test)]
@@ -25,7 +25,7 @@ public class SetupTeardownTests
     public SetupTeardownTests()
     {
         // Constructor acts as setup in xUnit
-        var data = InitializeTestData();
+        _ = InitializeTestData();
     }
 
     public void Dispose()
@@ -37,7 +37,7 @@ public class SetupTeardownTests
     [SetUp]
     public void Setup()
     {
-        var data = InitializeTestData();
+        _ = InitializeTestData();
     }
 
     [TearDown]
@@ -49,7 +49,7 @@ public class SetupTeardownTests
     [TestInitialize]
     public void Setup()
     {
-        var data = InitializeTestData();
+        _ = InitializeTestData();
     }
 
     [TestCleanup]
@@ -131,7 +131,7 @@ public class SetupTeardownTests
 
     private void PerformTest(int id)
     {
-        var result = id * 2;
-        var valid = result > 0;
+        // Simulate test work - benchmark measures overhead, not correctness
+        _ = id * 2;
     }
 }

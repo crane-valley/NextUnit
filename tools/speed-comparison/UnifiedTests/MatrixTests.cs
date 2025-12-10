@@ -20,7 +20,8 @@ public class MatrixTests
     public void MatrixTest_3x2x2(int number, string letter, bool flag)
     {
         var result = ProcessMatrix(number, letter, flag);
-        var valid = result.Length > 0;
+        // Simulate validation - benchmark measures matrix parameterization overhead
+        _ = result.Length > 0;
     }
 
     [DataDrivenTest]
@@ -36,7 +37,8 @@ public class MatrixTests
     {
         var result = x * y * z;
         var sum = x + y + z;
-        var valid = result >= 0;
+        // Simulate validation - benchmark measures numeric matrix overhead
+        _ = result >= 0;
     }
 
     [DataDrivenTest]
@@ -56,7 +58,8 @@ public class MatrixTests
     {
         var result = $"{category}_{type}_{value}";
         var length = result.Length;
-        var valid = length > 0;
+        // Simulate validation - benchmark measures string matrix overhead
+        _ = length > 0;
     }
 
     private string ProcessMatrix(int number, string letter, bool flag)

@@ -10,7 +10,8 @@ public class AsyncTests
     {
         var result = await ComputeAsync(10);
         var text = await ProcessTextAsync("hello");
-        var combined = result + text.Length;
+        // Simulate realistic async work - benchmark measures overhead
+        _ = result + text.Length;
     }
 
     [Test]
@@ -22,7 +23,8 @@ public class AsyncTests
 
         var results = await Task.WhenAll(tasks);
         var sum = results.Sum();
-        var average = sum / results.Length;
+        // Simulate data processing - benchmark measures parallel overhead
+        _ = sum / results.Length;
     }
 
     [Test]
@@ -33,7 +35,8 @@ public class AsyncTests
         
         await Task.WhenAll(task1, task2);
         
-        var result = task1.Result + task2.Result.Length;
+        // Simulate result combination - benchmark measures async coordination
+        _ = task1.Result + task2.Result.Length;
     }
 
     private async Task<int> ComputeAsync(int value)

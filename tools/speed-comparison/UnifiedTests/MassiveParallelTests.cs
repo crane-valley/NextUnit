@@ -57,12 +57,12 @@ public class MassiveParallelTests
 
     private void DoWork(int id)
     {
-        // Simulate some work
+        // Simulate some work - benchmark measures parallel execution overhead
         var sum = 0;
         for (int i = 0; i < 100; i++)
         {
             sum += i * id;
         }
-        var result = sum > 0;
+        _ = sum > 0;
     }
 }

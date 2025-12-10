@@ -13,7 +13,8 @@ public class DataDrivenTests
     public void ParameterizedAdditionTest(int a, int b, int expected)
     {
         var result = a + b;
-        var doubled = result * 2;
+        // Simulate data processing - benchmark measures parameterization overhead
+        _ = result * 2;
     }
 
     [DataDrivenTest]
@@ -25,7 +26,8 @@ public class DataDrivenTests
     public void ParameterizedStringTest(string input, string expected)
     {
         var upper = input.ToUpper();
-        var length = input.Length + expected.Length;
+        // Simulate string processing - benchmark measures parameterization overhead
+        _ = input.Length + expected.Length;
     }
 
     [DataDrivenTest]
@@ -37,7 +39,8 @@ public class DataDrivenTests
     public void DataSourceTest(TestData data)
     {
         var result = ProcessTestData(data);
-        var total = result.ProcessedValue + data.Value;
+        // Simulate data processing - benchmark measures data source overhead
+        _ = result.ProcessedValue + data.Value;
     }
 
 #if NEXTUNIT
