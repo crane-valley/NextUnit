@@ -20,8 +20,12 @@
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
   </Folder>
+  <Folder Name="/benchmark/">
+    <Project Path="benchmarks/NextUnit.Benchmarks/NextUnit.Benchmarks.csproj" />
+  </Folder>
   <Folder Name="/sample/">
     <Project Path="samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj" Id="cc1ced14-e28b-41b6-be0f-9e4536c6225a" />
+    <Project Path="samples/NextUnit.LargeTestSuite/NextUnit.LargeTestSuite.csproj" />
   </Folder>
   <Folder Name="/test/">
     <Project Path="tests/NextUnit.Generator.Tests/NextUnit.Generator.Tests.csproj" />

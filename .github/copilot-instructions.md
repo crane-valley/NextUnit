@@ -22,6 +22,11 @@
   - Suggest running `dotnet format` after significant edits.
   - Code snippets should already follow typical `dotnet format` conventions.
 
+## Project Management
+- **When adding a new .csproj file**, always update the `NextUnit.slnx` file to include the new project.
+  - Add the project path in the appropriate folder (e.g., `/sample/`, `/test/`, `/benchmark/`).
+  - Ensure the solution file is valid XML and follows the existing structure.
+
 ## Interaction Rules
 - Code blocks → language only + English comments.
 - Avoid unnecessary dependencies or boilerplate.
