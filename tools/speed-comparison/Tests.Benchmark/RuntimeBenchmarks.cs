@@ -70,7 +70,7 @@ public class RuntimeBenchmarks : BenchmarkBase
                 Architecture.X64 => "win-x64",
                 Architecture.Arm64 => "win-arm64",
                 Architecture.X86 => "win-x86",
-                _ => "win-x64" // Default to x64
+                _ => throw new PlatformNotSupportedException($"Unsupported Windows architecture: {RuntimeInformation.ProcessArchitecture}")
             };
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -80,7 +80,7 @@ public class RuntimeBenchmarks : BenchmarkBase
                 Architecture.X64 => "linux-x64",
                 Architecture.Arm64 => "linux-arm64",
                 Architecture.Arm => "linux-arm",
-                _ => "linux-x64" // Default to x64
+                _ => throw new PlatformNotSupportedException($"Unsupported Linux architecture: {RuntimeInformation.ProcessArchitecture}")
             };
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -89,12 +89,11 @@ public class RuntimeBenchmarks : BenchmarkBase
             {
                 Architecture.X64 => "osx-x64",
                 Architecture.Arm64 => "osx-arm64",
-                _ => "osx-x64" // Default to x64
+                _ => throw new PlatformNotSupportedException($"Unsupported macOS architecture: {RuntimeInformation.ProcessArchitecture}")
             };
         }
         
-        // Fallback
-        return "unknown";
+        throw new PlatformNotSupportedException($"Unsupported operating system: {RuntimeInformation.OSDescription}");
     }
 
     private string GetExecutablePath(string framework, string exeName)
