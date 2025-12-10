@@ -28,9 +28,10 @@ public class RuntimeBenchmarks : BenchmarkBase
         _msTestPath = GetExecutablePath("MSTEST", exeName);
         _xUnitPath = GetExecutablePath("XUNIT", exeName);
 
-        // AOT build (different path - in publish folder)
+        // AOT build (different path - in publish folder with RID)
         var aotExeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "UnifiedTests.exe" : "UnifiedTests";
-        var aotPath = Path.Combine(UnifiedPath, "bin", "Release-NEXTUNIT", Framework, "publish");
+        var rid = GetRuntimeIdentifier();
+        var aotPath = Path.Combine(UnifiedPath, "bin", "Release-NEXTUNIT", Framework, rid, "publish");
         _aotPath = Path.Combine(aotPath, aotExeName);
 
         // Build missing executables automatically
@@ -57,6 +58,43 @@ public class RuntimeBenchmarks : BenchmarkBase
                 Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
             }
         }
+    }
+
+    private string GetRuntimeIdentifier()
+    {
+        // Determine the runtime identifier based on the current platform
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return RuntimeInformation.ProcessArchitecture switch
+            {
+                Architecture.X64 => "win-x64",
+                Architecture.Arm64 => "win-arm64",
+                Architecture.X86 => "win-x86",
+                _ => "win-x64" // Default to x64
+            };
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return RuntimeInformation.ProcessArchitecture switch
+            {
+                Architecture.X64 => "linux-x64",
+                Architecture.Arm64 => "linux-arm64",
+                Architecture.Arm => "linux-arm",
+                _ => "linux-x64" // Default to x64
+            };
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return RuntimeInformation.ProcessArchitecture switch
+            {
+                Architecture.X64 => "osx-x64",
+                Architecture.Arm64 => "osx-arm64",
+                _ => "osx-x64" // Default to x64
+            };
+        }
+        
+        // Fallback
+        return "unknown";
     }
 
     private string GetExecutablePath(string framework, string exeName)
