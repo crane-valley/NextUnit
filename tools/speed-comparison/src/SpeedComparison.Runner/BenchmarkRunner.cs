@@ -61,7 +61,7 @@ public class BenchmarkRunner
         foreach (var project in projects)
         {
             Console.Write($"  Building {project}... ");
-            var projectPath = Path.Combine(_solutionRoot, "src", project, $"{project}.csproj");
+            var projectPath = Path.Combine(_solutionRoot, "tools", "speed-comparison", "src", project, $"{project}.csproj");
             
             var processInfo = new ProcessStartInfo
             {
@@ -101,7 +101,7 @@ public class BenchmarkRunner
     private async Task<FrameworkMetrics> RunNextUnitBenchmarkAsync()
     {
         Console.WriteLine("Running NextUnit benchmarks...");
-        var projectPath = Path.Combine(_solutionRoot, "src", "SpeedComparison.NextUnit", "SpeedComparison.NextUnit.csproj");
+        var projectPath = Path.Combine(_solutionRoot, "tools", "speed-comparison", "src", "SpeedComparison.NextUnit", "SpeedComparison.NextUnit.csproj");
         
         var metrics = new FrameworkMetrics
         {
@@ -159,7 +159,7 @@ public class BenchmarkRunner
     private async Task<FrameworkMetrics> RunXUnitBenchmarkAsync()
     {
         Console.WriteLine("Running xUnit benchmarks...");
-        var projectPath = Path.Combine(_solutionRoot, "src", "SpeedComparison.XUnit", "SpeedComparison.XUnit.csproj");
+        var projectPath = Path.Combine(_solutionRoot, "tools", "speed-comparison", "src", "SpeedComparison.XUnit", "SpeedComparison.XUnit.csproj");
         
         var metrics = new FrameworkMetrics
         {
@@ -216,7 +216,7 @@ public class BenchmarkRunner
     private async Task<FrameworkMetrics> RunNUnitBenchmarkAsync()
     {
         Console.WriteLine("Running NUnit benchmarks...");
-        var projectPath = Path.Combine(_solutionRoot, "src", "SpeedComparison.NUnit", "SpeedComparison.NUnit.csproj");
+        var projectPath = Path.Combine(_solutionRoot, "tools", "speed-comparison", "src", "SpeedComparison.NUnit", "SpeedComparison.NUnit.csproj");
         
         var metrics = new FrameworkMetrics
         {
@@ -273,7 +273,7 @@ public class BenchmarkRunner
     private async Task<FrameworkMetrics> RunMSTestBenchmarkAsync()
     {
         Console.WriteLine("Running MSTest benchmarks...");
-        var projectPath = Path.Combine(_solutionRoot, "src", "SpeedComparison.MSTest", "SpeedComparison.MSTest.csproj");
+        var projectPath = Path.Combine(_solutionRoot, "tools", "speed-comparison", "src", "SpeedComparison.MSTest", "SpeedComparison.MSTest.csproj");
         
         var metrics = new FrameworkMetrics
         {
