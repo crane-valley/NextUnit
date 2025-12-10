@@ -181,6 +181,26 @@ public static class Assert
     }
 
     /// <summary>
+    /// Verifies that a collection contains an element matching a predicate.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the collection.</typeparam>
+    /// <param name="collection">The collection to search.</param>
+    /// <param name="predicate">The predicate to match elements against.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the collection does not contain an element matching the predicate.</exception>
+    public static void Contains<T>(IEnumerable<T> collection, Func<T, bool> predicate, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(predicate);
+
+        if (!collection.Any(predicate))
+        {
+            throw new AssertionFailedException(
+                message ?? "Collection does not contain an element matching the predicate.");
+        }
+    }
+
+    /// <summary>
     /// Verifies that a collection does not contain a specific element.
     /// </summary>
     /// <typeparam name="T">The type of elements in the collection.</typeparam>
@@ -196,6 +216,26 @@ public static class Assert
         {
             throw new AssertionFailedException(
                 message ?? $"Collection should not contain element: {notExpected}");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a collection does not contain an element matching a predicate.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the collection.</typeparam>
+    /// <param name="collection">The collection to search.</param>
+    /// <param name="predicate">The predicate to match elements against.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the collection contains an element matching the predicate.</exception>
+    public static void DoesNotContain<T>(IEnumerable<T> collection, Func<T, bool> predicate, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(predicate);
+
+        if (collection.Any(predicate))
+        {
+            throw new AssertionFailedException(
+                message ?? "Collection should not contain an element matching the predicate.");
         }
     }
 
@@ -254,6 +294,36 @@ public static class Assert
         }
 
         return list[0];
+    }
+
+    /// <summary>
+    /// Verifies that a collection contains exactly one element matching a predicate.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the collection.</typeparam>
+    /// <param name="collection">The collection to search.</param>
+    /// <param name="predicate">The predicate to match elements against.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <returns>The single element matching the predicate.</returns>
+    /// <exception cref="AssertionFailedException">Thrown when the collection does not contain exactly one element matching the predicate.</exception>
+    public static T Single<T>(IEnumerable<T> collection, Func<T, bool> predicate, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(predicate);
+
+        var matches = collection.Where(predicate).ToList();
+        if (matches.Count == 0)
+        {
+            throw new AssertionFailedException(
+                message ?? "Collection does not contain an element matching the predicate. Expected exactly one matching element.");
+        }
+
+        if (matches.Count > 1)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Collection contains {matches.Count} elements matching the predicate. Expected exactly one matching element.");
+        }
+
+        return matches[0];
     }
 
     /// <summary>
