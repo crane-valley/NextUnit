@@ -2,163 +2,116 @@
 
 ## Overview
 
-Successfully implemented a comprehensive speed-comparison benchmarking system for NextUnit, inspired by TUnit's speed-comparison tool. The system benchmarks NextUnit against other popular .NET test frameworks (xUnit, NUnit, MSTest) using identical test cases.
+The speed-comparison benchmarking system for NextUnit uses BenchmarkDotNet and conditional compilation to benchmark NextUnit against other popular .NET test frameworks (xUnit, NUnit, MSTest) using identical test cases.
 
-## What Was Built
+## Current Architecture
 
-### 1. Core Infrastructure (6 projects)
+### 1. UnifiedTests Project
 
-#### SpeedComparison.Shared
-- Common test data and operations
-- Ensures identical test logic across all frameworks
-- Files: `SharedTestData.cs`, `TestOperations.cs`
+A single codebase that compiles to different frameworks using conditional compilation:
 
-#### SpeedComparison.NextUnit (200 tests)
-- 50 Simple Tests
-- 50 Parameterized Tests (5 methods × 10 parameters)
-- 25 Lifecycle Tests
-- 25 Async Tests
-- 25 Complex Assertion Tests
-- 25 Parallel Tests
+- **Framework selection**: Build-time via `-p:TestFramework=NEXTUNIT|XUNIT|NUNIT|MSTEST`
+- **Test categories**:
+  - AsyncTests (3 tests)
+  - DataDrivenTests (4 tests)
+  - ScaleTests (18 tests)
+  - MassiveParallelTests (50 tests)
+  - MatrixTests (32 tests)
+  - SetupTeardownTests (20 tests)
+  - **Total**: 127 tests per framework
 
-#### SpeedComparison.XUnit (200 tests)
-- Identical test logic using xUnit's Fact/Theory attributes
-- xUnit Assert methods
-- IDisposable for lifecycle
+- **Key features**:
+  - Single source files with conditional compilation
+  - Framework-specific attributes via preprocessor directives
+  - GlobalUsings.cs for framework-specific imports
+  - Ensures 100% identical test logic
 
-#### SpeedComparison.NUnit (200 tests)
-- Identical test logic using NUnit's Test/TestCase attributes
-- NUnit Assert.That assertions
-- Setup/TearDown attributes
+### 2. Tests.Benchmark Project
 
-#### SpeedComparison.MSTest (200 tests)
-- Identical test logic using MSTest's TestMethod/DataRow attributes
-- MSTest Assert methods
-- TestInitialize/TestCleanup attributes
+Professional benchmarking using BenchmarkDotNet:
 
-#### SpeedComparison.Runner
-- Orchestrates benchmark execution
-- Runs each framework 5 times in separate processes
-- Captures timing (Stopwatch) and memory (Process.PeakWorkingSet64)
-- Calculates statistics (median, average, per-test time, throughput)
-- Generates markdown and JSON reports
+- **BuildBenchmarks**: Measures compilation time for each framework
+- **RuntimeBenchmarks**: Measures test execution time with statistical analysis
+- **AOT Support**: NextUnit-specific Native AOT benchmarks
+- **Output**: Professional markdown tables with mean, median, std dev, baseline ratios
 
-### 2. Results Processing
+## Previous Implementation (Removed)
 
-#### MarkdownGenerator
-- Generates comprehensive markdown reports
-- Summary table with all frameworks
-- Detailed results per framework
-- Methodology documentation
-- Interpretation guidance
+The old implementation used separate projects for each framework:
+- SpeedComparison.NextUnit (removed)
+- SpeedComparison.XUnit (removed)
+- SpeedComparison.NUnit (removed)
+- SpeedComparison.MSTest (removed)
+- SpeedComparison.Shared (removed)
+- SpeedComparison.Runner (removed)
 
-#### Output Files
-- `BENCHMARK_RESULTS.md` - Latest results (auto-updated by CI)
-- `history/YYYY-MM-DD_HHmmss_results.json` - Historical data
-
-### 3. GitHub Actions Integration
-
-#### Workflow: speed-comparison.yml
-- **Manual trigger**: workflow_dispatch
-- **Scheduled**: Weekly (Sunday at midnight UTC)
-- **PR trigger**: When code changes affect src/ or tools/speed-comparison/
-- **Auto-commit**: Results automatically pushed to main branch
-- **PR comments**: Results posted as PR comments for visibility
-
-### 4. Documentation
-
-#### tools/speed-comparison/README.md
-- Comprehensive user guide
-- Explains test suite composition
-- Documents metrics collected
-- Describes methodology
-- Provides troubleshooting tips
-
-#### Main README.md
-- New "Speed Comparison" section
-- Links to benchmark results
-- Instructions for running locally
-
-#### PLANS.md
-- Detailed implementation plan
-- Architecture decisions
-- Technical considerations
-- Future enhancements
+**Reason for removal**: Code duplication, maintenance burden, and less rigorous statistical analysis compared to the new BenchmarkDotNet-based approach with UnifiedTests.
 
 ## Key Features
 
 ✅ **Fair Comparison**
-- Identical test logic across all frameworks
-- Shared test data and operations
+- Identical test logic via conditional compilation
 - Framework-native patterns and best practices
+- No code duplication
 
-✅ **Comprehensive Metrics**
-- Execution time (total, median, average, per-test)
-- Memory usage (peak working set)
-- Throughput (tests per second)
-- Relative performance (vs NextUnit baseline)
+✅ **Professional Benchmarking**
+- BenchmarkDotNet statistical analysis
+- Build time and runtime measurements
+- Native AOT support for NextUnit
+- Mean, median, standard deviation metrics
 
 ✅ **Automated Execution**
 - GitHub Actions workflow
 - Weekly scheduled runs
-- Auto-commit results to repository
-- PR comments with results
+- Results displayed in workflow outputs
 
 ✅ **Transparent Methodology**
-- Documented test cases
-- Clear measurement approach
-- Process isolation for accuracy
-- Multiple iterations for reliability
-
-✅ **Historical Tracking**
-- JSON results saved with timestamps
-- Enables trend analysis over time
-- Can track performance regressions
+- Documented test categories
+- Clear measurement approach using BenchmarkDotNet
+- Multiple iterations handled automatically
 
 ## Technical Decisions
 
-### Why Process Isolation?
-Each framework runs in a separate process to prevent interference and accurately measure memory usage.
+### Why Conditional Compilation?
+Single codebase ensures 100% identical test logic across all frameworks while eliminating maintenance burden.
 
-### Why 5 Iterations?
-Multiple runs reduce variance and provide statistical confidence (median/average).
+### Why BenchmarkDotNet?
+Industry-standard benchmarking with rigorous statistical analysis, proper warmup, and professional reporting.
 
-### Why Different Test Runners?
-- **NextUnit**: Uses `dotnet run` (Microsoft.Testing.Platform)
-- **Others**: Use `dotnet test` (VSTest Platform)
-
-This reflects real-world usage patterns for each framework.
-
-### Why Disable Central Package Management?
-Speed-comparison projects need specific package versions for each framework without central control.
-
-### Why Separate Directory.Build.props?
-Test projects don't need strict code quality enforcement; they're benchmark code, not production code.
+### Why UnifiedTests?
+- No code duplication
+- Easy to maintain and extend
+- Framework selection at build time
+- Guaranteed identical test logic
 
 ## File Statistics
 
-- **Total files created**: 36 source files
-- **Test projects**: 4 (NextUnit, xUnit, NUnit, MSTest)
-- **Total tests**: 800 (200 × 4 frameworks)
-- **Lines of code**: ~40,000+ across all files
-- **Configuration files**: Directory.Build.props, Directory.Packages.props, .gitignore
+- **UnifiedTests**: 7 test files + 1 GlobalUsings.cs + 1 .csproj
+- **Tests.Benchmark**: 6 source files + 1 .csproj
+- **Total tests**: 127 per framework (508 total across 4 frameworks)
+- **Lines of code**: ~2,500 lines
 
 ## Usage Instructions
 
 ### Run Locally
 ```bash
-cd tools/speed-comparison/src/SpeedComparison.Runner
-dotnet run --configuration Release
+cd tools/speed-comparison
+dotnet run -c Release --project Tests.Benchmark
 ```
 
 ### Trigger via GitHub Actions
 Go to Actions → Speed Comparison Benchmarks → Run workflow
 
 ### View Results
-- Latest: `tools/speed-comparison/results/BENCHMARK_RESULTS.md`
-- History: `tools/speed-comparison/results/history/`
+BenchmarkDotNet results are displayed in console output and saved to BenchmarkDotNet.Artifacts directory.
 
-## Next Steps (Optional Enhancements)
+## Benefits of Current Approach
+
+1. **No Code Duplication**: Single source of truth for all test logic
+2. **Professional Analysis**: BenchmarkDotNet provides statistical rigor
+3. **Easy Maintenance**: Add test once, runs on all frameworks
+4. **Build Benchmarks**: Measures compilation time differences
+5. **AOT Support**: Native AOT benchmarks for NextUnit
 
 1. **Run initial benchmarks** to populate BENCHMARK_RESULTS.md
 2. **Add more frameworks** (Fixie, Expecto, etc.)

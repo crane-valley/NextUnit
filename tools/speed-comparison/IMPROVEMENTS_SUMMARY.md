@@ -72,14 +72,14 @@ Updated Directory.Packages.props with new dependencies:
 
 ## Architecture Comparison
 
-### Old Approach (Separate Projects)
+### Old Approach (Removed)
 
 ```
-SpeedComparison.NextUnit/ (200 tests)
-SpeedComparison.XUnit/ (200 tests)
-SpeedComparison.NUnit/ (200 tests)
-SpeedComparison.MSTest/ (200 tests)
-SpeedComparison.Runner/ (orchestrator)
+SpeedComparison.NextUnit/ (200 tests) - REMOVED
+SpeedComparison.XUnit/ (200 tests) - REMOVED
+SpeedComparison.NUnit/ (200 tests) - REMOVED
+SpeedComparison.MSTest/ (200 tests) - REMOVED
+SpeedComparison.Runner/ (orchestrator) - REMOVED
 ```
 
 **Issues:**
@@ -166,33 +166,30 @@ dotnet run -c Release --project Tests.Benchmark -- --filter "*RuntimeBenchmarks*
 dotnet run -c Release --project Tests.Benchmark -- --filter "*NextUnit_AOT*"
 ```
 
-### Simple runner (for CI)
+### Professional benchmarks
 
 ```bash
-cd tools/speed-comparison/src/SpeedComparison.Runner
-dotnet run --configuration Release
+cd tools/speed-comparison
+dotnet run -c Release --project Tests.Benchmark
 ```
 
 ## File Statistics
 
-**New files created:**
+**Files in current system:**
 - UnifiedTests/ (8 files): GlobalUsings.cs + 6 test files + .csproj
 - Tests.Benchmark/ (7 files): Program.cs + BenchmarkBase.cs + BenchmarkConfig.cs + BuildBenchmarks.cs + RuntimeBenchmarks.cs + FrameworkVersionColumn.cs + .csproj
-- Documentation: BENCHMARKS.md + prepare-aot.ps1 + prepare-aot.bat
-- **Total**: 18 new files
+- Documentation: BENCHMARKS.md + prepare-aot.ps1 + prepare-aot.bat + README.md + IMPROVEMENTS_SUMMARY.md + IMPLEMENTATION_SUMMARY.md
 
-**Lines of code added**: ~2,500 lines
+**Lines of code**: ~2,500 lines
 
-## Integration with Existing System
+## Current System
 
-The new benchmarking system **complements** the existing SpeedComparison.Runner:
+The benchmarking system uses BenchmarkDotNet for professional performance analysis:
 
-- **Tests.Benchmark (new)**: Detailed performance analysis, build benchmarks, AOT support
-- **SpeedComparison.Runner (existing)**: Quick comparisons, CI integration, historical tracking
+- **Tests.Benchmark**: Detailed performance analysis, build benchmarks, AOT support
+- **UnifiedTests**: Single codebase for all frameworks using conditional compilation
 
-Both can coexist and serve different purposes:
-- Use `Tests.Benchmark` for deep performance investigation
-- Use `SpeedComparison.Runner` for automated CI checks and trend tracking
+Use `Tests.Benchmark` for rigorous performance investigation with statistical analysis.
 
 ## Future Enhancements (Optional)
 

@@ -24,19 +24,13 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Folder Name="/samples/">
-    <Project Path="samples/NextUnit.LargeTestSuite/NextUnit.LargeTestSuite.csproj" />
     <Project Path="samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj" Id="cc1ced14-e28b-41b6-be0f-9e4536c6225a" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/NextUnit.Generator.Tests/NextUnit.Generator.Tests.csproj" />
+    <Project Path="tests/NextUnit.Platform.Tests/NextUnit.Platform.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/speed-comparison/">
-    <Project Path="tools/speed-comparison/src/SpeedComparison.Shared/SpeedComparison.Shared.csproj" />
-    <Project Path="tools/speed-comparison/src/SpeedComparison.NextUnit/SpeedComparison.NextUnit.csproj" />
-    <Project Path="tools/speed-comparison/src/SpeedComparison.XUnit/SpeedComparison.XUnit.csproj" />
-    <Project Path="tools/speed-comparison/src/SpeedComparison.NUnit/SpeedComparison.NUnit.csproj" />
-    <Project Path="tools/speed-comparison/src/SpeedComparison.MSTest/SpeedComparison.MSTest.csproj" />
-    <Project Path="tools/speed-comparison/src/SpeedComparison.Runner/SpeedComparison.Runner.csproj" />
     <Project Path="tools/speed-comparison/UnifiedTests/UnifiedTests.csproj" />
     <Project Path="tools/speed-comparison/Tests.Benchmark/Tests.Benchmark.csproj" />
   </Folder>
