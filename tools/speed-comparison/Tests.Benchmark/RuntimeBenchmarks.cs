@@ -17,7 +17,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     private bool _aotBuildAttempted;
 
     [GlobalSetup]
-    public void Setup()
+    public async Task Setup()
     {
         // Validate and cache executable paths
         var exeName = GetExecutableFileName();
@@ -34,10 +34,10 @@ public class RuntimeBenchmarks : BenchmarkBase
         _aotPath = Path.Combine(aotPath, aotExeName);
 
         // Build missing executables automatically
-        BuildIfMissing("NEXTUNIT", _nextUnitPath);
-        BuildIfMissing("NUNIT", _nunitPath);
-        BuildIfMissing("MSTEST", _msTestPath);
-        BuildIfMissing("XUNIT", _xUnitPath);
+        await BuildIfMissingAsync("NEXTUNIT", _nextUnitPath);
+        await BuildIfMissingAsync("NUNIT", _nunitPath);
+        await BuildIfMissingAsync("MSTEST", _msTestPath);
+        await BuildIfMissingAsync("XUNIT", _xUnitPath);
 
         // For AOT, only try to build it if AUTOBUILD_AOT environment variable is set
         // This is because AOT builds can take 5-10 minutes
@@ -47,7 +47,7 @@ public class RuntimeBenchmarks : BenchmarkBase
             var autoBuildAot = Environment.GetEnvironmentVariable("AUTOBUILD_AOT");
             if (!string.IsNullOrEmpty(autoBuildAot) && autoBuildAot.Equals("true", StringComparison.OrdinalIgnoreCase))
             {
-                TryBuildAot();
+                await TryBuildAotAsync();
             }
             else
             {
@@ -65,17 +65,15 @@ public class RuntimeBenchmarks : BenchmarkBase
         return Path.Combine(binPath, exeName);
     }
 
-    private void BuildIfMissing(string framework, string executablePath)
+    private async Task BuildIfMissingAsync(string framework, string executablePath)
     {
         if (!File.Exists(executablePath))
         {
             Console.WriteLine($"Building {framework} executable at {executablePath}...");
-            var result = Cli.Wrap("dotnet")
+            var result = await Cli.Wrap("dotnet")
                 .WithArguments(["build", "-c", "Release", "-p:TestFramework=" + framework, "--framework", Framework, "--verbosity", "quiet"])
                 .WithWorkingDirectory(UnifiedPath)
-                .ExecuteBufferedAsync()
-                .GetAwaiter()
-                .GetResult();
+                .ExecuteBufferedAsync();
 
             if (result.ExitCode != 0)
             {
@@ -89,7 +87,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         }
     }
 
-    private void TryBuildAot()
+    private async Task TryBuildAotAsync()
     {
         if (_aotBuildAttempted)
         {
@@ -103,12 +101,10 @@ public class RuntimeBenchmarks : BenchmarkBase
             Console.WriteLine("AOT executable not found. Building AOT version (this may take several minutes)...");
             Console.WriteLine("To skip this, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
             
-            var result = Cli.Wrap("dotnet")
+            var result = await Cli.Wrap("dotnet")
                 .WithArguments(["publish", "-c", "Release", "-p:TestFramework=NEXTUNIT", "-p:PublishAot=true", "--framework", Framework, "--verbosity", "quiet"])
                 .WithWorkingDirectory(UnifiedPath)
-                .ExecuteBufferedAsync()
-                .GetAwaiter()
-                .GetResult();
+                .ExecuteBufferedAsync();
 
             if (result.ExitCode != 0)
             {
