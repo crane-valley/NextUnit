@@ -44,20 +44,18 @@ jobs:
         run: dotnet --info
       
       - name: Restore dependencies
-        run: |
-          cd tools/speed-comparison
-          dotnet restore
+        run: dotnet restore
       
       - name: Build speed comparison projects
         run: |
           echo "Building all speed comparison projects..."
           cd tools/speed-comparison/src
-          dotnet build SpeedComparison.Shared/SpeedComparison.Shared.csproj --configuration Release
-          dotnet build SpeedComparison.NextUnit/SpeedComparison.NextUnit.csproj --configuration Release
-          dotnet build SpeedComparison.XUnit/SpeedComparison.XUnit.csproj --configuration Release
-          dotnet build SpeedComparison.NUnit/SpeedComparison.NUnit.csproj --configuration Release
-          dotnet build SpeedComparison.MSTest/SpeedComparison.MSTest.csproj --configuration Release
-          dotnet build SpeedComparison.Runner/SpeedComparison.Runner.csproj --configuration Release
+          dotnet build SpeedComparison.Shared/SpeedComparison.Shared.csproj --configuration Release --no-restore
+          dotnet build SpeedComparison.NextUnit/SpeedComparison.NextUnit.csproj --configuration Release --no-restore
+          dotnet build SpeedComparison.XUnit/SpeedComparison.XUnit.csproj --configuration Release --no-restore
+          dotnet build SpeedComparison.NUnit/SpeedComparison.NUnit.csproj --configuration Release --no-restore
+          dotnet build SpeedComparison.MSTest/SpeedComparison.MSTest.csproj --configuration Release --no-restore
+          dotnet build SpeedComparison.Runner/SpeedComparison.Runner.csproj --configuration Release --no-restore
       
       - name: Run speed comparison benchmarks
         run: |
