@@ -1,0 +1,157 @@
+name: Speed Comparison Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: 'Number of iterations per framework (default: 5)'
+        required: false
+        default: '5'
+  schedule:
+    # Run every Sunday at midnight UTC
+    - cron: '0 0 * * 0'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tools/speed-comparison/**'
+      - '.github/workflows/speed-comparison.yml'
+
+permissions:
+  contents: write  # Required to commit results back to repository
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  benchmark:
+    name: Run Speed Comparison
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Display .NET info
+        run: dotnet --info
+      
+      - name: Restore dependencies
+        run: |
+          cd tools/speed-comparison
+          dotnet restore
+      
+      - name: Build speed comparison projects
+        run: |
+          echo "Building all speed comparison projects..."
+          cd tools/speed-comparison/src
+          dotnet build SpeedComparison.Shared/SpeedComparison.Shared.csproj --configuration Release
+          dotnet build SpeedComparison.NextUnit/SpeedComparison.NextUnit.csproj --configuration Release
+          dotnet build SpeedComparison.XUnit/SpeedComparison.XUnit.csproj --configuration Release
+          dotnet build SpeedComparison.NUnit/SpeedComparison.NUnit.csproj --configuration Release
+          dotnet build SpeedComparison.MSTest/SpeedComparison.MSTest.csproj --configuration Release
+          dotnet build SpeedComparison.Runner/SpeedComparison.Runner.csproj --configuration Release
+      
+      - name: Run speed comparison benchmarks
+        run: |
+          echo "=== Running Speed Comparison Benchmarks ==="
+          cd tools/speed-comparison/src/SpeedComparison.Runner
+          dotnet run --configuration Release --no-build
+        continue-on-error: false
+      
+      - name: Display benchmark results
+        run: |
+          echo "=== Benchmark Results ==="
+          cat tools/speed-comparison/results/BENCHMARK_RESULTS.md
+        if: always()
+      
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v5
+        with:
+          name: speed-comparison-results
+          path: |
+            tools/speed-comparison/results/BENCHMARK_RESULTS.md
+            tools/speed-comparison/results/history/*.json
+          retention-days: 90
+        if: always()
+      
+      - name: Commit and push results (on main branch only)
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Add results files
+          git add tools/speed-comparison/results/BENCHMARK_RESULTS.md
+          git add tools/speed-comparison/results/history/*.json
+          
+          # Commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update speed comparison results [skip ci]"
+            git push
+            echo "Results committed and pushed"
+          fi
+      
+      - name: Comment PR with results (on pull requests)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const results = fs.readFileSync('tools/speed-comparison/results/BENCHMARK_RESULTS.md', 'utf8');
+            
+            // Extract summary table from results
+            const summaryStart = results.indexOf('## Summary');
+            const detailedStart = results.indexOf('## Detailed Results');
+            const summary = results.substring(summaryStart, detailedStart);
+            
+            const comment = `## 🚀 Speed Comparison Results\n\n${summary}\n\n<details>\n<summary>View Full Results</summary>\n\n${results}\n\n</details>\n\n---\n*Benchmarks run on ${new Date().toISOString()}*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+        continue-on-error: true
+
+  summary:
+    name: Benchmark Summary
+    runs-on: ubuntu-latest
+    needs: benchmark
+    if: always()
+    
+    steps:
+      - name: Download results
+        uses: actions/download-artifact@v5
+        with:
+          name: speed-comparison-results
+          path: results
+        continue-on-error: true
+      
+      - name: Generate job summary
+        run: |
+          echo "# Speed Comparison Benchmark Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "results/BENCHMARK_RESULTS.md" ]; then
+            # Extract summary section
+            awk '/## Summary/,/## Detailed Results/' results/BENCHMARK_RESULTS.md >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Benchmarks completed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Benchmark results not found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Job Status**: ${{ needs.benchmark.result }}" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
