@@ -158,27 +158,45 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task NUnit()
     {
-        await Cli.Wrap(_nunitPath!)
-            .WithArguments(["--filter", $"FullyQualifiedName~{ClassName}"])
-            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream))
-            .ExecuteBufferedAsync();
+        var command = Cli.Wrap(_nunitPath!)
+            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream));
+
+        // Only apply filter if CLASS_NAME environment variable is set
+        if (!string.IsNullOrEmpty(ClassName))
+        {
+            command = command.WithArguments(["--filter", $"FullyQualifiedName~{ClassName}"]);
+        }
+
+        await command.ExecuteBufferedAsync();
     }
 
     [Benchmark]
     public async Task MSTest()
     {
-        await Cli.Wrap(_msTestPath!)
-            .WithArguments(["--filter", $"FullyQualifiedName~{ClassName}"])
-            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream))
-            .ExecuteBufferedAsync();
+        var command = Cli.Wrap(_msTestPath!)
+            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream));
+
+        // Only apply filter if CLASS_NAME environment variable is set
+        if (!string.IsNullOrEmpty(ClassName))
+        {
+            command = command.WithArguments(["--filter", $"FullyQualifiedName~{ClassName}"]);
+        }
+
+        await command.ExecuteBufferedAsync();
     }
 
     [Benchmark]
     public async Task xUnit()
     {
-        await Cli.Wrap(_xUnitPath!)
-            .WithArguments(["--filter", $"FullyQualifiedName~{ClassName}"])
-            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream))
-            .ExecuteBufferedAsync();
+        var command = Cli.Wrap(_xUnitPath!)
+            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream));
+
+        // Only apply filter if CLASS_NAME environment variable is set
+        if (!string.IsNullOrEmpty(ClassName))
+        {
+            command = command.WithArguments(["--filter", $"FullyQualifiedName~{ClassName}"]);
+        }
+
+        await command.ExecuteBufferedAsync();
     }
 }
