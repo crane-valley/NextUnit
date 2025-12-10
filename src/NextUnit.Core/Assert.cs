@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 
 namespace NextUnit;
 
@@ -194,16 +195,16 @@ public static class Assert
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(filter);
 
-        foreach (var item in collection)
+        // Use LINQ Where to filter then call FirstOrDefault, for clarity and efficiency
+        var match = collection.FirstOrDefault(item => filter(item));
+        // Handle reference vs value types (in case T could be a value type with default value present)
+        bool found = collection.Any(item => filter(item));
+        if (!found)
         {
-            if (filter(item))
-            {
-                return item;
-            }
+            throw new AssertionFailedException(
+                message ?? "Collection does not contain an element matching the predicate.");
         }
-
-        throw new AssertionFailedException(
-            message ?? "Collection does not contain an element matching the predicate.");
+        return match;
     }
 
     /// <summary>
