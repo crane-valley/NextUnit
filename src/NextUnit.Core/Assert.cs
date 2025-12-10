@@ -319,7 +319,7 @@ public static class Assert
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(filter);
 
-        T? match = default;
+        T? matchingItem = default;
         var hasMatch = false;
         var multipleMatches = false;
 
@@ -332,7 +332,7 @@ public static class Assert
                     multipleMatches = true;
                     break;
                 }
-                match = item;
+                matchingItem = item;
                 hasMatch = true;
             }
         }
@@ -349,7 +349,8 @@ public static class Assert
                 message ?? "Collection contains multiple elements matching the predicate. Expected exactly one matching element.");
         }
 
-        return match!;
+        // matchingItem is guaranteed to be non-null because hasMatch is true
+        return matchingItem!;
     }
 
     /// <summary>
