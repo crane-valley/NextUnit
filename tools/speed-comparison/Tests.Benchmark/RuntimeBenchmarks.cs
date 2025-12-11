@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using BenchmarkDotNet.Attributes;
 using Cysharp.Diagnostics;
 using Microsoft.Diagnostics.Utilities;
@@ -8,6 +9,14 @@ namespace Tests.Benchmark;
 [BenchmarkCategory("Runtime")]
 public class RuntimeBenchmarks : BenchmarkBase
 {
+    private static readonly Regex ClassNameValidationRegex = new Regex(@"^[a-zA-Z0-9._]+$", RegexOptions.Compiled);
+    private static readonly HashSet<string> ValidRuntimeIdentifiers = new HashSet<string>
+    {
+        "win-x64", "win-x86", "win-arm64",
+        "linux-x64", "linux-arm64", "linux-arm",
+        "osx-x64", "osx-arm64"
+    };
+
     private static readonly string? _className = SanitizeClassName(Environment.GetEnvironmentVariable("CLASS_NAME"));
     private string? _aotPath;
     private string? _nextUnitPath;
@@ -25,7 +34,7 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         // Only allow alphanumeric characters, dots, and underscores
         // This prevents command injection while allowing typical class name patterns
-        if (!System.Text.RegularExpressions.Regex.IsMatch(className, @"^[a-zA-Z0-9._]+$"))
+        if (!ClassNameValidationRegex.IsMatch(className))
         {
             throw new ArgumentException($"Invalid CLASS_NAME value: '{className}'. Only alphanumeric characters, dots, and underscores are allowed.");
         }
@@ -79,14 +88,6 @@ public class RuntimeBenchmarks : BenchmarkBase
 
     private string GetRuntimeIdentifier()
     {
-        // Whitelist of valid runtime identifiers
-        var validRids = new HashSet<string>
-        {
-            "win-x64", "win-x86", "win-arm64",
-            "linux-x64", "linux-arm64", "linux-arm",
-            "osx-x64", "osx-arm64"
-        };
-
         // Determine the runtime identifier based on the current platform
         string rid;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -124,7 +125,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         }
 
         // Validate against whitelist as an extra safety measure
-        if (!validRids.Contains(rid))
+        if (!ValidRuntimeIdentifiers.Contains(rid))
         {
             throw new PlatformNotSupportedException($"Runtime identifier '{rid}' is not in the validated whitelist.");
         }
