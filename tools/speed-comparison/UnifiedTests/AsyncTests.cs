@@ -36,7 +36,9 @@ public class AsyncTests
         await Task.WhenAll(task1, task2);
         
         // Simulate result combination - benchmark measures async coordination
-        _ = task1.Result + task2.Result.Length;
+        var result1 = await task1;
+        var result2 = await task2;
+        _ = result1 + result2.Length;
     }
 
     private async Task<int> ComputeAsync(int value)

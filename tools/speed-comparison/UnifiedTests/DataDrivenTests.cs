@@ -14,7 +14,7 @@ public class DataDrivenTests
     {
         var result = a + b;
         // Simulate data processing - benchmark measures parameterization overhead
-        _ = result * 2;
+        _ = result * 2 + expected;
     }
 
     [DataDrivenTest]
