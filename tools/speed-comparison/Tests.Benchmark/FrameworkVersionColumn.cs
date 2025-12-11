@@ -7,7 +7,7 @@ namespace Tests.Benchmark;
 
 public class FrameworkVersionColumn : IColumn
 {
-    private static readonly Dictionary<string, string> VersionCache = new();
+    private static readonly Dictionary<string, string> _versionCache = new();
 
     public string Id => nameof(FrameworkVersionColumn);
     public string ColumnName => "Version";
@@ -34,7 +34,7 @@ public class FrameworkVersionColumn : IColumn
 
     private static string GetFrameworkVersion(string methodName)
     {
-        if (VersionCache.TryGetValue(methodName, out var cachedVersion))
+        if (_versionCache.TryGetValue(methodName, out var cachedVersion))
         {
             return cachedVersion;
         }
@@ -48,7 +48,7 @@ public class FrameworkVersionColumn : IColumn
             _ => "Unknown"
         };
 
-        VersionCache[methodName] = version;
+        _versionCache[methodName] = version;
         return version;
     }
 

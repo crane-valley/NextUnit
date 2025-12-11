@@ -1,14 +1,14 @@
 using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
-using CliWrap;
-using CliWrap.Buffered;
+using Cysharp.Diagnostics;
+using Microsoft.Diagnostics.Utilities;
 
 namespace Tests.Benchmark;
 
 [BenchmarkCategory("Runtime")]
 public class RuntimeBenchmarks : BenchmarkBase
 {
-    private static readonly string? ClassName = Environment.GetEnvironmentVariable("CLASS_NAME");
+    private static readonly string? _className = Environment.GetEnvironmentVariable("CLASS_NAME");
     private string? _aotPath;
     private string? _nextUnitPath;
     private string? _nunitPath;
@@ -17,7 +17,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     private bool _aotBuildAttempted;
 
     [GlobalSetup]
-    public async Task Setup()
+    public async Task SetupAsync()
     {
         // Validate and cache executable paths
         var exeName = GetExecutableFileName();
@@ -107,14 +107,11 @@ public class RuntimeBenchmarks : BenchmarkBase
         if (!File.Exists(executablePath))
         {
             Console.WriteLine($"Building {framework} executable at {executablePath}...");
-            var result = await Cli.Wrap("dotnet")
-                .WithArguments(["build", "-c", "Release", "-p:TestFramework=" + framework, "--framework", Framework, "--verbosity", "quiet"])
-                .WithWorkingDirectory(UnifiedPath)
-                .ExecuteBufferedAsync();
 
-            if (result.ExitCode != 0)
+            var command = $"build -c Release -p:TestFramework={framework} --framework {Framework} --verbosity quiet";
+            await foreach (var output in ProcessX.StartAsync(command, workingDirectory: UnifiedPath))
             {
-                throw new InvalidOperationException($"Failed to build {framework}: {result.StandardError}");
+                Console.WriteLine(output);
             }
 
             if (!File.Exists(executablePath))
@@ -133,41 +130,29 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         _aotBuildAttempted = true;
 
-        try
-        {
-            Console.WriteLine("AOT executable not found. Building AOT version (this may take several minutes)...");
-            Console.WriteLine("To build manually instead, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
-            
-            var result = await Cli.Wrap("dotnet")
-                .WithArguments(["publish", "-c", "Release", "-p:TestFramework=NEXTUNIT", "-p:PublishAot=true", "--framework", Framework, "--verbosity", "quiet"])
-                .WithWorkingDirectory(UnifiedPath)
-                .ExecuteBufferedAsync();
+        Console.WriteLine("AOT executable not found. Building AOT version (this may take several minutes)...");
+        Console.WriteLine("To build manually instead, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
 
-            if (result.ExitCode != 0)
-            {
-                Console.WriteLine($"Warning: Failed to build AOT version: {result.StandardError}");
-                Console.WriteLine("NextUnit_AOT benchmark will be skipped. Run the publish command manually to enable it.");
-            }
-            else if (!File.Exists(_aotPath))
-            {
-                Console.WriteLine($"Warning: AOT executable not found at {_aotPath} after publish.");
-                Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
-            }
-            else
-            {
-                Console.WriteLine("AOT build completed successfully.");
-            }
-        }
-        catch (Exception ex)
+        var command = $"publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true --framework {Framework} --verbosity quiet";
+        await foreach (var output in ProcessX.StartAsync(command, workingDirectory: UnifiedPath))
         {
-            Console.WriteLine($"Warning: Exception while building AOT version: {ex.Message}");
+            Console.WriteLine(output);
+        }
+
+        if (!File.Exists(_aotPath))
+        {
+            Console.WriteLine($"Warning: AOT executable not found at {_aotPath} after publish.");
             Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
+        }
+        else
+        {
+            Console.WriteLine("AOT build completed successfully.");
         }
     }
 
     [Benchmark]
     [BenchmarkCategory("Runtime", "AOT")]
-    public async Task NextUnit_AOT()
+    public async Task NextUnitAOTAsync()
     {
         if (!File.Exists(_aotPath))
         {
@@ -179,63 +164,71 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
         // Run all tests since filtering by class name is not directly supported
-        await Cli.Wrap(_aotPath!)
-            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream))
-            .ExecuteBufferedAsync();
+        await foreach (var output in ProcessX.StartAsync(_aotPath))
+        {
+            Console.WriteLine(output);
+        }
     }
 
     [Benchmark]
-    public async Task NextUnit()
+    public async Task NextUnitAsync()
     {
         // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
         // Run all tests since filtering by class name is not directly supported
-        await Cli.Wrap(_nextUnitPath!)
-            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream))
-            .ExecuteBufferedAsync();
+        await foreach (var output in ProcessX.StartAsync(_nextUnitPath!))
+        {
+            Console.WriteLine(output);
+        }
     }
 
     [Benchmark]
-    public async Task NUnit()
+    public async Task NUnitAsync()
     {
-        var command = Cli.Wrap(_nunitPath!)
-            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream));
+        var command = _nunitPath!;
 
         // Only apply filter if CLASS_NAME environment variable is set
-        if (!string.IsNullOrEmpty(ClassName))
+        if (!string.IsNullOrEmpty(_className))
         {
-            command = command.WithArguments(["--filter", $"FullyQualifiedName~{ClassName}"]);
+            command = command + $"--filter FullyQualifiedName~{_className}";
         }
 
-        await command.ExecuteBufferedAsync();
+        await foreach (var output in ProcessX.StartAsync(command))
+        {
+            Console.WriteLine(output);
+        }
     }
 
     [Benchmark]
-    public async Task MSTest()
+    public async Task MSTestAsync()
     {
-        var command = Cli.Wrap(_msTestPath!)
-            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream));
+        var command = _msTestPath!;
 
         // Only apply filter if CLASS_NAME environment variable is set
-        if (!string.IsNullOrEmpty(ClassName))
+        if (!string.IsNullOrEmpty(_className))
         {
-            command = command.WithArguments(["--filter", $"FullyQualifiedName~{ClassName}"]);
+            command = command + $"--filter FullyQualifiedName~{_className}";
         }
 
-        await command.ExecuteBufferedAsync();
+        await foreach (var output in ProcessX.StartAsync(command))
+        {
+            Console.WriteLine(output);
+        }
     }
 
     [Benchmark]
-    public async Task xUnit()
+    public async Task XUnitAsync()
     {
-        var command = Cli.Wrap(_xUnitPath!)
-            .WithStandardOutputPipe(PipeTarget.ToStream(OutputStream));
+        var command = _xUnitPath!;
 
         // Only apply filter if CLASS_NAME environment variable is set
-        if (!string.IsNullOrEmpty(ClassName))
+        if (!string.IsNullOrEmpty(_className))
         {
-            command = command.WithArguments(["--filter", $"FullyQualifiedName~{ClassName}"]);
+            command = command + $"--filter FullyQualifiedName~{_className}";
         }
 
-        await command.ExecuteBufferedAsync();
+        await foreach (var output in ProcessX.StartAsync(command))
+        {
+            Console.WriteLine(output);
+        }
     }
 }
