@@ -152,28 +152,19 @@ public class RuntimeBenchmarks : BenchmarkBase
 
             var command = $"dotnet build -c Release -p:TestFramework={framework} --framework {Framework} --verbosity quiet";
             var (process, stdOut, stdErr) = ProcessX.GetDualAsyncEnumerable(command, workingDirectory: UnifiedPath);
-            
-            // Process stdout and stderr concurrently to avoid potential deadlocks
-            var stdOutTask = Task.Run(async () =>
+
+            await foreach (var line in stdOut)
             {
-                await foreach (var line in stdOut)
-                {
-                    Console.WriteLine(line);
-                }
-            });
-            
-            var stdErrTask = Task.Run(async () =>
+                Console.WriteLine(line);
+            }
+
+            await foreach (var line in stdErr)
             {
-                await foreach (var line in stdErr)
-                {
-                    Console.Error.WriteLine(line);
-                }
-            });
-            
-            await Task.WhenAll(stdOutTask, stdErrTask);
+                Console.Error.WriteLine(line);
+            }
+
             await process.WaitForExitAsync();
             var exitCode = process.ExitCode;
-
             if (exitCode != 0)
             {
                 throw new InvalidOperationException($"{framework} build failed with exit code {exitCode}.");
@@ -201,28 +192,19 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         var command = $"dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid} --framework {Framework} --verbosity quiet";
         var (process, stdOut, stdErr) = ProcessX.GetDualAsyncEnumerable(command, workingDirectory: UnifiedPath);
-        
-        // Process stdout and stderr concurrently to avoid potential deadlocks
-        var stdOutTask = Task.Run(async () =>
+
+        await foreach (var line in stdOut)
         {
-            await foreach (var line in stdOut)
-            {
-                Console.WriteLine(line);
-            }
-        });
-        
-        var stdErrTask = Task.Run(async () =>
+            Console.WriteLine(line);
+        }
+
+        await foreach (var line in stdErr)
         {
-            await foreach (var line in stdErr)
-            {
-                Console.Error.WriteLine(line);
-            }
-        });
-        
-        await Task.WhenAll(stdOutTask, stdErrTask);
+            Console.Error.WriteLine(line);
+        }
+
         await process.WaitForExitAsync();
         var exitCode = process.ExitCode;
-
         if (exitCode != 0)
         {
             Console.WriteLine($"Warning: AOT publish failed with exit code {exitCode}.");
