@@ -42,10 +42,14 @@ dotnet run -c Release --project Tests.Benchmark
 ```
 
 The tool will:
-1. Build all test variants using UnifiedTests with different framework configurations
+1. **Automatically build** missing test executables for all frameworks
 2. Run benchmarks for build time and runtime performance
 3. Collect detailed statistical metrics
 4. Generate professional BenchmarkDotNet reports
+
+**Note**: The NextUnit_AOT benchmark requires a published AOT build. If not found, it will be skipped unless you:
+- Run `dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true` manually, OR
+- Set environment variable `AUTOBUILD_AOT=true` to build it automatically (takes 5-10 minutes)
 
 ### Viewing Results
 

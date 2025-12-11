@@ -15,9 +15,26 @@ Each framework implements the following test categories:
 
 ## Running Benchmarks
 
-### Build all projects first:
+### Quick Start (No manual build required):
 ```bash
-dotnet build -c Release
+# The benchmarks will automatically build missing test executables
+cd tools/speed-comparison
+dotnet run -c Release --project Tests.Benchmark
+```
+
+### For AOT Benchmarks:
+AOT builds can take 5-10 minutes. You have two options:
+
+Option 1: Build AOT manually before running benchmarks:
+```bash
+dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true
+```
+
+Option 2: Let the benchmark build AOT automatically (requires environment variable):
+```bash
+set AUTOBUILD_AOT=true  # Windows
+export AUTOBUILD_AOT=true  # Linux/Mac
+dotnet run -c Release --project Tests.Benchmark
 ```
 
 ### Run specific benchmark categories:
@@ -25,11 +42,17 @@ dotnet build -c Release
 # Build benchmarks (measures compilation time)
 dotnet run -c Release --project Tests.Benchmark -- --filter "*BuildBenchmarks*"
 
-# Runtime benchmarks for specific test class
-set CLASS_NAME=AsyncTests
+# Runtime benchmarks (runs all tests by default)
 dotnet run -c Release --project Tests.Benchmark -- --filter "*RuntimeBenchmarks*"
 
-# Available test class names:
+# Runtime benchmarks for specific test class (optional)
+# Note: CLASS_NAME filtering applies to NUnit, MSTest, and xUnit only.
+# NextUnit runs all tests since it uses Microsoft.Testing.Platform which has different filtering mechanisms.
+set CLASS_NAME=AsyncTests  # Windows
+export CLASS_NAME=AsyncTests  # Linux/Mac
+dotnet run -c Release --project Tests.Benchmark -- --filter "*RuntimeBenchmarks*"
+
+# Available test class names for filtering:
 # - AsyncTests
 # - DataDrivenTests
 # - ScaleTests

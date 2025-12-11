@@ -9,7 +9,7 @@ public class BenchmarkBase
     protected readonly Stream OutputStream = Console.OpenStandardOutput();
 
     protected static readonly string UnifiedPath = GetProjectPath("UnifiedTests");
-    
+
     protected static readonly string Framework = GetFramework();
 
     private static string GetFramework()
@@ -18,11 +18,11 @@ public class BenchmarkBase
     }
 
     [GlobalCleanup]
-    public async Task FlushStream()
+    public async Task FlushStreamAsync()
     {
         await OutputStream.FlushAsync();
     }
-    
+
     private static string GetProjectPath(string name)
     {
         var folder = new DirectoryInfo(Environment.CurrentDirectory);
@@ -31,7 +31,7 @@ public class BenchmarkBase
         {
             folder = folder.Parent!;
         }
-        
+
         return Path.Combine(folder.FullName, name);
     }
 
