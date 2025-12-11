@@ -153,16 +153,24 @@ public class RuntimeBenchmarks : BenchmarkBase
             var command = $"dotnet build -c Release -p:TestFramework={framework} --framework {Framework} --verbosity quiet";
             var (process, stdOut, stdErr) = ProcessX.GetDualAsyncEnumerable(command, workingDirectory: UnifiedPath);
 
-            await foreach (var line in stdOut)
+            // Process both stdout and stderr concurrently to avoid deadlocks.
+            var stdOutTask = Task.Run(async () =>
             {
-                Console.WriteLine(line);
-            }
+                await foreach (var line in stdOut)
+                {
+                    Console.WriteLine(line);
+                }
+            });
 
-            await foreach (var line in stdErr)
+            var stdErrTask = Task.Run(async () =>
             {
-                Console.Error.WriteLine(line);
-            }
+                await foreach (var line in stdErr)
+                {
+                    Console.Error.WriteLine(line);
+                }
+            });
 
+            await Task.WhenAll(stdOutTask, stdErrTask);
             await process.WaitForExitAsync();
             var exitCode = process.ExitCode;
             if (exitCode != 0)
