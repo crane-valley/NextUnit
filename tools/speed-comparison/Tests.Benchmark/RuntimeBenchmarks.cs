@@ -54,7 +54,7 @@ public class RuntimeBenchmarks : BenchmarkBase
             {
                 Console.WriteLine($"AOT executable not found at {_aotPath}.");
                 Console.WriteLine("To build it automatically, set environment variable AUTOBUILD_AOT=true");
-                Console.WriteLine("Or run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
+                Console.WriteLine($"Or run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid}");
                 Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
             }
         }
@@ -130,10 +130,11 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         _aotBuildAttempted = true;
 
+        var rid = GetRuntimeIdentifier();
         Console.WriteLine("AOT executable not found. Building AOT version (this may take several minutes)...");
-        Console.WriteLine("To build manually instead, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
+        Console.WriteLine($"To build manually instead, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid}");
 
-        var command = $"dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true --framework {Framework} --verbosity quiet";
+        var command = $"dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid} --framework {Framework} --verbosity quiet";
         await foreach (var output in ProcessX.StartAsync(command, workingDirectory: UnifiedPath))
         {
             Console.WriteLine(output);
