@@ -92,7 +92,7 @@ public class RuntimeBenchmarks : BenchmarkBase
                 _ => throw new PlatformNotSupportedException($"Unsupported macOS architecture: {RuntimeInformation.ProcessArchitecture}")
             };
         }
-        
+
         throw new PlatformNotSupportedException($"Unsupported operating system: {RuntimeInformation.OSDescription}");
     }
 
@@ -108,7 +108,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         {
             Console.WriteLine($"Building {framework} executable at {executablePath}...");
 
-            var command = $"build -c Release -p:TestFramework={framework} --framework {Framework} --verbosity quiet";
+            var command = $"dotnet build -c Release -p:TestFramework={framework} --framework {Framework} --verbosity quiet";
             await foreach (var output in ProcessX.StartAsync(command, workingDirectory: UnifiedPath))
             {
                 Console.WriteLine(output);
@@ -133,7 +133,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         Console.WriteLine("AOT executable not found. Building AOT version (this may take several minutes)...");
         Console.WriteLine("To build manually instead, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true");
 
-        var command = $"publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true --framework {Framework} --verbosity quiet";
+        var command = $"dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true --framework {Framework} --verbosity quiet";
         await foreach (var output in ProcessX.StartAsync(command, workingDirectory: UnifiedPath))
         {
             Console.WriteLine(output);
