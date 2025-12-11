@@ -111,16 +111,24 @@ public class RuntimeBenchmarks : BenchmarkBase
             var command = $"dotnet build -c Release -p:TestFramework={framework} --framework {Framework} --verbosity quiet";
             var (process, stdOut, stdErr) = ProcessX.GetDualAsyncEnumerable(command, workingDirectory: UnifiedPath);
             
-            await foreach (var line in stdOut)
+            // Process stdout and stderr concurrently to avoid potential deadlocks
+            var stdOutTask = Task.Run(async () =>
             {
-                Console.WriteLine(line);
-            }
+                await foreach (var line in stdOut)
+                {
+                    Console.WriteLine(line);
+                }
+            });
             
-            await foreach (var line in stdErr)
+            var stdErrTask = Task.Run(async () =>
             {
-                Console.Error.WriteLine(line);
-            }
+                await foreach (var line in stdErr)
+                {
+                    Console.Error.WriteLine(line);
+                }
+            });
             
+            await Task.WhenAll(stdOutTask, stdErrTask);
             await process.WaitForExitAsync();
             var exitCode = process.ExitCode;
 
@@ -152,16 +160,24 @@ public class RuntimeBenchmarks : BenchmarkBase
         var command = $"dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid} --framework {Framework} --verbosity quiet";
         var (process, stdOut, stdErr) = ProcessX.GetDualAsyncEnumerable(command, workingDirectory: UnifiedPath);
         
-        await foreach (var line in stdOut)
+        // Process stdout and stderr concurrently to avoid potential deadlocks
+        var stdOutTask = Task.Run(async () =>
         {
-            Console.WriteLine(line);
-        }
+            await foreach (var line in stdOut)
+            {
+                Console.WriteLine(line);
+            }
+        });
         
-        await foreach (var line in stdErr)
+        var stdErrTask = Task.Run(async () =>
         {
-            Console.Error.WriteLine(line);
-        }
+            await foreach (var line in stdErr)
+            {
+                Console.Error.WriteLine(line);
+            }
+        });
         
+        await Task.WhenAll(stdOutTask, stdErrTask);
         await process.WaitForExitAsync();
         var exitCode = process.ExitCode;
 
