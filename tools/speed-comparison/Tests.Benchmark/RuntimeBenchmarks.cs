@@ -136,6 +136,11 @@ public class RuntimeBenchmarks : BenchmarkBase
     private string GetExecutablePath(string framework, string exeName)
     {
         var binPath = Path.Combine(UnifiedPath, "bin", $"Release-{framework}", Framework);
+        // Validate exeName for safety: only allow base file names with alphanumeric, dot, underscore, and dash
+        if (exeName.IndexOfAny(Path.GetInvalidFileNameChars()) != -1 || exeName.Contains(Path.DirectorySeparatorChar) || exeName.Contains(Path.AltDirectorySeparatorChar))
+        {
+            throw new ArgumentException($"Invalid exeName value: '{exeName}'. Only a simple filename is allowed.");
+        }
         return Path.Combine(binPath, exeName);
     }
 
