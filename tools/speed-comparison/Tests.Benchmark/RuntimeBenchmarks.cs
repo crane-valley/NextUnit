@@ -189,7 +189,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         // Only apply filter if CLASS_NAME environment variable is set
         if (!string.IsNullOrEmpty(_className))
         {
-            command = command + $"--filter FullyQualifiedName~{_className}";
+            command = command + $" --filter FullyQualifiedName~{_className}";
         }
 
         await foreach (var output in ProcessX.StartAsync(command))
@@ -206,7 +206,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         // Only apply filter if CLASS_NAME environment variable is set
         if (!string.IsNullOrEmpty(_className))
         {
-            command = command + $"--filter FullyQualifiedName~{_className}";
+            command = command + $" --filter FullyQualifiedName~{_className}";
         }
 
         await foreach (var output in ProcessX.StartAsync(command))
@@ -223,7 +223,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         // Only apply filter if CLASS_NAME environment variable is set
         if (!string.IsNullOrEmpty(_className))
         {
-            command = command + $"--filter FullyQualifiedName~{_className}";
+            command = command + $" --filter FullyQualifiedName~{_className}";
         }
 
         await foreach (var output in ProcessX.StartAsync(command))
