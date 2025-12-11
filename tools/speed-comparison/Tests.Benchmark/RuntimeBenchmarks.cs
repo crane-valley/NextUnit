@@ -109,9 +109,24 @@ public class RuntimeBenchmarks : BenchmarkBase
             Console.WriteLine($"Building {framework} executable at {executablePath}...");
 
             var command = $"dotnet build -c Release -p:TestFramework={framework} --framework {Framework} --verbosity quiet";
-            await foreach (var output in ProcessX.StartAsync(command, workingDirectory: UnifiedPath))
+            var (process, stdOut, stdErr) = ProcessX.GetDualAsyncEnumerable(command, workingDirectory: UnifiedPath);
+            
+            await foreach (var line in stdOut)
             {
-                Console.WriteLine(output);
+                Console.WriteLine(line);
+            }
+            
+            await foreach (var line in stdErr)
+            {
+                Console.Error.WriteLine(line);
+            }
+            
+            await process.WaitForExitAsync();
+            var exitCode = process.ExitCode;
+
+            if (exitCode != 0)
+            {
+                throw new InvalidOperationException($"{framework} build failed with exit code {exitCode}.");
             }
 
             if (!File.Exists(executablePath))
@@ -135,12 +150,27 @@ public class RuntimeBenchmarks : BenchmarkBase
         Console.WriteLine($"To build manually instead, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid}");
 
         var command = $"dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid} --framework {Framework} --verbosity quiet";
-        await foreach (var output in ProcessX.StartAsync(command, workingDirectory: UnifiedPath))
+        var (process, stdOut, stdErr) = ProcessX.GetDualAsyncEnumerable(command, workingDirectory: UnifiedPath);
+        
+        await foreach (var line in stdOut)
         {
-            Console.WriteLine(output);
+            Console.WriteLine(line);
         }
+        
+        await foreach (var line in stdErr)
+        {
+            Console.Error.WriteLine(line);
+        }
+        
+        await process.WaitForExitAsync();
+        var exitCode = process.ExitCode;
 
-        if (!File.Exists(_aotPath))
+        if (exitCode != 0)
+        {
+            Console.WriteLine($"Warning: AOT publish failed with exit code {exitCode}.");
+            Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
+        }
+        else if (!File.Exists(_aotPath))
         {
             Console.WriteLine($"Warning: AOT executable not found at {_aotPath} after publish.");
             Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
@@ -157,10 +187,9 @@ public class RuntimeBenchmarks : BenchmarkBase
     {
         if (!File.Exists(_aotPath))
         {
-            // Skip this benchmark if AOT executable doesn't exist
-            // Return early to avoid benchmark failure - this will result in a very fast (invalid) benchmark time
-            // but prevents the entire benchmark run from crashing
-            return;
+            // AOT executable doesn't exist - throw to exclude this benchmark from results
+            // This is better than returning early which would record an invalid (very fast) result
+            throw new InvalidOperationException($"AOT executable not found at {_aotPath}. Set AUTOBUILD_AOT=true or build manually to include this benchmark.");
         }
 
         // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
