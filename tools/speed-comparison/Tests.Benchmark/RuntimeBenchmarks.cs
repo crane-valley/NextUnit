@@ -8,13 +8,30 @@ namespace Tests.Benchmark;
 [BenchmarkCategory("Runtime")]
 public class RuntimeBenchmarks : BenchmarkBase
 {
-    private static readonly string? _className = Environment.GetEnvironmentVariable("CLASS_NAME");
+    private static readonly string? _className = SanitizeClassName(Environment.GetEnvironmentVariable("CLASS_NAME"));
     private string? _aotPath;
     private string? _nextUnitPath;
     private string? _nunitPath;
     private string? _msTestPath;
     private string? _xUnitPath;
     private bool _aotBuildAttempted;
+
+    private static string? SanitizeClassName(string? className)
+    {
+        if (string.IsNullOrEmpty(className))
+        {
+            return null;
+        }
+
+        // Only allow alphanumeric characters, dots, and underscores
+        // This prevents command injection while allowing typical class name patterns
+        if (!System.Text.RegularExpressions.Regex.IsMatch(className, @"^[a-zA-Z0-9._]+$"))
+        {
+            throw new ArgumentException($"Invalid CLASS_NAME value: '{className}'. Only alphanumeric characters, dots, and underscores are allowed.");
+        }
+
+        return className;
+    }
 
     [GlobalSetup]
     public async Task SetupAsync()
@@ -62,10 +79,19 @@ public class RuntimeBenchmarks : BenchmarkBase
 
     private string GetRuntimeIdentifier()
     {
+        // Whitelist of valid runtime identifiers
+        var validRids = new HashSet<string>
+        {
+            "win-x64", "win-x86", "win-arm64",
+            "linux-x64", "linux-arm64", "linux-arm",
+            "osx-x64", "osx-arm64"
+        };
+
         // Determine the runtime identifier based on the current platform
+        string rid;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            return RuntimeInformation.ProcessArchitecture switch
+            rid = RuntimeInformation.ProcessArchitecture switch
             {
                 Architecture.X64 => "win-x64",
                 Architecture.Arm64 => "win-arm64",
@@ -75,7 +101,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return RuntimeInformation.ProcessArchitecture switch
+            rid = RuntimeInformation.ProcessArchitecture switch
             {
                 Architecture.X64 => "linux-x64",
                 Architecture.Arm64 => "linux-arm64",
@@ -85,15 +111,25 @@ public class RuntimeBenchmarks : BenchmarkBase
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            return RuntimeInformation.ProcessArchitecture switch
+            rid = RuntimeInformation.ProcessArchitecture switch
             {
                 Architecture.X64 => "osx-x64",
                 Architecture.Arm64 => "osx-arm64",
                 _ => throw new PlatformNotSupportedException($"Unsupported macOS architecture: {RuntimeInformation.ProcessArchitecture}")
             };
         }
+        else
+        {
+            throw new PlatformNotSupportedException($"Unsupported operating system: {RuntimeInformation.OSDescription}");
+        }
 
-        throw new PlatformNotSupportedException($"Unsupported operating system: {RuntimeInformation.OSDescription}");
+        // Validate against whitelist as an extra safety measure
+        if (!validRids.Contains(rid))
+        {
+            throw new PlatformNotSupportedException($"Runtime identifier '{rid}' is not in the validated whitelist.");
+        }
+
+        return rid;
     }
 
     private string GetExecutablePath(string framework, string exeName)
