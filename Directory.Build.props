@@ -26,4 +26,21 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
+
+  <!-- Shared Package Metadata -->
+  <PropertyGroup>
+    <Version>1.6.0</Version>
+    <Authors>NextUnit Contributors</Authors>
+    <Company>NextUnit</Company>
+    <Product>NextUnit</Product>
+    <PackageTags>testing;test;framework;xunit;tunit;unittest;nextunit</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/crane-valley/NextUnit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/crane-valley/NextUnit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>Copyright (c) 2025 NextUnit Contributors</Copyright>
+    <PackageReleaseNotes>See https://github.com/crane-valley/NextUnit/blob/main/CHANGELOG.md for release notes.</PackageReleaseNotes>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
 </Project>
