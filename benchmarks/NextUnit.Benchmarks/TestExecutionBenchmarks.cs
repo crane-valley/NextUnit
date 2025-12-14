@@ -19,7 +19,7 @@ public class TestExecutionBenchmarks
         // Simulate running the large test suite
         // In practice, this would launch the test executable, but for benchmark purposes
         // we'll measure the overhead of test registration and basic execution
-        
+
         var tasks = new List<Task>();
         for (int i = 0; i < 1000; i++)
         {

@@ -53,6 +53,76 @@ public static class Assert
     }
 
     /// <summary>
+    /// Verifies that two values are equal using a custom comparer.
+    /// </summary>
+    /// <typeparam name="T">The type of values to compare.</typeparam>
+    /// <param name="expected">The expected value.</param>
+    /// <param name="actual">The actual value.</param>
+    /// <param name="comparer">The comparer to use for equality comparison.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the values are not equal.</exception>
+    public static void Equal<T>(T expected, T actual, IEqualityComparer<T> comparer, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(comparer);
+
+        if (!comparer.Equals(expected, actual))
+        {
+            throw new AssertionFailedException(
+                message ?? $"Expected: {expected}; Actual: {actual}");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that two double values are equal within a specified precision.
+    /// </summary>
+    /// <param name="expected">The expected value.</param>
+    /// <param name="actual">The actual value.</param>
+    /// <param name="precision">The number of decimal places to compare.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the values are not equal within the specified precision.</exception>
+    public static void Equal(double expected, double actual, int precision, string? message = null)
+    {
+        if (double.IsNaN(expected) || double.IsNaN(actual) || double.IsInfinity(expected) || double.IsInfinity(actual))
+        {
+            if (!Equals(expected, actual))
+            {
+                throw new AssertionFailedException(
+                    message ?? $"Expected: {expected}; Actual: {actual}");
+            }
+            return;
+        }
+
+        var tolerance = Math.Pow(10, -precision);
+        var difference = Math.Abs(expected - actual);
+
+        if (difference > tolerance)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Expected: {expected} (±{tolerance}); Actual: {actual}; Difference: {difference}");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that two decimal values are equal within a specified precision.
+    /// </summary>
+    /// <param name="expected">The expected value.</param>
+    /// <param name="actual">The actual value.</param>
+    /// <param name="precision">The number of decimal places to compare.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the values are not equal within the specified precision.</exception>
+    public static void Equal(decimal expected, decimal actual, int precision, string? message = null)
+    {
+        var tolerance = (decimal)Math.Pow(10, -precision);
+        var difference = Math.Abs(expected - actual);
+
+        if (difference > tolerance)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Expected: {expected} (±{tolerance}); Actual: {actual}; Difference: {difference}");
+        }
+    }
+
+    /// <summary>
     /// Verifies that two values are not equal.
     /// </summary>
     /// <typeparam name="T">The type of values to compare.</typeparam>
@@ -66,6 +136,56 @@ public static class Assert
         {
             throw new AssertionFailedException(
                 message ?? $"Did not expect: {actual}");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that two double values are not equal within a specified precision.
+    /// </summary>
+    /// <param name="notExpected">The value that should not match the actual value.</param>
+    /// <param name="actual">The actual value.</param>
+    /// <param name="precision">The number of decimal places to compare.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the values are equal within the specified precision.</exception>
+    public static void NotEqual(double notExpected, double actual, int precision, string? message = null)
+    {
+        if (double.IsNaN(notExpected) || double.IsNaN(actual) || double.IsInfinity(notExpected) || double.IsInfinity(actual))
+        {
+            if (Equals(notExpected, actual))
+            {
+                throw new AssertionFailedException(
+                    message ?? $"Did not expect: {actual}");
+            }
+            return;
+        }
+
+        var tolerance = Math.Pow(10, -precision);
+        var difference = Math.Abs(notExpected - actual);
+
+        if (difference <= tolerance)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Did not expect: {actual} (within ±{tolerance} of {notExpected})");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that two decimal values are not equal within a specified precision.
+    /// </summary>
+    /// <param name="notExpected">The value that should not match the actual value.</param>
+    /// <param name="actual">The actual value.</param>
+    /// <param name="precision">The number of decimal places to compare.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the values are equal within the specified precision.</exception>
+    public static void NotEqual(decimal notExpected, decimal actual, int precision, string? message = null)
+    {
+        var tolerance = (decimal)Math.Pow(10, -precision);
+        var difference = Math.Abs(notExpected - actual);
+
+        if (difference <= tolerance)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Did not expect: {actual} (within ±{tolerance} of {notExpected})");
         }
     }
 
@@ -146,6 +266,87 @@ public static class Assert
         }
         catch (TException ex)
         {
+            return ex;
+        }
+        catch (Exception ex)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Expected {typeof(TException).Name} but got {ex.GetType().Name}.",
+                ex);
+        }
+
+        throw new AssertionFailedException(
+            message ?? $"Expected {typeof(TException).Name} but no exception was thrown.");
+    }
+
+    /// <summary>
+    /// Verifies that an action throws a specific type of exception with a message matching the expected message.
+    /// </summary>
+    /// <typeparam name="TException">The expected exception type.</typeparam>
+    /// <param name="action">The action to execute.</param>
+    /// <param name="expectedMessage">The expected exception message.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <returns>The exception that was thrown.</returns>
+    /// <exception cref="AssertionFailedException">Thrown when no exception is thrown, a different exception type is thrown, or the message doesn't match.</exception>
+    public static TException Throws<TException>(Action action, string expectedMessage, string? message = null)
+        where TException : Exception
+    {
+        ArgumentNullException.ThrowIfNull(expectedMessage);
+
+        try
+        {
+            action();
+        }
+        catch (TException ex)
+        {
+            if (ex.Message != expectedMessage)
+            {
+                throw new AssertionFailedException(
+                    message ?? $"Expected exception message: \"{expectedMessage}\"\nActual exception message: \"{ex.Message}\"",
+                    ex);
+            }
+            return ex;
+        }
+        catch (Exception ex)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Expected {typeof(TException).Name} but got {ex.GetType().Name}.",
+                ex);
+        }
+
+        throw new AssertionFailedException(
+            message ?? $"Expected {typeof(TException).Name} but no exception was thrown.");
+    }
+
+    /// <summary>
+    /// Verifies that an asynchronous action throws a specific type of exception with a message matching the expected message.
+    /// </summary>
+    /// <typeparam name="TException">The expected exception type.</typeparam>
+    /// <param name="action">The asynchronous action to execute.</param>
+    /// <param name="expectedMessage">The expected exception message.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the exception that was thrown.</returns>
+    /// <exception cref="AssertionFailedException">Thrown when no exception is thrown, a different exception type is thrown, or the message doesn't match.</exception>
+    public static async Task<TException> ThrowsAsync<TException>(
+        Func<Task> action,
+        string expectedMessage,
+        string? message = null)
+        where TException : Exception
+    {
+        ArgumentNullException.ThrowIfNull(expectedMessage);
+
+        try
+        {
+            await action().ConfigureAwait(false);
+        }
+        catch (TException ex)
+        {
+            if (ex.Message != expectedMessage)
+            {
+                throw new AssertionFailedException(
+                    message ?? $"Expected exception message: \"{expectedMessage}\"\nActual exception message: \"{ex.Message}\"",
+                    ex);
+            }
             return ex;
         }
         catch (Exception ex)
@@ -386,6 +587,110 @@ public static class Assert
         {
             throw new AssertionFailedException(
                 message ?? "Collection is empty. Expected non-empty collection.");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that two collections contain the same elements in any order.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the collections.</typeparam>
+    /// <param name="expected">The expected collection.</param>
+    /// <param name="actual">The actual collection.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the collections are not equivalent.</exception>
+    public static void Equivalent<T>(IEnumerable<T> expected, IEnumerable<T> actual, string? message = null)
+        where T : notnull
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        ArgumentNullException.ThrowIfNull(actual);
+
+        var expectedList = expected.ToList();
+        var actualList = actual.ToList();
+
+        if (expectedList.Count != actualList.Count)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Collections have different counts. Expected: {expectedList.Count}; Actual: {actualList.Count}");
+        }
+
+        var expectedCounts = new Dictionary<T, int>(EqualityComparer<T>.Default);
+        var actualCounts = new Dictionary<T, int>(EqualityComparer<T>.Default);
+
+        foreach (var item in expectedList)
+        {
+            expectedCounts.TryGetValue(item, out var count);
+            expectedCounts[item] = count + 1;
+        }
+
+        foreach (var item in actualList)
+        {
+            actualCounts.TryGetValue(item, out var count);
+            actualCounts[item] = count + 1;
+        }
+
+        if (expectedCounts.Count != actualCounts.Count)
+        {
+            throw new AssertionFailedException(
+                message ?? "Collections are not equivalent.");
+        }
+
+        foreach (var kvp in expectedCounts)
+        {
+            if (!actualCounts.TryGetValue(kvp.Key, out var actualCount) || actualCount != kvp.Value)
+            {
+                throw new AssertionFailedException(
+                    message ?? "Collections are not equivalent.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that all elements of a subset collection are present in a superset collection.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the collections.</typeparam>
+    /// <param name="subset">The collection that should be a subset.</param>
+    /// <param name="superset">The collection that should be a superset.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the subset is not contained in the superset.</exception>
+    public static void Subset<T>(IEnumerable<T> subset, IEnumerable<T> superset, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(subset);
+        ArgumentNullException.ThrowIfNull(superset);
+
+        var supersetSet = new HashSet<T>(superset, EqualityComparer<T>.Default);
+
+        foreach (var item in subset)
+        {
+            if (!supersetSet.Contains(item))
+            {
+                throw new AssertionFailedException(
+                    message ?? $"Subset contains element '{item}' not found in superset.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that two collections have no common elements.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the collections.</typeparam>
+    /// <param name="collection1">The first collection.</param>
+    /// <param name="collection2">The second collection.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the collections have common elements.</exception>
+    public static void Disjoint<T>(IEnumerable<T> collection1, IEnumerable<T> collection2, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(collection1);
+        ArgumentNullException.ThrowIfNull(collection2);
+
+        var set1 = new HashSet<T>(collection1, EqualityComparer<T>.Default);
+
+        foreach (var item in collection2)
+        {
+            if (set1.Contains(item))
+            {
+                throw new AssertionFailedException(
+                    message ?? $"Collections have common element: {item}");
+            }
         }
     }
 
