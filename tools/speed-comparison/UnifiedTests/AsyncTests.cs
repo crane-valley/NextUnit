@@ -32,9 +32,9 @@ public class AsyncTests
     {
         var task1 = ComputeAsync(5);
         var task2 = ProcessTextAsync("world");
-        
+
         await Task.WhenAll(task1, task2);
-        
+
         // Simulate result combination - benchmark measures async coordination
         var result1 = await task1;
         var result2 = await task2;

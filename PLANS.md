@@ -438,12 +438,16 @@ This section outlines planned improvements and enhancements for NextUnit going f
 ### Near-Term (Next 1-3 Months)
 **Focus**: Core framework enhancements and developer experience
 
-1. **Enhanced Assertions** (Priority 1.1) - 2-3 days
+1. ✅ **Enhanced Assertions** (Priority 1.1) - COMPLETED (2025-12-14)
+   - Approximate equality assertions for doubles/decimals
+   - Collection comparison assertions (Equivalent, Subset, Disjoint)
+   - Exception message matching
+   - Custom comparers support
 2. **CLI Improvements** (Priority 2.3) - 2-3 days
 3. **Rich Failure Messages** (Priority 2.2) - 1-2 days
 4. **Documentation Samples** (Priority 3.3) - 3-4 days
 
-**Total**: ~10-12 days of development
+**Total**: ~7-9 days remaining
 
 ### Mid-Term (3-6 Months)
 **Focus**: IDE integration and tooling
@@ -548,6 +552,7 @@ We welcome contributions! Here's how you can help:
 
 | Version | Date       | Status      | Highlights |
 |---------|------------|-------------|------------|
+| 1.6.0   | 2025-12-14 | ✅ Released | Enhanced assertions (Priority 1.1): precision equality, collection comparisons, message matching |
 | 1.5.0   | 2025-12-10 | ✅ Released | Predicate-based collection assertions |
 | 1.4.0   | 2025-12-09 | ✅ Released | Performance benchmarks, BenchmarkDotNet integration |
 | 1.3.0   | 2025-12-08 | ✅ Released | Test output capture (ITestOutput) |
@@ -568,6 +573,6 @@ We welcome contributions! Here's how you can help:
 
 ---
 
-**Last Updated**: 2025-12-10  
-**Document Version**: 2.0  
-**Status**: Speed-comparison implementation complete, forward-looking roadmap established
+**Last Updated**: 2025-12-14  
+**Document Version**: 2.1  
+**Status**: Priority 1.1 (Enhanced Assertions) complete, continuing Near-Term roadmap
