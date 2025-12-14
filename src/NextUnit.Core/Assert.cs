@@ -112,7 +112,9 @@ public static class Assert
     /// <exception cref="AssertionFailedException">Thrown when the values are not equal within the specified precision.</exception>
     public static void Equal(decimal expected, decimal actual, int precision, string? message = null)
     {
-        var tolerance = (decimal)Math.Pow(10, -precision);
+        // Use decimal arithmetic to avoid precision loss from double-to-decimal conversion
+        decimal tolerance = 1m;
+        for (int i = 0; i < precision; i++) tolerance /= 10m;
         var difference = Math.Abs(expected - actual);
 
         if (difference > tolerance)
