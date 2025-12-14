@@ -131,11 +131,11 @@ This section outlines planned improvements and enhancements for NextUnit going f
 
 ### Priority 2: Developer Tooling and IDE Integration
 
-#### 2.1 Visual Studio Integration
-**Goal**: First-class Visual Studio Test Explorer support
+#### 2.1 Visual Studio 2026 Integration
+**Goal**: First-class Visual Studio 2026 Test Explorer support
 
 **Planned Features**:
-- **Test Explorer adapter**
+- **Test Explorer adapter for Visual Studio 2026**
   - Show tests in VS Test Explorer
   - Run/debug individual tests from IDE
   - Group tests by class/category/tag
@@ -152,6 +152,8 @@ This section outlines planned improvements and enhancements for NextUnit going f
 
 **Estimated Effort**: 5-7 days
 **Benefits**: Better developer experience, faster development workflow, IDE parity with xUnit
+
+**Note**: NextUnit targets .NET 10, which requires Visual Studio 2026 for development.
 
 #### 2.2 Debugging and Diagnostics
 **Goal**: Make debugging test failures easier
