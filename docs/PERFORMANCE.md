@@ -1,8 +1,8 @@
-# NextUnit v1.4 Performance Benchmarks
+# NextUnit v1.6 Performance Benchmarks
 
 ## Overview
 
-This document provides performance benchmarks for NextUnit v1.4, demonstrating the framework's excellent performance characteristics for test discovery and execution.
+This document provides performance benchmarks for NextUnit v1.6, demonstrating the framework's excellent performance characteristics for test discovery and execution.
 
 ## Benchmark Environment
 
@@ -143,6 +143,6 @@ The framework is **production-ready** for large test suites with excellent perfo
 
 ---
 
-**Last Updated**: 2025-12-09  
-**NextUnit Version**: 1.4.0  
+**Last Updated**: 2025-12-14  
+**NextUnit Version**: 1.6.0  
 **Benchmark Suite**: benchmarks/NextUnit.Benchmarks

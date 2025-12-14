@@ -730,7 +730,7 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 1.4.0 (Stable)
+**Current Version**: 1.6.0 (Stable)
 
 **v1.0 Release**: 2025-12-06
 - ✅ Zero-reflection test execution with source generators
@@ -762,3 +762,14 @@ NextUnit is inspired by:
 - ✅ BenchmarkDotNet integration
 - ✅ Performance documentation and analysis
 - ✅ Proven scalability (1,852 tests/second throughput)
+
+**v1.5 Release**: 2025-12-10
+- ✅ Predicate-based collection assertions
+- ✅ xUnit API compatibility for collection assertions
+- ✅ Improved assertion ergonomics
+
+**v1.6 Release**: 2025-12-14
+- ✅ Approximate equality assertions for floating-point comparisons
+- ✅ Collection comparison assertions (Equivalent, Subset, Disjoint)
+- ✅ Enhanced exception assertions with message matching
+- ✅ Custom comparers support

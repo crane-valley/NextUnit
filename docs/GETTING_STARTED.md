@@ -57,7 +57,7 @@ Update your `.csproj` file:
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.4.0" />
+    <PackageReference Include="NextUnit" Version="1.6.0" />
   </ItemGroup>
 </Project>
 ```
