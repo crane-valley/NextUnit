@@ -7,6 +7,8 @@ namespace NextUnit;
 /// </summary>
 public static class Assert
 {
+    // Lookup table for common precision values to avoid Math.Pow overhead
+    // PowersOfTen[n] = 10^(-n) for n = 0 to 15
     private static readonly double[] PowersOfTen =
     [
         1.0,                // 10^0
@@ -27,6 +29,37 @@ public static class Assert
         0.000000000000001   // 10^-15
     ];
 
+    private static readonly decimal[] PowersOfTenDecimal =
+    [
+        1.0m,               // 10^0
+        0.1m,               // 10^-1
+        0.01m,              // 10^-2
+        0.001m,             // 10^-3
+        0.0001m,            // 10^-4
+        0.00001m,           // 10^-5
+        0.000001m,          // 10^-6
+        0.0000001m,         // 10^-7
+        0.00000001m,        // 10^-8
+        0.000000001m,       // 10^-9
+        0.0000000001m,      // 10^-10
+        0.00000000001m,     // 10^-11
+        0.000000000001m,    // 10^-12
+        0.0000000000001m,   // 10^-13
+        0.00000000000001m,  // 10^-14
+        0.000000000000001m, // 10^-15
+        0.0000000000000001m,// 10^-16
+        0.00000000000000001m,// 10^-17
+        0.000000000000000001m,// 10^-18
+        0.0000000000000000001m,// 10^-19
+        0.00000000000000000001m,// 10^-20
+        0.000000000000000000001m,// 10^-21
+        0.0000000000000000000001m,// 10^-22
+        0.00000000000000000000001m,// 10^-23
+        0.000000000000000000000001m,// 10^-24
+        0.0000000000000000000000001m,// 10^-25
+        0.00000000000000000000000001m,// 10^-26
+        0.000000000000000000000000001m// 10^-27
+    ];
 
     /// <summary>
     /// Verifies that a condition is true.
@@ -139,11 +172,19 @@ public static class Assert
     {
         ArgumentOutOfRangeException.ThrowIfNegative(precision);
 
-        // Use decimal arithmetic to avoid precision loss from double-to-decimal conversion
-        decimal tolerance = 1m;
-        for (int i = 0; i < precision; i++)
+        decimal tolerance;
+        if (precision < PowersOfTenDecimal.Length)
         {
-            tolerance /= 10m;
+            tolerance = PowersOfTenDecimal[precision];
+        }
+        else
+        {
+            // Use decimal arithmetic for very high precision values
+            tolerance = 1m;
+            for (int i = 0; i < precision; i++)
+            {
+                tolerance /= 10m;
+            }
         }
 
         var difference = Math.Abs(expected - actual);
@@ -218,10 +259,19 @@ public static class Assert
     {
         ArgumentOutOfRangeException.ThrowIfNegative(precision);
 
-        decimal tolerance = 1m;
-        for (int i = 0; i < precision; i++)
+        decimal tolerance;
+        if (precision < PowersOfTenDecimal.Length)
         {
-            tolerance /= 10m;
+            tolerance = PowersOfTenDecimal[precision];
+        }
+        else
+        {
+            // Use decimal arithmetic for very high precision values
+            tolerance = 1m;
+            for (int i = 0; i < precision; i++)
+            {
+                tolerance /= 10m;
+            }
         }
 
         var difference = Math.Abs(notExpected - actual);
