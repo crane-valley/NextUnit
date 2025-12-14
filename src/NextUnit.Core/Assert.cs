@@ -103,6 +103,8 @@ public static class Assert
     /// <exception cref="AssertionFailedException">Thrown when the values are not equal within the specified precision.</exception>
     public static void Equal(double expected, double actual, int precision, string? message = null)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(precision);
+
         if (double.IsNaN(expected) || double.IsNaN(actual) || double.IsInfinity(expected) || double.IsInfinity(actual))
         {
             if (!Equals(expected, actual))
@@ -113,7 +115,7 @@ public static class Assert
             return;
         }
 
-        var tolerance = precision >= 0 && precision < PowersOfTen.Length
+        var tolerance = precision < PowersOfTen.Length
             ? PowersOfTen[precision]
             : Math.Pow(10, -precision);
         var difference = Math.Abs(expected - actual);
@@ -135,6 +137,8 @@ public static class Assert
     /// <exception cref="AssertionFailedException">Thrown when the values are not equal within the specified precision.</exception>
     public static void Equal(decimal expected, decimal actual, int precision, string? message = null)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(precision);
+
         // Use decimal arithmetic to avoid precision loss from double-to-decimal conversion
         decimal tolerance = 1m;
         for (int i = 0; i < precision; i++)
@@ -178,6 +182,8 @@ public static class Assert
     /// <exception cref="AssertionFailedException">Thrown when the values are equal within the specified precision.</exception>
     public static void NotEqual(double notExpected, double actual, int precision, string? message = null)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(precision);
+
         if (double.IsNaN(notExpected) || double.IsNaN(actual) || double.IsInfinity(notExpected) || double.IsInfinity(actual))
         {
             if (Equals(notExpected, actual))
@@ -188,7 +194,7 @@ public static class Assert
             return;
         }
 
-        var tolerance = precision >= 0 && precision < PowersOfTen.Length
+        var tolerance = precision < PowersOfTen.Length
             ? PowersOfTen[precision]
             : Math.Pow(10, -precision);
         var difference = Math.Abs(notExpected - actual);
@@ -210,6 +216,8 @@ public static class Assert
     /// <exception cref="AssertionFailedException">Thrown when the values are equal within the specified precision.</exception>
     public static void NotEqual(decimal notExpected, decimal actual, int precision, string? message = null)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(precision);
+
         decimal tolerance = 1m;
         for (int i = 0; i < precision; i++)
         {

@@ -64,6 +64,20 @@ public class EnhancedAssertionTests
         Assert.Equal(expected, actual, precision);
     }
 
+    [Test]
+    public void Equal_WithNegativePrecision_ThrowsArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Assert.Equal(1.0, 1.0, precision: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Assert.Equal(1.0m, 1.0m, precision: -1));
+    }
+
+    [Test]
+    public void NotEqual_WithNegativePrecision_ThrowsArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Assert.NotEqual(1.0, 2.0, precision: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Assert.NotEqual(1.0m, 2.0m, precision: -1));
+    }
+
     // Custom Comparer Support
 
     [Test]
