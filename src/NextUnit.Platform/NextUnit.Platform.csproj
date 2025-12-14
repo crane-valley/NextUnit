@@ -11,6 +11,7 @@
     <PackageTags>$(PackageTags);platform;microsoft-testing-platform;integration</PackageTags>
 
     <!-- NuGet Package Settings -->
+    <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>

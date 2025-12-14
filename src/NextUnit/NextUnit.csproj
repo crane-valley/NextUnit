@@ -13,7 +13,7 @@
     <PackageTags>$(PackageTags);metapackage</PackageTags>
 
     <!-- Meta-package Settings -->
-    <DevelopmentDependency>false</DevelopmentDependency>
+    <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
 
   <ItemGroup>

@@ -10,6 +10,7 @@
     <PackageTags>$(PackageTags);assertions;aot;native-aot;source-generator</PackageTags>
 
     <!-- NuGet Package Settings -->
+    <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
