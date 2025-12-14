@@ -135,5 +135,5 @@ Both can coexist and serve different purposes:
 
 ---
 
-**Last Updated**: 2025-12-10  
-**NextUnit Version**: 1.4.0
+**Last Updated**: 2025-12-14  
+**NextUnit Version**: 1.6.0
