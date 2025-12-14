@@ -7,6 +7,27 @@ namespace NextUnit;
 /// </summary>
 public static class Assert
 {
+    private static readonly double[] PowersOfTen =
+    [
+        1.0,                // 10^0
+        0.1,                // 10^-1
+        0.01,               // 10^-2
+        0.001,              // 10^-3
+        0.0001,             // 10^-4
+        0.00001,            // 10^-5
+        0.000001,           // 10^-6
+        0.0000001,          // 10^-7
+        0.00000001,         // 10^-8
+        0.000000001,        // 10^-9
+        0.0000000001,       // 10^-10
+        0.00000000001,      // 10^-11
+        0.000000000001,     // 10^-12
+        0.0000000000001,    // 10^-13
+        0.00000000000001,   // 10^-14
+        0.000000000000001   // 10^-15
+    ];
+
+
     /// <summary>
     /// Verifies that a condition is true.
     /// </summary>
@@ -92,7 +113,9 @@ public static class Assert
             return;
         }
 
-        var tolerance = Math.Pow(10, -precision);
+        var tolerance = precision >= 0 && precision < PowersOfTen.Length
+            ? PowersOfTen[precision]
+            : Math.Pow(10, -precision);
         var difference = Math.Abs(expected - actual);
 
         if (difference > tolerance)
@@ -114,7 +137,11 @@ public static class Assert
     {
         // Use decimal arithmetic to avoid precision loss from double-to-decimal conversion
         decimal tolerance = 1m;
-        for (int i = 0; i < precision; i++) tolerance /= 10m;
+        for (int i = 0; i < precision; i++)
+        {
+            tolerance /= 10m;
+        }
+
         var difference = Math.Abs(expected - actual);
 
         if (difference > tolerance)
@@ -161,7 +188,9 @@ public static class Assert
             return;
         }
 
-        var tolerance = Math.Pow(10, -precision);
+        var tolerance = precision >= 0 && precision < PowersOfTen.Length
+            ? PowersOfTen[precision]
+            : Math.Pow(10, -precision);
         var difference = Math.Abs(notExpected - actual);
 
         if (difference <= tolerance)
@@ -181,7 +210,12 @@ public static class Assert
     /// <exception cref="AssertionFailedException">Thrown when the values are equal within the specified precision.</exception>
     public static void NotEqual(decimal notExpected, decimal actual, int precision, string? message = null)
     {
-        var tolerance = (decimal)Math.Pow(10, -precision);
+        decimal tolerance = 1m;
+        for (int i = 0; i < precision; i++)
+        {
+            tolerance /= 10m;
+        }
+
         var difference = Math.Abs(notExpected - actual);
 
         if (difference <= tolerance)
