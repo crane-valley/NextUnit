@@ -183,6 +183,61 @@ Assert.NotInRange(value, min, max);    // Value outside range
 ```csharp
 Assert.Throws<Exception>(() => { ... });              // Sync code throws
 Assert.ThrowsAsync<Exception>(async () => { ... });   // Async code throws
+
+// New in v1.6: Exception message matching
+Assert.Throws<Exception>(() => { ... }, "Expected message");
+Assert.ThrowsAsync<Exception>(async () => { ... }, "Expected message");
+```
+
+### Approximate Equality Assertions (New in v1.6)
+
+For floating-point comparisons with tolerance:
+
+```csharp
+// Compare doubles with precision (decimal places)
+Assert.Equal(3.14159, 3.14158, precision: 4);         // Pass
+Assert.NotEqual(3.14, 2.71, precision: 2);            // Pass
+
+// Compare decimals with precision
+Assert.Equal(100.123456m, 100.123455m, precision: 5); // Pass
+Assert.NotEqual(100.0m, 200.0m, precision: 0);        // Pass
+
+// Handles special values
+Assert.Equal(double.NaN, double.NaN, precision: 2);
+Assert.Equal(double.PositiveInfinity, double.PositiveInfinity, precision: 2);
+```
+
+### Collection Comparison Assertions (New in v1.6)
+
+Advanced collection comparisons:
+
+```csharp
+// Unordered equality - same elements in any order
+var expected = new[] { 1, 2, 3, 4, 5 };
+var actual = new[] { 5, 3, 1, 4, 2 };
+Assert.Equivalent(expected, actual);
+
+// Subset relationship - all elements of subset in superset
+var subset = new[] { 2, 4 };
+var superset = new[] { 1, 2, 3, 4, 5 };
+Assert.Subset(subset, superset);
+
+// Disjoint collections - no common elements
+var collection1 = new[] { 1, 2, 3 };
+var collection2 = new[] { 4, 5, 6 };
+Assert.Disjoint(collection1, collection2);
+```
+
+### Custom Comparers (New in v1.6)
+
+Use custom equality comparers for complex types:
+
+```csharp
+// Case-insensitive string comparison
+Assert.Equal("hello", "HELLO", StringComparer.OrdinalIgnoreCase);
+
+// Custom comparer for complex types
+Assert.Equal(expected, actual, new MyCustomComparer());
 ```
 
 ## Lifecycle Methods

@@ -56,6 +56,17 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **BenchmarkDotNet integration** - Professional benchmarking infrastructure
 - ✅ **Proven scalability** - 1,852 tests/second throughput, ~0.54ms per-test overhead
 
+### New in v1.5
+- ✅ **Predicate-based collection assertions** - `Assert.Contains(collection, predicate)`, `Assert.Single(collection, predicate)`
+- ✅ **xUnit API compatibility** - Complete compatibility with xUnit collection assertions
+- ✅ **Improved assertion ergonomics** - Return matching elements for chaining assertions
+
+### New in v1.6
+- ✅ **Approximate equality assertions** - `Assert.Equal(expected, actual, precision)` for floating-point comparisons
+- ✅ **Collection comparison assertions** - `Assert.Equivalent`, `Assert.Subset`, `Assert.Disjoint` for advanced collection operations
+- ✅ **Enhanced exception assertions** - `Assert.Throws<T>(action, expectedMessage)` for message matching
+- ✅ **Custom comparers support** - `Assert.Equal(expected, actual, comparer)` for custom equality logic
+
 ## Quick Start
 
 ### Installation

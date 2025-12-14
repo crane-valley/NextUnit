@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2025-12-14
+
+### Added - Enhanced Assertions (Priority 1.1)
+
+- **Approximate equality assertions for floating-point comparisons**
+  - `Assert.Equal(double expected, double actual, int precision)` - Compare doubles with tolerance
+  - `Assert.Equal(decimal expected, decimal actual, int precision)` - Compare decimals with tolerance
+  - `Assert.NotEqual(double notExpected, double actual, int precision)` - Inverse with tolerance for doubles
+  - `Assert.NotEqual(decimal notExpected, decimal actual, int precision)` - Inverse with tolerance for decimals
+  - Handles special values (NaN, Infinity) correctly
+  - Useful for scientific computing and financial applications
+
+- **Collection comparison assertions**
+  - `Assert.Equivalent<T>(IEnumerable<T> expected, IEnumerable<T> actual)` - Unordered collection equality
+  - `Assert.Subset<T>(IEnumerable<T> subset, IEnumerable<T> superset)` - Verify subset relationship
+  - `Assert.Disjoint<T>(IEnumerable<T> collection1, IEnumerable<T> collection2)` - No common elements
+  - Enable more expressive tests for set operations and unordered collections
+
+- **Enhanced exception assertions with message matching**
+  - `Assert.Throws<TException>(Action action, string expectedMessage)` - Match exception message
+  - `Assert.ThrowsAsync<TException>(Func<Task> action, string expectedMessage)` - Async variant with message
+  - Provides more precise exception validation
+
+- **Custom comparers support**
+  - `Assert.Equal<T>(T expected, T actual, IEqualityComparer<T> comparer)` - Custom equality logic
+  - Allows custom equality comparison for complex types
+  - Useful for case-insensitive comparisons, custom business logic
+
+### Changed
+
+- Enhanced documentation in `docs/GETTING_STARTED.md` with new assertion methods
+- Added comprehensive test suite in `samples/NextUnit.SampleTests/EnhancedAssertionTests.cs`
+- 31 new test cases covering all enhanced assertion scenarios
+
+### Notes
+
+- Implements Priority 1.1 from PLANS.md: Enhanced Assertions and Diagnostics
+- Maintains backward compatibility with all existing assertions
+- Reduces boilerplate code and improves test readability
+- Achieves better feature parity with xUnit and NUnit
+
 ## [1.5.0] - 2025-12-10
 
 ### Added - Predicate-based Collection Assertions
