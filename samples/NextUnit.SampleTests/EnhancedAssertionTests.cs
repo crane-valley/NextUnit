@@ -57,8 +57,8 @@ public class EnhancedAssertionTests
 
     [Test]
     [Arguments(1.23456, 1.23455, 4)]
-    [Arguments(100.0, 100.001, 2)]
-    [Arguments(0.0001, 0.0002, 3)]
+    [Arguments(100.0, 100.005, 2)]
+    [Arguments(0.0001, 0.00015, 3)]
     public void Equal_WithPrecision_ParameterizedTests(double expected, double actual, int precision)
     {
         Assert.Equal(expected, actual, precision);
