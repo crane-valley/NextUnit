@@ -516,7 +516,7 @@ We welcome contributions! Here's how you can help:
 - Share your migration stories
 - Report bugs and suggest features
 
-**See**: [Contributing Guidelines](README.md#Contributing) for detailed guidelines
+**See**: [Contributing Guidelines](README.md#contributing) for detailed guidelines
 
 ---
 
