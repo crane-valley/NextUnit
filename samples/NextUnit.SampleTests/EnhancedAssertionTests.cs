@@ -263,12 +263,12 @@ public class EnhancedAssertionTests
     public void ExceptionHandling_ValidatesErrorMessages()
     {
         var parameter = "userId";
-        var expectedMessage = $"Value cannot be null. (Parameter '{parameter}')";
 
         var exception = Assert.Throws<ArgumentNullException>(
-            () => ArgumentNullException.ThrowIfNull((object?)null, parameter),
-            expectedMessage: expectedMessage);
+            () => ArgumentNullException.ThrowIfNull((object?)null, parameter));
 
+        // Check that the exception message contains the parameter name for robustness across .NET versions/cultures
+        Assert.Contains(parameter, exception.Message);
         Assert.Equal(parameter, exception.ParamName);
     }
 }
