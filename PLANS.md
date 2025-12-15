@@ -134,12 +134,15 @@ This section outlines planned improvements and enhancements for NextUnit going f
 #### 2.1 Visual Studio 2026 Integration
 **Goal**: First-class Visual Studio 2026 Test Explorer support
 
-**Planned Features**:
-- **Test Explorer adapter for Visual Studio 2026**
-  - Show tests in VS Test Explorer
-  - Run/debug individual tests from IDE
-  - Group tests by class/category/tag
+**Status**: ✅ **Basic Test Explorer Support Implemented** (2025-12-15)
 
+**Completed Features**:
+- ✅ **Test Explorer adapter for Visual Studio 2026**
+  - Show tests in VS Test Explorer via Microsoft.Testing.Extensions.VSTestBridge
+  - Run/debug individual tests from IDE
+  - Full integration with Microsoft.Testing.Platform
+
+**Future Enhancements**:
 - **Live Unit Testing support**
   - Real-time test execution during coding
   - Show pass/fail indicators in code editor
@@ -150,7 +153,7 @@ This section outlines planned improvements and enhancements for NextUnit going f
   - "Run Test" / "Debug Test" links
   - Last execution time and result
 
-**Estimated Effort**: 5-7 days
+**Estimated Effort for Enhancements**: 3-5 days
 **Benefits**: Better developer experience, faster development workflow, IDE parity with xUnit
 
 **Note**: NextUnit targets .NET 10, which requires Visual Studio 2026 for development.
@@ -443,21 +446,27 @@ This section outlines planned improvements and enhancements for NextUnit going f
    - Collection comparison assertions (Equivalent, Subset, Disjoint)
    - Exception message matching
    - Custom comparers support
-2. **CLI Improvements** (Priority 2.3) - 2-3 days
-3. **Rich Failure Messages** (Priority 2.2) - 1-2 days
-4. **Documentation Samples** (Priority 3.3) - 3-4 days
+2. ✅ **Visual Studio Test Explorer Support** (Priority 2.1 - Basic) - COMPLETED (2025-12-15)
+   - Microsoft.Testing.Extensions.VSTestBridge integration
+   - Tests discoverable in Visual Studio Test Explorer
+   - Run/debug tests from IDE
+3. **CLI Improvements** (Priority 2.3) - 2-3 days
+4. **Rich Failure Messages** (Priority 2.2) - 1-2 days
+5. **Documentation Samples** (Priority 3.3) - 3-4 days
 
 **Total**: ~7-9 days remaining
 
 ### Mid-Term (3-6 Months)
-**Focus**: IDE integration and tooling
+**Focus**: Advanced IDE integration and tooling
 
-1. **Visual Studio Integration** (Priority 2.1) - 5-7 days
+1. **Advanced Visual Studio Integration** (Priority 2.1 - Enhanced) - 3-5 days
+   - Live Unit Testing support
+   - CodeLens integration
 2. **Test Context and Environment** (Priority 1.2) - 3-4 days
 3. **Extension Points** (Priority 3.1) - 4-5 days
 4. **Library Integrations** (Priority 3.2) - 3-4 days
 
-**Total**: ~15-20 days of development
+**Total**: ~13-18 days of development
 
 ### Long-Term (6-12 Months)
 **Focus**: Enterprise features and ecosystem growth
@@ -552,6 +561,7 @@ We welcome contributions! Here's how you can help:
 
 | Version | Date       | Status      | Highlights |
 |---------|------------|-------------|------------|
+| 1.7.0   | 2025-12-15 | 🚧 In Progress | Visual Studio Test Explorer support via VSTestBridge |
 | 1.6.1   | 2025-12-15 | ✅ Released | Package configuration: DevelopmentDependency=true for all packages |
 | 1.6.0   | 2025-12-14 | ✅ Released | Enhanced assertions (Priority 1.1): precision equality, collection comparisons, message matching |
 | 1.5.0   | 2025-12-10 | ✅ Released | Predicate-based collection assertions |
@@ -574,6 +584,6 @@ We welcome contributions! Here's how you can help:
 
 ---
 
-**Last Updated**: 2025-12-14  
-**Document Version**: 2.1  
-**Status**: Priority 1.1 (Enhanced Assertions) complete, continuing Near-Term roadmap
+**Last Updated**: 2025-12-15  
+**Document Version**: 2.2  
+**Status**: Priority 2.1 (Visual Studio Test Explorer - Basic) complete, continuing Near-Term roadmap

@@ -127,9 +127,15 @@ dotnet run -- --filter "FullyQualifiedName~Calculator"
 
 ### Visual Studio
 
+NextUnit v1.7+ includes full Visual Studio Test Explorer support via Microsoft.Testing.Extensions.VSTestBridge:
+
 1. Build your project (Ctrl+Shift+B)
-2. Open Test Explorer (Ctrl+E, T)
-3. Click "Run All" or right-click specific tests
+2. Open Test Explorer (Ctrl+E, T or Test > Test Explorer)
+3. Tests will automatically appear in the Test Explorer
+4. Click "Run All" or right-click specific tests to run or debug
+5. View test results, output, and failure details directly in the Test Explorer
+
+**Note**: Test discovery happens automatically when you build the project. Tests are grouped by namespace and class for easy navigation.
 
 ### VS Code
 

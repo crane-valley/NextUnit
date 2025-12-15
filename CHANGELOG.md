@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2025-12-15
+
+### Added - Visual Studio Test Explorer Support
+
+- **Microsoft.Testing.Extensions.VSTestBridge Integration**
+  - Added `Microsoft.Testing.Extensions.VSTestBridge` package dependency to NextUnit.Platform
+  - Enables full Visual Studio Test Explorer support for discovering and running NextUnit tests
+  - Tests automatically appear in Visual Studio Test Explorer after building the project
+  - Full support for running and debugging individual tests or test groups from the IDE
+  - Integration with Microsoft.Testing.Platform infrastructure for seamless IDE experience
+
+### Benefits
+
+- **Improved Developer Experience** - Run and debug tests directly from Visual Studio without command line
+- **Better IDE Integration** - Test results, output, and failure details visible in Test Explorer
+- **Faster Development Workflow** - Quick access to run/debug specific tests during development
+- **Test Organization** - Tests grouped by namespace and class for easy navigation in Test Explorer
+
+### Documentation
+
+- Updated PLANS.md to mark Priority 2.1 (Visual Studio Test Explorer) as completed
+- Updated README.md with Visual Studio Test Explorer usage instructions
+- Updated GETTING_STARTED.md with detailed Visual Studio integration guide
+- Added version 1.7.0 to version history and roadmap documentation
+
 ## [1.6.1] - 2025-12-15
 
 ### Changed

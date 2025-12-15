@@ -67,6 +67,11 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **Enhanced exception assertions** - `Assert.Throws<T>(action, expectedMessage)` for message matching
 - ✅ **Custom comparers support** - `Assert.Equal(expected, actual, comparer)` for custom equality logic
 
+### New in v1.7
+- ✅ **Visual Studio Test Explorer support** - Full integration with Visual Studio Test Explorer via Microsoft.Testing.Extensions.VSTestBridge
+- ✅ **IDE test discovery** - Tests automatically discovered and displayed in Visual Studio Test Explorer
+- ✅ **Run/Debug from IDE** - Run and debug individual tests or test groups directly from Visual Studio
+
 ## Quick Start
 
 ### Installation
@@ -83,8 +88,9 @@ dotnet add package NextUnit.Platform
 
 ### Running Tests
 
-NextUnit uses **Microsoft.Testing.Platform** for test execution. Tests should be executed using `dotnet run`:
+NextUnit uses **Microsoft.Testing.Platform** for test execution and fully supports **Visual Studio Test Explorer** (v1.7+).
 
+**Command Line:**
 ```bash
 # Run all tests in a project
 dotnet run --project YourTestProject/YourTestProject.csproj
@@ -98,6 +104,12 @@ dotnet run --project YourTestProject/YourTestProject.csproj -- --minimum-expecte
 # Generate test results
 dotnet run --project YourTestProject/YourTestProject.csproj -- --results-directory ./TestResults --report-trx
 ```
+
+**Visual Studio Test Explorer:**
+- Build your project (Ctrl+Shift+B)
+- Open Test Explorer (Ctrl+E, T or Test > Test Explorer)
+- Tests automatically appear - run, debug, or view results directly from the IDE
+- Full support for test grouping, filtering, and detailed result viewing
 
 ### Filtering Tests by Category and Tag
 
@@ -730,7 +742,7 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 1.6.1 (Stable)
+**Current Version**: 1.7.0 (In Development)
 
 **v1.0 Release**: 2025-12-06
 - ✅ Zero-reflection test execution with source generators
@@ -773,3 +785,9 @@ NextUnit is inspired by:
 - ✅ Collection comparison assertions (Equivalent, Subset, Disjoint)
 - ✅ Enhanced exception assertions with message matching
 - ✅ Custom comparers support
+
+**v1.7 Release**: 2025-12-15
+- ✅ Visual Studio Test Explorer support via Microsoft.Testing.Extensions.VSTestBridge
+- ✅ Automatic test discovery in Visual Studio
+- ✅ Run and debug tests directly from IDE
+- ✅ Full integration with Microsoft.Testing.Platform infrastructure
