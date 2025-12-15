@@ -9,6 +9,10 @@
     <IsTestingPlatformEnabled Condition="'$(IsTestingPlatformEnabled)' == ''">true</IsTestingPlatformEnabled>
     <OutputType Condition="'$(OutputType)' == ''">Exe</OutputType>
     <GenerateProgramFile Condition="'$(GenerateProgramFile)' == ''">false</GenerateProgramFile>
+    
+    <!-- Enable Microsoft.Testing.Platform runner for dotnet test and Visual Studio Test Explorer -->
+    <!-- This opts into the new dotnet test experience required for .NET 10+ -->
+    <EnableMSTestRunner Condition="'$(EnableMSTestRunner)' == ''">true</EnableMSTestRunner>
   </PropertyGroup>
 
   <ItemGroup>
