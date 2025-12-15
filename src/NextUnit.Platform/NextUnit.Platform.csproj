@@ -34,6 +34,8 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="build\NextUnit.Platform.props" Pack="true" PackagePath="build" />
+    <None Include="build\NextUnit.Platform.props" Pack="true" PackagePath="buildTransitive" />
   </ItemGroup>
 
   <ItemGroup>

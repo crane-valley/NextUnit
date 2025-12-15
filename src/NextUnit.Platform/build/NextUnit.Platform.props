@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <!-- Configure test project for Microsoft.Testing.Platform -->
+    <IsTestProject Condition="'$(IsTestProject)' == ''">true</IsTestProject>
+    <IsTestingPlatformApplication Condition="'$(IsTestingPlatformApplication)' == ''">true</IsTestingPlatformApplication>
+    <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == ''">true</TestingPlatformDotnetTestSupport>
+    <UseTestingPlatformProtocol Condition="'$(UseTestingPlatformProtocol)' == ''">true</UseTestingPlatformProtocol>
+    <IsTestingPlatformEnabled Condition="'$(IsTestingPlatformEnabled)' == ''">true</IsTestingPlatformEnabled>
+    <OutputType Condition="'$(OutputType)' == ''">Exe</OutputType>
+    <GenerateProgramFile Condition="'$(GenerateProgramFile)' == ''">false</GenerateProgramFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Register NextUnit's TestingPlatformBuilderHook with Microsoft.Testing.Platform.
+      This allows automatic discovery and configuration of NextUnit without requiring
+      a custom Program.cs in test projects.
+    -->
+    <TestingPlatformBuilderHook Include="E5B8F72A-7B54-4C09-A7B3-F99DC1DC1095">
+      <DisplayName>NextUnit</DisplayName>
+      <TypeFullName>NextUnit.Platform.TestingPlatformBuilderHook</TypeFullName>
+    </TestingPlatformBuilderHook>
+  </ItemGroup>
+</Project>
