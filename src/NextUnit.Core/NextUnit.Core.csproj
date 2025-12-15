@@ -13,6 +13,9 @@
     <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- This is not a test project - it's a framework library -->
+    <IsTestProject>false</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
