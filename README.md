@@ -730,7 +730,7 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 1.6.0 (Stable)
+**Current Version**: 1.6.1 (Stable)
 
 **v1.0 Release**: 2025-12-06
 - ✅ Zero-reflection test execution with source generators
