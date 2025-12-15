@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2025-12-15
+
+### Changed
+
+- **Package Configuration** - Set `DevelopmentDependency=true` for all NextUnit packages
+  - NextUnit.Core, NextUnit.Generator, NextUnit.Platform, and NextUnit meta-package now marked as development dependencies
+  - Prevents transitive dependency propagation when consuming projects reference NextUnit
+  - Improves package dependency management for library authors using NextUnit for testing
+
+### Documentation
+
+- Added `RELEASE_PROCESS.md` documenting the NuGet package release process
+  - Step-by-step checklist for version updates
+  - List of all files requiring version updates
+  - Guidelines for Copilot agents to automate future releases
+
 ## [1.6.0] - 2025-12-14
 
 ### Added - Enhanced Assertions (Priority 1.1)

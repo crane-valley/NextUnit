@@ -73,7 +73,7 @@ dotnet add package Microsoft.Testing.Platform
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.6.0" />
+    <PackageReference Include="NextUnit" Version="1.6.1" />
   </ItemGroup>
 </Project>
 ```

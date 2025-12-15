@@ -144,5 +144,5 @@ The framework is **production-ready** for large test suites with excellent perfo
 ---
 
 **Last Updated**: 2025-12-14  
-**NextUnit Version**: 1.6.0  
+**NextUnit Version**: 1.6.1  
 **Benchmark Suite**: benchmarks/NextUnit.Benchmarks
