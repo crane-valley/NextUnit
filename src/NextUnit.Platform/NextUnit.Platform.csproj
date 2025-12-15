@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\NextUnit.Core\NextUnit.Core.csproj" />
     <PackageReference Include="Microsoft.Testing.Platform" />
+    <PackageReference Include="Microsoft.Testing.Extensions.VSTestBridge" />
   </ItemGroup>
 
   <ItemGroup>
