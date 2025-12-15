@@ -11,12 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - Visual Studio Test Explorer Support
 
-- **Microsoft.Testing.Extensions.VSTestBridge Integration**
-  - Added `Microsoft.Testing.Extensions.VSTestBridge` package dependency to NextUnit.Platform
+- **TRX Report Capability for Test Explorer Integration**
+  - Added `Microsoft.Testing.Extensions.TrxReport.Abstractions` package dependency to NextUnit.Platform
+  - Implemented `ITrxReportCapability` through `NextUnitTrxReportCapability` class
   - Enables full Visual Studio Test Explorer support for discovering and running NextUnit tests
   - Tests automatically appear in Visual Studio Test Explorer after building the project
   - Full support for running and debugging individual tests or test groups from the IDE
-  - Integration with Microsoft.Testing.Platform infrastructure for seamless IDE experience
+  - Native Microsoft.Testing.Platform integration without VSTest compatibility layer
 
 ### Benefits
 

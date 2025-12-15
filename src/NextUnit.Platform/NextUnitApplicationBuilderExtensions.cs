@@ -34,5 +34,8 @@ internal sealed class NextUnitFrameworkCapabilities : ITestFrameworkCapabilities
     /// <summary>
     /// Gets the collection of test framework capabilities.
     /// </summary>
-    public IReadOnlyCollection<ITestFrameworkCapability> Capabilities { get; } = Array.Empty<ITestFrameworkCapability>();
+    public IReadOnlyCollection<ITestFrameworkCapability> Capabilities { get; } =
+    [
+        new NextUnitTrxReportCapability()
+    ];
 }
