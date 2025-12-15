@@ -4,6 +4,9 @@
     <AssemblyName>NextUnit.Core</AssemblyName>
     <RootNamespace>NextUnit</RootNamespace>
 
+    <!-- Explicitly mark as library, not executable -->
+    <OutputType>Library</OutputType>
+
     <!-- Package Information -->
     <PackageId>NextUnit.Core</PackageId>
     <Description>NextUnit is a modern, high-performance test framework for .NET 10+ that combines TUnit's architecture with xUnit's familiar assertions. This package contains the core attributes, assertions, and execution engine.</Description>

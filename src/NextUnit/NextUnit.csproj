@@ -5,6 +5,9 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+    <!-- Explicitly mark as library, not executable -->
+    <OutputType>Library</OutputType>
     
     <!-- Package Information -->
     <IsPackable>true</IsPackable>
@@ -17,6 +20,7 @@
 
     <!-- This is not a test project - it's a framework library -->
     <IsTestProject>false</IsTestProject>
+    <EnableMicrosoftTestingPlatform>false</EnableMicrosoftTestingPlatform>
   </PropertyGroup>
 
   <ItemGroup>
