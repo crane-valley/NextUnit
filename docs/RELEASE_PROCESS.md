@@ -141,7 +141,7 @@ dotnet build -c Release
 
 # Run tests
 cd tests/NextUnit.Platform.Tests && dotnet run && cd ../..
-cd tests/NextUnit.Generator.Tests && dotnet test && cd ../..
+cd tests/NextUnit.Generator.Tests && dotnet run && cd ../..
 cd samples/NextUnit.SampleTests && dotnet run && cd ../..
 
 # Verify package builds
@@ -160,41 +160,27 @@ git push origin release/vX.Y.Z
 # PR description: Copy the CHANGELOG entry for this version
 ```
 
-### 7. Merge and Tag
+### 7. Merge PR
 
-After PR approval and merge to main:
+After PR approval, merge to main branch.
 
-```bash
-git checkout main
-git pull
+### 8. Create GitHub Release (Automated Publishing)
 
-# Create and push version tag
-git tag vX.Y.Z
-git push origin vX.Y.Z
-```
-
-### 8. Publish to NuGet
-
-```bash
-# Publish packages (requires NuGet API key)
-dotnet nuget push ./artifacts/NextUnit.X.Y.Z.nupkg --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
-dotnet nuget push ./artifacts/NextUnit.Core.X.Y.Z.nupkg --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
-dotnet nuget push ./artifacts/NextUnit.Generator.X.Y.Z.nupkg --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
-dotnet nuget push ./artifacts/NextUnit.Platform.X.Y.Z.nupkg --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
-```
-
-**Note**: Publishing is typically automated via GitHub Actions. Check `.github/workflows/` for the publish workflow.
-
-### 9. Create GitHub Release
+Creating a release on GitHub automatically triggers the NuGet package publishing via GitHub Actions (`.github/workflows/release.yml`):
 
 1. Go to: https://github.com/crane-valley/NextUnit/releases/new
-2. Select the tag: `vX.Y.Z`
+2. Click "Choose a tag" and create a new tag: `vX.Y.Z`
 3. Release title: `NextUnit vX.Y.Z`
 4. Description: Copy the CHANGELOG entry for this version
-5. Attach the `.nupkg` files from `./artifacts/`
-6. Publish release
+5. Publish release
 
-### 10. Verify Release
+**What happens automatically:**
+- GitHub Actions workflow (`.github/workflows/release.yml`) is triggered
+- Packages are built and packed
+- All four packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.Platform) are published to NuGet.org using GitHub OIDC authentication
+- No manual API key or `dotnet nuget push` commands needed
+
+### 9. Verify Release
 
 - [ ] NuGet packages are visible at https://www.nuget.org/packages/NextUnit/
 - [ ] GitHub release is created
@@ -219,7 +205,7 @@ NextUnit follows [Semantic Versioning](https://semver.org/):
 
 - **Major (X.0.0)**: Breaking changes, incompatible API changes
 - **Minor (1.X.0)**: New features, backward-compatible additions
-- **Patch (1.0.X)**: Bug fixes, backward-compatible fixes
+- **Patch (1.6.X)**: Bug fixes, backward-compatible fixes
 
 Examples:
 - `1.6.0` → `1.6.1`: Bug fixes, configuration changes (PATCH)
@@ -274,7 +260,7 @@ When asked to prepare a NuGet release:
 grep -r "1\.6\.0" --include="*.md" --include="*.props" --include="*.csproj"
 
 # Verify no mixed versions exist
-grep -r "1\.[0-9]\+\.[0-9]\+" --include="*.md" --include="*.props" --include="*.csproj" | grep -v "1.6.1" | grep -v ".git"
+grep -rE "1\.[0-9]+\.[0-9]+" --include="*.md" --include="*.props" --include="*.csproj" | grep -v "1.6.1" | grep -v ".git"
 ```
 
 ## Summary
