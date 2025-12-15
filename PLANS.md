@@ -561,7 +561,7 @@ We welcome contributions! Here's how you can help:
 
 | Version | Date       | Status      | Highlights |
 |---------|------------|-------------|------------|
-| 1.7.0   | 2025-12-15 | 🚧 In Progress | Visual Studio Test Explorer support via VSTestBridge |
+| 1.7.0   | 2025-12-15 | ✅ Released | Visual Studio Test Explorer support via VSTestBridge |
 | 1.6.1   | 2025-12-15 | ✅ Released | Package configuration: DevelopmentDependency=true for all packages |
 | 1.6.0   | 2025-12-14 | ✅ Released | Enhanced assertions (Priority 1.1): precision equality, collection comparisons, message matching |
 | 1.5.0   | 2025-12-10 | ✅ Released | Predicate-based collection assertions |

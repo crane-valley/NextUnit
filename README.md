@@ -742,7 +742,7 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 1.7.0 (In Development)
+**Current Version**: 1.7.0 (Stable)
 
 **v1.0 Release**: 2025-12-06
 - ✅ Zero-reflection test execution with source generators
