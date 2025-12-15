@@ -11,23 +11,11 @@
 
     <!-- Package Information -->
     <PackageId>NextUnit.Generator</PackageId>
-    <Version>1.6.0</Version>
-    <Authors>NextUnit Contributors</Authors>
-    <Company>NextUnit</Company>
-    <Product>NextUnit</Product>
     <Description>Source generator for NextUnit test framework. Provides zero-reflection test discovery via compile-time code generation. Emits test registry with delegate-based method invocation for maximum performance and Native AOT compatibility.</Description>
-    <PackageTags>testing;test;framework;sourcegenerator;analyzer;roslyn;nextunit;aot;codegen</PackageTags>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/crane-valley/NextUnit</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/crane-valley/NextUnit</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Copyright>Copyright (c) 2025 NextUnit Contributors</Copyright>
-    <PackageReleaseNotes>See https://github.com/crane-valley/NextUnit/blob/main/CHANGELOG.md for release notes.</PackageReleaseNotes>
+    <PackageTags>$(PackageTags);sourcegenerator;analyzer;roslyn;aot;codegen</PackageTags>
 
     <!-- Source Generator Settings -->
     <DevelopmentDependency>true</DevelopmentDependency>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
