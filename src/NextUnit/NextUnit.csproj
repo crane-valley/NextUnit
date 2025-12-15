@@ -18,9 +18,12 @@
     <!-- Meta-package Settings -->
     <DevelopmentDependency>true</DevelopmentDependency>
 
-    <!-- This is not a test project - it's a framework library -->
+    <!-- Prevent test discovery and execution of this library -->
     <IsTestProject>false</IsTestProject>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
     <EnableMicrosoftTestingPlatform>false</EnableMicrosoftTestingPlatform>
+    <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
+    <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
 
   <ItemGroup>
