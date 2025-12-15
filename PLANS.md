@@ -138,9 +138,9 @@ This section outlines planned improvements and enhancements for NextUnit going f
 
 **Completed Features**:
 - ✅ **Test Explorer adapter for Visual Studio 2026**
-  - Show tests in VS Test Explorer via Microsoft.Testing.Extensions.VSTestBridge
+  - Show tests in VS Test Explorer via native TRX capability (ITrxReportCapability)
   - Run/debug individual tests from IDE
-  - Full integration with Microsoft.Testing.Platform
+  - Full integration with Microsoft.Testing.Platform (no VSTest compatibility layer)
 
 **Future Enhancements**:
 - **Live Unit Testing support**
@@ -153,8 +153,19 @@ This section outlines planned improvements and enhancements for NextUnit going f
   - "Run Test" / "Debug Test" links
   - Last execution time and result
 
+- **Additional Test Framework Capabilities**
+  - BannerCapability for custom test framework branding
+  - StopExecutionCapability for fail-fast behavior
+  - Additional capabilities as needed for enhanced IDE integration
+
 **Estimated Effort for Enhancements**: 3-5 days
 **Benefits**: Better developer experience, faster development workflow, IDE parity with xUnit
+
+**Technical Implementation Details**:
+- Uses `ITrxReportCapability` from `Microsoft.Testing.Extensions.TrxReport.Abstractions`
+- Registered through `ITestFrameworkCapabilities.Capabilities` collection
+- Follows TUnit's architecture pattern for native Microsoft.Testing.Platform integration
+- No VSTest compatibility layer - uses modern testing infrastructure directly
 
 **Note**: NextUnit targets .NET 10, which requires Visual Studio 2026 for development.
 
@@ -447,9 +458,10 @@ This section outlines planned improvements and enhancements for NextUnit going f
    - Exception message matching
    - Custom comparers support
 2. ✅ **Visual Studio Test Explorer Support** (Priority 2.1 - Basic) - COMPLETED (2025-12-15)
-   - Microsoft.Testing.Extensions.VSTestBridge integration
+   - Native TRX capability integration (ITrxReportCapability)
    - Tests discoverable in Visual Studio Test Explorer
    - Run/debug tests from IDE
+   - No VSTest compatibility layer - uses Microsoft.Testing.Platform directly
 3. **CLI Improvements** (Priority 2.3) - 2-3 days
 4. **Rich Failure Messages** (Priority 2.2) - 1-2 days
 5. **Documentation Samples** (Priority 3.3) - 3-4 days
@@ -561,7 +573,7 @@ We welcome contributions! Here's how you can help:
 
 | Version | Date       | Status      | Highlights |
 |---------|------------|-------------|------------|
-| 1.7.0   | 2025-12-15 | ✅ Released | Visual Studio Test Explorer support via VSTestBridge |
+| 1.7.0   | 2025-12-15 | ✅ Released | Visual Studio Test Explorer support via native TRX capability |
 | 1.6.1   | 2025-12-15 | ✅ Released | Package configuration: DevelopmentDependency=true for all packages |
 | 1.6.0   | 2025-12-14 | ✅ Released | Enhanced assertions (Priority 1.1): precision equality, collection comparisons, message matching |
 | 1.5.0   | 2025-12-10 | ✅ Released | Predicate-based collection assertions |

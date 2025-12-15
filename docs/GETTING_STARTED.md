@@ -127,7 +127,7 @@ dotnet run -- --filter "FullyQualifiedName~Calculator"
 
 ### Visual Studio
 
-NextUnit v1.7+ includes full Visual Studio Test Explorer support via Microsoft.Testing.Extensions.VSTestBridge:
+NextUnit v1.7+ includes full Visual Studio Test Explorer support via native TRX capability:
 
 1. Build your project (Ctrl+Shift+B)
 2. Open Test Explorer (Ctrl+E, T or Test > Test Explorer)

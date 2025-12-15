@@ -68,9 +68,10 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 - ✅ **Custom comparers support** - `Assert.Equal(expected, actual, comparer)` for custom equality logic
 
 ### New in v1.7
-- ✅ **Visual Studio Test Explorer support** - Full integration with Visual Studio Test Explorer via Microsoft.Testing.Extensions.VSTestBridge
+- ✅ **Visual Studio Test Explorer support** - Full integration with Visual Studio Test Explorer via native TRX capability
 - ✅ **IDE test discovery** - Tests automatically discovered and displayed in Visual Studio Test Explorer
 - ✅ **Run/Debug from IDE** - Run and debug individual tests or test groups directly from Visual Studio
+- ✅ **Native Microsoft.Testing.Platform integration** - No VSTest compatibility layer required
 
 ## Quick Start
 
@@ -787,7 +788,7 @@ NextUnit is inspired by:
 - ✅ Custom comparers support
 
 **v1.7 Release**: 2025-12-15
-- ✅ Visual Studio Test Explorer support via Microsoft.Testing.Extensions.VSTestBridge
+- ✅ Visual Studio Test Explorer support via native TRX capability (ITrxReportCapability)
 - ✅ Automatic test discovery in Visual Studio
 - ✅ Run and debug tests directly from IDE
-- ✅ Full integration with Microsoft.Testing.Platform infrastructure
+- ✅ Native Microsoft.Testing.Platform integration without VSTest compatibility layer
