@@ -5,6 +5,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Suppress warnings for sample/test code -->
     <NoWarn>$(NoWarn);IDE0052;CS1591</NoWarn>
+    <!-- Don't generate entry point - we have our own Program.cs -->
+    <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
 
   <ItemGroup>
