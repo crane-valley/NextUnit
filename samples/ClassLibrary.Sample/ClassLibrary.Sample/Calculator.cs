@@ -26,7 +26,7 @@ public class Calculator
     /// <exception cref="DivideByZeroException">Thrown when b is zero.</exception>
     public double Divide(double a, double b)
     {
-        if (b == 0)
+        if (b.Equals(0d))
         {
             throw new DivideByZeroException("Cannot divide by zero");
         }
