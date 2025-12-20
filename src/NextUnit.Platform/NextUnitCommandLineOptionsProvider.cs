@@ -13,6 +13,8 @@ internal sealed class NextUnitCommandLineOptionsProvider : ICommandLineOptionsPr
     public const string ExcludeCategoryOption = "exclude-category";
     public const string TagOption = "tag";
     public const string ExcludeTagOption = "exclude-tag";
+    public const string TestNameOption = "test-name";
+    public const string TestNameRegexOption = "test-name-regex";
 
     /// <summary>
     /// Gets the unique identifier for this extension.
@@ -22,7 +24,7 @@ internal sealed class NextUnitCommandLineOptionsProvider : ICommandLineOptionsPr
     /// <summary>
     /// Gets the version of this extension.
     /// </summary>
-    public string Version => "1.2.0";
+    public string Version => "1.6.2";
 
     /// <summary>
     /// Gets the display name of this extension.
@@ -32,7 +34,7 @@ internal sealed class NextUnitCommandLineOptionsProvider : ICommandLineOptionsPr
     /// <summary>
     /// Gets the description of this extension.
     /// </summary>
-    public string Description => "Command-line options for filtering tests by category and tag";
+    public string Description => "Command-line options for filtering tests by category, tag, and name";
 
     /// <summary>
     /// Determines whether the extension is enabled.
@@ -67,6 +69,18 @@ internal sealed class NextUnitCommandLineOptionsProvider : ICommandLineOptionsPr
             new CommandLineOption(
                 ExcludeTagOption,
                 "Exclude tests with the specified tag (can be specified multiple times)",
+                ArgumentArity.OneOrMore,
+                isHidden: false),
+
+            new CommandLineOption(
+                TestNameOption,
+                "Include only tests matching the specified name pattern (supports * and ? wildcards, can be specified multiple times)",
+                ArgumentArity.OneOrMore,
+                isHidden: false),
+
+            new CommandLineOption(
+                TestNameRegexOption,
+                "Include only tests matching the specified regular expression pattern (can be specified multiple times)",
                 ArgumentArity.OneOrMore,
                 isHidden: false)
         };

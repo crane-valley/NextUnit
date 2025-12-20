@@ -4,10 +4,10 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- NextUnit Packages -->
-    <PackageVersion Include="NextUnit" Version="1.6.1" />
-    <PackageVersion Include="NextUnit.Core" Version="1.6.1" />
-    <PackageVersion Include="NextUnit.Generator" Version="1.6.1" />
-    <PackageVersion Include="NextUnit.Platform" Version="1.6.1" />
+    <PackageVersion Include="NextUnit" Version="1.6.2" />
+    <PackageVersion Include="NextUnit.Core" Version="1.6.2" />
+    <PackageVersion Include="NextUnit.Generator" Version="1.6.2" />
+    <PackageVersion Include="NextUnit.Platform" Version="1.6.2" />
     
     <!-- External Dependencies -->
     <PackageVersion Include="Microsoft.Testing.Platform" Version="2.0.2" />

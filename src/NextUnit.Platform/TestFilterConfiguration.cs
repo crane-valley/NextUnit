@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace NextUnit.Platform;
 
 /// <summary>
@@ -26,12 +28,23 @@ internal sealed class TestFilterConfiguration
     public IReadOnlyList<string> ExcludeTags { get; set; } = Array.Empty<string>();
 
     /// <summary>
+    /// Gets or sets the test name patterns to include (supports * and ? wildcards).
+    /// </summary>
+    public IReadOnlyList<string> TestNamePatterns { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or sets the test name regular expression patterns to include.
+    /// </summary>
+    public IReadOnlyList<Regex> TestNameRegexPatterns { get; set; } = Array.Empty<Regex>();
+
+    /// <summary>
     /// Determines whether a test should be included based on the filter configuration.
     /// </summary>
     /// <param name="categories">The categories assigned to the test.</param>
     /// <param name="tags">The tags assigned to the test.</param>
+    /// <param name="testName">The full name of the test.</param>
     /// <returns><c>true</c> if the test should be included; otherwise, <c>false</c>.</returns>
-    public bool ShouldIncludeTest(IReadOnlyList<string> categories, IReadOnlyList<string> tags)
+    public bool ShouldIncludeTest(IReadOnlyList<string> categories, IReadOnlyList<string> tags, string testName)
     {
         // Exclude filters take precedence
         if (ExcludeCategories.Count > 0 && categories.Any(c => ExcludeCategories.Contains(c, StringComparer.OrdinalIgnoreCase)))
@@ -45,7 +58,8 @@ internal sealed class TestFilterConfiguration
         }
 
         // If no include filters are specified, test passes
-        var hasIncludeFilters = IncludeCategories.Count > 0 || IncludeTags.Count > 0;
+        var hasIncludeFilters = IncludeCategories.Count > 0 || IncludeTags.Count > 0
+            || TestNamePatterns.Count > 0 || TestNameRegexPatterns.Count > 0;
         if (!hasIncludeFilters)
         {
             return true;
@@ -54,7 +68,22 @@ internal sealed class TestFilterConfiguration
         // Test must match at least one include filter (OR logic)
         var matchesCategory = IncludeCategories.Count > 0 && categories.Any(c => IncludeCategories.Contains(c, StringComparer.OrdinalIgnoreCase));
         var matchesTag = IncludeTags.Count > 0 && tags.Any(t => IncludeTags.Contains(t, StringComparer.OrdinalIgnoreCase));
+        var matchesNamePattern = TestNamePatterns.Count > 0 && TestNamePatterns.Any(pattern => MatchesWildcard(testName, pattern));
+        var matchesRegex = TestNameRegexPatterns.Count > 0 && TestNameRegexPatterns.Any(regex => regex.IsMatch(testName));
 
-        return matchesCategory || matchesTag;
+        return matchesCategory || matchesTag || matchesNamePattern || matchesRegex;
+    }
+
+    /// <summary>
+    /// Checks if a test name matches a wildcard pattern (* and ? support).
+    /// </summary>
+    private static bool MatchesWildcard(string testName, string pattern)
+    {
+        // Convert wildcard pattern to regex
+        var regexPattern = "^" + Regex.Escape(pattern)
+            .Replace("\\*", ".*")
+            .Replace("\\?", ".") + "$";
+
+        return Regex.IsMatch(testName, regexPattern, RegexOptions.IgnoreCase);
     }
 }

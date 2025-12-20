@@ -730,7 +730,7 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 1.6.1 (Stable)
+**Current Version**: 1.6.2 (Stable)
 
 **v1.0 Release**: 2025-12-06
 - ✅ Zero-reflection test execution with source generators
@@ -773,3 +773,9 @@ NextUnit is inspired by:
 - ✅ Collection comparison assertions (Equivalent, Subset, Disjoint)
 - ✅ Enhanced exception assertions with message matching
 - ✅ Custom comparers support
+
+**v1.6.2 Release**: 2025-12-20
+- ✅ Advanced test name filtering (wildcards and regex)
+- ✅ Rich failure messages with visual diffs
+- ✅ Type-aware assertion formatting (strings, collections, objects)
+- ✅ Improved code quality (extracted constants, optimized enumeration)

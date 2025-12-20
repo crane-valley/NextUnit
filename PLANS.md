@@ -552,6 +552,7 @@ We welcome contributions! Here's how you can help:
 
 | Version | Date       | Status      | Highlights |
 |---------|------------|-------------|------------|
+| 1.6.2   | 2025-12-20 | ✅ Released | Advanced filtering (wildcards, regex), rich failure messages with visual diffs |
 | 1.6.1   | 2025-12-15 | ✅ Released | Package configuration: DevelopmentDependency=true for all packages |
 | 1.6.0   | 2025-12-14 | ✅ Released | Enhanced assertions (Priority 1.1): precision equality, collection comparisons, message matching |
 | 1.5.0   | 2025-12-10 | ✅ Released | Predicate-based collection assertions |
@@ -574,6 +575,6 @@ We welcome contributions! Here's how you can help:
 
 ---
 
-**Last Updated**: 2025-12-14  
-**Document Version**: 2.1  
-**Status**: Priority 1.1 (Enhanced Assertions) complete, continuing Near-Term roadmap
+**Last Updated**: 2025-12-20  
+**Document Version**: 2.2  
+**Status**: Priority 2.2 (Rich Failure Messages) and Priority 2.3 Phase 1 (Advanced Filtering) complete
