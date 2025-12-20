@@ -21,6 +21,9 @@
     <ProjectReference Include="..\NextUnit.Core\NextUnit.Core.csproj" PrivateAssets="none" />
     <ProjectReference Include="..\NextUnit.Generator\NextUnit.Generator.csproj" PrivateAssets="none" />
     <ProjectReference Include="..\NextUnit.Platform\NextUnit.Platform.csproj" PrivateAssets="none" />
+    
+    <!-- Microsoft.Testing.Platform extensions for enhanced reporting -->
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" PrivateAssets="none" />
   </ItemGroup>
 
 

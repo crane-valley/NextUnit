@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - CI/CD Integration Documentation
+
+- **CI/CD Integration Guide** - Comprehensive documentation at `docs/CI_CD_INTEGRATION.md`
+  - TRX report format setup and usage (Visual Studio/Azure DevOps)
+  - GitHub Actions integration with workflow examples
+  - Azure DevOps pipeline configuration
+  - Jenkins pipeline integration with xUnit plugin
+  - GitLab CI configuration
+  - General CI/CD best practices for NextUnit
+  - Environment variable usage in CI systems
+  - Troubleshooting common CI issues
+  - Examples for test filtering, parallel execution, and timeout control
+
+### Documentation
+
+- Added link to CI/CD Integration Guide in README.md
+- Documented Microsoft.Testing.Extensions.TrxReport integration
+- Provided complete examples for all major CI/CD platforms
+
 ## [1.6.2] - 2025-12-20
 
 ### Added - CLI Improvements and Rich Failure Messages
