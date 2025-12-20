@@ -1,4 +1,3 @@
-using Console.Sample;
 using NextUnit;
 
 namespace Console.Sample.Tests;
