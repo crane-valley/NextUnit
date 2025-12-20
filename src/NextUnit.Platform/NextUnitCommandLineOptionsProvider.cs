@@ -24,7 +24,7 @@ internal sealed class NextUnitCommandLineOptionsProvider : ICommandLineOptionsPr
     /// <summary>
     /// Gets the version of this extension.
     /// </summary>
-    public string Version => "1.7.0";
+    public string Version => "1.6.2";
 
     /// <summary>
     /// Gets the display name of this extension.
