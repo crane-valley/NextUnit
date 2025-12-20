@@ -308,7 +308,7 @@ internal static class AssertionMessageFormatter
                 var value = prop.GetValue(obj);
                 propertyValues.Add($"{prop.Name} = {FormatItem(value)}");
             }
-            catch
+            catch (Exception ex) when (IsNonCriticalException(ex))
             {
                 propertyValues.Add($"{prop.Name} = <error>");
             }
@@ -323,5 +323,12 @@ internal static class AssertionMessageFormatter
 
         sb.Append(" }");
         return sb.ToString();
+    }
+
+    private static bool IsNonCriticalException(Exception ex)
+    {
+        return ex is not OutOfMemoryException
+               and not StackOverflowException
+               and not ThreadAbortException;
     }
 }
