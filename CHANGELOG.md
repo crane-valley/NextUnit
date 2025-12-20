@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2025-12-20
+
+### Added - CLI Improvements and Rich Failure Messages
+
+- **Advanced test name filtering**
+  - `--test-name` option with wildcard support (`*` and `?` wildcards)
+    - Case-insensitive matching
+    - Multiple patterns supported via multiple arguments
+    - Environment variable: `NEXTUNIT_TEST_NAME`
+  - `--test-name-regex` option for regular expression filtering
+    - Full regular expression support
+    - Case-insensitive by default
+    - Compiled for performance
+    - Multiple patterns supported
+    - Environment variable: `NEXTUNIT_TEST_NAME_REGEX`
+  - Filters work with OR logic and combine with existing category/tag filters
+  - Added 11 comprehensive unit tests for filtering logic
+
+- **Rich failure messages with visual diffs**
+  - String comparison shows:
+    - Character-level highlighting of first difference
+    - Context display (±20 characters around mismatch)
+    - Escaped control characters (`\n`, `\r`, `\t`, `\"`)
+    - Full string display for short values (≤ 100 chars)
+    - Length comparison
+  - Collection comparison shows:
+    - Item-by-item diff with index numbers
+    - Clear indication of missing/extra items
+    - Count comparison
+    - First 10 differences displayed (with summary if more)
+    - Full collection display for small sets (≤ 10 items)
+  - Object comparison shows:
+    - Type information
+    - Property values (up to 5 properties)
+    - JSON-like formatting for complex objects
+    - Graceful handling of null values
+
+### Changed
+
+- Improved `Assert.Equal<T>` with type-aware rich formatting
+- Created `AssertionMessageFormatter` utility class with type-specific formatters
+- Extracted magic numbers to named constants for better maintainability
+- Optimized collection equality checking to avoid duplicate enumeration
+- Enhanced `TestFilterConfiguration` with test name filtering capabilities
+- Updated `NextUnitCommandLineOptionsProvider` with new filtering options
+
+### Documentation
+
+- Added sample tests demonstrating rich failure messages in `RichFailureMessageTests.cs`
+- Updated test coverage to 43 platform tests (all passing)
+- Updated sample tests to 159 passing tests (8 intentionally skipped)
+
+### Technical Notes
+
+- Implements Priority 2.2 (Rich Failure Messages) from PLANS.md
+- Implements Priority 2.3 Phase 1 (Advanced CLI Filtering) from PLANS.md
+- Minimal performance impact - rich formatting only occurs on failures
+- All formatting applied automatically based on type detection
+- Maintains backward compatibility with existing assertions
+
 ## [1.6.1] - 2025-12-15
 
 ### Changed
