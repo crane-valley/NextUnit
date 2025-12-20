@@ -679,6 +679,32 @@ All test implementations use framework-native patterns and best practices to ens
 - [Best Practices](docs/BEST_PRACTICES.md) - Recommended patterns and practices
 - [Performance Benchmarks](docs/PERFORMANCE.md) - Performance metrics and analysis
 
+### Sample Projects
+
+Complete working examples demonstrating NextUnit in real-world scenarios:
+
+- **[Class Library Testing](samples/ClassLibrary.Sample.Tests/)** - 44 tests demonstrating:
+  - Basic test structure (Arrange-Act-Assert)
+  - Exception testing with `Assert.Throws`
+  - Floating-point precision comparisons
+  - Parameterized tests with TestData
+  - Business logic testing patterns
+  - Collection assertions
+
+- **[Console Application Testing](samples/Console.Sample.Tests/)** - 25 tests demonstrating:
+  - Command-line argument parsing tests
+  - File processing and text analysis
+  - Collection filtering and searching
+  - Error handling validation
+  - Parameterized flag testing
+
+- **[Framework Tests](samples/NextUnit.SampleTests/)** - 159 tests showcasing all NextUnit features:
+  - Lifecycle hooks (test/class/assembly/session scopes)
+  - Parallel execution control
+  - Test dependencies
+  - Category and tag filtering
+  - Test output capture
+
 ## Contributing
 
 Contributions welcome! Please follow these steps:
