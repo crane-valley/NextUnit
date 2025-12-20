@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Sample projects don't need strict XML documentation -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+</Project>

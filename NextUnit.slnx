@@ -24,6 +24,8 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/ClassLibrary.Sample/ClassLibrary.Sample/ClassLibrary.Sample.csproj" />
+    <Project Path="samples/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests.csproj" />
     <Project Path="samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj" Id="cc1ced14-e28b-41b6-be0f-9e4536c6225a" />
   </Folder>
   <Folder Name="/tests/">
