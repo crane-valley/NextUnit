@@ -58,7 +58,7 @@ internal sealed class TestFilterConfiguration
         }
 
         // If no include filters are specified, test passes
-        var hasIncludeFilters = IncludeCategories.Count > 0 || IncludeTags.Count > 0 
+        var hasIncludeFilters = IncludeCategories.Count > 0 || IncludeTags.Count > 0
             || TestNamePatterns.Count > 0 || TestNameRegexPatterns.Count > 0;
         if (!hasIncludeFilters)
         {
@@ -83,7 +83,7 @@ internal sealed class TestFilterConfiguration
         var regexPattern = "^" + Regex.Escape(pattern)
             .Replace("\\*", ".*")
             .Replace("\\?", ".") + "$";
-        
+
         return Regex.IsMatch(testName, regexPattern, RegexOptions.IgnoreCase);
     }
 }

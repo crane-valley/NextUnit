@@ -100,32 +100,35 @@ public static class Assert
     /// <exception cref="AssertionFailedException">Thrown when the values are not equal.</exception>
     public static void Equal<T>(T expected, T actual, string? message = null)
     {
-        if (!Equals(expected, actual))
+        // Handle strings first (before generic Equals check)
+        if (expected is string expectedStr && actual is string actualStr)
         {
-            // Use rich formatting for strings
-            if (expected is string expectedStr && actual is string actualStr)
+            if (expectedStr != actualStr)
             {
                 var richMessage = Internal.AssertionMessageFormatter.FormatStringDifference(expectedStr, actualStr);
                 throw new AssertionFailedException(message ?? richMessage);
             }
+            return;
+        }
 
-            // Use rich formatting for collections (but not for strings)
-            if (expected is IEnumerable expectedEnum && actual is IEnumerable actualEnum
-                && expected is not string && actual is not string)
+        // Handle collections (but not strings) before generic Equals to avoid double enumeration
+        if (expected is IEnumerable expectedEnum && actual is IEnumerable actualEnum
+            && expected is not string && actual is not string)
+        {
+            if (!AreCollectionsEqual(expectedEnum, actualEnum))
             {
-                // Check if they're actually different before formatting
-                if (!AreCollectionsEqual(expectedEnum, actualEnum))
-                {
-                    var richMessage = Internal.AssertionMessageFormatter.FormatCollectionDifference(
-                        expectedEnum.Cast<object>(), actualEnum.Cast<object>());
-                    throw new AssertionFailedException(message ?? richMessage);
-                }
-                // If collections are equal, don't throw
-                return;
+                var richMessage = Internal.AssertionMessageFormatter.FormatCollectionDifference(
+                    expectedEnum.Cast<object>(), actualEnum.Cast<object>());
+                throw new AssertionFailedException(message ?? richMessage);
             }
+            return;
+        }
 
+        // For all other types, use standard equality check
+        if (!Equals(expected, actual))
+        {
             // For complex objects, use rich formatting
-            if (expected != null && actual != null && 
+            if (expected != null && actual != null &&
                 !expected.GetType().IsPrimitive && !actual.GetType().IsPrimitive &&
                 expected.GetType() != typeof(decimal) && actual.GetType() != typeof(decimal))
             {

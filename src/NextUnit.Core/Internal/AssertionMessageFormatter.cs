@@ -7,6 +7,13 @@ namespace NextUnit.Internal;
 /// </summary>
 internal static class AssertionMessageFormatter
 {
+    private const int ContextBefore = 20;
+    private const int ContextAfter = 40;
+    private const int MaxDisplayedDifferences = 10;
+    private const int MaxDisplayedProperties = 5;
+    private const int MaxDisplayedCollectionItems = 10;
+    private const int MaxShortStringLength = 100;
+
     /// <summary>
     /// Formats a string comparison failure with visual diff highlighting.
     /// </summary>
@@ -43,10 +50,10 @@ internal static class AssertionMessageFormatter
         if (firstDiff >= 0)
         {
             sb.AppendLine($"First difference at index {firstDiff}:");
-            
+
             // Show context around the difference
-            int contextStart = Math.Max(0, firstDiff - 20);
-            int contextEnd = Math.Min(Math.Max(expected.Length, actual.Length), firstDiff + 40);
+            int contextStart = Math.Max(0, firstDiff - ContextBefore);
+            int contextEnd = Math.Min(Math.Max(expected.Length, actual.Length), firstDiff + ContextAfter);
 
             if (contextStart > 0)
             {
@@ -69,7 +76,7 @@ internal static class AssertionMessageFormatter
         }
 
         // Show the full strings if they're short
-        if (expected.Length <= 100 && actual.Length <= 100)
+        if (expected.Length <= MaxShortStringLength && actual.Length <= MaxShortStringLength)
         {
             sb.AppendLine();
             sb.AppendLine($"Expected: \"{expected}\"");
@@ -131,19 +138,19 @@ internal static class AssertionMessageFormatter
         {
             sb.AppendLine();
             sb.AppendLine("Differences:");
-            foreach (var diff in differences.Take(10)) // Show first 10 differences
+            foreach (var diff in differences.Take(MaxDisplayedDifferences))
             {
                 sb.AppendLine(diff);
             }
 
-            if (differences.Count > 10)
+            if (differences.Count > MaxDisplayedDifferences)
             {
-                sb.AppendLine($"  ... and {differences.Count - 10} more differences");
+                sb.AppendLine($"  ... and {differences.Count - MaxDisplayedDifferences} more differences");
             }
         }
 
         // Show full collections if they're small
-        if (expectedList.Count <= 10 && actualList.Count <= 10)
+        if (expectedList.Count <= MaxDisplayedCollectionItems && actualList.Count <= MaxDisplayedCollectionItems)
         {
             sb.AppendLine();
             sb.AppendLine("Expected: [" + string.Join(", ", expectedList.Select(FormatItem)) + "]");
@@ -207,19 +214,19 @@ internal static class AssertionMessageFormatter
     private static void AppendStringWithHighlight(StringBuilder sb, string str, int start, int end, int highlightIndex)
     {
         int actualEnd = Math.Min(end, str.Length);
-        
+
         if (start < str.Length)
         {
             // Before highlight
             if (highlightIndex > start && highlightIndex <= actualEnd)
             {
                 sb.Append(EscapeString(str.Substring(start, highlightIndex - start)));
-                
+
                 // Highlight character
                 if (highlightIndex < str.Length)
                 {
                     sb.Append($"[{EscapeChar(str[highlightIndex])}]");
-                    
+
                     // After highlight
                     if (highlightIndex + 1 < actualEnd)
                     {
@@ -286,7 +293,7 @@ internal static class AssertionMessageFormatter
         }
 
         var type = obj.GetType();
-        
+
         // Handle common types with better formatting
         if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal))
         {
@@ -301,7 +308,7 @@ internal static class AssertionMessageFormatter
         var properties = type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
         var propertyValues = new List<string>();
 
-        foreach (var prop in properties.Take(5)) // Limit to first 5 properties
+        foreach (var prop in properties.Take(MaxDisplayedProperties))
         {
             try
             {
@@ -316,9 +323,9 @@ internal static class AssertionMessageFormatter
 
         sb.Append(string.Join(", ", propertyValues));
 
-        if (properties.Length > 5)
+        if (properties.Length > MaxDisplayedProperties)
         {
-            sb.Append($", ... ({properties.Length - 5} more)");
+            sb.Append($", ... ({properties.Length - MaxDisplayedProperties} more)");
         }
 
         sb.Append(" }");

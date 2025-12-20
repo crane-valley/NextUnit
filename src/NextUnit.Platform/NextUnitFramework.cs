@@ -303,7 +303,7 @@ internal sealed class NextUnitFramework :
                 {
                     regexList.Add(new System.Text.RegularExpressions.Regex(
                         pattern,
-                        System.Text.RegularExpressions.RegexOptions.IgnoreCase | 
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase |
                         System.Text.RegularExpressions.RegexOptions.Compiled));
                 }
                 catch (ArgumentException)
