@@ -3,8 +3,12 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
   
   <PropertyGroup>
-    <!-- Sample projects don't need strict XML documentation -->
+    <!-- Suppress XML documentation warnings and duplicate entry point warnings for sample code -->
+    <NoWarn>CS1591;CS7022</NoWarn>
+  </PropertyGroup>
+  
+  <!-- Relax documentation requirements in Debug builds only -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <NoWarn>CS1591</NoWarn>
   </PropertyGroup>
 </Project>
