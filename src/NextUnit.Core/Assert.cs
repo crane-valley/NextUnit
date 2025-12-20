@@ -102,9 +102,61 @@ public static class Assert
     {
         if (!Equals(expected, actual))
         {
+            // Use rich formatting for strings
+            if (expected is string expectedStr && actual is string actualStr)
+            {
+                var richMessage = Internal.AssertionMessageFormatter.FormatStringDifference(expectedStr, actualStr);
+                throw new AssertionFailedException(message ?? richMessage);
+            }
+
+            // Use rich formatting for collections (but not for strings)
+            if (expected is IEnumerable expectedEnum && actual is IEnumerable actualEnum
+                && expected is not string && actual is not string)
+            {
+                // Check if they're actually different before formatting
+                if (!AreCollectionsEqual(expectedEnum, actualEnum))
+                {
+                    var richMessage = Internal.AssertionMessageFormatter.FormatCollectionDifference(
+                        expectedEnum.Cast<object>(), actualEnum.Cast<object>());
+                    throw new AssertionFailedException(message ?? richMessage);
+                }
+                // If collections are equal, don't throw
+                return;
+            }
+
+            // For complex objects, use rich formatting
+            if (expected != null && actual != null && 
+                !expected.GetType().IsPrimitive && !actual.GetType().IsPrimitive &&
+                expected.GetType() != typeof(decimal) && actual.GetType() != typeof(decimal))
+            {
+                var richMessage = Internal.AssertionMessageFormatter.FormatObjectDifference(expected, actual);
+                throw new AssertionFailedException(message ?? richMessage);
+            }
+
             throw new AssertionFailedException(
                 message ?? $"Expected: {expected}; Actual: {actual}");
         }
+    }
+
+    private static bool AreCollectionsEqual(IEnumerable expected, IEnumerable actual)
+    {
+        var expectedList = expected.Cast<object>().ToList();
+        var actualList = actual.Cast<object>().ToList();
+
+        if (expectedList.Count != actualList.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < expectedList.Count; i++)
+        {
+            if (!Equals(expectedList[i], actualList[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
