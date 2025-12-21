@@ -443,11 +443,15 @@ This section outlines planned improvements and enhancements for NextUnit going f
    - Collection comparison assertions (Equivalent, Subset, Disjoint)
    - Exception message matching
    - Custom comparers support
-2. **CLI Improvements** (Priority 2.3) - 2-3 days
-3. **Rich Failure Messages** (Priority 2.2) - 1-2 days
+2. ✅ **CLI Improvements** (Priority 2.3) - COMPLETED (2025-12-20)
+   - Advanced test name filtering with wildcards and regex support
+   - Command-line arguments for test name filtering
+3. ✅ **Rich Failure Messages** (Priority 2.2) - COMPLETED (2025-12-20)
+   - Type-aware rich formatting for strings, collections, and objects
+   - Visual diffs with character-level highlighting
 4. **Documentation Samples** (Priority 3.3) - 3-4 days
 
-**Total**: ~7-9 days remaining
+**Total**: ~3-4 days remaining
 
 ### Mid-Term (3-6 Months)
 **Focus**: IDE integration and tooling
@@ -575,6 +579,6 @@ We welcome contributions! Here's how you can help:
 
 ---
 
-**Last Updated**: 2025-12-20  
-**Document Version**: 2.2  
-**Status**: Priority 2.2 (Rich Failure Messages) and Priority 2.3 Phase 1 (Advanced Filtering) complete
+**Last Updated**: 2025-12-21  
+**Document Version**: 2.3  
+**Status**: Priority 1.1, 2.2, and 2.3 Phase 1 complete. Focus on Priority 3.3 (Documentation Samples) next.

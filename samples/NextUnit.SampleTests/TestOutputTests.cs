@@ -73,7 +73,7 @@ public class TestOutputTests
     }
 
     [Test]
-    public async Task AsyncTestWithOutput()
+    public async Task AsyncTestWithOutputAsync()
     {
         _output.WriteLine("Starting async operation...");
 

@@ -8,8 +8,8 @@ namespace NextUnit;
 public static class Assert
 {
     // Lookup table for common precision values to avoid Math.Pow overhead
-    // PowersOfTen[n] = 10^(-n) for precision values 0 through 15
-    private static readonly double[] PowersOfTen =
+    // _powersOfTen[n] = 10^(-n) for precision values 0 through 15
+    private static readonly double[] _powersOfTen =
     [
         1.0,                // 10^0
         0.1,                // 10^-1
@@ -29,8 +29,8 @@ public static class Assert
         0.000000000000001   // 10^-15
     ];
 
-    // PowersOfTenDecimal[n] = 10^(-n) for precision values 0 through 27
-    private static readonly decimal[] PowersOfTenDecimal =
+    // _powersOfTenDecimal[n] = 10^(-n) for precision values 0 through 27
+    private static readonly decimal[] _powersOfTenDecimal =
     [
         1.0m,                // 10^0
         0.1m,                // 10^-1
@@ -204,8 +204,8 @@ public static class Assert
             return;
         }
 
-        var tolerance = precision < PowersOfTen.Length
-            ? PowersOfTen[precision]
+        var tolerance = precision < _powersOfTen.Length
+            ? _powersOfTen[precision]
             : Math.Pow(10, -precision);
         var difference = Math.Abs(expected - actual);
 
@@ -229,9 +229,9 @@ public static class Assert
         ArgumentOutOfRangeException.ThrowIfNegative(precision);
 
         decimal tolerance;
-        if (precision < PowersOfTenDecimal.Length)
+        if (precision < _powersOfTenDecimal.Length)
         {
-            tolerance = PowersOfTenDecimal[precision];
+            tolerance = _powersOfTenDecimal[precision];
         }
         else
         {
@@ -291,8 +291,8 @@ public static class Assert
             return;
         }
 
-        var tolerance = precision < PowersOfTen.Length
-            ? PowersOfTen[precision]
+        var tolerance = precision < _powersOfTen.Length
+            ? _powersOfTen[precision]
             : Math.Pow(10, -precision);
         var difference = Math.Abs(notExpected - actual);
 
@@ -316,9 +316,9 @@ public static class Assert
         ArgumentOutOfRangeException.ThrowIfNegative(precision);
 
         decimal tolerance;
-        if (precision < PowersOfTenDecimal.Length)
+        if (precision < _powersOfTenDecimal.Length)
         {
-            tolerance = PowersOfTenDecimal[precision];
+            tolerance = _powersOfTenDecimal[precision];
         }
         else
         {
