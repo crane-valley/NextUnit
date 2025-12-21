@@ -678,6 +678,7 @@ All test implementations use framework-native patterns and best practices to ens
 - [Migration from xUnit](docs/MIGRATION_FROM_XUNIT.md) - Step-by-step migration guide
 - [Best Practices](docs/BEST_PRACTICES.md) - Recommended patterns and practices
 - [Performance Benchmarks](docs/PERFORMANCE.md) - Performance metrics and analysis
+- [CI/CD Integration](docs/CI_CD_INTEGRATION.md) - Integrate NextUnit with GitHub Actions, Azure DevOps, Jenkins, GitLab CI, and generate TRX reports
 
 ### Sample Projects
 
