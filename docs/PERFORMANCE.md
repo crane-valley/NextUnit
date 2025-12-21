@@ -1,8 +1,8 @@
-# NextUnit v1.6 Performance Benchmarks
+# NextUnit v1.6.2 Performance Benchmarks
 
 ## Overview
 
-This document provides performance benchmarks for NextUnit v1.6, demonstrating the framework's excellent performance characteristics for test discovery and execution.
+This document provides performance benchmarks for NextUnit v1.6.2, demonstrating the framework's excellent performance characteristics for test discovery and execution.
 
 ## Benchmark Environment
 
@@ -10,6 +10,7 @@ This document provides performance benchmarks for NextUnit v1.6, demonstrating t
 - **OS**: Linux (Ubuntu)
 - **Hardware**: x64 architecture
 - **Test Date**: December 2025
+- **NextUnit Version**: v1.6.2
 
 ## Test Suite Characteristics
 
@@ -131,7 +132,7 @@ See [tools/speed-comparison/BENCHMARKS.md](../tools/speed-comparison/BENCHMARKS.
 
 ## Conclusions
 
-NextUnit v1.4 demonstrates excellent performance characteristics:
+NextUnit v1.6.2 demonstrates excellent performance characteristics:
 
 1. **High Throughput**: 1,800+ tests/second for simple tests
 2. **Low Overhead**: < 1ms per test for simple scenarios
@@ -143,6 +144,6 @@ The framework is **production-ready** for large test suites with excellent perfo
 
 ---
 
-**Last Updated**: 2025-12-20  
+**Last Updated**: 2025-12-21  
 **NextUnit Version**: 1.6.2  
 **Benchmark Suite**: benchmarks/NextUnit.Benchmarks
