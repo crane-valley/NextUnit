@@ -132,7 +132,7 @@ public class EnhancedAssertionTests
     }
 
     [Test]
-    public async Task ThrowsAsync_WithExpectedMessage_MatchesExactMessage()
+    public async Task ThrowsAsync_WithExpectedMessage_MatchesExactMessageAsync()
     {
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () =>
