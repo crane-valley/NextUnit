@@ -7,7 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added - CI/CD Integration Documentation
+## [1.6.3] - 2026-01-14
+
+### Added - Visual Studio Test Explorer Integration
+
+- **VSTest Adapter** - New `NextUnit.TestAdapter` package for Visual Studio Test Explorer integration
+  - `ITestDiscoverer` implementation for test discovery
+  - `ITestExecutor` implementation for test execution
+  - Full support for Visual Studio 2026 Test Explorer
+  - Works with `dotnet test` command
+  - Proper cancellation support for long-running tests
+
+- **Simplified Test Project Configuration**
+  - NextUnit meta-package now includes all required dependencies
+  - No need for `Program.cs` entry point (VSTest mode)
+  - Automatic Test Explorer integration with `IsTestProject=true`
+
+### Changed
+
+- **NextUnit meta-package** now includes:
+  - `NextUnit.Core` - Core attributes and assertions
+  - `NextUnit.Generator` - Source generator for test discovery
+  - `NextUnit.TestAdapter` - VSTest adapter (NEW)
+  - `Microsoft.NET.Test.Sdk` - VSTest integration
+
+- **Sample projects** simplified to use meta-package references only
+
+### Technical Notes
+
+- VSTest adapter uses reflection to load `GeneratedTestRegistry` from test assemblies
+- TestData expansion is optimized to only expand requested tests when filtering
+- Exception handling improved with specific exception types for assembly loading
+- `IsCriticalException` helper prevents swallowing critical runtime exceptions
+
+### CI/CD Integration Documentation
 
 - **CI/CD Integration Guide** - Comprehensive documentation at `docs/CI_CD_INTEGRATION.md`
   - TRX report format setup and usage (Visual Studio/Azure DevOps)
@@ -19,12 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Environment variable usage in CI systems
   - Troubleshooting common CI issues
   - Examples for test filtering, parallel execution, and timeout control
-
-### Documentation
-
-- Added link to CI/CD Integration Guide in README.md
-- Documented Microsoft.Testing.Extensions.TrxReport integration
-- Provided complete examples for all major CI/CD platforms
 
 ## [1.6.2] - 2025-12-20
 
@@ -584,6 +611,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 |---------|------|-------|----------|--------|
+| 1.6.3 | 2026-01-14 | 236+ | VSTest Adapter, VS Test Explorer | Released |
+| 1.6.2 | 2025-12-20 | 167+ | CLI Filtering, Rich Failure Messages | Released |
 | 1.0.0 | 2025-12-06 | 102+ | Complete v1.0 feature set | Released |
 | 0.4.0-alpha | 2025-12-03 | 86 | Rich Assertions | Released |
 | 0.3.0-alpha | 2025-12-03 | 67 | Parallel Execution | Released |
