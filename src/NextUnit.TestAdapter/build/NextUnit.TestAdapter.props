@@ -1,0 +1,6 @@
+<Project>
+  <!-- Ensure adapter assemblies are copied to output -->
+  <PropertyGroup>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+</Project>

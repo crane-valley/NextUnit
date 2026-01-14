@@ -1,17 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>NextUnit.SampleTests</RootNamespace>
+        <RootNamespace>NextUnit.SampleTests</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Suppress warnings for sample/test code -->
     <NoWarn>$(NoWarn);IDE0052;CS1591</NoWarn>
+    <!-- Enable Visual Studio Test Explorer integration -->
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
-    <PackageReference Include="Microsoft.Testing.Platform" />
-    <ProjectReference Include="..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
-    <ProjectReference Include="..\..\src\NextUnit.Platform\NextUnit.Platform.csproj" />
+    <!-- NextUnit meta-package provides all dependencies -->
+    <ProjectReference Include="..\..\src\NextUnit\NextUnit.csproj" />
+    <!-- Generator must be explicitly referenced as Analyzer for source generation -->
     <ProjectReference Include="..\..\src\NextUnit.Generator\NextUnit.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

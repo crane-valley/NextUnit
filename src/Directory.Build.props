@@ -1,0 +1,14 @@
+<Project>
+  <!-- Import parent Directory.Build.props -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
+
+  <!-- All projects in src/ are libraries, NOT test projects -->
+  <PropertyGroup>
+    <IsTestProject>false</IsTestProject>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+    <TestProject>false</TestProject>
+    <VSTestEnabled>false</VSTestEnabled>
+    <GenerateTestingPlatformEntryPoint>false</GenerateTestingPlatformEntryPoint>
+    <EnableMicrosoftTestingPlatformServerCapability>false</EnableMicrosoftTestingPlatformServerCapability>
+  </PropertyGroup>
+</Project>

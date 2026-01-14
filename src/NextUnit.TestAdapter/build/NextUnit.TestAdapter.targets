@@ -1,0 +1,9 @@
+<Project>
+  <!-- Copy adapter to output directory for VS Test Explorer discovery -->
+  <Target Name="CopyNextUnitTestAdapter" AfterTargets="Build">
+    <ItemGroup>
+      <NextUnitAdapterFiles Include="$(MSBuildThisFileDirectory)..\lib\net10.0\NextUnit.TestAdapter.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(NextUnitAdapterFiles)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" Condition="Exists('%(FullPath)')" />
+  </Target>
+</Project>
