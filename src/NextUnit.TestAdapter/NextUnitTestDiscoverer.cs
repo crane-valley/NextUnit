@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Security;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging;
@@ -63,17 +64,34 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
         {
             assembly = Assembly.LoadFrom(source);
         }
-        catch (Exception ex)
+        catch (FileNotFoundException ex)
         {
-            // Rethrow critical exceptions that should not be suppressed
-            if (ex is OutOfMemoryException or ThreadAbortException)
-            {
-                throw;
-            }
-
-            logger.SendMessage(
-                TestMessageLevel.Warning,
-                $"NextUnit: Could not load assembly {source}: {ex.GetType().FullName}: {ex}");
+            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (file not found): {ex.Message}");
+            return;
+        }
+        catch (BadImageFormatException ex)
+        {
+            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (bad image format): {ex.Message}");
+            return;
+        }
+        catch (FileLoadException ex)
+        {
+            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (file load error): {ex.Message}");
+            return;
+        }
+        catch (IOException ex)
+        {
+            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (I/O error): {ex.Message}");
+            return;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (access denied): {ex.Message}");
+            return;
+        }
+        catch (SecurityException ex)
+        {
+            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (security error): {ex.Message}");
             return;
         }
 
