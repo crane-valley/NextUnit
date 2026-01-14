@@ -146,7 +146,15 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             var testDataDescriptors = testDataDescriptorsProperty.GetValue(null) as IReadOnlyList<TestDataDescriptor>;
             if (testDataDescriptors != null)
             {
-                var expandedTests = TestDataExpander.Expand(testDataDescriptors);
+                // Filter descriptors before expansion to avoid invoking expensive data sources for unrelated tests
+                IEnumerable<TestDataDescriptor> descriptorsToExpand = testDataDescriptors;
+                if (testIdsToRun != null)
+                {
+                    descriptorsToExpand = testDataDescriptors.Where(d =>
+                        testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
+                }
+
+                var expandedTests = TestDataExpander.Expand(descriptorsToExpand.ToList());
                 allTestCases.AddRange(expandedTests);
             }
         }
