@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.5] - 2026-01-14
+
+### Fixed
+
+- **NextUnit.TestAdapter not included in solution file** - Added to NextUnit.slnx
+  - v1.6.4 release workflow failed because TestAdapter wasn't in the solution
+  - This caused the project to not be built in Release configuration
+
 ## [1.6.4] - 2026-01-14
 
 ### Fixed
