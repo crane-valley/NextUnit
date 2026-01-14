@@ -86,9 +86,8 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
 
         logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {testCases.Count} static test cases");
 
-        foreach (var testCase in testCases)
+        foreach (var vsTestCase in testCases.Select(tc => CreateVSTestCase(tc, source)))
         {
-            var vsTestCase = CreateVSTestCase(testCase, source);
             discoverySink.SendTestCase(vsTestCase);
         }
 
@@ -103,9 +102,8 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
 
                 // Expand TestDataDescriptors into TestCaseDescriptors
                 var expandedTests = TestDataExpander.Expand(testDataDescriptors);
-                foreach (var testCase in expandedTests)
+                foreach (var vsTestCase in expandedTests.Select(tc => CreateVSTestCase(tc, source)))
                 {
-                    var vsTestCase = CreateVSTestCase(testCase, source);
                     discoverySink.SendTestCase(vsTestCase);
                 }
             }
