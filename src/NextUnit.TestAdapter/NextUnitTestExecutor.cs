@@ -53,7 +53,17 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             }
             catch (Exception ex)
             {
-                frameworkHandle.SendMessage(TestMessageLevel.Error, $"NextUnit: Error running tests in {source}: {ex.Message}");
+                // Rethrow critical exceptions that should not be suppressed
+                if (ex is OutOfMemoryException or ThreadAbortException)
+                {
+                    throw;
+                }
+
+                // Intentionally catch broadly to prevent a single bad assembly from
+                // aborting execution of all test sources, but preserve full diagnostics
+                frameworkHandle.SendMessage(
+                    TestMessageLevel.Error,
+                    $"NextUnit: Error running tests in {source}: {ex.GetType().FullName}: {ex}");
             }
         }
     }
@@ -96,7 +106,17 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             }
             catch (Exception ex)
             {
-                frameworkHandle.SendMessage(TestMessageLevel.Error, $"NextUnit: Error running tests in {sourceGroup.Key}: {ex.Message}");
+                // Rethrow critical exceptions that should not be suppressed
+                if (ex is OutOfMemoryException or ThreadAbortException)
+                {
+                    throw;
+                }
+
+                // Intentionally catch broadly to prevent a single bad assembly from
+                // aborting execution of all test sources, but preserve full diagnostics
+                frameworkHandle.SendMessage(
+                    TestMessageLevel.Error,
+                    $"NextUnit: Error running tests in {sourceGroup.Key}: {ex.GetType().FullName}: {ex}");
             }
         }
     }
@@ -127,7 +147,15 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         }
         catch (Exception ex)
         {
-            frameworkHandle.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source}: {ex.Message}");
+            // Rethrow critical exceptions that should not be suppressed
+            if (ex is OutOfMemoryException or ThreadAbortException)
+            {
+                throw;
+            }
+
+            frameworkHandle.SendMessage(
+                TestMessageLevel.Warning,
+                $"NextUnit: Could not load assembly {source}: {ex.GetType().FullName}: {ex}");
             return;
         }
 

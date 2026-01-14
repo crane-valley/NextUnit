@@ -33,7 +33,17 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
             }
             catch (Exception ex)
             {
-                logger.SendMessage(TestMessageLevel.Error, $"NextUnit: Error discovering tests in {source}: {ex.Message}");
+                // Rethrow critical exceptions that should not be suppressed
+                if (ex is OutOfMemoryException or ThreadAbortException)
+                {
+                    throw;
+                }
+
+                // Intentionally catch broadly to prevent a single bad assembly from
+                // aborting discovery of all test sources, but preserve full diagnostics
+                logger.SendMessage(
+                    TestMessageLevel.Error,
+                    $"NextUnit: Error discovering tests in {source}: {ex.GetType().FullName}: {ex}");
             }
         }
     }
@@ -55,7 +65,15 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
         }
         catch (Exception ex)
         {
-            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source}: {ex.Message}");
+            // Rethrow critical exceptions that should not be suppressed
+            if (ex is OutOfMemoryException or ThreadAbortException)
+            {
+                throw;
+            }
+
+            logger.SendMessage(
+                TestMessageLevel.Warning,
+                $"NextUnit: Could not load assembly {source}: {ex.GetType().FullName}: {ex}");
             return;
         }
 
