@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-01-14
+
+### Fixed
+
+- **NextUnit.TestAdapter package missing from NuGet** - Added TestAdapter to release workflow
+  - v1.6.3 was released without NextUnit.TestAdapter package on NuGet
+  - This version includes the TestAdapter package for VS Test Explorer integration
+
 ## [1.6.3] - 2026-01-14
 
 ### Added - Visual Studio Test Explorer Integration
