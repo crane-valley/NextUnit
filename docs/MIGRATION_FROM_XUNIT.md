@@ -33,17 +33,8 @@ dotnet remove package Microsoft.NET.Test.Sdk
 ### Add NextUnit Packages
 
 ```bash
-# Add NextUnit (includes Core, Generator, Platform, and Microsoft.Testing.Platform)
+# Add NextUnit (includes Core, Generator, TestAdapter, and Microsoft.NET.Test.Sdk)
 dotnet add package NextUnit
-```
-
-**Alternative - Advanced Usage**: If you need fine-grained control over package versions, you can install individual packages:
-
-```bash
-dotnet add package NextUnit.Core
-dotnet add package NextUnit.Generator
-dotnet add package NextUnit.Platform
-dotnet add package Microsoft.Testing.Platform
 ```
 
 ### Update .csproj
@@ -68,31 +59,16 @@ dotnet add package Microsoft.Testing.Platform
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.6.2" />
+    <PackageReference Include="NextUnit" Version="1.6.6" />
   </ItemGroup>
 </Project>
 ```
 
-**Note**: The `NextUnit` meta-package automatically includes all required dependencies (NextUnit.Core, NextUnit.Generator, NextUnit.Platform, and Microsoft.Testing.Platform).
-
-### Create Program.cs
-
-NextUnit uses Microsoft.Testing.Platform, so you need a Program.cs:
-
-```csharp
-using Microsoft.Testing.Platform.Builder;
-using NextUnit.Platform;
-
-var builder = await TestApplication.CreateBuilderAsync(args);
-builder.AddNextUnit();
-using var app = await builder.BuildAsync();
-return await app.RunAsync();
-```
+**Note**: The `NextUnit` meta-package automatically includes all required dependencies (NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, and Microsoft.NET.Test.Sdk). No `OutputType=Exe` or `Program.cs` is needed - NextUnit uses a VSTest adapter.
 
 ## Step 2: Update Test Attributes
 

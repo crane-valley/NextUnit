@@ -4,11 +4,12 @@ This document describes the complete process for releasing a new version of Next
 
 ## Overview
 
-NextUnit consists of four NuGet packages:
+NextUnit consists of five NuGet packages:
 - **NextUnit** (meta-package) - Aggregates all components
 - **NextUnit.Core** - Core attributes, assertions, execution engine
 - **NextUnit.Generator** - Source generator for test discovery
-- **NextUnit.Platform** - Microsoft.Testing.Platform integration
+- **NextUnit.TestAdapter** - VSTest adapter for Visual Studio Test Explorer
+- **NextUnit.Platform** - Microsoft.Testing.Platform integration (legacy)
 
 All packages share the same version number and are released together.
 
@@ -16,7 +17,7 @@ All packages share the same version number and are released together.
 
 Before starting the release process:
 
-- [ ] All tests pass locally (`dotnet run` in test projects)
+- [ ] All tests pass locally (`dotnet test` on test projects)
 - [ ] All CI/CD checks pass on the main branch
 - [ ] CHANGELOG.md has been updated with release notes for the new version
 - [ ] Any new features have been documented in relevant documentation files
@@ -34,10 +35,11 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 2. **Directory.Packages.props**
    - Location: `/Directory.Packages.props`
-   - Update: All four NextUnit package versions
+   - Update: All five NextUnit package versions
      - `<PackageVersion Include="NextUnit" Version="X.Y.Z" />`
      - `<PackageVersion Include="NextUnit.Core" Version="X.Y.Z" />`
      - `<PackageVersion Include="NextUnit.Generator" Version="X.Y.Z" />`
+     - `<PackageVersion Include="NextUnit.TestAdapter" Version="X.Y.Z" />`
      - `<PackageVersion Include="NextUnit.Platform" Version="X.Y.Z" />`
 
 ### Documentation Files
@@ -140,9 +142,9 @@ git diff | grep -E "^\+.*1\.[0-9]+\.[0-9]+" # Should show all new version refere
 dotnet build -c Release
 
 # Run tests
-cd tests/NextUnit.Platform.Tests && dotnet run && cd ../..
-cd tests/NextUnit.Generator.Tests && dotnet run && cd ../..
-cd samples/NextUnit.SampleTests && dotnet run && cd ../..
+dotnet test tests/NextUnit.Platform.Tests
+dotnet test tests/NextUnit.Generator.Tests
+dotnet test samples/NextUnit.SampleTests
 
 # Verify package builds
 dotnet pack -c Release -o ./artifacts
@@ -177,7 +179,7 @@ Creating a release on GitHub automatically triggers the NuGet package publishing
 **What happens automatically:**
 - GitHub Actions workflow (`.github/workflows/release.yml`) is triggered
 - Packages are built and packed
-- All four packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.Platform) are published to NuGet.org using GitHub OIDC authentication
+- All five packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, NextUnit.Platform) are published to NuGet.org using GitHub OIDC authentication
 - No manual API key or `dotnet nuget push` commands needed
 
 ### 9. Verify Release
@@ -223,6 +225,7 @@ This setting is in the individual `.csproj` files:
 - `/src/NextUnit/NextUnit.csproj`
 - `/src/NextUnit.Core/NextUnit.Core.csproj`
 - `/src/NextUnit.Generator/NextUnit.Generator.csproj`
+- `/src/NextUnit.TestAdapter/NextUnit.TestAdapter.csproj`
 - `/src/NextUnit.Platform/NextUnit.Platform.csproj`
 
 ## Troubleshooting

@@ -16,38 +16,16 @@ This guide explains how to integrate NextUnit tests into various CI/CD systems a
 
 TRX (Test Results XML) is the native format used by Visual Studio and Azure DevOps.
 
-### Setup
-
-1. Add the TRX report extension package:
-
-```bash
-dotnet add package Microsoft.Testing.Extensions.TrxReport
-```
-
-2. Enable TRX reporting in your test project's `Program.cs`:
-
-```csharp
-using Microsoft.Testing.Platform.Builder;
-using Microsoft.Testing.Extensions;
-using NextUnit.Platform;
-
-var builder = await TestApplication.CreateBuilderAsync(args);
-builder.AddNextUnit();
-builder.AddTrxReportProvider();  // Add this line
-using var app = await builder.BuildAsync();
-return await app.RunAsync();
-```
-
 ### Usage
 
-Run tests with TRX report generation:
+NextUnit uses the VSTest adapter for test execution, which provides native TRX support:
 
 ```bash
 # Generate TRX report with default name
-dotnet run --project YourTests.csproj -- --report-trx --results-directory ./TestResults
+dotnet test YourTests.csproj --logger trx --results-directory ./TestResults
 
 # Generate TRX report with custom filename
-dotnet run --project YourTests.csproj -- --report-trx --report-trx-filename custom-results.trx --results-directory ./TestResults
+dotnet test YourTests.csproj --logger "trx;LogFileName=custom-results.trx" --results-directory ./TestResults
 ```
 
 The TRX file will be created in the specified results directory and can be:
@@ -75,20 +53,20 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '10.0.x'
-    
+
     - name: Restore dependencies
       run: dotnet restore
-    
+
     - name: Run tests
-      run: dotnet run --project tests/YourTests/YourTests.csproj
+      run: dotnet test tests/YourTests/YourTests.csproj
 ```
 
 ### With TRX Report Publishing
@@ -105,24 +83,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '10.0.x'
-        
+
     - name: Restore dependencies
       run: dotnet restore
-    
+
     - name: Run tests with TRX report
-      run: |
-        dotnet run --project tests/YourTests/YourTests.csproj -- \
-          --report-trx \
-          --results-directory ./TestResults
-    
+      run: dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory ./TestResults
+
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
@@ -158,7 +133,7 @@ jobs:
         dotnet-version: ${{ matrix.dotnet }}
     
     - name: Run tests
-      run: dotnet run --project tests/YourTests/YourTests.csproj
+      run: dotnet test tests/YourTests/YourTests.csproj
 ```
 
 ---
@@ -192,10 +167,7 @@ steps:
     command: 'restore'
     projects: '**/*.csproj'
 
-- script: |
-    dotnet run --project tests/YourTests/YourTests.csproj -- \
-      --report-trx \
-      --results-directory $(Agent.TempDirectory)/TestResults
+- script: dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory $(Agent.TempDirectory)/TestResults
   displayName: 'Run tests'
 
 - task: PublishTestResults@2
@@ -221,12 +193,7 @@ steps:
   inputs:
     command: 'restore'
 
-- script: |
-    dotnet run --project tests/YourTests/YourTests.csproj -- \
-      --report-trx \
-      --coverage \
-      --coverage-output $(Agent.TempDirectory)/Coverage \
-      --results-directory $(Agent.TempDirectory)/TestResults
+- script: dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory $(Agent.TempDirectory)/TestResults --collect:"XPlat Code Coverage"
   displayName: 'Run tests with coverage'
 
 - task: PublishTestResults@2
@@ -260,11 +227,7 @@ pipeline {
         
         stage('Test') {
             steps {
-                sh '''
-                    dotnet run --project tests/YourTests/YourTests.csproj -- \
-                      --report-trx \
-                      --results-directory ./TestResults
-                '''
+                sh 'dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory ./TestResults'
             }
         }
     }
@@ -292,21 +255,13 @@ pipeline {
             parallel {
                 stage('Unit Tests') {
                     steps {
-                        sh '''
-                            dotnet run --project tests/UnitTests/UnitTests.csproj -- \
-                              --report-trx \
-                              --results-directory ./TestResults/Unit
-                        '''
+                        sh 'dotnet test tests/UnitTests/UnitTests.csproj --logger trx --results-directory ./TestResults/Unit'
                     }
                 }
-                
+
                 stage('Integration Tests') {
                     steps {
-                        sh '''
-                            dotnet run --project tests/IntegrationTests/IntegrationTests.csproj -- \
-                              --report-trx \
-                              --results-directory ./TestResults/Integration
-                        '''
+                        sh 'dotnet test tests/IntegrationTests/IntegrationTests.csproj --logger trx --results-directory ./TestResults/Integration'
                     }
                 }
             }
@@ -339,9 +294,7 @@ test:
   stage: test
   script:
     - dotnet restore
-    - dotnet run --project tests/YourTests/YourTests.csproj -- 
-        --report-trx 
-        --results-directory ./TestResults
+    - dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory ./TestResults
   artifacts:
     when: always
     reports:
@@ -367,9 +320,7 @@ test:unit:
   stage: test
   script:
     - dotnet restore
-    - dotnet run --project tests/UnitTests/UnitTests.csproj -- 
-        --report-trx 
-        --results-directory ./${TEST_RESULTS_DIR}/Unit
+    - dotnet test tests/UnitTests/UnitTests.csproj --logger trx --results-directory ./${TEST_RESULTS_DIR}/Unit
   artifacts:
     when: always
     paths:
@@ -380,9 +331,7 @@ test:integration:
   stage: test
   script:
     - dotnet restore
-    - dotnet run --project tests/IntegrationTests/IntegrationTests.csproj -- 
-        --report-trx 
-        --results-directory ./${TEST_RESULTS_DIR}/Integration
+    - dotnet test tests/IntegrationTests/IntegrationTests.csproj --logger trx --results-directory ./${TEST_RESULTS_DIR}/Integration
   artifacts:
     when: always
     paths:
@@ -410,73 +359,50 @@ pages:
 NextUnit automatically returns a non-zero exit code when tests fail, which CI systems detect:
 
 ```bash
-dotnet run --project tests/YourTests.csproj
+dotnet test tests/YourTests.csproj
 # Returns 0 if all tests pass, non-zero if any test fails
 ```
 
-### 2. Minimum Expected Tests
+### 2. Filtering Tests for Different Stages
 
-Prevent accidental test discovery issues:
-
-```bash
-dotnet run --project tests/YourTests.csproj -- --minimum-expected-tests 50
-```
-
-This fails if fewer than 50 tests are discovered/executed.
-
-### 3. Filtering Tests for Different Stages
+Use environment variables for category/tag filtering:
 
 ```bash
 # Run only unit tests
-dotnet run --project tests/YourTests.csproj -- --category Unit
+NEXTUNIT_INCLUDE_CATEGORIES=Unit dotnet test tests/YourTests.csproj
 
-# Run only integration tests  
-dotnet run --project tests/YourTests.csproj -- --category Integration
+# Run only integration tests
+NEXTUNIT_INCLUDE_CATEGORIES=Integration dotnet test tests/YourTests.csproj
 
 # Exclude slow tests in PR builds
-dotnet run --project tests/YourTests.csproj -- --exclude-tag Slow
+NEXTUNIT_EXCLUDE_TAGS=Slow dotnet test tests/YourTests.csproj
 ```
 
-### 4. Parallel Execution Control
+### 3. Parallel Execution Control
 
 NextUnit respects `[ParallelLimit]` and `[NotInParallel]` attributes automatically. No special CI configuration needed.
 
-### 5. Test Output for Debugging
+### 4. Test Output for Debugging
 
 Capture detailed output for failed tests:
 
 ```bash
-dotnet run --project tests/YourTests.csproj -- --output Detailed
+dotnet test tests/YourTests.csproj --logger "console;verbosity=detailed"
 ```
 
-### 6. Timeout Protection
-
-Prevent hanging tests:
-
-```bash
-dotnet run --project tests/YourTests.csproj -- --timeout 10m
-```
-
-### 7. Results Directory Organization
+### 5. Results Directory Organization
 
 ```bash
 # Organize results by build number
-dotnet run --project tests/YourTests.csproj -- \
-  --report-trx \
-  --results-directory ./TestResults/Build-${BUILD_NUMBER}
+dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults/Build-${BUILD_NUMBER}
 ```
 
-### 8. Combining with Code Coverage
+### 6. Code Coverage
 
-When using code coverage tools (future NextUnit feature), structure your CI like this:
+Collect code coverage during test runs:
 
 ```bash
-# Example for future coverage support
-dotnet run --project tests/YourTests.csproj -- \
-  --report-trx \
-  --coverage \
-  --coverage-output ./Coverage \
-  --results-directory ./TestResults
+dotnet test tests/YourTests.csproj --collect:"XPlat Code Coverage" --results-directory ./TestResults
 ```
 
 ---
@@ -491,7 +417,7 @@ export NEXTUNIT_INCLUDE_CATEGORIES=Unit,Integration
 export NEXTUNIT_EXCLUDE_TAGS=Slow,Manual
 
 # Run tests (filters applied automatically)
-dotnet run --project tests/YourTests.csproj
+dotnet test tests/YourTests.csproj
 ```
 
 Available environment variables:
@@ -501,8 +427,6 @@ Available environment variables:
 - `NEXTUNIT_EXCLUDE_TAGS` - Comma-separated list of tags to exclude
 - `NEXTUNIT_TEST_NAME` - Wildcard pattern for test names (supports `*` and `?`)
 - `NEXTUNIT_TEST_NAME_REGEX` - Regular expression pattern for test names
-
-**Note**: CLI arguments take precedence over environment variables.
 
 ---
 
@@ -520,27 +444,22 @@ Available environment variables:
    ls tests/YourTests/obj/Debug/net10.0/generated/
    ```
 
-3. Verify test assembly loads:
+3. Verify test adapter can discover tests:
    ```bash
-   dotnet run --project tests/YourTests.csproj -- --list-tests
+   dotnet test tests/YourTests.csproj --list-tests
    ```
 
 ### TRX File Not Generated
 
-1. Verify TRX extension is installed:
+1. Ensure you're using the `--logger trx` option:
    ```bash
-   dotnet list package | grep TrxReport
+   dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults
    ```
 
-2. Check that extension is registered in `Program.cs`:
-   ```csharp
-   builder.AddTrxReportProvider();
-   ```
-
-3. Ensure results directory exists or can be created:
+2. Ensure results directory exists or can be created:
    ```bash
    mkdir -p TestResults
-   dotnet run --project tests/YourTests.csproj -- --report-trx --results-directory ./TestResults
+   dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults
    ```
 
 ### Permissions Issues in CI
@@ -551,7 +470,7 @@ Ensure the CI user has write access to the results directory:
 # In CI script
 mkdir -p TestResults
 chmod 777 TestResults
-dotnet run --project tests/YourTests.csproj -- --report-trx --results-directory ./TestResults
+dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults
 ```
 
 ---

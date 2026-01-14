@@ -20,8 +20,8 @@ NextUnit is a modern, high-performance test framework for .NET that combines:
 ### Create a New Test Project
 
 ```bash
-# Create a new console application
-dotnet new console -n MyProject.Tests -f net10.0
+# Create a new class library
+dotnet new classlib -n MyProject.Tests -f net10.0
 
 # Navigate to the project directory
 cd MyProject.Tests
@@ -30,17 +30,8 @@ cd MyProject.Tests
 ### Add NextUnit Packages
 
 ```bash
-# Add NextUnit (includes Core, Generator, Platform, and Microsoft.Testing.Platform)
+# Add NextUnit (includes Core, Generator, TestAdapter, and Microsoft.NET.Test.Sdk)
 dotnet add package NextUnit
-```
-
-**Alternative - Advanced Usage**: If you need fine-grained control over package versions, you can install individual packages:
-
-```bash
-dotnet add package NextUnit.Core
-dotnet add package NextUnit.Generator
-dotnet add package NextUnit.Platform
-dotnet add package Microsoft.Testing.Platform
 ```
 
 ### Configure Your Project
@@ -50,31 +41,18 @@ Update your `.csproj` file:
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.6.2" />
+    <PackageReference Include="NextUnit" Version="1.6.6" />
   </ItemGroup>
 </Project>
 ```
 
-**Note**: The `NextUnit` meta-package automatically includes all required dependencies (NextUnit.Core, NextUnit.Generator, NextUnit.Platform, and Microsoft.Testing.Platform).
-
-### Create Program.cs
-
-```csharp
-using Microsoft.Testing.Platform.Builder;
-using NextUnit.Platform;
-
-var builder = await TestApplication.CreateBuilderAsync(args);
-builder.AddNextUnit();
-using var app = await builder.BuildAsync();
-return await app.RunAsync();
-```
+**Note**: The `NextUnit` meta-package automatically includes all required dependencies (NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, and Microsoft.NET.Test.Sdk). No `OutputType=Exe` or `Program.cs` is needed.
 
 ## Writing Your First Test
 
@@ -116,13 +94,13 @@ public class CalculatorTests
 
 ```bash
 # Run all tests
-dotnet run
+dotnet test
 
 # Run with no build
-dotnet run --no-build
+dotnet test --no-build
 
-# Run specific tests (using Microsoft.Testing.Platform filters)
-dotnet run -- --filter "FullyQualifiedName~Calculator"
+# Run specific tests (using VSTest filter)
+dotnet test --filter "FullyQualifiedName~Calculator"
 ```
 
 ### Visual Studio

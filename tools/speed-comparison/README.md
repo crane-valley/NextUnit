@@ -196,5 +196,5 @@ Edit `Tests.Benchmark/BuildBenchmarks.cs` or `RuntimeBenchmarks.cs` to add new b
 
 ---
 
-**Last Updated**: 2025-12-20  
-**NextUnit Version**: 1.6.2
+**Last Updated**: 2025-01-14
+**NextUnit Version**: 1.6.6

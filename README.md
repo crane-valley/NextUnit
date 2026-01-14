@@ -72,31 +72,26 @@ NextUnit bridges the gap between modern testing infrastructure and developer-fri
 ### Installation
 
 ```bash
-# Install NextUnit meta-package (includes Core, Generator, and Platform)
+# Install NextUnit meta-package (includes Core, Generator, TestAdapter, and Microsoft.NET.Test.Sdk)
 dotnet add package NextUnit
-
-# Or install individual packages
-dotnet add package NextUnit.Core
-dotnet add package NextUnit.Generator
-dotnet add package NextUnit.Platform
 ```
 
 ### Running Tests
 
-NextUnit uses **Microsoft.Testing.Platform** for test execution. Tests should be executed using `dotnet run`:
+NextUnit integrates with Visual Studio Test Explorer and `dotnet test`:
 
 ```bash
 # Run all tests in a project
-dotnet run --project YourTestProject/YourTestProject.csproj
+dotnet test YourTestProject/YourTestProject.csproj
 
-# Run with specific options
-dotnet run --project YourTestProject/YourTestProject.csproj -- --help
+# Run with detailed output
+dotnet test YourTestProject/YourTestProject.csproj --logger "console;verbosity=detailed"
 
-# Run with minimum expected tests check
-dotnet run --project YourTestProject/YourTestProject.csproj -- --minimum-expected-tests 20
+# Generate TRX test results
+dotnet test YourTestProject/YourTestProject.csproj --logger trx --results-directory ./TestResults
 
-# Generate test results
-dotnet run --project YourTestProject/YourTestProject.csproj -- --results-directory ./TestResults --report-trx
+# Filter tests by name
+dotnet test YourTestProject/YourTestProject.csproj --filter "FullyQualifiedName~Calculator"
 ```
 
 ### Filtering Tests by Category and Tag
@@ -124,44 +119,24 @@ public class DatabaseTests
 }
 ```
 
-To filter tests at runtime, use **command-line arguments** (recommended) or environment variables:
+To filter tests at runtime, use **environment variables**:
 
 ```bash
-# CLI arguments (v1.2+, recommended)
 # Run only tests in the Database category
-dotnet run --project YourTestProject -- --category Database
+NEXTUNIT_INCLUDE_CATEGORIES=Database dotnet test
 
 # Run only tests with the Fast tag
-dotnet run --project YourTestProject -- --tag Fast
+NEXTUNIT_INCLUDE_TAGS=Fast dotnet test
 
 # Exclude tests with the Slow tag
-dotnet run --project YourTestProject -- --exclude-tag Slow
-
-# Combine multiple filters
-dotnet run --project YourTestProject -- --category Integration --exclude-tag Slow
-
-# Multiple categories or tags (use multiple arguments)
-dotnet run --project YourTestProject -- --category Database --category API
-dotnet run --project YourTestProject -- --tag Fast --tag Instant
-
-# Environment variables (backward compatible)
-# Run only tests in the Database category
-NEXTUNIT_INCLUDE_CATEGORIES=Database dotnet run
-
-# Run only tests with the Fast tag
-NEXTUNIT_INCLUDE_TAGS=Fast dotnet run
-
-# Exclude tests with the Slow tag
-NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run
+NEXTUNIT_EXCLUDE_TAGS=Slow dotnet test
 
 # Combine filters (include Integration category, exclude Slow tag)
-NEXTUNIT_INCLUDE_CATEGORIES=Integration NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run
+NEXTUNIT_INCLUDE_CATEGORIES=Integration NEXTUNIT_EXCLUDE_TAGS=Slow dotnet test
 
 # Multiple categories (comma-separated)
-NEXTUNIT_INCLUDE_CATEGORIES=Database,API dotnet run
+NEXTUNIT_INCLUDE_CATEGORIES=Database,API dotnet test
 ```
-
-**Note**: CLI arguments take precedence over environment variables. This allows you to override environment-based defaults on a per-run basis.
 
 **Filter behavior:**
 - Categories and tags can be applied to both classes and methods
@@ -637,8 +612,8 @@ Runtime (Execution - Zero Reflection):
 
 ### Components
 - **NextUnit.Core** - Attributes, assertions, test execution engine
-- **NextUnit.Generator** - Source generator for test discovery (Complete - M1)
-- **NextUnit.Platform** - Microsoft.Testing.Platform integration
+- **NextUnit.Generator** - Source generator for test discovery
+- **NextUnit.TestAdapter** - VSTest adapter for Visual Studio Test Explorer
 - **NextUnit.SampleTests** - Example tests and validation
 
 ## Performance Targets (v1.0)
@@ -714,7 +689,7 @@ Contributions welcome! Please follow these steps:
 2. Fork the repository and create a feature branch
 3. Follow the project's coding conventions (see `.editorconfig` and `.github/copilot-instructions.md`)
 4. Write tests for your changes
-5. Ensure all tests pass with `dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj`
+5. Ensure all tests pass with `dotnet test samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj`
 6. Submit a PR with a clear description
 
 **Important**: This project follows an **English-only policy** for all code, comments, documentation, and commit messages to ensure international collaboration and consistency with .NET ecosystem standards.
@@ -734,7 +709,7 @@ dotnet build --configuration Release
 dotnet format
 
 # Run tests
-dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+dotnet test samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
 ```
 
 **Why two configurations?**
@@ -757,7 +732,7 @@ NextUnit is inspired by:
 
 ## Status & Roadmap
 
-**Current Version**: 1.6.2 (Stable)
+**Current Version**: 1.6.6 (Stable)
 
 **v1.0 Release**: 2025-12-06
 - ✅ Zero-reflection test execution with source generators
@@ -806,3 +781,8 @@ NextUnit is inspired by:
 - ✅ Rich failure messages with visual diffs
 - ✅ Type-aware assertion formatting (strings, collections, objects)
 - ✅ Improved code quality (extracted constants, optimized enumeration)
+
+**v1.6.6 Release**: 2025-01-13
+- ✅ VSTest adapter for Visual Studio 2026 Test Explorer integration
+- ✅ Full `dotnet test` support
+- ✅ Simplified project configuration (no Program.cs required)

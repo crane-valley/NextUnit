@@ -19,53 +19,24 @@ dotnet add package NextUnit
 This meta-package includes everything you need:
 - NextUnit.Core - Attributes, assertions, execution engine
 - NextUnit.Generator - Source generator for zero-reflection discovery
-- NextUnit.Platform - Microsoft.Testing.Platform integration
-- Microsoft.Testing.Platform - Required platform dependency
-
-**Advanced - Individual Packages**:
-```bash
-dotnet add package NextUnit.Core
-dotnet add package NextUnit.Generator
-dotnet add package NextUnit.Platform
-dotnet add package Microsoft.Testing.Platform
-```
+- NextUnit.TestAdapter - VSTest adapter for Visual Studio Test Explorer
+- Microsoft.NET.Test.Sdk - Test platform SDK
 
 ### Configure Your Test Project
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.6.2" />
+    <PackageReference Include="NextUnit" Version="1.6.6" />
   </ItemGroup>
 </Project>
 ```
 
-### Entry Point (Optional)
-
-The NextUnit source generator automatically creates a Program.cs entry point for your test project if one doesn't exist. You can skip this step unless you need custom configuration.
-
-**When to provide your own Program.cs:**
-- Custom test application configuration
-- Additional testing extensions or middleware
-- Custom logging or diagnostic setup
-
-If you need customization, create a Program.cs file:
-
-```csharp
-using Microsoft.Testing.Platform.Builder;
-using NextUnit.Platform;
-
-var builder = await TestApplication.CreateBuilderAsync(args);
-builder.AddNextUnit();
-// Add your custom configuration here
-using var app = await builder.BuildAsync();
-return await app.RunAsync();
-```
+**Note**: No `OutputType=Exe` or `Program.cs` needed - NextUnit works as a class library with VSTest adapter.
 
 ### Write Your First Test
 
@@ -94,7 +65,7 @@ public class CalculatorTests
 ### Run Tests
 
 ```bash
-dotnet run
+dotnet test
 ```
 
 ## Key Features
@@ -113,7 +84,7 @@ dotnet run
 | **NextUnit** | Meta-package with all components (recommended) | 4.2 KB |
 | **NextUnit.Core** | Core attributes, assertions, execution engine | 32.1 KB |
 | **NextUnit.Generator** | Source generator for test discovery | 20.7 KB |
-| **NextUnit.Platform** | Microsoft.Testing.Platform integration | 15.4 KB |
+| **NextUnit.TestAdapter** | VSTest adapter for Visual Studio Test Explorer | 15.4 KB |
 
 **Total Size**: 72.4 KB (ultra-lightweight!)
 
