@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.6] - 2026-01-14
+
+### Fixed
+
+- **NextUnit.targets causing build errors** - Removed OutputType=Exe setting
+  - VSTest mode doesn't require executable output type
+  - Removed GenerateProgramFile=false (not needed for VSTest)
+  - Set IsTestProject=true for proper VSTest integration
+
 ## [1.6.5] - 2026-01-14
 
 ### Fixed
