@@ -17,7 +17,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
     /// </summary>
     public const string ExecutorUri = "executor://NextUnitTestExecutor/v1";
 
-    private bool _cancelled;
+    private CancellationTokenSource? _cancellationTokenSource;
 
     /// <summary>
     /// Runs all tests from the specified sources.
@@ -32,18 +32,24 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             return;
         }
 
-        _cancelled = false;
+        _cancellationTokenSource?.Dispose();
+        _cancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = _cancellationTokenSource.Token;
 
         foreach (var source in sources)
         {
-            if (_cancelled)
+            if (cancellationToken.IsCancellationRequested)
             {
                 break;
             }
 
             try
             {
-                RunTestsInAssembly(source, null, frameworkHandle);
+                RunTestsInAssembly(source, null, frameworkHandle, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
@@ -65,14 +71,16 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             return;
         }
 
-        _cancelled = false;
+        _cancellationTokenSource?.Dispose();
+        _cancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = _cancellationTokenSource.Token;
 
         // Group tests by source
         var testsBySource = tests.GroupBy(t => t.Source);
 
         foreach (var sourceGroup in testsBySource)
         {
-            if (_cancelled)
+            if (cancellationToken.IsCancellationRequested)
             {
                 break;
             }
@@ -80,7 +88,11 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             try
             {
                 var testIds = sourceGroup.Select(t => t.FullyQualifiedName).ToHashSet();
-                RunTestsInAssembly(sourceGroup.Key, testIds, frameworkHandle);
+                RunTestsInAssembly(sourceGroup.Key, testIds, frameworkHandle, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
@@ -94,13 +106,14 @@ public sealed class NextUnitTestExecutor : ITestExecutor
     /// </summary>
     public void Cancel()
     {
-        _cancelled = true;
+        _cancellationTokenSource?.Cancel();
     }
 
     private void RunTestsInAssembly(
         string source,
         HashSet<string>? testIdsToRun,
-        IFrameworkHandle frameworkHandle)
+        IFrameworkHandle frameworkHandle,
+        CancellationToken cancellationToken)
     {
         if (!File.Exists(source))
         {
@@ -170,7 +183,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         var sink = new VSTestResultSink(frameworkHandle, source);
 
         // Run tests synchronously (VSTest expects this)
-        engine.RunAsync(allTestCases, sink, CancellationToken.None).GetAwaiter().GetResult();
+        engine.RunAsync(allTestCases, sink, cancellationToken).GetAwaiter().GetResult();
     }
 
     private sealed class VSTestResultSink : ITestExecutionSink
