@@ -20,6 +20,14 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
     private CancellationTokenSource? _cancellationTokenSource;
 
+    private static bool IsCriticalException(Exception ex)
+    {
+        return ex is OutOfMemoryException
+            or StackOverflowException
+            or ThreadAbortException
+            or AccessViolationException;
+    }
+
     /// <summary>
     /// Runs all tests from the specified sources.
     /// </summary>
@@ -54,8 +62,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             }
             catch (Exception ex)
             {
-                // Rethrow critical exceptions that should not be suppressed
-                if (ex is OutOfMemoryException or ThreadAbortException)
+                if (IsCriticalException(ex))
                 {
                     throw;
                 }
@@ -107,8 +114,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             }
             catch (Exception ex)
             {
-                // Rethrow critical exceptions that should not be suppressed
-                if (ex is OutOfMemoryException or ThreadAbortException)
+                if (IsCriticalException(ex))
                 {
                     throw;
                 }
