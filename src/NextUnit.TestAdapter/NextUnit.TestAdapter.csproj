@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>NextUnit.TestAdapter</AssemblyName>
+    <RootNamespace>NextUnit.TestAdapter</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Not a test project - this is a library -->
+    <IsTestProject>false</IsTestProject>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+
+    <!-- Package Information -->
+    <IsPackable>true</IsPackable>
+    <PackageId>NextUnit.TestAdapter</PackageId>
+    <Description>Visual Studio Test Explorer adapter for NextUnit test framework. Enables test discovery and execution in Visual Studio Test Explorer, dotnet test, and other VSTest-compatible tools.</Description>
+    <PackageTags>$(PackageTags);testadapter;vstest;visualstudio</PackageTags>
+
+    <!-- NuGet Package Settings -->
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- Copy adapter to output directory of consuming projects -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NextUnit.Core\NextUnit.Core.csproj" />
+    <PackageReference Include="Microsoft.TestPlatform.ObjectModel" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Ensure adapter DLL is copied to test project output -->
+  <ItemGroup>
+    <None Include="build\NextUnit.TestAdapter.props" Pack="true" PackagePath="build" />
+    <None Include="build\NextUnit.TestAdapter.targets" Pack="true" PackagePath="build" />
+  </ItemGroup>
+
+</Project>
