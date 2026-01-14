@@ -51,6 +51,12 @@ jobs:
             --output ./artifacts \
             --no-build
 
+          echo "Packing NextUnit.TestAdapter..."
+          dotnet pack src/NextUnit.TestAdapter/NextUnit.TestAdapter.csproj \
+            --configuration Release \
+            --output ./artifacts \
+            --no-build
+
           echo "Packing NextUnit meta-package..."
           dotnet pack src/NextUnit/NextUnit.csproj \
             --configuration Release \
@@ -66,9 +72,10 @@ jobs:
           CORE_PKG=$(ls ./artifacts/NextUnit.Core.*.nupkg 2>/dev/null || echo "")
           GEN_PKG=$(ls ./artifacts/NextUnit.Generator.*.nupkg 2>/dev/null || echo "")
           PLAT_PKG=$(ls ./artifacts/NextUnit.Platform.*.nupkg 2>/dev/null || echo "")
-          # Meta-package: exclude Core, Generator, Platform from the pattern
+          ADAPTER_PKG=$(ls ./artifacts/NextUnit.TestAdapter.*.nupkg 2>/dev/null || echo "")
+          # Meta-package: exclude Core, Generator, Platform, TestAdapter from the pattern
           META_PKG=$(ls ./artifacts/NextUnit.*.nupkg 2>/dev/null | \
-            grep -v "Core\|Generator\|Platform" || echo "")
+            grep -v "Core\|Generator\|Platform\|TestAdapter" || echo "")
 
           if [ -z "$CORE_PKG" ]; then
             echo "Error: NextUnit.Core package not found"
@@ -82,6 +89,10 @@ jobs:
             echo "Error: NextUnit.Platform package not found"
             exit 1
           fi
+          if [ -z "$ADAPTER_PKG" ]; then
+            echo "Error: NextUnit.TestAdapter package not found"
+            exit 1
+          fi
           if [ -z "$META_PKG" ]; then
             echo "Error: NextUnit meta-package not found"
             exit 1
@@ -90,6 +101,7 @@ jobs:
           echo "  - $CORE_PKG"
           echo "  - $GEN_PKG"
           echo "  - $PLAT_PKG"
+          echo "  - $ADAPTER_PKG"
           echo "  - $META_PKG"
 
       - name: NuGet login (OIDC)
