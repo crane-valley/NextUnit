@@ -209,6 +209,5 @@ This makes tests self-documenting and easy to understand.
 
 ## Related Samples
 
-- [ASP.NET Core API Testing](../WebApi.Sample/) - Testing HTTP APIs
-- [Console Application Testing](../Console.Sample/) - Testing console apps
-- [Blazor Component Testing](../Blazor.Sample/) - Testing Blazor components
+- [Console Application Testing](../Console.Sample.Tests/) - Testing console apps
+- [NextUnit Feature Showcase](../NextUnit.SampleTests/) - Comprehensive feature demonstrations
