@@ -63,6 +63,35 @@ Commit message types:
 - `test:` - Adding or modifying tests
 - `chore:` - Build/tooling changes
 
+### 4. Release Workflow (Source Code Changes Only)
+
+When source code (`.cs` files in `src/`) is modified, ask the user:
+
+> "Source code was modified. Would you like to create a release?"
+
+If the user confirms, add a **separate commit** for version bump:
+
+1. Update version in these files:
+   - `Directory.Build.props` - `<Version>` property (e.g., `1.6.6` → `1.6.7`)
+   - `Directory.Packages.props` - All `NextUnit.*` package versions
+   - `CHANGELOG.md` - Add release notes for the new version
+   - `docs/GETTING_STARTED.md` - Update version in code examples
+   - `docs/MIGRATION_FROM_XUNIT.md` - Update version in code examples
+   - `NUGET_README.md` - Update version if mentioned
+
+2. Create a separate commit for version bump only:
+   ```bash
+   git add Directory.Build.props Directory.Packages.props CHANGELOG.md docs/ NUGET_README.md
+   git commit -m "chore: Bump version to X.Y.Z"
+   ```
+
+3. Push and create PR as usual
+
+4. After PR is merged, create a GitHub Release:
+   - The release workflow (`.github/workflows/release.yml`) automatically publishes to NuGet
+
+**Important**: Keep the version bump commit separate from feature/fix commits for clean history.
+
 ---
 
 ## Project Overview
