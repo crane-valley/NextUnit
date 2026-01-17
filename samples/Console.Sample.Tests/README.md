@@ -300,5 +300,4 @@ Assert.Contains("Usage:", output);
 ## Related Samples
 
 - [Class Library Testing](../ClassLibrary.Sample.Tests/) - Testing business logic
-- [ASP.NET Core API Testing](../WebApi.Sample/) - Testing HTTP APIs
-- [Blazor Component Testing](../Blazor.Sample/) - Testing Blazor components
+- [NextUnit Feature Showcase](../NextUnit.SampleTests/) - Comprehensive feature demonstrations
