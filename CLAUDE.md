@@ -1,5 +1,70 @@
 # Claude Code Instructions for NextUnit
 
+## Development Workflow
+
+All changes must follow this workflow:
+
+### 1. Create a Work Branch
+
+Never work directly on the main branch. Always create a work branch:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b <branch-type>/<description>
+```
+
+Branch name examples:
+- `fix/docs-typo` - Documentation fixes
+- `feat/assert-skip` - New feature
+- `update/plans-roadmap` - Plan updates
+
+### 2. Pre-Commit Verification
+
+Before committing, always run:
+
+```bash
+# Documentation consistency check
+# - Verify README.md and docs/ match the implementation
+# - Verify source code XML comments are accurate
+
+# Build verification
+dotnet build
+
+# Run tests
+dotnet test samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+dotnet test samples/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests.csproj
+dotnet test samples/Console.Sample.Tests/Console.Sample.Tests/Console.Sample.Tests.csproj
+```
+
+### 3. Commit and Create PR
+
+Once all checks pass:
+
+```bash
+# Stage changes
+git add <files>
+
+# Create commit
+git commit -m "<type>: <description>"
+
+# Push branch
+git push -u origin <branch-name>
+
+# Create PR
+gh pr create --title "<title>" --body "<description>"
+```
+
+Commit message types:
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation only changes
+- `refactor:` - Code refactoring
+- `test:` - Adding or modifying tests
+- `chore:` - Build/tooling changes
+
+---
+
 ## Project Overview
 
 NextUnit is a modern, high-performance test framework for .NET 10+ with Visual Studio Test Explorer integration via VSTest adapter.
