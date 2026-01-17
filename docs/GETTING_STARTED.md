@@ -316,19 +316,9 @@ public class IntegrationTests
 [Test]
 [Skip("Waiting for bug fix #123")]
 public void PendingTest() { }
-
-// Conditional skip (in code)
-[Test]
-public void WindowsOnlyTest()
-{
-    if (!OperatingSystem.IsWindows())
-    {
-        Assert.Skip("Windows only");
-    }
-    
-    // Test implementation
-}
 ```
+
+**Note**: Use the `[Skip]` attribute to skip tests at compile time. Runtime conditional skipping is not currently supported.
 
 ## Best Practices
 

@@ -327,7 +327,6 @@ public class SessionSetupTests
 - **Class**: Runs once before/after all tests in a class (static field recommended)
 - **Assembly**: Runs once before/after all tests in an assembly (static field recommended)
 - **Session**: Runs once before/after all tests in the entire test session (**must be static**, v1.2+)
-```
 
 ### Parameterized Tests
 
@@ -580,11 +579,10 @@ NextUnit is designed for **performance** and **maintainability**:
 - ✅ Fast startup (<2ms discovery overhead with caching)
 - ✅ Native AOT compatible execution engine
 
-### Current Implementation (v0.1-alpha - M1 Complete)
+### Current Implementation (v1.6 Stable)
 - ✅ **Test execution**: Zero reflection - delegates only
 - ✅ **Test discovery**: Minimal reflection - type lookup only, one-time, cached
 - ✅ **Source generator**: Emits `GeneratedTestRegistry` with `TestCaseDescriptor[]`
-- 🎯 **Future optimization**: Eliminate type discovery reflection (non-critical)
 
 **Architecture Flow**:
 ```
