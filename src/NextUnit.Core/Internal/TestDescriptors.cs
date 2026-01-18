@@ -194,10 +194,14 @@ public sealed class TestCaseDescriptor
     public bool RequiresTestOutput { get; init; }
 
     /// <summary>
-    /// Creates a new <see cref="TestCaseDescriptor"/> with the skip reason set.
+    /// Creates a copy of the current <see cref="TestCaseDescriptor"/> with updated skip-related properties.
     /// </summary>
     /// <param name="reason">The reason for skipping the test.</param>
-    /// <returns>A new instance with <see cref="IsSkipped"/> set to <c>true</c> and <see cref="SkipReason"/> set.</returns>
+    /// <returns>
+    /// A new instance that preserves all properties of the current descriptor, but with
+    /// <see cref="IsSkipped"/> set to <c>true</c> and <see cref="SkipReason"/> set to
+    /// the specified <paramref name="reason"/>.
+    /// </returns>
     public TestCaseDescriptor WithSkipReason(string reason) => new()
     {
         Id = Id,
