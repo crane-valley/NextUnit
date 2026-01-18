@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using NextUnit.Core;
 
 namespace NextUnit.Internal;
@@ -92,7 +93,8 @@ internal sealed class NullTestContext : ITestContext
     public static readonly NullTestContext Instance = new();
 
     private static readonly IReadOnlyList<string> EmptyStringList = Array.Empty<string>();
-    private static readonly IDictionary<string, object?> EmptyStateBag = new Dictionary<string, object?>();
+    private static readonly IDictionary<string, object?> EmptyStateBag =
+        new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());
 
     private NullTestContext() { }
 

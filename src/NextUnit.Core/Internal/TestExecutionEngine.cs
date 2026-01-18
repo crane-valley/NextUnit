@@ -279,7 +279,7 @@ public sealed class TestExecutionEngine
             : null;
         var effectiveToken = linkedCts?.Token ?? cancellationToken;
 
-        // Create test output capture if needed (always create for test context)
+        // Always create test output capture to support ITestOutput injection and ITestContext.Output access
         var testOutput = new TestOutputCapture();
 
         // Always create test context for static TestContext.Current access
@@ -306,6 +306,7 @@ public sealed class TestExecutionEngine
             // 2. (ITestContext) - only context
             // 3. (ITestOutput) - only output (backwards compatible)
             // 4. () - parameterless
+            // If none of the above constructors are available, falls back to Activator.CreateInstance.
             var instance = CreateTestInstance(testCase.TestClass, testOutput, testContext);
 
             try
