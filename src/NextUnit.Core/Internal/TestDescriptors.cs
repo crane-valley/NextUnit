@@ -194,6 +194,11 @@ public sealed class TestCaseDescriptor
     public bool RequiresTestOutput { get; init; }
 
     /// <summary>
+    /// Gets or initializes a value indicating whether the test class constructor requires an ITestContext parameter.
+    /// </summary>
+    public bool RequiresTestContext { get; init; }
+
+    /// <summary>
     /// Gets or initializes the timeout for the test in milliseconds, or <c>null</c> if no timeout is specified.
     /// </summary>
     public int? TimeoutMs { get; init; }
@@ -223,6 +228,7 @@ public sealed class TestCaseDescriptor
         Categories = Categories,
         Tags = Tags,
         RequiresTestOutput = RequiresTestOutput,
+        RequiresTestContext = RequiresTestContext,
         TimeoutMs = TimeoutMs
     };
 }
@@ -312,6 +318,11 @@ public sealed class TestDataDescriptor
     /// Gets or initializes a value indicating whether the test class constructor requires an ITestOutput parameter.
     /// </summary>
     public bool RequiresTestOutput { get; init; }
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test class constructor requires an ITestContext parameter.
+    /// </summary>
+    public bool RequiresTestContext { get; init; }
 
     /// <summary>
     /// Gets or initializes the timeout for the test in milliseconds, or <c>null</c> if no timeout is specified.
