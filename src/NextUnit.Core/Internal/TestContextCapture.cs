@@ -92,8 +92,8 @@ internal sealed class NullTestContext : ITestContext
     /// </summary>
     public static readonly NullTestContext Instance = new();
 
-    private static readonly IReadOnlyList<string> EmptyStringList = Array.Empty<string>();
-    private static readonly IDictionary<string, object?> EmptyStateBag =
+    private static readonly IReadOnlyList<string> _emptyStringList = Array.Empty<string>();
+    private static readonly IDictionary<string, object?> _emptyStateBag =
         new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());
 
     private NullTestContext() { }
@@ -111,10 +111,10 @@ internal sealed class NullTestContext : ITestContext
     public string FullyQualifiedName => "";
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> Categories => EmptyStringList;
+    public IReadOnlyList<string> Categories => _emptyStringList;
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> Tags => EmptyStringList;
+    public IReadOnlyList<string> Tags => _emptyStringList;
 
     /// <inheritdoc/>
     public object?[]? Arguments => null;
@@ -129,5 +129,5 @@ internal sealed class NullTestContext : ITestContext
     public ITestOutput Output => NullTestOutput.Instance;
 
     /// <inheritdoc/>
-    public IDictionary<string, object?> StateBag => EmptyStateBag;
+    public IDictionary<string, object?> StateBag => _emptyStateBag;
 }

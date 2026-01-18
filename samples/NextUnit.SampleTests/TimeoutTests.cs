@@ -15,7 +15,7 @@ public class TimeoutTests
 
     [Test]
     [Timeout(100)] // 100ms timeout - this test will timeout
-    public async Task TestWithTimeout_TimesOut()
+    public async Task TestWithTimeout_TimesOutAsync()
     {
         // This test will exceed the timeout and fail
         await Task.Delay(500); // Wait 500ms, exceeding the 100ms timeout
@@ -24,7 +24,7 @@ public class TimeoutTests
 
     [Test]
     [Timeout(2000)] // 2 seconds timeout
-    public async Task TestWithTimeout_AsyncPasses()
+    public async Task TestWithTimeout_AsyncPassesAsync()
     {
         // This async test should pass because it completes within the timeout
         await Task.Delay(100);
@@ -62,7 +62,7 @@ public class ClassLevelTimeoutTests
     }
 
     [Test]
-    public async Task AsyncTestInheritsClassTimeout()
+    public async Task AsyncTestInheritsClassTimeoutAsync()
     {
         // This async test also inherits the 3 second timeout from the class
         await Task.Delay(100);
