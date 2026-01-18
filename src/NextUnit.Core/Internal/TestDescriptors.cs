@@ -235,6 +235,16 @@ public sealed class TestCaseDescriptor
     public RetryInfo Retry { get; init; } = new();
 
     /// <summary>
+    /// Gets or initializes the custom display name template with optional placeholders ({0}, {1}, etc.).
+    /// </summary>
+    public string? CustomDisplayNameTemplate { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
+    /// </summary>
+    public Type? DisplayNameFormatterType { get; init; }
+
+    /// <summary>
     /// Creates a copy of the current <see cref="TestCaseDescriptor"/> with updated skip-related properties.
     /// </summary>
     /// <param name="reason">The reason for skipping the test.</param>
@@ -261,7 +271,9 @@ public sealed class TestCaseDescriptor
         RequiresTestOutput = RequiresTestOutput,
         RequiresTestContext = RequiresTestContext,
         TimeoutMs = TimeoutMs,
-        Retry = Retry
+        Retry = Retry,
+        CustomDisplayNameTemplate = CustomDisplayNameTemplate,
+        DisplayNameFormatterType = DisplayNameFormatterType
     };
 }
 
@@ -365,4 +377,14 @@ public sealed class TestDataDescriptor
     /// Gets or initializes the retry configuration for the test.
     /// </summary>
     public RetryInfo Retry { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the custom display name template with optional placeholders ({0}, {1}, etc.).
+    /// </summary>
+    public string? CustomDisplayNameTemplate { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
+    /// </summary>
+    public Type? DisplayNameFormatterType { get; init; }
 }

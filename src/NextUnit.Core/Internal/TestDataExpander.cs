@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace NextUnit.Internal;
@@ -124,7 +126,13 @@ public static class TestDataExpander
         // This handles cases where multiple [TestData] attributes point to identically named members on different classes
         var dataSourceType = descriptor.DataSourceType ?? descriptor.TestClass;
         var testId = $"{descriptor.BaseId}:{dataSourceType.FullName}.{descriptor.DataSourceName}[{index}]";
-        var displayName = BuildDisplayName(descriptor.DisplayName, arguments);
+        var displayName = BuildDisplayName(
+            descriptor.MethodName,
+            descriptor.CustomDisplayNameTemplate,
+            descriptor.DisplayNameFormatterType,
+            descriptor.TestClass,
+            arguments,
+            index);
 
         // Get the test method via reflection for creating the delegate
         // Specify parameter types to avoid AmbiguousMatchException when method is overloaded
@@ -157,12 +165,59 @@ public static class TestDataExpander
             Arguments = arguments,
             Categories = descriptor.Categories,
             Tags = descriptor.Tags,
-            RequiresTestOutput = descriptor.RequiresTestOutput
+            RequiresTestOutput = descriptor.RequiresTestOutput,
+            RequiresTestContext = descriptor.RequiresTestContext,
+            TimeoutMs = descriptor.TimeoutMs,
+            Retry = descriptor.Retry,
+            CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate,
+            DisplayNameFormatterType = descriptor.DisplayNameFormatterType
         };
     }
 
-    private static string BuildDisplayName(string methodName, object?[] arguments)
+    private static readonly ConcurrentDictionary<Type, IDisplayNameFormatter> _formatterCache = new();
+
+    private static string BuildDisplayName(
+        string methodName,
+        string? customDisplayNameTemplate,
+        Type? formatterType,
+        Type testClass,
+        object?[] arguments,
+        int argumentSetIndex)
     {
+        // Priority 1: Custom formatter
+        if (formatterType is not null)
+        {
+            try
+            {
+                var formatter = GetFormatter(formatterType);
+                var context = new DisplayNameContext
+                {
+                    MethodName = methodName,
+                    TestClass = testClass,
+                    Arguments = arguments,
+                    ArgumentSetIndex = argumentSetIndex
+                };
+                return formatter.Format(context);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Log formatter failure but continue with fallback to default display name
+                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.Message}");
+            }
+            catch (TargetInvocationException ex)
+            {
+                // Log formatter failure but continue with fallback to default display name
+                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.InnerException?.Message ?? ex.Message}");
+            }
+        }
+
+        // Priority 2: Custom template with placeholders
+        if (customDisplayNameTemplate is not null)
+        {
+            return FormatDisplayNameWithPlaceholders(customDisplayNameTemplate, arguments);
+        }
+
+        // Priority 3: Default formatting
         if (arguments.Length == 0)
         {
             return methodName;
@@ -170,6 +225,26 @@ public static class TestDataExpander
 
         var formattedArgs = string.Join(", ", arguments.Select(FormatArgument));
         return $"{methodName}({formattedArgs})";
+    }
+
+    private static IDisplayNameFormatter GetFormatter(Type formatterType)
+    {
+        return _formatterCache.GetOrAdd(formatterType, t =>
+            (IDisplayNameFormatter)Activator.CreateInstance(t)!);
+    }
+
+    private static string FormatDisplayNameWithPlaceholders(string template, object?[] arguments)
+    {
+        var result = template;
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var placeholder = $"{{{i}}}";
+            if (result.Contains(placeholder))
+            {
+                result = result.Replace(placeholder, FormatArgument(arguments[i]));
+            }
+        }
+        return result;
     }
 
     private static string FormatArgument(object? arg)
