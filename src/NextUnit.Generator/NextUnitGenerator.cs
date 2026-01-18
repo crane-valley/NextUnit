@@ -1334,22 +1334,25 @@ internal static class Program
         foreach (var attribute in symbol.GetAttributes())
         {
             // Check non-generic DisplayNameFormatterAttribute
-            if (IsAttribute(attribute, DisplayNameFormatterAttributeMetadataName))
+            if (IsAttribute(attribute, DisplayNameFormatterAttributeMetadataName) &&
+                attribute.ConstructorArguments.Length > 0 &&
+                attribute.ConstructorArguments[0].Value is INamedTypeSymbol formatterType)
             {
-                if (attribute.ConstructorArguments.Length > 0 &&
-                    attribute.ConstructorArguments[0].Value is INamedTypeSymbol formatterType)
-                {
-                    return formatterType.ToDisplayString(FullyQualifiedTypeFormat);
-                }
+                return formatterType.ToDisplayString(FullyQualifiedTypeFormat);
             }
 
             // Check generic DisplayNameFormatterAttribute<T>
             var attrClass = attribute.AttributeClass;
-            if (attrClass?.IsGenericType == true &&
-                attrClass.ConstructedFrom.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::NextUnit.DisplayNameFormatterAttribute<T>")
+            if (attrClass is { IsGenericType: true })
             {
-                var typeArg = attrClass.TypeArguments[0];
-                return typeArg.ToDisplayString(FullyQualifiedTypeFormat);
+                // Compare against unbound generic type using metadata name and namespace
+                var constructedFrom = attrClass.ConstructedFrom;
+                if (constructedFrom.MetadataName == "DisplayNameFormatterAttribute`1" &&
+                    constructedFrom.ContainingNamespace.ToDisplayString() == "NextUnit")
+                {
+                    var typeArg = attrClass.TypeArguments[0];
+                    return typeArg.ToDisplayString(FullyQualifiedTypeFormat);
+                }
             }
         }
 

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace NextUnit.Internal;
@@ -198,9 +199,10 @@ public static class TestDataExpander
                 };
                 return formatter.Format(context);
             }
-            catch
+            catch (Exception ex)
             {
-                // Fallback to default if formatter fails
+                // Log formatter failure but continue with fallback to default display name
+                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.Message}");
             }
         }
 

@@ -49,7 +49,7 @@ public sealed class DisplayNameFormatterAttribute : Attribute
         if (!typeof(IDisplayNameFormatter).IsAssignableFrom(formatterType))
         {
             throw new ArgumentException(
-                $"Type '{formatterType.FullName}' must implement IDisplayNameFormatter.",
+                $"Type '{formatterType.FullName}' must implement NextUnit.IDisplayNameFormatter.",
                 nameof(formatterType));
         }
 
