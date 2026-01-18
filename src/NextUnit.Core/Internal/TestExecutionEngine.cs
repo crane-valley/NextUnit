@@ -420,7 +420,7 @@ public sealed class TestExecutionEngine
                 }
             }
 
-            // Should not reach here, but handle edge case where all retries exhausted
+            // All retry attempts exhausted - report the last exception
             if (lastException is AssertionFailedException lastAssertionEx)
             {
                 await sink.ReportFailedAsync(testCase, lastAssertionEx, lastOutput).ConfigureAwait(false);
