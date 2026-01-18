@@ -282,24 +282,39 @@ public sealed class TestExecutionEngine
             ? Activator.CreateInstance(testCase.TestClass, testOutput)!
             : Activator.CreateInstance(testCase.TestClass)!;
 
+        // Create a combined cancellation token if timeout is specified
+        using var timeoutCts = testCase.TimeoutMs.HasValue
+            ? new CancellationTokenSource(testCase.TimeoutMs.Value)
+            : null;
+        using var linkedCts = timeoutCts is not null
+            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token)
+            : null;
+        var effectiveToken = linkedCts?.Token ?? cancellationToken;
+
         try
         {
             // Execute before lifecycle methods (test-scoped)
             foreach (var beforeMethod in testCase.Lifecycle.BeforeTestMethods)
             {
-                await beforeMethod(instance, cancellationToken).ConfigureAwait(false);
+                await beforeMethod(instance, effectiveToken).ConfigureAwait(false);
             }
 
             // Execute the test method
-            await testCase.TestMethod(instance, cancellationToken).ConfigureAwait(false);
+            await testCase.TestMethod(instance, effectiveToken).ConfigureAwait(false);
 
             // Execute after lifecycle methods (test-scoped)
             foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
             {
-                await afterMethod(instance, cancellationToken).ConfigureAwait(false);
+                await afterMethod(instance, effectiveToken).ConfigureAwait(false);
             }
 
             await sink.ReportPassedAsync(testCase, testOutput?.GetOutput()).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true && !cancellationToken.IsCancellationRequested)
+        {
+            // Timeout occurred (not external cancellation)
+            var timeoutEx = new TestTimeoutException(testCase.TimeoutMs!.Value);
+            await sink.ReportErrorAsync(testCase, timeoutEx, testOutput?.GetOutput()).ConfigureAwait(false);
         }
         catch (TestSkippedException ex)
         {
