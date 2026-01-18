@@ -494,7 +494,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **README.md** - Project overview and quick start
 
 ### Performance
-- **Test Discovery**: ~2ms for 86 tests (50x faster than xUnit)
+- **Test Discovery**: ~2ms for 86 tests
 - **Execution**: ~640ms for 86 tests (parallel execution)
 - **Per-test Overhead**: ~7ms average (includes test logic)
 - **Framework Memory**: ~5MB baseline

@@ -5,7 +5,7 @@ Welcome to NextUnit! This guide will help you get up and running with NextUnit i
 ## What is NextUnit?
 
 NextUnit is a modern, high-performance test framework for .NET that combines:
-- **Zero-reflection test execution** via source generators (50x faster discovery)
+- **Zero-reflection test execution** via source generators
 - **xUnit-style assertions** (familiar `Assert.Equal`, `Assert.True`, etc.)
 - **Fine-grained parallel execution** with `[ParallelLimit]` and `[NotInParallel]`
 - **Multi-scope lifecycle** (Test, Class, Assembly scopes)
@@ -348,7 +348,7 @@ public void PendingTest() { }
 |---------|-------|----------|
 | Test Attribute | `[Fact]` | `[Test]` |
 | Parameterized | `[Theory]` + `[InlineData]` | `[Test]` + `[Arguments]` |
-| Discovery | Reflection at runtime | Source generator (50x faster) |
+| Discovery | Reflection at runtime | Source generator (faster) |
 | Parallelism | Configurable, limited | Fine-grained with `[ParallelLimit]` |
 | Lifecycle | Constructor + `IDisposable` | Multi-scope `[Before]`/`[After]` |
 | AOT Support | Limited | Full Native AOT compatible |

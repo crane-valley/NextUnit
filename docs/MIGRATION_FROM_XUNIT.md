@@ -4,7 +4,7 @@ This guide helps you migrate your xUnit tests to NextUnit. The good news: NextUn
 
 ## Why Migrate to NextUnit?
 
-- **50x faster test discovery** - Source generators vs runtime reflection
+- **Faster test discovery** - Source generators vs runtime reflection
 - **Native AOT support** - Full trim compatibility
 - **Better parallel control** - Fine-grained `[ParallelLimit]` and `[NotInParallel]`
 - **Multi-scope lifecycle** - Test, Class, and Assembly scopes
@@ -508,7 +508,7 @@ public class AsyncTests
 | Parallelization | JSON config | `[ParallelLimit]`, `[NotInParallel]` |
 | Test Ordering | Third-party | `[DependsOn]` (built-in) |
 | Assertions | `Assert.*` | `Assert.*` (same!) |
-| Test Discovery | Runtime reflection | Source generator (50x faster) |
+| Test Discovery | Runtime reflection | Source generator (faster) |
 | Native AOT | Limited | Full support |
 
 ## Migration Tips

@@ -70,7 +70,7 @@ dotnet test
 
 ## Key Features
 
-- **Zero-reflection execution** - 50x faster test discovery via source generators
+- **Zero-reflection execution** - Fast test discovery via source generators
 - **Rich assertions** - Collections, strings, numerics with great error messages
 - **Multi-scope lifecycle** - Test, Class, Assembly scopes
 - **Parallel control** - `[ParallelLimit]`, `[NotInParallel]`
@@ -101,19 +101,10 @@ dotnet test
 |---------|-------|----------|
 | Test Attribute | `[Fact]` | `[Test]` (clearer) |
 | Parameterized | `[Theory]` + `[InlineData]` | `[Test]` + `[Arguments]` |
-| Discovery | Runtime reflection | Source generator (50x faster) |
+| Discovery | Runtime reflection | Source generator (faster) |
 | Parallelism | Limited control | Fine-grained with `[ParallelLimit]` |
 | Lifecycle | Constructor + `IDisposable` | Multi-scope `[Before]`/`[After]` |
 | AOT Support | Limited | Full Native AOT compatible |
-
-## Performance
-
-- **Test Discovery**: ~2ms for 1,000 tests (50x faster than xUnit)
-- **Execution**: ~540ms for 1,000 tests with parallel execution
-- **Per-test Overhead**: ~0.54ms per simple test
-- **Throughput**: 1,852 tests/second
-- **Framework Memory**: ~5MB baseline
-- **Zero reflection** in execution path
 
 ## Contributing
 
