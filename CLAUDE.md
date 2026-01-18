@@ -73,7 +73,77 @@ Commit message types:
 - `test:` - Adding or modifying tests
 - `chore:` - Build/tooling changes
 
-### 4. Release Workflow (Source Code Changes Only)
+### 4. Handling PR Review Comments
+
+When PR review comments are posted (by Copilot, github-code-quality bot, or humans):
+
+#### Step 1: Check for unresolved comments
+
+```bash
+# Get all original comments (not replies)
+gh api repos/crane-valley/NextUnit/pulls/<PR_NUMBER>/comments \
+  --jq '.[] | select(.in_reply_to_id == null) | {id, path, line, body: .body[0:200], user: .user.login}'
+```
+
+#### Step 2: Address the issues
+
+- If the comment points out a real issue, fix it in the code
+- Commit the fix with a clear message referencing the issue
+
+#### Step 3: Reply to each comment
+
+```bash
+# Reply to a specific comment
+gh api repos/crane-valley/NextUnit/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies \
+  -X POST -f body="Fixed in commit <SHA>. <explanation>"
+```
+
+Common reply patterns:
+- Fixed issue: `"Fixed in commit abc1234. <description of fix>"`
+- Intentional design: `"This is intentional. <explanation of why>"`
+- Already addressed: `"This is already using <solution>. <details>"`
+
+#### Step 4: Resolve review threads
+
+```bash
+# Get unresolved thread IDs
+gh api graphql -f query='
+query {
+  repository(owner: "crane-valley", name: "NextUnit") {
+    pullRequest(number: <PR_NUMBER>) {
+      reviewThreads(first: 50) {
+        nodes {
+          id
+          isResolved
+          comments(first: 1) {
+            nodes { body path }
+          }
+        }
+      }
+    }
+  }
+}' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | {id, path: .comments.nodes[0].path}'
+
+# Resolve a thread
+gh api graphql -f query='
+mutation {
+  resolveReviewThread(input: {threadId: "<THREAD_ID>"}) {
+    thread { isResolved }
+  }
+}'
+```
+
+#### Step 5: Verify completion
+
+```bash
+# Count remaining unresolved threads (should be 0)
+gh api graphql -f query='...' --jq '[...nodes[] | select(.isResolved == false)] | length'
+
+# Check CI status
+gh pr checks <PR_NUMBER>
+```
+
+### 5. Release Workflow (Source Code Changes Only)
 
 When source code (`.cs` files in `src/`) is modified, ask the user:
 
