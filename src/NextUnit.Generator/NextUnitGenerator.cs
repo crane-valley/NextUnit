@@ -92,6 +92,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var categories = GetCategories(methodSymbol, typeSymbol);
         var tags = GetTags(methodSymbol, typeSymbol);
         var requiresTestOutput = RequiresTestOutput(typeSymbol);
+        var requiresTestContext = RequiresTestContext(typeSymbol);
         var timeoutMs = GetTimeout(methodSymbol, typeSymbol);
 
         return new TestMethodDescriptor(
@@ -111,6 +112,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             tags,
             methodSymbol.IsStatic,
             requiresTestOutput,
+            requiresTestContext,
             timeoutMs);
     }
 
@@ -425,6 +427,7 @@ internal static class Program
         builder.AppendLine($"                Categories = {BuildStringArrayLiteral(test.Categories)},");
         builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)},");
         builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                RequiresTestContext = {test.RequiresTestContext.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")}");
         builder.AppendLine("            },");
     }
@@ -483,6 +486,7 @@ internal static class Program
         builder.AppendLine($"                Categories = {BuildStringArrayLiteral(test.Categories)},");
         builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)},");
         builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                RequiresTestContext = {test.RequiresTestContext.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")}");
 
         builder.AppendLine("            },");
@@ -1205,6 +1209,30 @@ internal static class Program
         return false;
     }
 
+    private static bool RequiresTestContext(INamedTypeSymbol typeSymbol)
+    {
+        // Only check public constructors since Activator.CreateInstance will only use public constructors
+        foreach (var constructor in typeSymbol.InstanceConstructors)
+        {
+            // Skip non-public constructors
+            if (constructor.DeclaredAccessibility != Accessibility.Public)
+            {
+                continue;
+            }
+
+            foreach (var parameter in constructor.Parameters)
+            {
+                var parameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                if (parameterType == ITestContextMetadataName)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private const string TestAttributeMetadataName = "global::NextUnit.TestAttribute";
     private const string BeforeAttributeMetadataName = "global::NextUnit.BeforeAttribute";
     private const string AfterAttributeMetadataName = "global::NextUnit.AfterAttribute";
@@ -1218,6 +1246,7 @@ internal static class Program
     private const string TagAttributeMetadataName = "global::NextUnit.TagAttribute";
     private const string TimeoutAttributeMetadataName = "global::NextUnit.TimeoutAttribute";
     private const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
+    private const string ITestContextMetadataName = "global::NextUnit.Core.ITestContext";
 
     private static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
@@ -1252,6 +1281,7 @@ internal static class Program
             ImmutableArray<string> tags,
             bool isStatic,
             bool requiresTestOutput,
+            bool requiresTestContext,
             int? timeoutMs)
         {
             Id = id;
@@ -1270,6 +1300,7 @@ internal static class Program
             Tags = tags;
             IsStatic = isStatic;
             RequiresTestOutput = requiresTestOutput;
+            RequiresTestContext = requiresTestContext;
             TimeoutMs = timeoutMs;
         }
 
@@ -1289,6 +1320,7 @@ internal static class Program
         public ImmutableArray<string> Tags { get; }
         public bool IsStatic { get; }
         public bool RequiresTestOutput { get; }
+        public bool RequiresTestContext { get; }
         public int? TimeoutMs { get; }
     }
 

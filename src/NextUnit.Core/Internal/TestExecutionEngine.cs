@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Reflection;
+using NextUnit.Core;
 
 namespace NextUnit.Internal;
 
@@ -156,10 +158,7 @@ public sealed class TestExecutionEngine
 
             // Use the first test class for assembly-level lifecycle
             var firstTestClass = testCases[0].TestClass;
-            var requiresTestOutput = testCases[0].RequiresTestOutput;
-            var assemblyInstance = requiresTestOutput
-                ? Activator.CreateInstance(firstTestClass, NullTestOutput.Instance)!
-                : Activator.CreateInstance(firstTestClass)!;
+            var assemblyInstance = CreateTestInstance(firstTestClass, NullTestOutput.Instance, NullTestContext.Instance);
 
             try
             {
@@ -204,10 +203,7 @@ public sealed class TestExecutionEngine
 
         // Use the first test class for assembly-level lifecycle
         var firstTestClass = testCases[0].TestClass;
-        var requiresTestOutput = testCases[0].RequiresTestOutput;
-        var assemblyInstance = requiresTestOutput
-            ? Activator.CreateInstance(firstTestClass, NullTestOutput.Instance)!
-            : Activator.CreateInstance(firstTestClass)!;
+        var assemblyInstance = CreateTestInstance(firstTestClass, NullTestOutput.Instance, NullTestContext.Instance);
 
         try
         {
@@ -274,14 +270,6 @@ public sealed class TestExecutionEngine
             return;
         }
 
-        // Create test output capture if needed
-        TestOutputCapture? testOutput = testCase.RequiresTestOutput ? new TestOutputCapture() : null;
-
-        // Create test instance (each test gets its own instance)
-        var instance = testCase.RequiresTestOutput
-            ? Activator.CreateInstance(testCase.TestClass, testOutput)!
-            : Activator.CreateInstance(testCase.TestClass)!;
-
         // Create a combined cancellation token if timeout is specified
         using var timeoutCts = testCase.TimeoutMs.HasValue
             ? new CancellationTokenSource(testCase.TimeoutMs.Value)
@@ -291,55 +279,182 @@ public sealed class TestExecutionEngine
             : null;
         var effectiveToken = linkedCts?.Token ?? cancellationToken;
 
+        // Always create test output capture to support ITestOutput injection and ITestContext.Output access
+        var testOutput = new TestOutputCapture();
+
+        // Always create test context for static TestContext.Current access
+        var testContext = new TestContextCapture(
+            testName: testCase.MethodName,
+            className: testCase.TestClass.Name,
+            assemblyName: testCase.TestClass.Assembly.GetName().Name ?? "",
+            fullyQualifiedName: testCase.Id.Value,
+            categories: testCase.Categories,
+            tags: testCase.Tags,
+            arguments: testCase.Arguments,
+            timeoutMs: testCase.TimeoutMs,
+            cancellationToken: effectiveToken,
+            output: testOutput);
+
+        // Set the test context for async-local access
+        TestContext.SetCurrent(testContext);
+
         try
         {
-            // Execute before lifecycle methods (test-scoped)
-            foreach (var beforeMethod in testCase.Lifecycle.BeforeTestMethods)
+            // Create test instance (each test gets its own instance)
+            // Constructor injection priority:
+            // 1. (ITestContext, ITestOutput) or (ITestOutput, ITestContext) - both
+            // 2. (ITestContext) - only context
+            // 3. (ITestOutput) - only output (backwards compatible)
+            // 4. () - parameterless
+            // If none of the above constructors are available, falls back to Activator.CreateInstance.
+            var instance = CreateTestInstance(testCase.TestClass, testOutput, testContext);
+
+            try
             {
-                await beforeMethod(instance, effectiveToken).ConfigureAwait(false);
+                // Execute before lifecycle methods (test-scoped)
+                foreach (var beforeMethod in testCase.Lifecycle.BeforeTestMethods)
+                {
+                    await beforeMethod(instance, effectiveToken).ConfigureAwait(false);
+                }
+
+                // Execute the test method
+                await testCase.TestMethod(instance, effectiveToken).ConfigureAwait(false);
+
+                // Execute after lifecycle methods (test-scoped)
+                foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
+                {
+                    await afterMethod(instance, effectiveToken).ConfigureAwait(false);
+                }
+
+                await sink.ReportPassedAsync(testCase, testOutput.GetOutput()).ConfigureAwait(false);
             }
-
-            // Execute the test method
-            await testCase.TestMethod(instance, effectiveToken).ConfigureAwait(false);
-
-            // Execute after lifecycle methods (test-scoped)
-            foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
+            catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true && !cancellationToken.IsCancellationRequested)
             {
-                await afterMethod(instance, effectiveToken).ConfigureAwait(false);
+                // Timeout occurred (not external cancellation)
+                var timeoutEx = new TestTimeoutException(testCase.TimeoutMs!.Value);
+                await sink.ReportErrorAsync(testCase, timeoutEx, testOutput.GetOutput()).ConfigureAwait(false);
             }
-
-            await sink.ReportPassedAsync(testCase, testOutput?.GetOutput()).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true && !cancellationToken.IsCancellationRequested)
-        {
-            // Timeout occurred (not external cancellation)
-            var timeoutEx = new TestTimeoutException(testCase.TimeoutMs!.Value);
-            await sink.ReportErrorAsync(testCase, timeoutEx, testOutput?.GetOutput()).ConfigureAwait(false);
-        }
-        catch (TestSkippedException ex)
-        {
-            // Runtime skip - use WithSkipReason to create a modified descriptor
-            await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message)).ConfigureAwait(false);
-        }
-        catch (AssertionFailedException ex)
-        {
-            await sink.ReportFailedAsync(testCase, ex, testOutput?.GetOutput()).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            await sink.ReportErrorAsync(testCase, ex, testOutput?.GetOutput()).ConfigureAwait(false);
+            catch (TestSkippedException ex)
+            {
+                // Runtime skip - use WithSkipReason to create a modified descriptor
+                await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message)).ConfigureAwait(false);
+            }
+            catch (AssertionFailedException ex)
+            {
+                await sink.ReportFailedAsync(testCase, ex, testOutput.GetOutput()).ConfigureAwait(false);
+            }
+            catch (OutOfMemoryException)
+            {
+                // Rethrow to preserve fail-fast behavior for critical exception types.
+                throw;
+            }
+            catch (StackOverflowException)
+            {
+                // Rethrow to preserve fail-fast behavior for critical exception types.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                await sink.ReportErrorAsync(testCase, ex, testOutput.GetOutput()).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (instance is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+                else if (instance is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                }
+            }
         }
         finally
         {
-            if (instance is IDisposable disposable)
+            // Always clear the test context, even if instance creation fails
+            TestContext.SetCurrent(null);
+        }
+    }
+
+    /// <summary>
+    /// Creates a test class instance with appropriate constructor injection.
+    /// </summary>
+    /// <param name="testClass">The type of test class to instantiate.</param>
+    /// <param name="testOutput">The test output capture to inject into the constructor.</param>
+    /// <param name="testContext">The test context capture to inject into the constructor.</param>
+    /// <returns>A new instance of the test class.</returns>
+    private static object CreateTestInstance(Type testClass, ITestOutput testOutput, ITestContext testContext)
+    {
+        // Find the best matching constructor in a single pass
+        // Priority: 2-param > 1-param ITestContext > 1-param ITestOutput > parameterless
+        var constructors = testClass.GetConstructors();
+
+        ConstructorInfo? twoParamCtor = null;
+        bool twoParamContextFirst = false;
+        ConstructorInfo? contextOnlyCtor = null;
+        ConstructorInfo? outputOnlyCtor = null;
+        ConstructorInfo? parameterlessCtor = null;
+
+        foreach (var ctor in constructors)
+        {
+            var parameters = ctor.GetParameters();
+
+            switch (parameters.Length)
             {
-                disposable.Dispose();
-            }
-            else if (instance is IAsyncDisposable asyncDisposable)
-            {
-                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                case 0:
+                    parameterlessCtor = ctor;
+                    break;
+                case 1:
+                    if (parameters[0].ParameterType == typeof(ITestContext))
+                    {
+                        contextOnlyCtor = ctor;
+                    }
+                    else if (parameters[0].ParameterType == typeof(ITestOutput))
+                    {
+                        outputOnlyCtor = ctor;
+                    }
+                    break;
+                case 2:
+                    var param0Type = parameters[0].ParameterType;
+                    var param1Type = parameters[1].ParameterType;
+                    if (param0Type == typeof(ITestContext) && param1Type == typeof(ITestOutput))
+                    {
+                        twoParamCtor = ctor;
+                        twoParamContextFirst = true;
+                    }
+                    else if (param0Type == typeof(ITestOutput) && param1Type == typeof(ITestContext))
+                    {
+                        twoParamCtor = ctor;
+                        twoParamContextFirst = false;
+                    }
+                    break;
             }
         }
+
+        // Return based on priority
+        if (twoParamCtor is not null)
+        {
+            return twoParamContextFirst
+                ? twoParamCtor.Invoke([testContext, testOutput])
+                : twoParamCtor.Invoke([testOutput, testContext]);
+        }
+
+        if (contextOnlyCtor is not null)
+        {
+            return contextOnlyCtor.Invoke([testContext]);
+        }
+
+        if (outputOnlyCtor is not null)
+        {
+            return outputOnlyCtor.Invoke([testOutput]);
+        }
+
+        if (parameterlessCtor is not null)
+        {
+            return parameterlessCtor.Invoke([]);
+        }
+
+        return Activator.CreateInstance(testClass)!;
     }
 
     /// <summary>
@@ -352,9 +467,7 @@ public sealed class TestExecutionEngine
         // Get or create class context (thread-safe)
         var context = _classContexts.GetOrAdd(testClass, _ =>
         {
-            var instance = testCase.RequiresTestOutput
-                ? Activator.CreateInstance(testClass, NullTestOutput.Instance)!
-                : Activator.CreateInstance(testClass)!;
+            var instance = CreateTestInstance(testClass, NullTestOutput.Instance, NullTestContext.Instance);
 
             return new ClassExecutionContext
             {

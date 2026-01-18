@@ -31,6 +31,9 @@ Before committing, always run:
 # Build verification
 dotnet build
 
+# Format check (ensure code style compliance)
+dotnet format --verify-no-changes
+
 # Run tests
 dotnet test samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
 dotnet test samples/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests.csproj
