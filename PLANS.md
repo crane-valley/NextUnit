@@ -10,7 +10,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 | Version | Key Features |
 |---------|-------------|
-| 1.6.x | VSTest adapter, Visual Studio Test Explorer, rich failure messages, advanced CLI filtering |
+| 1.6.x | VSTest adapter, Visual Studio Test Explorer, rich failure messages, advanced CLI filtering, `[Timeout]` attribute |
 | 1.5.x | Predicate-based collection assertions, xUnit API compatibility |
 | 1.4.x | Performance benchmarks, BenchmarkDotNet integration |
 | 1.3.x | Test output capture (ITestOutput) |
@@ -27,156 +27,186 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Priority 1: Core Enhancements
 
 #### 1.1 Runtime Test Skipping
-**Status**: Completed
-**Goal**: Allow conditional test skipping at runtime
+**Status**: Completed (v1.6.7)
 
 - [x] `Assert.Skip(reason)` - Skip test during execution with reason
 - [x] `Assert.SkipWhen(condition, reason)` - Conditional skip
 - [x] `Assert.SkipUnless(condition, reason)` - Inverse conditional skip
-- [x] Platform-specific skipping helpers (`SkipOnWindows`, `SkipOnLinux`, `SkipOnMacOS`, `SkipOnFreeBSD`)
-- [x] Skip reason displayed in test results
+- [x] Platform-specific skipping helpers
 - [x] `TestSkippedException` for runtime skip handling
 
-#### 1.2 Test Context Injection
-**Status**: Not Started
-**Goal**: Provide runtime test information to tests
-
-- `ITestContext` interface with test name, class, assembly info
-- Inject via constructor alongside `ITestOutput`
-- Access to test properties, categories, and tags at runtime
-- Current test timeout and cancellation token
-
-#### 1.3 Retry and Flaky Test Support
-**Status**: Not Started
-**Goal**: Handle intermittent test failures gracefully
-
-- `[Retry(count)]` attribute for automatic retry on failure
-- `[Flaky]` attribute to mark known flaky tests
-- Retry statistics in test reports
-- Configurable retry delay
-
-#### 1.4 Timeout Support
-**Status**: Completed
-**Goal**: Prevent hung tests from blocking execution
+#### 1.2 Timeout Support
+**Status**: Completed (v1.6.8)
 
 - [x] `[Timeout(milliseconds)]` attribute per test
 - [x] Class-level timeout defaults (method-level overrides class-level)
 - [x] Graceful cancellation with cleanup via CancellationToken
 - [x] `TestTimeoutException` for clear timeout reporting
 
-### Priority 2: Developer Experience
-
-#### 2.1 Watch Mode
+#### 1.3 Test Context Injection
 **Status**: Not Started
-**Goal**: Automatically re-run tests on file changes
+**Goal**: Provide runtime test information to tests
 
-- `--watch` CLI flag for continuous test execution
-- Smart test selection (run affected tests only)
-- File change debouncing
-- Interactive filter during watch mode
+- [ ] `ITestContext` interface with test name, class, assembly info
+- [ ] Static `TestContext.Current` for async-local access
+- [ ] Inject via constructor alongside `ITestOutput`
+- [ ] Access to test properties, categories, and tags at runtime
+- [ ] Current test timeout and cancellation token
+- [ ] `StateBag` for test-scoped data storage
 
-#### 2.2 Code Coverage Integration
+#### 1.4 Retry and Flaky Test Support
 **Status**: Not Started
-**Goal**: Built-in code coverage support
+**Goal**: Handle intermittent test failures gracefully
 
-- Integration with coverlet
-- `--coverage` CLI flag
-- Coverage report generation (Cobertura, OpenCover)
-- Coverage thresholds and enforcement
+- [ ] `[Retry(count)]` attribute for automatic retry on failure
+- [ ] `[Retry(count, delayMs)]` with configurable delay
+- [ ] Conditional retry via `ShouldRetry()` virtual method
+- [ ] Retry statistics in test reports
+- [ ] `[Flaky]` attribute to mark known flaky tests
 
-#### 2.3 HTML/JSON Report Generation
+#### 1.5 Display Name Customization
 **Status**: Not Started
-**Goal**: Rich test reports without external tools
+**Goal**: Custom test names in Test Explorer
 
-- `--report html` for standalone HTML report
-- `--report json` for machine-readable output
-- Test execution timeline visualization
-- Failure screenshots/attachments support
+- [ ] `[DisplayName("Custom name")]` attribute
+- [ ] `[DisplayNameFormatter<T>]` for custom formatting logic
+- [ ] Support for parameterized test display names
 
-#### 2.4 Performance Regression Detection
-**Status**: Not Started
-**Goal**: Catch performance degradation early
-
-- `[Benchmark]` attribute for performance-critical tests
-- Baseline comparison with previous runs
-- Configurable tolerance thresholds
-- Integration with BenchmarkDotNet
-
-### Priority 3: Ecosystem Integration
-
-#### 3.1 .NET Aspire Testing Support
-**Status**: Not Started
-**Goal**: First-class support for distributed app testing
-
-- Aspire AppHost integration
-- Service dependency management
-- Distributed tracing in test results
-- Resource cleanup coordination
-
-#### 3.2 Container Testing Support
-**Status**: Not Started
-**Goal**: Simplified Docker/container testing
-
-- `[RequiresDocker]` attribute
-- Testcontainers integration examples
-- Container lifecycle management
-- Port mapping and networking helpers
-
-#### 3.3 Database Testing Helpers
-**Status**: Not Started
-**Goal**: Simplify database integration testing
-
-- Transaction rollback per test
-- In-memory database auto-configuration
-- Database seeding utilities
-- EF Core integration patterns
-
-#### 3.4 HTTP Testing Utilities
-**Status**: Not Started
-**Goal**: Streamlined API testing
-
-- `WebApplicationFactory` integration
-- Request/response assertion helpers
-- Mock HTTP handler utilities
-- OpenAPI contract testing
-
-### Priority 4: Advanced Features
-
-#### 4.1 Test Data Generators
-**Status**: Not Started
-**Goal**: Reduce boilerplate for test data creation
-
-- `[AutoGenerate]` attribute for auto-generated test data
-- Faker/Bogus integration
-- Custom generator support
-- Reproducible random seeds
-
-#### 4.2 Snapshot Testing
-**Status**: Not Started
-**Goal**: Verify complex output against stored snapshots
-
-- `Assert.MatchesSnapshot(value)` for JSON/text/object comparison
-- Automatic snapshot creation on first run
-- Snapshot update workflow
-- Diff visualization on mismatch
-
-#### 4.3 Parallel Test Collections
+#### 1.6 Enhanced Parallel Control
 **Status**: Not Started
 **Goal**: Fine-grained parallelism control
 
-- `[TestCollection("name")]` to group tests
-- Collections run serially with each other
-- Per-collection parallel limits
-- Resource isolation between collections
+- [ ] `[NotInParallel("constraintKey")]` - Constraint-based resource locking
+- [ ] Multiple constraint keys: `[NotInParallel("Database", "FileSystem")]`
+- [ ] `[ParallelGroup("groupName")]` - Exclusive group execution
+- [ ] `[DependsOn(..., ProceedOnFailure = true)]` - Continue despite failures
 
-#### 4.4 Test Ordering Extensions
+### Priority 2: Advanced Data Sources
+
+#### 2.1 Matrix Data Source
 **Status**: Not Started
-**Goal**: More flexible test ordering options
+**Goal**: Cartesian product of test parameters
 
-- `[RunFirst]` / `[RunLast]` attributes
-- Priority-based ordering
-- Alphabetical ordering option
-- Random ordering for isolation verification
+- [ ] `[Matrix(1, 2, 3)]` attribute for parameter values
+- [ ] `[MatrixDataSource]` to enable matrix generation
+- [ ] `[MatrixExclusion(1, "a")]` to skip specific combinations
+- [ ] `[MatrixSourceMethod(nameof(Method))]` for dynamic values
+- [ ] `[MatrixSourceRange(1, 10, step: 2)]` for numeric ranges
+
+#### 2.2 Class Data Source
+**Status**: Not Started
+**Goal**: Type-safe class-based test data
+
+- [ ] `[ClassDataSource<T>]` for single type
+- [ ] `[ClassDataSource<T1, T2>]` through `[ClassDataSource<T1, T2, T3, T4>]`
+- [ ] Shared/keyed instance support
+- [ ] AOT-compatible implementation
+
+#### 2.3 Combined Data Sources
+**Status**: Not Started
+**Goal**: Mix different data sources per parameter
+
+- [ ] `[CombinedDataSources]` to enable mixing
+- [ ] Automatic Cartesian product of different sources
+- [ ] Nested data source support
+
+### Priority 3: Developer Experience
+
+#### 3.1 Roslyn Analyzers
+**Status**: Not Started
+**Goal**: Catch common mistakes at compile time
+
+- [ ] `NU0001`: Async void test methods
+- [ ] `NU0002`: Missing `[Test]` attribute on public methods
+- [ ] `NU0003`: Invalid data source references
+- [ ] `NU0004`: DependsOn circular dependency detection
+- [ ] `NU0005`: Invalid lifecycle hook placement
+- [ ] `NU0006`: Console.WriteLine usage (suggest ITestOutput)
+- [ ] `NU0007`: Disposable field not disposed
+- [ ] `NU0008`: AOT compatibility issues
+- [ ] Code fixers for common violations
+
+#### 3.2 Test Repeat Support
+**Status**: Not Started
+**Goal**: Run tests multiple times
+
+- [ ] `[Repeat(count)]` attribute
+- [ ] Repeat index available via `TestContext`
+- [ ] Aggregate results across repeats
+
+#### 3.3 Test Execution Priority
+**Status**: Not Started
+**Goal**: Control test execution order
+
+- [ ] `[ExecutionPriority(int)]` attribute
+- [ ] Higher priority runs first
+- [ ] Combine with `[DependsOn]` for complex ordering
+
+#### 3.4 Explicit Tests
+**Status**: Not Started
+**Goal**: Tests only run when explicitly selected
+
+- [ ] `[Explicit]` attribute to exclude from default runs
+- [ ] `[Explicit("reason")]` with explanation
+- [ ] Run with `--explicit` CLI flag
+
+#### 3.5 Test Artifacts
+**Status**: Not Started
+**Goal**: Attach files to test results
+
+- [ ] `TestContext.AttachArtifact(path)` method
+- [ ] `TestContext.AttachArtifact(Artifact)` with metadata
+- [ ] Support for screenshots, logs, videos
+- [ ] Display in Test Explorer
+
+#### 3.6 Watch Mode
+**Status**: Not Started
+**Goal**: Automatically re-run tests on file changes
+
+- [ ] `--watch` CLI flag for continuous test execution
+- [ ] Smart test selection (run affected tests only)
+- [ ] File change debouncing
+- [ ] Interactive filter during watch mode
+
+### Priority 4: Ecosystem Integration
+
+#### 4.1 ASP.NET Core Integration Package
+**Status**: Not Started
+**Goal**: First-class web application testing
+
+- [ ] `NextUnit.AspNetCore` NuGet package
+- [ ] `WebApplicationTest<TEntryPoint>` base class
+- [ ] Auto-configured `HttpClient`
+- [ ] Dependency injection in tests
+- [ ] `TestWebApplicationFactory` utilities
+
+#### 4.2 Playwright Integration Package
+**Status**: Not Started
+**Goal**: Browser testing support
+
+- [ ] `NextUnit.Playwright` NuGet package
+- [ ] `BrowserTest`, `ContextTest`, `PageTest` base classes
+- [ ] Browser lifecycle management
+- [ ] Screenshot capture on failure
+- [ ] Trace recording
+
+#### 4.3 Project Templates
+**Status**: Not Started
+**Goal**: Quick project scaffolding
+
+- [ ] `NextUnit.Templates` NuGet package
+- [ ] `dotnet new nextunit` - Basic test project
+- [ ] `dotnet new nextunit-aspnet` - ASP.NET Core testing
+- [ ] `dotnet new nextunit-playwright` - Browser testing
+
+#### 4.4 .NET Aspire Testing Support
+**Status**: Not Started
+**Goal**: Distributed app testing
+
+- [ ] Aspire AppHost integration
+- [ ] Service dependency management
+- [ ] Distributed tracing in test results
+- [ ] Resource cleanup coordination
 
 ### Priority 5: Documentation & Community
 
@@ -200,46 +230,77 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] Minimal API testing
 - [ ] gRPC service testing
 
-#### 5.3 Video Tutorials
+#### 5.3 Documentation Site
 **Status**: Not Started
-**Goal**: Visual learning resources
+**Goal**: Comprehensive documentation
 
-- Getting started walkthrough
-- Advanced features deep dive
-- Migration from xUnit tutorial
-- Performance optimization guide
+- [ ] Docusaurus or similar static site
+- [ ] API reference (auto-generated)
+- [ ] Interactive examples
+- [ ] Search functionality
 
-### Priority 6: Development Infrastructure
+### Priority 6: CI/CD Infrastructure
 
-#### 6.1 Local Markdownlint Setup
+#### 6.1 Enhanced Benchmark Workflow
+**Status**: Partial
+**Goal**: Comprehensive performance tracking
+
+- [x] Weekly benchmark workflow
+- [ ] Daily benchmark execution
+- [ ] Historical trend tracking (`historical.json`)
+- [ ] AOT build benchmarks
+- [ ] Automatic documentation generation from results
+- [ ] Benchmark results in PR comments
+
+#### 6.2 Security Scanning
 **Status**: Not Started
-**Goal**: Catch markdown formatting issues before CI
+**Goal**: Automated security analysis
 
-- Add `.markdownlint.json` configuration file
-- Add npm scripts or dotnet tool for local execution
-- Document setup in CONTRIBUTING.md
-- Consider pre-commit hook integration
+- [ ] CodeQL workflow for security scanning
+- [ ] Dependency vulnerability scanning
+- [ ] SBOM generation
+
+#### 6.3 Multi-Locale Testing
+**Status**: Not Started
+**Goal**: Ensure locale-independent behavior
+
+- [ ] Test execution with different locales
+- [ ] `[Culture("ja-JP")]` attribute for locale-specific tests
+- [ ] `[InvariantCulture]` for locale-independent tests
 
 ---
 
 ## Implementation Timeline
 
-### Near-Term (Next Release)
-1. ~~Runtime test skipping (`Assert.Skip`)~~ - **Completed**
-2. ~~Timeout support~~ - **Completed**
-3. Watch mode (basic)
+### Q1 2026 (Current)
+1. ~~Runtime test skipping~~ - **Completed** (v1.6.7)
+2. ~~Timeout support~~ - **Completed** (v1.6.8)
+3. **Test Context Injection** - In Progress
+4. **Retry support** - Next
 
-### Mid-Term (Q2 2026)
-1. Test context injection
-2. Retry support
-3. Code coverage integration
-4. HTML/JSON reports
+### Q2 2026
+1. Display name customization
+2. Enhanced parallel control (constraint keys)
+3. Matrix data sources
+4. Basic Roslyn analyzers (5-10 rules)
 
-### Long-Term (Q3-Q4 2026)
+### Q3 2026
+1. Class data sources
+2. Combined data sources
+3. Test artifacts
+4. ASP.NET Core integration package
+
+### Q4 2026
+1. Playwright integration
+2. Project templates
+3. Documentation site
+4. Additional analyzers (20+ rules)
+
+### 2027
 1. .NET Aspire integration
-2. Snapshot testing
-3. Auto-generated test data
-4. Migration tool
+2. Watch mode
+3. Property-based testing (FsCheck integration)
+4. Complete feature set
 
 ---
 
@@ -252,6 +313,8 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 | NUnit     | 6.28ms        | 159       | 2.3x slower |
 | xUnit     | 6.64ms        | 150       | 2.4x slower |
 
+**Note**: NextUnit's source-generator architecture significantly outperforms reflection-based frameworks.
+
 **See**: [tools/speed-comparison/results/BENCHMARK_RESULTS.md](tools/speed-comparison/results/BENCHMARK_RESULTS.md)
 
 ---
@@ -260,9 +323,22 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 We welcome contributions! Priority areas:
 
-1. **Good First Issues**: Documentation improvements, sample projects
-2. **Medium**: New assertion methods, CLI enhancements
-3. **Advanced**: Watch mode, code coverage integration
+### Good First Issues
+- Documentation improvements
+- Sample projects
+- Migration guides (NUnit, MSTest)
+
+### Medium Complexity
+- `[DisplayName]` attribute
+- `[Repeat]` attribute
+- `[Explicit]` attribute
+- Basic analyzers
+
+### Advanced
+- Test context injection
+- Matrix data sources
+- Roslyn analyzers with code fixers
+- ASP.NET Core integration
 
 **See**: [README.md#contributing](README.md#contributing)
 
@@ -279,4 +355,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-18
-**Next Focus**: Watch mode, test context injection
+**Next Focus**: Test Context Injection, Retry Support
