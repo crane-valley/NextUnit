@@ -49,6 +49,7 @@ public sealed class TestExecutionEngine
     private readonly ConcurrentDictionary<Type, ClassExecutionContext> _classContexts = new();
     private readonly SemaphoreSlim _assemblySetupLock = new(1, 1);
     private bool _assemblySetupExecuted;
+    private string? _assemblySkipReason;
     private readonly List<LifecycleMethodDelegate> _assemblyBeforeMethods = new();
     private readonly List<LifecycleMethodDelegate> _assemblyAfterMethods = new();
 
@@ -160,9 +161,17 @@ public sealed class TestExecutionEngine
                 ? Activator.CreateInstance(firstTestClass, NullTestOutput.Instance)!
                 : Activator.CreateInstance(firstTestClass)!;
 
-            foreach (var beforeMethod in _assemblyBeforeMethods)
+            try
             {
-                await beforeMethod(assemblyInstance, cancellationToken).ConfigureAwait(false);
+                foreach (var beforeMethod in _assemblyBeforeMethods)
+                {
+                    await beforeMethod(assemblyInstance, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (TestSkippedException ex)
+            {
+                // Assembly setup requested skip - all tests will be skipped
+                _assemblySkipReason = ex.Message;
             }
 
             // Dispose the temporary instance
@@ -233,10 +242,17 @@ public sealed class TestExecutionEngine
         ITestExecutionSink sink,
         CancellationToken cancellationToken)
     {
-        // Check if test is skipped
+        // Check if test is skipped (compile-time)
         if (testCase.IsSkipped)
         {
             await sink.ReportSkippedAsync(testCase).ConfigureAwait(false);
+            return;
+        }
+
+        // Check if assembly setup requested skip
+        if (_assemblySkipReason is not null)
+        {
+            await sink.ReportSkippedAsync(testCase.WithSkipReason(_assemblySkipReason)).ConfigureAwait(false);
             return;
         }
 
@@ -250,6 +266,13 @@ public sealed class TestExecutionEngine
 
         // Execute class-level setup if not already done
         await EnsureClassSetupAsync(testCase, cancellationToken).ConfigureAwait(false);
+
+        // Check if class setup requested skip
+        if (_classContexts.TryGetValue(testCase.TestClass, out var classContext) && classContext.SkipReason is not null)
+        {
+            await sink.ReportSkippedAsync(testCase.WithSkipReason(classContext.SkipReason)).ConfigureAwait(false);
+            return;
+        }
 
         // Create test output capture if needed
         TestOutputCapture? testOutput = testCase.RequiresTestOutput ? new TestOutputCapture() : null;
@@ -277,6 +300,11 @@ public sealed class TestExecutionEngine
             }
 
             await sink.ReportPassedAsync(testCase, testOutput?.GetOutput()).ConfigureAwait(false);
+        }
+        catch (TestSkippedException ex)
+        {
+            // Runtime skip - use WithSkipReason to create a modified descriptor
+            await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message)).ConfigureAwait(false);
         }
         catch (AssertionFailedException ex)
         {
@@ -328,9 +356,17 @@ public sealed class TestExecutionEngine
             // Execute BeforeClass methods if not already done
             if (!context.SetupExecuted)
             {
-                foreach (var beforeClassMethod in testCase.Lifecycle.BeforeClassMethods)
+                try
                 {
-                    await beforeClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
+                    foreach (var beforeClassMethod in testCase.Lifecycle.BeforeClassMethods)
+                    {
+                        await beforeClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
+                    }
+                }
+                catch (TestSkippedException ex)
+                {
+                    // Class setup requested skip - all tests in this class will be skipped
+                    context.SkipReason = ex.Message;
                 }
                 context.SetupExecuted = true;
             }
@@ -391,6 +427,7 @@ public sealed class TestExecutionEngine
         public object Instance { get; init; } = null!;
         public LifecycleInfo Lifecycle { get; init; } = null!;
         public bool SetupExecuted { get; set; }
+        public string? SkipReason { get; set; }
         public SemaphoreSlim SetupLock { get; init; } = null!;
     }
 }

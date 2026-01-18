@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.6.6 (Stable)
+## Current Version: 1.6.7 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -27,13 +27,15 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Priority 1: Core Enhancements
 
 #### 1.1 Runtime Test Skipping
-**Status**: Not Started
+**Status**: Completed
 **Goal**: Allow conditional test skipping at runtime
 
-- `Assert.Skip(reason)` - Skip test during execution with reason
-- `Assert.SkipWhen(condition, reason)` - Conditional skip
-- Platform-specific skipping helpers (`SkipOnWindows`, `SkipOnLinux`, etc.)
-- Skip reason displayed in test results
+- [x] `Assert.Skip(reason)` - Skip test during execution with reason
+- [x] `Assert.SkipWhen(condition, reason)` - Conditional skip
+- [x] `Assert.SkipUnless(condition, reason)` - Inverse conditional skip
+- [x] Platform-specific skipping helpers (`SkipOnWindows`, `SkipOnLinux`, `SkipOnMacOS`, `SkipOnFreeBSD`)
+- [x] Skip reason displayed in test results
+- [x] `TestSkippedException` for runtime skip handling
 
 #### 1.2 Test Context Injection
 **Status**: Not Started
@@ -223,7 +225,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ## Implementation Timeline
 
 ### Near-Term (Next Release)
-1. Runtime test skipping (`Assert.Skip`)
+1. ~~Runtime test skipping (`Assert.Skip`)~~ - **Completed**
 2. Timeout support
 3. Watch mode (basic)
 
@@ -277,4 +279,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-18
-**Next Focus**: Runtime test skipping, timeout support
+**Next Focus**: Timeout support, watch mode

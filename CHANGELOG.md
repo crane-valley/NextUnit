@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.7] - 2026-01-18
+
+### Added - Runtime Test Skipping
+
+- **Assert.Skip(reason)** - Skip test during execution
+- **Assert.SkipWhen(condition, reason)** - Skip when condition is true
+- **Assert.SkipUnless(condition, reason)** - Skip when condition is false
+- **Platform-specific skip helpers**:
+  - `Assert.SkipOnWindows(reason?)`
+  - `Assert.SkipOnLinux(reason?)`
+  - `Assert.SkipOnMacOS(reason?)`
+  - `Assert.SkipOnFreeBSD(reason?)`
+- **TestSkippedException** - Exception type for runtime skip
+- Skip reason displayed in VSTest and Microsoft.Testing.Platform
+
 ## [1.6.6] - 2026-01-14
 
 ### Fixed
