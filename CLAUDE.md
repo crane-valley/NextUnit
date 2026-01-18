@@ -250,6 +250,34 @@ Verify `.github/workflows/release.yml` includes all packages in:
 - Run via `dotnet run`
 - Still supported for advanced scenarios
 
+## Development Principles
+
+### Code Quality and Maintainability
+
+- **Proactive Refactoring**: Actively refactor design and implementation to improve maintainability. Don't hesitate to reorganize code structure when it improves clarity.
+- **Delete Unused Code**: Remove dead code, unused imports, and obsolete implementations immediately.
+- **Consistent Patterns**: Follow established patterns throughout the codebase.
+
+### Documentation Synchronization
+
+- **Documentation Must Match Implementation**: Keep all documentation (README.md, docs/, XML comments) synchronized with the actual implementation.
+- **Remove Outdated Documentation**: Delete documentation that no longer reflects reality. Outdated docs are worse than no docs.
+- **Update Immediately**: When implementation changes, update related documentation in the same commit.
+- **Files to Keep in Sync**:
+  - `README.md` - Overview and quick start
+  - `PLANS.md` - Mark completed features
+  - `CHANGELOG.md` - Version history
+  - `docs/` - Detailed guides
+  - XML comments in source code
+
+### Performance Optimization
+
+- **Zero-Reflection Architecture**: Maintain the source generator approach for compile-time test discovery.
+- **Avoid Runtime Overhead**: Prefer compile-time processing over runtime reflection.
+- **Benchmark Regularly**: Use `tools/speed-comparison/` to verify performance.
+- **Memory Efficiency**: Minimize allocations in hot paths (test execution engine).
+- **Lazy Initialization**: Only create resources when needed.
+
 ## File Locations
 
 - Solution file: `NextUnit.slnx`

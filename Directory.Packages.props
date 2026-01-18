@@ -4,11 +4,11 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- NextUnit Packages -->
-    <PackageVersion Include="NextUnit" Version="1.6.8" />
-    <PackageVersion Include="NextUnit.Core" Version="1.6.8" />
-    <PackageVersion Include="NextUnit.Generator" Version="1.6.8" />
-    <PackageVersion Include="NextUnit.Platform" Version="1.6.8" />
-    <PackageVersion Include="NextUnit.TestAdapter" Version="1.6.8" />
+    <PackageVersion Include="NextUnit" Version="1.6.9" />
+    <PackageVersion Include="NextUnit.Core" Version="1.6.9" />
+    <PackageVersion Include="NextUnit.Generator" Version="1.6.9" />
+    <PackageVersion Include="NextUnit.Platform" Version="1.6.9" />
+    <PackageVersion Include="NextUnit.TestAdapter" Version="1.6.9" />
     <PackageVersion Include="Microsoft.TestPlatform.ObjectModel" Version="18.0.1" />
     
     <!-- External Dependencies -->

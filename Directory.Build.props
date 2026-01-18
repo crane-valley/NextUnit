@@ -29,7 +29,7 @@
 
   <!-- Shared Package Metadata -->
   <PropertyGroup>
-    <Version>1.6.8</Version>
+    <Version>1.6.9</Version>
     <Authors>NextUnit Contributors</Authors>
     <Company>NextUnit</Company>
     <Product>NextUnit</Product>

@@ -44,25 +44,23 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [x] `TestTimeoutException` for clear timeout reporting
 
 #### 1.3 Test Context Injection
-**Status**: Not Started
-**Goal**: Provide runtime test information to tests
+**Status**: Completed (v1.6.9)
 
-- [ ] `ITestContext` interface with test name, class, assembly info
-- [ ] Static `TestContext.Current` for async-local access
-- [ ] Inject via constructor alongside `ITestOutput`
-- [ ] Access to test properties, categories, and tags at runtime
-- [ ] Current test timeout and cancellation token
-- [ ] `StateBag` for test-scoped data storage
+- [x] `ITestContext` interface with test name, class, assembly info
+- [x] Static `TestContext.Current` for async-local access
+- [x] Inject via constructor alongside `ITestOutput`
+- [x] Access to test properties, categories, and tags at runtime
+- [x] Current test timeout and cancellation token
+- [x] `StateBag` for test-scoped data storage
 
 #### 1.4 Retry and Flaky Test Support
-**Status**: Not Started
-**Goal**: Handle intermittent test failures gracefully
+**Status**: Completed (v1.6.9)
 
-- [ ] `[Retry(count)]` attribute for automatic retry on failure
-- [ ] `[Retry(count, delayMs)]` with configurable delay
+- [x] `[Retry(count)]` attribute for automatic retry on failure
+- [x] `[Retry(count, delayMs)]` with configurable delay
 - [ ] Conditional retry via `ShouldRetry()` virtual method
 - [ ] Retry statistics in test reports
-- [ ] `[Flaky]` attribute to mark known flaky tests
+- [x] `[Flaky]` attribute to mark known flaky tests
 
 #### 1.5 Display Name Customization
 **Status**: Not Started
@@ -275,8 +273,8 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Q1 2026 (Current)
 1. ~~Runtime test skipping~~ - **Completed** (v1.6.7)
 2. ~~Timeout support~~ - **Completed** (v1.6.8)
-3. **Test Context Injection** - Next
-4. **Retry support** - Planned
+3. ~~Test Context Injection~~ - **Completed** (v1.6.9)
+4. ~~Retry support~~ - **Completed** (v1.6.9)
 
 ### Q2 2026
 1. Display name customization
@@ -355,4 +353,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-18
-**Next Focus**: Test Context Injection, Retry Support
+**Next Focus**: Retry and Flaky Test Support

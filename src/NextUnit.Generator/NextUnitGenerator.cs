@@ -94,6 +94,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var requiresTestOutput = RequiresTestOutput(typeSymbol);
         var requiresTestContext = RequiresTestContext(typeSymbol);
         var timeoutMs = GetTimeout(methodSymbol, typeSymbol);
+        var (retryCount, retryDelayMs, isFlaky, flakyReason) = GetRetryInfo(methodSymbol, typeSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -113,7 +114,11 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             methodSymbol.IsStatic,
             requiresTestOutput,
             requiresTestContext,
-            timeoutMs);
+            timeoutMs,
+            retryCount,
+            retryDelayMs,
+            isFlaky,
+            flakyReason);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
@@ -428,7 +433,14 @@ internal static class Program
         builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)},");
         builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                RequiresTestContext = {test.RequiresTestContext.ToString().ToLowerInvariant()},");
-        builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")}");
+        builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")},");
+        builder.AppendLine("                Retry = new global::NextUnit.Internal.RetryInfo");
+        builder.AppendLine("                {");
+        builder.AppendLine($"                    Count = {(test.RetryCount is int retryCount ? retryCount.ToString(CultureInfo.InvariantCulture) : "null")},");
+        builder.AppendLine($"                    DelayMs = {test.RetryDelayMs.ToString(CultureInfo.InvariantCulture)},");
+        builder.AppendLine($"                    IsFlaky = {test.IsFlaky.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? ToLiteral(test.FlakyReason) : "null")}");
+        builder.AppendLine("                }");
         builder.AppendLine("            },");
     }
 
@@ -487,7 +499,14 @@ internal static class Program
         builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)},");
         builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                RequiresTestContext = {test.RequiresTestContext.ToString().ToLowerInvariant()},");
-        builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")}");
+        builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")},");
+        builder.AppendLine("                Retry = new global::NextUnit.Internal.RetryInfo");
+        builder.AppendLine("                {");
+        builder.AppendLine($"                    Count = {(test.RetryCount is int retryCount ? retryCount.ToString(CultureInfo.InvariantCulture) : "null")},");
+        builder.AppendLine($"                    DelayMs = {test.RetryDelayMs.ToString(CultureInfo.InvariantCulture)},");
+        builder.AppendLine($"                    IsFlaky = {test.IsFlaky.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? ToLiteral(test.FlakyReason) : "null")}");
+        builder.AppendLine("                }");
 
         builder.AppendLine("            },");
     }
@@ -1185,6 +1204,70 @@ internal static class Program
         return null;
     }
 
+    private static (int? retryCount, int retryDelayMs, bool isFlaky, string? flakyReason) GetRetryInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        // Check method-level Retry attribute first
+        var (methodRetryCount, methodRetryDelayMs) = GetRetryFromSymbol(methodSymbol);
+        var (classRetryCount, classRetryDelayMs) = GetRetryFromSymbol(typeSymbol);
+
+        // Method-level overrides class-level
+        var retryCount = methodRetryCount ?? classRetryCount;
+        var retryDelayMs = methodRetryCount.HasValue ? methodRetryDelayMs : classRetryDelayMs;
+
+        // Check for Flaky attribute
+        var (methodIsFlaky, methodFlakyReason) = GetFlakyFromSymbol(methodSymbol);
+        var (classIsFlaky, classFlakyReason) = GetFlakyFromSymbol(typeSymbol);
+
+        var isFlaky = methodIsFlaky || classIsFlaky;
+        var flakyReason = methodFlakyReason ?? classFlakyReason;
+
+        return (retryCount, retryDelayMs, isFlaky, flakyReason);
+    }
+
+    private static (int? count, int delayMs) GetRetryFromSymbol(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, RetryAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            var count = attribute.ConstructorArguments[0].Value as int? ?? 1;
+            var delayMs = attribute.ConstructorArguments.Length >= 2
+                ? attribute.ConstructorArguments[1].Value as int? ?? 0
+                : 0;
+
+            return (count, delayMs);
+        }
+
+        return (null, 0);
+    }
+
+    private static (bool isFlaky, string? reason) GetFlakyFromSymbol(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, FlakyAttributeMetadataName))
+            {
+                continue;
+            }
+
+            var reason = attribute.ConstructorArguments.Length > 0
+                ? attribute.ConstructorArguments[0].Value as string
+                : null;
+
+            return (true, reason);
+        }
+
+        return (false, null);
+    }
+
     private static bool RequiresTestOutput(INamedTypeSymbol typeSymbol)
     {
         // Only check public constructors since Activator.CreateInstance will only use public constructors
@@ -1245,6 +1328,8 @@ internal static class Program
     private const string CategoryAttributeMetadataName = "global::NextUnit.CategoryAttribute";
     private const string TagAttributeMetadataName = "global::NextUnit.TagAttribute";
     private const string TimeoutAttributeMetadataName = "global::NextUnit.TimeoutAttribute";
+    private const string RetryAttributeMetadataName = "global::NextUnit.RetryAttribute";
+    private const string FlakyAttributeMetadataName = "global::NextUnit.FlakyAttribute";
     private const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
     private const string ITestContextMetadataName = "global::NextUnit.Core.ITestContext";
 
@@ -1282,7 +1367,11 @@ internal static class Program
             bool isStatic,
             bool requiresTestOutput,
             bool requiresTestContext,
-            int? timeoutMs)
+            int? timeoutMs,
+            int? retryCount,
+            int retryDelayMs,
+            bool isFlaky,
+            string? flakyReason)
         {
             Id = id;
             DisplayName = displayName;
@@ -1302,6 +1391,10 @@ internal static class Program
             RequiresTestOutput = requiresTestOutput;
             RequiresTestContext = requiresTestContext;
             TimeoutMs = timeoutMs;
+            RetryCount = retryCount;
+            RetryDelayMs = retryDelayMs;
+            IsFlaky = isFlaky;
+            FlakyReason = flakyReason;
         }
 
         public string Id { get; }
@@ -1322,6 +1415,10 @@ internal static class Program
         public bool RequiresTestOutput { get; }
         public bool RequiresTestContext { get; }
         public int? TimeoutMs { get; }
+        public int? RetryCount { get; }
+        public int RetryDelayMs { get; }
+        public bool IsFlaky { get; }
+        public string? FlakyReason { get; }
     }
 
     private sealed class LifecycleMethodDescriptor

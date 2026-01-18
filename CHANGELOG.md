@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.9] - 2026-01-18
+
+### Added - Test Context Injection
+
+- **`ITestContext` interface** - Access runtime test information
+  - `TestName`, `ClassName`, `AssemblyName`, `FullyQualifiedName`
+  - `Categories` and `Tags` from attributes
+  - `Arguments` for parameterized tests
+  - `TimeoutMs` and `CancellationToken` for timeout control
+  - `Output` for test output writer
+  - `StateBag` for test-scoped data storage
+
+- **`TestContext.Current` static property** - AsyncLocal access to current test context
+  - Proper isolation in parallel test execution
+  - Automatically set/cleared by test engine
+
+- **Constructor injection** - Inject `ITestContext` alongside `ITestOutput`
+  - Priority: `(ITestContext, ITestOutput)` > `(ITestContext)` > `(ITestOutput)` > `()`
+
+### Added - Retry and Flaky Test Support
+
+- **`[Retry(count)]` attribute** - Automatic retry on test failure
+  - Retries up to `count` times on failure
+  - Test passes if any retry succeeds
+  - Class-level retry applies to all tests in the class
+  - Method-level retry overrides class-level
+
+- **`[Retry(count, delayMs)]`** - Retry with delay between attempts
+  - `delayMs` specifies wait time between retries
+
+- **`[Flaky]` attribute** - Mark tests as known to be flaky
+  - `[Flaky]` - Mark without reason
+  - `[Flaky("reason")]` - Mark with explanation
+  - Informational attribute for documentation and filtering
+
+- **Retry behavior**
+  - Timeouts and runtime skips are not retried
+  - Each retry gets a fresh test instance
+  - Test output is captured per attempt
+
 ## [1.6.8] - 2026-01-18
 
 ### Added - Timeout Support
