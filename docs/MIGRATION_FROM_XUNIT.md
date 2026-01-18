@@ -63,7 +63,7 @@ dotnet add package NextUnit
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.6.8" />
+    <PackageReference Include="NextUnit" Version="1.7.0" />
   </ItemGroup>
 </Project>
 ```
