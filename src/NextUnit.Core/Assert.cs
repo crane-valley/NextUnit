@@ -1079,16 +1079,16 @@ public sealed class TestSkippedException : Exception
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TestSkippedException"/> class
-    /// with a specified reason for skipping the test.
+    /// with a specified message describing why the test is being skipped.
     /// </summary>
-    /// <param name="reason">The reason why the test is being skipped.</param>
-    public TestSkippedException(string reason) : base(reason) { }
+    /// <param name="message">The message that describes why the test is being skipped.</param>
+    public TestSkippedException(string message) : base(message) { }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TestSkippedException"/> class
-    /// with a specified reason and inner exception.
+    /// with a specified message and inner exception.
     /// </summary>
-    /// <param name="reason">The reason why the test is being skipped.</param>
+    /// <param name="message">The message that describes why the test is being skipped.</param>
     /// <param name="inner">The exception that is the cause of the current exception.</param>
-    public TestSkippedException(string reason, Exception inner) : base(reason, inner) { }
+    public TestSkippedException(string message, Exception inner) : base(message, inner) { }
 }
