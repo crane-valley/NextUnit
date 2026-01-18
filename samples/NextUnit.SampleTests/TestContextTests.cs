@@ -89,7 +89,7 @@ public class TestContextTests
     }
 
     [Test]
-    public async Task TestContextAsyncLocalAccess()
+    public async Task TestContextAsyncLocalAccessAsync()
     {
         // Access via static TestContext.Current
         var currentContext = TestContext.Current;
