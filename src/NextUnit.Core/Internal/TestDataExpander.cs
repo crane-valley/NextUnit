@@ -199,10 +199,15 @@ public static class TestDataExpander
                 };
                 return formatter.Format(context);
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
                 // Log formatter failure but continue with fallback to default display name
                 Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.Message}");
+            }
+            catch (TargetInvocationException ex)
+            {
+                // Log formatter failure but continue with fallback to default display name
+                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.InnerException?.Message ?? ex.Message}");
             }
         }
 
