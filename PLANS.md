@@ -275,8 +275,8 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Q1 2026 (Current)
 1. ~~Runtime test skipping~~ - **Completed** (v1.6.7)
 2. ~~Timeout support~~ - **Completed** (v1.6.8)
-3. **Test Context Injection** - In Progress
-4. **Retry support** - Next
+3. **Test Context Injection** - Next
+4. **Retry support** - Planned
 
 ### Q2 2026
 1. Display name customization
