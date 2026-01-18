@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-01-19
+
+### Added - Display Name Customization
+
+- **`[DisplayName("name")]` attribute** - Custom display name for tests
+  - Override the default method name in Test Explorer
+  - Supports placeholders `{0}`, `{1}`, etc. for parameterized tests
+  - Example: `[DisplayName("Adding {0} + {1} should equal {2}")]`
+
+- **`IDisplayNameFormatter` interface** - Custom formatting logic
+  - Implement `Format(DisplayNameContext context)` method
+  - Access method name, test class, arguments, and argument index
+  - Example: Convert "UserLogin_ValidCredentials" to "user login valid credentials"
+
+- **`[DisplayNameFormatter<T>]` attribute** - Apply custom formatter
+  - Apply to method or class level
+  - Class-level formatter applies to all tests in the class
+  - Method-level `[DisplayName]` overrides class-level formatter
+  - Also available as non-generic `[DisplayNameFormatter(typeof(T))]`
+
+- **`DisplayNameContext` struct** - Formatting context
+  - `MethodName` - Original method name
+  - `TestClass` - Test class type
+  - `Arguments` - Test arguments for parameterized tests
+  - `ArgumentSetIndex` - Zero-based index for parameterized tests
+
 ## [1.6.9] - 2026-01-18
 
 ### Added - Test Context Injection

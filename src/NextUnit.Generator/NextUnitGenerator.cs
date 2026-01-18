@@ -79,7 +79,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var typeSymbol = methodSymbol.ContainingType;
         var fullyQualifiedTypeName = GetFullyQualifiedTypeName(typeSymbol);
         var id = CreateTestId(methodSymbol);
-        var displayName = methodSymbol.Name;
+        var customDisplayName = GetCustomDisplayName(methodSymbol);
+        var displayName = customDisplayName ?? methodSymbol.Name;
+        var displayNameFormatterType = GetDisplayNameFormatterType(methodSymbol, typeSymbol);
         var notInParallel = HasAttribute(methodSymbol, NotInParallelMetadataName) || HasAttribute(typeSymbol, NotInParallelMetadataName);
         var methodParallelLimit = GetParallelLimit(methodSymbol);
         var typeParallelLimit = GetParallelLimit(typeSymbol);
@@ -118,7 +120,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             retryCount,
             retryDelayMs,
             isFlaky,
-            flakyReason);
+            flakyReason,
+            customDisplayName,
+            displayNameFormatterType);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
@@ -440,7 +444,9 @@ internal static class Program
         builder.AppendLine($"                    DelayMs = {test.RetryDelayMs.ToString(CultureInfo.InvariantCulture)},");
         builder.AppendLine($"                    IsFlaky = {test.IsFlaky.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? ToLiteral(test.FlakyReason) : "null")}");
-        builder.AppendLine("                }");
+        builder.AppendLine("                },");
+        builder.AppendLine($"                CustomDisplayNameTemplate = {(test.CustomDisplayName is not null ? ToLiteral(test.CustomDisplayName) : "null")},");
+        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
         builder.AppendLine("            },");
     }
 
@@ -457,7 +463,7 @@ internal static class Program
         if (arguments.HasValue)
         {
             testId = $"{test.Id}[{argumentSetIndex}]";
-            displayName = BuildParameterizedDisplayName(test.DisplayName, arguments.Value);
+            displayName = BuildParameterizedDisplayName(test.MethodName, test.CustomDisplayName, arguments.Value);
         }
 
         builder.AppendLine("            new global::NextUnit.Internal.TestCaseDescriptor");
@@ -506,13 +512,22 @@ internal static class Program
         builder.AppendLine($"                    DelayMs = {test.RetryDelayMs.ToString(CultureInfo.InvariantCulture)},");
         builder.AppendLine($"                    IsFlaky = {test.IsFlaky.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? ToLiteral(test.FlakyReason) : "null")}");
-        builder.AppendLine("                }");
+        builder.AppendLine("                },");
+        builder.AppendLine($"                CustomDisplayNameTemplate = {(test.CustomDisplayName is not null ? ToLiteral(test.CustomDisplayName) : "null")},");
+        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
 
         builder.AppendLine("            },");
     }
 
-    private static string BuildParameterizedDisplayName(string methodName, ImmutableArray<TypedConstant> arguments)
+    private static string BuildParameterizedDisplayName(string methodName, string? customDisplayName, ImmutableArray<TypedConstant> arguments)
     {
+        // If custom display name with placeholders, use it
+        if (customDisplayName is not null)
+        {
+            return FormatDisplayNameWithPlaceholders(customDisplayName, arguments);
+        }
+
+        // Default behavior: MethodName(arg1, arg2, ...)
         var argsBuilder = new StringBuilder();
         argsBuilder.Append(methodName);
         argsBuilder.Append('(');
@@ -529,6 +544,20 @@ internal static class Program
 
         argsBuilder.Append(')');
         return argsBuilder.ToString();
+    }
+
+    private static string FormatDisplayNameWithPlaceholders(string template, ImmutableArray<TypedConstant> arguments)
+    {
+        var result = template;
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var placeholder = $"{{{i}}}";
+            if (result.Contains(placeholder))
+            {
+                result = result.Replace(placeholder, FormatArgumentForDisplay(arguments[i]));
+            }
+        }
+        return result;
     }
 
     private static string FormatArgumentForDisplay(TypedConstant argument)
@@ -1268,6 +1297,65 @@ internal static class Program
         return (false, null);
     }
 
+    private static string? GetCustomDisplayName(IMethodSymbol methodSymbol)
+    {
+        foreach (var attribute in methodSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, DisplayNameAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length > 0 &&
+                attribute.ConstructorArguments[0].Value is string displayName)
+            {
+                return displayName;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? GetDisplayNameFormatterType(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        // Check method-level first (higher priority)
+        var methodFormatter = GetDisplayNameFormatterFromSymbol(methodSymbol);
+        if (methodFormatter is not null)
+        {
+            return methodFormatter;
+        }
+
+        // Check class-level
+        return GetDisplayNameFormatterFromSymbol(typeSymbol);
+    }
+
+    private static string? GetDisplayNameFormatterFromSymbol(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            // Check non-generic DisplayNameFormatterAttribute
+            if (IsAttribute(attribute, DisplayNameFormatterAttributeMetadataName))
+            {
+                if (attribute.ConstructorArguments.Length > 0 &&
+                    attribute.ConstructorArguments[0].Value is INamedTypeSymbol formatterType)
+                {
+                    return formatterType.ToDisplayString(FullyQualifiedTypeFormat);
+                }
+            }
+
+            // Check generic DisplayNameFormatterAttribute<T>
+            var attrClass = attribute.AttributeClass;
+            if (attrClass?.IsGenericType == true &&
+                attrClass.ConstructedFrom.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::NextUnit.DisplayNameFormatterAttribute<T>")
+            {
+                var typeArg = attrClass.TypeArguments[0];
+                return typeArg.ToDisplayString(FullyQualifiedTypeFormat);
+            }
+        }
+
+        return null;
+    }
+
     private static bool RequiresTestOutput(INamedTypeSymbol typeSymbol)
     {
         // Only check public constructors since Activator.CreateInstance will only use public constructors
@@ -1330,6 +1418,8 @@ internal static class Program
     private const string TimeoutAttributeMetadataName = "global::NextUnit.TimeoutAttribute";
     private const string RetryAttributeMetadataName = "global::NextUnit.RetryAttribute";
     private const string FlakyAttributeMetadataName = "global::NextUnit.FlakyAttribute";
+    private const string DisplayNameAttributeMetadataName = "global::NextUnit.DisplayNameAttribute";
+    private const string DisplayNameFormatterAttributeMetadataName = "global::NextUnit.DisplayNameFormatterAttribute";
     private const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
     private const string ITestContextMetadataName = "global::NextUnit.Core.ITestContext";
 
@@ -1371,7 +1461,9 @@ internal static class Program
             int? retryCount,
             int retryDelayMs,
             bool isFlaky,
-            string? flakyReason)
+            string? flakyReason,
+            string? customDisplayName,
+            string? displayNameFormatterType)
         {
             Id = id;
             DisplayName = displayName;
@@ -1395,6 +1487,8 @@ internal static class Program
             RetryDelayMs = retryDelayMs;
             IsFlaky = isFlaky;
             FlakyReason = flakyReason;
+            CustomDisplayName = customDisplayName;
+            DisplayNameFormatterType = displayNameFormatterType;
         }
 
         public string Id { get; }
@@ -1419,6 +1513,8 @@ internal static class Program
         public int RetryDelayMs { get; }
         public bool IsFlaky { get; }
         public string? FlakyReason { get; }
+        public string? CustomDisplayName { get; }
+        public string? DisplayNameFormatterType { get; }
     }
 
     private sealed class LifecycleMethodDescriptor

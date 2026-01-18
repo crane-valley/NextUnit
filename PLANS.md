@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.6.8 (Stable)
+## Current Version: 1.7.0 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -10,6 +10,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 | Version | Key Features |
 |---------|-------------|
+| 1.7.x | `[DisplayName]` attribute, `[DisplayNameFormatter<T>]`, custom display name formatting |
 | 1.6.x | VSTest adapter, Visual Studio Test Explorer, rich failure messages, advanced CLI filtering, `[Timeout]` attribute |
 | 1.5.x | Predicate-based collection assertions, xUnit API compatibility |
 | 1.4.x | Performance benchmarks, BenchmarkDotNet integration |
@@ -63,12 +64,11 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [x] `[Flaky]` attribute to mark known flaky tests
 
 #### 1.5 Display Name Customization
-**Status**: Not Started
-**Goal**: Custom test names in Test Explorer
+**Status**: Completed (v1.7.0)
 
-- [ ] `[DisplayName("Custom name")]` attribute
-- [ ] `[DisplayNameFormatter<T>]` for custom formatting logic
-- [ ] Support for parameterized test display names
+- [x] `[DisplayName("Custom name")]` attribute
+- [x] `[DisplayNameFormatter<T>]` for custom formatting logic
+- [x] Support for parameterized test display names with `{0}`, `{1}` placeholders
 
 #### 1.6 Enhanced Parallel Control
 **Status**: Not Started
@@ -275,12 +275,13 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 2. ~~Timeout support~~ - **Completed** (v1.6.8)
 3. ~~Test Context Injection~~ - **Completed** (v1.6.9)
 4. ~~Retry support~~ - **Completed** (v1.6.9)
+5. ~~Display name customization~~ - **Completed** (v1.7.0)
 
 ### Q2 2026
-1. Display name customization
-2. Enhanced parallel control (constraint keys)
-3. Matrix data sources
-4. Basic Roslyn analyzers (5-10 rules)
+1. Enhanced parallel control (constraint keys)
+2. Matrix data sources
+3. Basic Roslyn analyzers (5-10 rules)
+4. Test repeat support
 
 ### Q3 2026
 1. Class data sources
@@ -327,16 +328,16 @@ We welcome contributions! Priority areas:
 - Migration guides (NUnit, MSTest)
 
 ### Medium Complexity
-- `[DisplayName]` attribute
 - `[Repeat]` attribute
 - `[Explicit]` attribute
 - Basic analyzers
+- Enhanced parallel control
 
 ### Advanced
-- Test context injection
 - Matrix data sources
 - Roslyn analyzers with code fixers
 - ASP.NET Core integration
+- Playwright integration
 
 **See**: [README.md#contributing](README.md#contributing)
 
@@ -352,5 +353,5 @@ We welcome contributions! Priority areas:
 
 ---
 
-**Last Updated**: 2026-01-18
-**Next Focus**: Display Name Customization
+**Last Updated**: 2026-01-19
+**Next Focus**: Enhanced Parallel Control
