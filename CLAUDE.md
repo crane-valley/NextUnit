@@ -15,6 +15,7 @@ git checkout -b <branch-type>/<description>
 ```
 
 Branch name examples:
+
 - `fix/docs-typo` - Documentation fixes
 - `feat/assert-skip` - New feature
 - `update/plans-roadmap` - Plan updates
@@ -28,6 +29,9 @@ Before committing, always run:
 # - Verify README.md and docs/ match the implementation
 # - Verify source code XML comments are accurate
 
+# Markdown lint (run when adding/modifying .md files)
+markdownlint --config .markdownlint.json <changed-files>.md
+
 # Build verification
 dotnet build
 
@@ -39,6 +43,10 @@ dotnet test samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
 dotnet test samples/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests.csproj
 dotnet test samples/Console.Sample.Tests/Console.Sample.Tests/Console.Sample.Tests.csproj
 ```
+
+**Note**: When modifying markdown files (`.md`), always run `markdownlint` before committing.
+The project uses `.markdownlint.json` for configuration.
+Install markdownlint-cli globally if not available: `npm install -g markdownlint-cli`.
 
 ### 3. Commit and Create PR
 
@@ -59,6 +67,7 @@ gh pr create --title "<title>" --body "<description>"
 ```
 
 Commit message types:
+
 - `feat:` - New feature
 - `fix:` - Bug fix
 - `docs:` - Documentation only changes
@@ -66,7 +75,78 @@ Commit message types:
 - `test:` - Adding or modifying tests
 - `chore:` - Build/tooling changes
 
-### 4. Release Workflow (Source Code Changes Only)
+### 4. Handling PR Review Comments
+
+When PR review comments are posted (by Copilot, github-code-quality bot, or humans):
+
+#### Step 1: Check for unresolved comments
+
+```bash
+# Get all original comments (not replies)
+gh api repos/crane-valley/NextUnit/pulls/<PR_NUMBER>/comments \
+  --jq '.[] | select(.in_reply_to_id == null) | {id, path, line, body: .body[0:200], user: .user.login}'
+```
+
+#### Step 2: Address the issues
+
+- If the comment points out a real issue, fix it in the code
+- Commit the fix with a clear message referencing the issue
+
+#### Step 3: Reply to each comment
+
+```bash
+# Reply to a specific comment
+gh api repos/crane-valley/NextUnit/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies \
+  -X POST -f body="Fixed in commit <SHA>. <explanation>"
+```
+
+Common reply patterns:
+
+- Fixed issue: `"Fixed in commit abc1234. <description of fix>"`
+- Intentional design: `"This is intentional. <explanation of why>"`
+- Already addressed: `"This is already using <solution>. <details>"`
+
+#### Step 4: Resolve review threads
+
+```bash
+# Get unresolved thread IDs
+gh api graphql -f query='
+query {
+  repository(owner: "crane-valley", name: "NextUnit") {
+    pullRequest(number: <PR_NUMBER>) {
+      reviewThreads(first: 50) {
+        nodes {
+          id
+          isResolved
+          comments(first: 1) {
+            nodes { body path }
+          }
+        }
+      }
+    }
+  }
+}' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | {id, path: .comments.nodes[0].path}'
+
+# Resolve a thread
+gh api graphql -f query='
+mutation {
+  resolveReviewThread(input: {threadId: "<THREAD_ID>"}) {
+    thread { isResolved }
+  }
+}'
+```
+
+#### Step 5: Verify completion
+
+```bash
+# Count remaining unresolved threads (should be 0)
+gh api graphql -f query='...' --jq '[...nodes[] | select(.isResolved == false)] | length'
+
+# Check CI status
+gh pr checks <PR_NUMBER>
+```
+
+### 5. Release Workflow (Source Code Changes Only)
 
 When source code (`.cs` files in `src/`) is modified, ask the user:
 
@@ -83,6 +163,7 @@ If the user confirms, add a **separate commit** for version bump:
    - `NUGET_README.md` - Update version if mentioned
 
 2. Create a separate commit for version bump only:
+
    ```bash
    git add Directory.Build.props Directory.Packages.props CHANGELOG.md docs/ NUGET_README.md
    git commit -m "chore: Bump version to X.Y.Z"
@@ -99,7 +180,8 @@ If the user confirms, add a **separate commit** for version bump:
 
 ## Project Overview
 
-NextUnit is a modern, high-performance test framework for .NET 10+ with Visual Studio Test Explorer integration via VSTest adapter.
+NextUnit is a modern, high-performance test framework for .NET 10+ with Visual Studio Test Explorer
+integration via VSTest adapter.
 
 ## Key Packages
 
@@ -183,6 +265,7 @@ dotnet build
 ### 3. Version Update Files
 
 Update version in these files:
+
 - `Directory.Build.props` - `<Version>` property
 - `Directory.Packages.props` - All `NextUnit.*` package versions
 - `CHANGELOG.md` - Add release notes
@@ -190,6 +273,7 @@ Update version in these files:
 ### 4. Solution File Check
 
 Ensure all packable projects are in `NextUnit.slnx`:
+
 - `src/NextUnit.Core/NextUnit.Core.csproj`
 - `src/NextUnit.Generator/NextUnit.Generator.csproj`
 - `src/NextUnit.TestAdapter/NextUnit.TestAdapter.csproj`
@@ -198,6 +282,7 @@ Ensure all packable projects are in `NextUnit.slnx`:
 ### 5. Release Workflow Check
 
 Verify `.github/workflows/release.yml` includes all packages in:
+
 - Pack step
 - Verify step
 
@@ -208,6 +293,7 @@ Verify `.github/workflows/release.yml` includes all packages in:
 **Cause:** Project not included in solution file or release workflow.
 
 **Solution:**
+
 1. Add project to `NextUnit.slnx`
 2. Add pack step to `.github/workflows/release.yml`
 3. Add verification step to release workflow
@@ -217,6 +303,7 @@ Verify `.github/workflows/release.yml` includes all packages in:
 **Cause:** `NextUnit.targets` has incorrect settings.
 
 **Solution:** Ensure `src/NextUnit/build/NextUnit.targets` only contains VSTest-compatible settings:
+
 ```xml
 <Project>
   <PropertyGroup>
@@ -230,6 +317,7 @@ Verify `.github/workflows/release.yml` includes all packages in:
 **Cause:** Missing TestAdapter or incorrect project configuration.
 
 **Solution:**
+
 1. Ensure `NextUnit.TestAdapter` is included in the package
 2. Verify `IsTestProject=true` in consuming project
 3. Check that `Microsoft.NET.Test.Sdk` is referenced
@@ -249,6 +337,37 @@ Verify `.github/workflows/release.yml` includes all packages in:
 - Test projects are executables with `Program.cs`
 - Run via `dotnet run`
 - Still supported for advanced scenarios
+
+## Development Principles
+
+### Code Quality and Maintainability
+
+- **Proactive Refactoring**: Actively refactor design and implementation to improve maintainability.
+  Don't hesitate to reorganize code structure when it improves clarity.
+- **Delete Unused Code**: Remove dead code, unused imports, and obsolete implementations immediately.
+- **Consistent Patterns**: Follow established patterns throughout the codebase.
+
+### Documentation Synchronization
+
+- **Documentation Must Match Implementation**: Keep all documentation (README.md, docs/, XML comments)
+  synchronized with the actual implementation.
+- **Remove Outdated Documentation**: Delete documentation that no longer reflects reality.
+  Outdated docs are worse than no docs.
+- **Update Immediately**: When implementation changes, update related documentation in the same commit.
+- **Files to Keep in Sync**:
+  - `README.md` - Overview and quick start
+  - `PLANS.md` - Mark completed features
+  - `CHANGELOG.md` - Version history
+  - `docs/` - Detailed guides
+  - XML comments in source code
+
+### Performance Optimization
+
+- **Zero-Reflection Architecture**: Maintain the source generator approach for compile-time test discovery.
+- **Avoid Runtime Overhead**: Prefer compile-time processing over runtime reflection.
+- **Benchmark Regularly**: Use `tools/speed-comparison/` to verify performance.
+- **Memory Efficiency**: Minimize allocations in hot paths (test execution engine).
+- **Lazy Initialization**: Only create resources when needed.
 
 ## File Locations
 

@@ -161,3 +161,98 @@ public sealed class TimeoutAttribute : Attribute
         Milliseconds = milliseconds;
     }
 }
+
+/// <summary>
+/// Specifies that a test should be automatically retried on failure.
+/// </summary>
+/// <remarks>
+/// When a test fails, it will be retried up to the specified number of times.
+/// The test passes if any retry succeeds. This is useful for handling intermittent failures.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+public sealed class RetryAttribute : Attribute
+{
+    /// <summary>
+    /// Gets the maximum number of retry attempts.
+    /// </summary>
+    public int Count { get; }
+
+    /// <summary>
+    /// Gets the delay in milliseconds between retry attempts.
+    /// </summary>
+    public int DelayMs { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RetryAttribute"/> class.
+    /// </summary>
+    /// <param name="count">The maximum number of retry attempts. Must be at least 1.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="count"/> is less than 1.</exception>
+    public RetryAttribute(int count)
+    {
+        if (count < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count), "Retry count must be at least 1.");
+        }
+        Count = count;
+        DelayMs = 0;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RetryAttribute"/> class with a delay between retries.
+    /// </summary>
+    /// <param name="count">The maximum number of retry attempts. Must be at least 1.</param>
+    /// <param name="delayMs">The delay in milliseconds between retry attempts. Must be non-negative.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="count"/> is less than 1 or <paramref name="delayMs"/> is negative.</exception>
+    public RetryAttribute(int count, int delayMs)
+    {
+        if (count < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count), "Retry count must be at least 1.");
+        }
+        if (delayMs < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(delayMs), "Delay must be non-negative.");
+        }
+        Count = count;
+        DelayMs = delayMs;
+    }
+}
+
+/// <summary>
+/// Marks a test as known to be flaky (intermittently failing).
+/// </summary>
+/// <remarks>
+/// This attribute is informational and can be used to:
+/// <list type="bullet">
+/// <item>Document tests that are known to have intermittent failures</item>
+/// <item>Filter or group flaky tests in test reports</item>
+/// <item>Apply special handling to flaky tests</item>
+/// </list>
+/// Consider using <see cref="RetryAttribute"/> in combination with this attribute
+/// to automatically retry flaky tests.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+public sealed class FlakyAttribute : Attribute
+{
+    /// <summary>
+    /// Gets the reason why the test is considered flaky.
+    /// </summary>
+    public string? Reason { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FlakyAttribute"/> class.
+    /// </summary>
+    public FlakyAttribute()
+    {
+        Reason = null;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FlakyAttribute"/> class with a reason.
+    /// </summary>
+    /// <param name="reason">The reason why the test is considered flaky.</param>
+    public FlakyAttribute(string reason)
+    {
+        Reason = reason;
+    }
+}

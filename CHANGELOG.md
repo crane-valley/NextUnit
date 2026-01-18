@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.9] - 2026-01-18
+
+### Added - Test Context Injection
+
+- **`ITestContext` interface** - Access runtime test information
+  - `TestName`, `ClassName`, `AssemblyName`, `FullyQualifiedName`
+  - `Categories` and `Tags` from attributes
+  - `Arguments` for parameterized tests
+  - `TimeoutMs` and `CancellationToken` for timeout control
+  - `Output` for test output writer
+  - `StateBag` for test-scoped data storage
+
+- **`TestContext.Current` static property** - AsyncLocal access to current test context
+  - Proper isolation in parallel test execution
+  - Automatically set/cleared by test engine
+
+- **Constructor injection** - Inject `ITestContext` alongside `ITestOutput`
+  - Priority: `(ITestContext, ITestOutput)` > `(ITestContext)` > `(ITestOutput)` > `()`
+
+### Added - Retry and Flaky Test Support
+
+- **`[Retry(count)]` attribute** - Automatic retry on test failure
+  - Retries up to `count` times on failure
+  - Test passes if any retry succeeds
+  - Class-level retry applies to all tests in the class
+  - Method-level retry overrides class-level
+
+- **`[Retry(count, delayMs)]`** - Retry with delay between attempts
+  - `delayMs` specifies wait time between retries
+
+- **`[Flaky]` attribute** - Mark tests as known to be flaky
+  - `[Flaky]` - Mark without reason
+  - `[Flaky("reason")]` - Mark with explanation
+  - Informational attribute for documentation and filtering
+
+- **Retry behavior**
+  - Timeouts and runtime skips are not retried
+  - Each retry gets a fresh test instance
+  - Test output is captured per attempt
+
 ## [1.6.8] - 2026-01-18
 
 ### Added - Timeout Support
@@ -175,7 +215,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Package Configuration** - Set `DevelopmentDependency=true` for all NextUnit packages
-  - NextUnit.Core, NextUnit.Generator, NextUnit.Platform, and NextUnit meta-package now marked as development dependencies
+  - NextUnit.Core, NextUnit.Generator, NextUnit.Platform, and NextUnit meta-package
+    now marked as development dependencies
   - Prevents transitive dependency propagation when consuming projects reference NextUnit
   - Improves package dependency management for library authors using NextUnit for testing
 
@@ -231,16 +272,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - Predicate-based Collection Assertions
 
-- **`Assert.Contains<T>(IEnumerable<T>, Predicate<T>)`** - Verifies that a collection contains an element matching a predicate
+- **`Assert.Contains<T>(IEnumerable<T>, Predicate<T>)`**
+  - Verifies that a collection contains an element matching a predicate
   - Returns the first matching element (not void) for chaining assertions
   - Enables xUnit-compatible syntax: `var match = Assert.Contains(items, item => item.Id == expectedId)`
   - Supports both lambda expressions and `Predicate<T>` delegates
   
-- **`Assert.DoesNotContain<T>(IEnumerable<T>, Predicate<T>)`** - Verifies that a collection does not contain an element matching a predicate
+- **`Assert.DoesNotContain<T>(IEnumerable<T>, Predicate<T>)`**
+  - Verifies that a collection does not contain an element matching a predicate
   - Complements the predicate-based Contains for consistency
   - Useful for verifying absence of items with specific properties
-  
-- **`Assert.Single<T>(IEnumerable<T>, Predicate<T>)`** - Verifies that a collection contains exactly one element matching a predicate
+
+- **`Assert.Single<T>(IEnumerable<T>, Predicate<T>)`**
+  - Verifies that a collection contains exactly one element matching a predicate
   - Returns the single matching element for further assertions
   - Throws clear errors when zero or multiple elements match
 
@@ -294,21 +338,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Source generator provides 50-100x faster test discovery vs reflection-based approaches
 
 ### Removed
+
 - **dotnet test support** - Removed `Microsoft.Testing.Platform.MSBuild` package dependency
   - Removed `docs/DOTNET_TEST_SUPPORT.md` documentation
   - Removed `IsTestProject` condition from `NextUnit.targets`
   - Tests should now be executed using `dotnet run` exclusively
   - Simplified project configuration - no longer need `EnableMSTestRunner` property
 
-### Changed
+### Documentation Changes
+
 - **README.md** - Updated to state that tests should be executed using `dotnet run`
 - **NUGET_README.md** - Removed `EnableMSTestRunner` from example project configuration
-- **NextUnit.targets** - Removed conditional logic, now unconditionally sets `OutputType=Exe` and `GenerateProgramFile=false`
+- **NextUnit.targets** - Removed conditional logic
+  - Now unconditionally sets `OutputType=Exe` and `GenerateProgramFile=false`
 
 ## [1.3.1] - 2025-12-09
 
 ### Added - dotnet test Support Documentation
-- **`Microsoft.Testing.Platform.MSBuild` package dependency** - Added as a direct package reference to NextUnit meta-package
+
+- **`Microsoft.Testing.Platform.MSBuild` package dependency**
+  - Added as a direct package reference to NextUnit meta-package
   - Ensures the package is properly restored for consumers
   - Provides MSBuild integration for Microsoft.Testing.Platform
   - Enables optional `dotnet test` support on .NET 10 SDK with proper configuration
@@ -319,14 +368,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clarifies that `dotnet run` is the recommended approach
 
 ### Changed
+
 - **README.md** - Updated to reference dotnet test support guide
-- **NextUnit.csproj** - Added Microsoft.Testing.Platform.MSBuild as a package dependency to ensure proper restore
-- **NextUnit.targets** - Simplified to only set OutputType=Exe (package dependency handles MSBuild integration)
+- **NextUnit.csproj** - Added Microsoft.Testing.Platform.MSBuild
+  as a package dependency to ensure proper restore
+- **NextUnit.targets** - Simplified to only set OutputType=Exe
+  (package dependency handles MSBuild integration)
 
 ### Fixed
-- **Package restore issue** - Microsoft.Testing.Platform.MSBuild now properly restored as a dependency instead of only being referenced in build targets
+
+- **Package restore issue** - Microsoft.Testing.Platform.MSBuild now properly restored
+  - Was previously only referenced in build targets, now a proper dependency
 
 ### Note
+
 - `dotnet run` remains the recommended way to run NextUnit tests
 - `dotnet test` requires additional SDK configuration on .NET 10 and later
 - See `docs/DOTNET_TEST_SUPPORT.md` for detailed setup instructions
@@ -334,7 +389,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] - 2025-12-08
 
 ### Added - Test Output/Logging Integration
-- **`ITestOutput` interface** - xUnit-style test output capability for writing diagnostic messages during test execution
+
+- **`ITestOutput` interface** - xUnit-style test output capability
+  for writing diagnostic messages during test execution
   - `WriteLine(string message)` - Write a line of text to test output
   - `WriteLine(string format, params object?[] args)` - Write formatted text to test output
   - Constructor injection support (similar to xUnit's `ITestOutputHelper`)
@@ -362,14 +419,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Output captured even when tests fail (helpful for debugging)
 
 ### Changed
+
 - Test count increased from 116 to 123 tests
   - Added 7 new tests demonstrating test output functionality (`TestOutputTests`)
-  - Tests cover simple output, formatted output, multiline output, parameterized tests, async tests, and failed tests with output
+  - Tests cover simple output, formatted output, multiline output, parameterized tests,
+    async tests, and failed tests with output
 - Framework version bumped to 1.3.0
 
 ## [1.2.1] - 2025-12-07
 
 ### Fixed - Application Dependencies
+
 - **Critical Fix for `deps.json` resolution**:
   - Enforced `OutputType=Exe` for test projects using the `NextUnit` meta-package
   - Added auto-generation of `Program.Main` entry point for proper MTP initialization
@@ -379,6 +439,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2025-12-06
 
 ### Added - CLI Arguments and Session Lifecycle
+
 - **CLI argument support for test filtering**:
   - `--category <name>` - Include only tests with the specified category (can be specified multiple times)
   - `--exclude-category <name>` - Exclude tests with the specified category (can be specified multiple times)
@@ -401,6 +462,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Generate appropriate delegates for static vs instance methods
 
 ### Changed
+
 - Test count increased from 113 to 116 tests
   - Added 3 new tests demonstrating session-scoped lifecycle
   - `SessionLifecycleTests` class validates session setup/teardown execution order
@@ -408,12 +470,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI arguments now preferred over environment variables (backward compatible)
 
 ### Fixed
+
 - Generator now correctly handles static lifecycle methods
 - Session lifecycle properly executes before first test and after last test
 
 ## [1.1.0] - 2025-12-06
 
 ### Added - Category and Tag Filtering
+
 - **`[Category]` attribute** - Organize tests into broad categories (e.g., "Integration", "Unit")
   - Can be applied to classes and methods
   - Method attributes are combined with class-level attributes
@@ -438,6 +502,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `BuildStringArrayLiteral` helper for code generation
 
 ### Changed
+
 - Test count increased from 102 to 113 tests
   - Added 11 new tests demonstrating category/tag filtering functionality
   - `CategoryAndTagTests` class (6 tests)
@@ -446,7 +511,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2025-12-06
 
 ### Added - TestData Support
-- **`[TestData]` attribute support** - Source generator now processes `[TestData]` attributes for runtime test data expansion
+
+- **`[TestData]` attribute support**
+  - Source generator now processes `[TestData]` attributes for runtime test data expansion
   - Static method data sources via `[TestData(nameof(MethodName))]`
   - Static property data sources via `[TestData(nameof(PropertyName))]`
   - External class data sources via `MemberType` property
@@ -457,12 +524,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Generator diagnostic `NEXTUNIT003`** - Warning when both `[Arguments]` and `[TestData]` are used on same method
 
 ### Added - Packages
+
 - **NextUnit** meta-package for simplified installation (`dotnet add package NextUnit`)
   - Includes all required components (Core, Generator, Platform)
   - One-command installation matching xUnit/TUnit experience
   - Only 4.2 KB package size
 
 ### Added - Core Framework
+
 - `[Test]` attribute for marking test methods (clear alternative to xUnit's `[Fact]`)
 - `[Arguments]` attribute for parameterized tests (replaces xUnit's `[Theory]` + `[InlineData]`)
 - `[Skip]` attribute with optional reason parameter
@@ -475,6 +544,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `LifecycleScope.Assembly` - Before/after all tests in an assembly
 
 ### Added - Assertions (v0.4-alpha)
+
 - **Basic Assertions**:
   - `Assert.True(condition)` / `Assert.False(condition)`
   - `Assert.Equal(expected, actual)` / `Assert.NotEqual(notExpected, actual)`
@@ -499,6 +569,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Assert.NotInRange<T>(value, min, max)` - Value outside range
 
 ### Added - Source Generator
+
 - Zero-reflection test discovery via Roslyn source generator
 - Compile-time test registry generation
 - Delegate-based test method invocation (no `MethodInfo.Invoke`)
@@ -509,6 +580,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all method signature variations (sync/async, with/without cancellation token)
 
 ### Added - Execution Engine
+
 - Microsoft.Testing.Platform integration
 - True parallel test execution with constraint enforcement
 - Thread-safe lifecycle management:
@@ -520,18 +592,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serial execution for `[NotInParallel]` tests
 
 ### Added - Documentation
+
 - **GETTING_STARTED.md** - Complete getting started guide
 - **MIGRATION_FROM_XUNIT.md** - Comprehensive xUnit migration guide
 - **BEST_PRACTICES.md** - Best practices and patterns
 - **README.md** - Project overview and quick start
 
 ### Performance
+
 - **Test Discovery**: ~2ms for 86 tests
 - **Execution**: ~640ms for 86 tests (parallel execution)
 - **Per-test Overhead**: ~7ms average (includes test logic)
 - **Framework Memory**: ~5MB baseline
 - **Zero reflection** in test execution path
+
 ### Technical Details
+
 - **Target Framework**: .NET 10+
 - **Native AOT Compatible**: Full support
 - **C# Version**: 12.0+
@@ -543,6 +619,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0-alpha] - 2025-12-03
 
 ### Added
+
 - Rich assertion library (11 new methods)
 - Collection assertions: Contains, DoesNotContain, All, Single, Empty, NotEmpty
 - String assertions: StartsWith, EndsWith, Contains
@@ -553,11 +630,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - BEST_PRACTICES.md guide
 
 ### Changed
+
 - Updated README.md to v0.4-alpha
 - Updated PLANS.md with M4 Phase 1 completion
 - Updated DEVLOG.md with session notes
 
 ### Performance
+
 - Total tests: 86 (was 67, +19)
 - Execution time: ~642ms (was ~620ms, +22ms)
 - 100% pass rate maintained
@@ -565,6 +644,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0-alpha] - 2025-12-03
 
 ### Added
+
 - True parallel execution with `Parallel.ForEachAsync`
 - `[ParallelLimit]` enforcement via MaxDegreeOfParallelism
 - `[NotInParallel]` enforcement via serial batches
@@ -574,11 +654,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper resource cleanup (all semaphores disposed)
 
 ### Changed
+
 - Refactored ParallelScheduler to use batched execution
 - Updated TestExecutionEngine for parallel execution
 - Improved thread safety across all lifecycle scopes
 
 ### Performance
+
 - Parallel execution fully functional
 - Execution time: ~620ms for 67 tests
 - Performance maintained while adding thread safety
@@ -586,6 +668,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0-alpha] - 2025-12-02
 
 ### Added
+
 - Multi-scope lifecycle: Test, Class, Assembly scopes
 - `[Before(LifecycleScope.Class)]` / `[After(LifecycleScope.Class)]`
 - `[Before(LifecycleScope.Assembly)]` / `[After(LifecycleScope.Assembly)]`
@@ -597,17 +680,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated README to v0.2-alpha with all M1.5 and M2 features
 
 ### Fixed
+
 - Class-scoped lifecycle now runs exactly once per class
 - Assembly-scoped lifecycle runs once for entire assembly
 - Proper cleanup of class instances after tests
 
 ### Performance
+
 - Execution time: ~620ms for 67 tests
 - Zero reflection maintained
 
 ## [0.1.5-alpha] - 2025-12-02
 
 ### Added
+
 - `[Skip]` attribute with optional reason parameter
 - Skip reason reporting to Microsoft.Testing.Platform
 - `[Arguments]` attribute for parameterized tests
@@ -618,12 +704,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 4 display name formatting tests
 
 ### Changed
+
 - Generator `GetSkipInfo` method for extracting skip information
 - Generator `GetArgumentSets` method for collecting test arguments
 - Generator `BuildParameterizedDisplayName` for readable test names
 - Updated sample tests to demonstrate new features
 
 ### Performance
+
 - Added 15 new tests (total: 67)
 - Execution time: ~620ms
 - Zero reflection maintained
@@ -631,6 +719,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha] - 2025-12-02
 
 ### Added
+
 - Core attribute definitions: `[Test]`, `[Before]`, `[After]`, `[DependsOn]`, `[NotInParallel]`, `[ParallelLimit]`
 - Basic assertion library: True, False, Equal, NotEqual, Null, NotNull, Throws, ThrowsAsync
 - Test descriptor model: TestCaseDescriptor, LifecycleInfo, ParallelInfo
@@ -643,12 +732,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 52 sample tests demonstrating all features
 
 ### Technical
+
 - Zero-reflection test execution achieved
 - Source generator produces fully-functional test registry
 - Delegate-based invocation for all test and lifecycle methods
 - Type lookup only (one-time, cached) for test discovery
 
 ### Performance
+
 - Test discovery: ~2ms (with caching)
 - Execution time: ~600ms for 52 tests
 - Per-test overhead: ~11.5ms average
@@ -657,6 +748,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.1-alpha] - 2025-11-28
 
 ### Added
+
 - Initial project structure
 - Basic framework design
 - Microsoft.Testing.Platform integration setup
@@ -667,7 +759,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Version History Summary
 
 | Version | Date | Tests | Features | Status |
-|---------|------|-------|----------|--------|
+| ------- | ---- | ----- | -------- | ------ |
 | 1.6.3 | 2026-01-14 | 236+ | VSTest Adapter, VS Test Explorer | Released |
 | 1.6.2 | 2025-12-20 | 167+ | CLI Filtering, Rich Failure Messages | Released |
 | 1.0.0 | 2025-12-06 | 102+ | Complete v1.0 feature set | Released |
@@ -681,6 +773,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Migration Notes
 
 ### From xUnit
+
 - Replace `[Fact]` with `[Test]`
 - Replace `[Theory]` + `[InlineData]` with `[Test]` + `[Arguments]`
 - Replace `IClassFixture<T>` with `[Before(LifecycleScope.Class)]`

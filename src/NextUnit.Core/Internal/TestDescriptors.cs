@@ -116,6 +116,32 @@ public sealed class ParallelInfo
 }
 
 /// <summary>
+/// Contains information about retry configuration for a test.
+/// </summary>
+public sealed class RetryInfo
+{
+    /// <summary>
+    /// Gets or initializes the maximum number of retry attempts, or <c>null</c> if no retry is configured.
+    /// </summary>
+    public int? Count { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the delay in milliseconds between retry attempts.
+    /// </summary>
+    public int DelayMs { get; init; }
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test is marked as flaky.
+    /// </summary>
+    public bool IsFlaky { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the reason why the test is considered flaky.
+    /// </summary>
+    public string? FlakyReason { get; init; }
+}
+
+/// <summary>
 /// Describes a test case with all its metadata and configuration.
 /// </summary>
 public sealed class TestCaseDescriptor
@@ -204,6 +230,11 @@ public sealed class TestCaseDescriptor
     public int? TimeoutMs { get; init; }
 
     /// <summary>
+    /// Gets or initializes the retry configuration for the test.
+    /// </summary>
+    public RetryInfo Retry { get; init; } = new();
+
+    /// <summary>
     /// Creates a copy of the current <see cref="TestCaseDescriptor"/> with updated skip-related properties.
     /// </summary>
     /// <param name="reason">The reason for skipping the test.</param>
@@ -229,7 +260,8 @@ public sealed class TestCaseDescriptor
         Tags = Tags,
         RequiresTestOutput = RequiresTestOutput,
         RequiresTestContext = RequiresTestContext,
-        TimeoutMs = TimeoutMs
+        TimeoutMs = TimeoutMs,
+        Retry = Retry
     };
 }
 
@@ -328,4 +360,9 @@ public sealed class TestDataDescriptor
     /// Gets or initializes the timeout for the test in milliseconds, or <c>null</c> if no timeout is specified.
     /// </summary>
     public int? TimeoutMs { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the retry configuration for the test.
+    /// </summary>
+    public RetryInfo Retry { get; init; } = new();
 }
