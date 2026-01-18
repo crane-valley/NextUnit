@@ -207,6 +207,17 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - Migration from xUnit tutorial
 - Performance optimization guide
 
+### Priority 6: Development Infrastructure
+
+#### 6.1 Local Markdownlint Setup
+**Status**: Not Started
+**Goal**: Catch markdown formatting issues before CI
+
+- Add `.markdownlint.json` configuration file
+- Add npm scripts or dotnet tool for local execution
+- Document setup in CONTRIBUTING.md
+- Consider pre-commit hook integration
+
 ---
 
 ## Implementation Timeline
