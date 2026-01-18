@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.6.7 (Stable)
+## Current Version: 1.6.8 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -56,13 +56,13 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - Configurable retry delay
 
 #### 1.4 Timeout Support
-**Status**: Not Started
+**Status**: Completed
 **Goal**: Prevent hung tests from blocking execution
 
-- `[Timeout(milliseconds)]` attribute per test
-- Class-level and assembly-level timeout defaults
-- Graceful cancellation with cleanup
-- Timeout warning threshold
+- [x] `[Timeout(milliseconds)]` attribute per test
+- [x] Class-level timeout defaults (method-level overrides class-level)
+- [x] Graceful cancellation with cleanup via CancellationToken
+- [x] `TestTimeoutException` for clear timeout reporting
 
 ### Priority 2: Developer Experience
 
@@ -226,7 +226,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 ### Near-Term (Next Release)
 1. ~~Runtime test skipping (`Assert.Skip`)~~ - **Completed**
-2. Timeout support
+2. ~~Timeout support~~ - **Completed**
 3. Watch mode (basic)
 
 ### Mid-Term (Q2 2026)
@@ -279,4 +279,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-18
-**Next Focus**: Timeout support, watch mode
+**Next Focus**: Watch mode, test context injection

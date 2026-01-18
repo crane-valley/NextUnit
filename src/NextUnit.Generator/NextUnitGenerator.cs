@@ -92,6 +92,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var categories = GetCategories(methodSymbol, typeSymbol);
         var tags = GetTags(methodSymbol, typeSymbol);
         var requiresTestOutput = RequiresTestOutput(typeSymbol);
+        var timeoutMs = GetTimeout(methodSymbol, typeSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -109,7 +110,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             categories,
             tags,
             methodSymbol.IsStatic,
-            requiresTestOutput);
+            requiresTestOutput,
+            timeoutMs);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
@@ -422,7 +424,8 @@ internal static class Program
         builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? ToLiteral(test.SkipReason) : "null")},");
         builder.AppendLine($"                Categories = {BuildStringArrayLiteral(test.Categories)},");
         builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)},");
-        builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()}");
+        builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")}");
         builder.AppendLine("            },");
     }
 
@@ -479,7 +482,8 @@ internal static class Program
 
         builder.AppendLine($"                Categories = {BuildStringArrayLiteral(test.Categories)},");
         builder.AppendLine($"                Tags = {BuildStringArrayLiteral(test.Tags)},");
-        builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()}");
+        builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")}");
 
         builder.AppendLine("            },");
     }
@@ -1133,6 +1137,50 @@ internal static class Program
         return builder.ToImmutable();
     }
 
+    private static int? GetTimeout(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        // Check method-level timeout first (highest priority)
+        var methodTimeout = GetTimeoutFromSymbol(methodSymbol);
+        if (methodTimeout.HasValue)
+        {
+            return methodTimeout;
+        }
+
+        // Check class-level timeout
+        var classTimeout = GetTimeoutFromSymbol(typeSymbol);
+        if (classTimeout.HasValue)
+        {
+            return classTimeout;
+        }
+
+        // Check assembly-level timeout
+        var assemblyTimeout = GetTimeoutFromSymbol(typeSymbol.ContainingAssembly);
+        return assemblyTimeout;
+    }
+
+    private static int? GetTimeoutFromSymbol(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, TimeoutAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments[0].Value is int timeout)
+            {
+                return timeout;
+            }
+        }
+
+        return null;
+    }
+
     private static bool RequiresTestOutput(INamedTypeSymbol typeSymbol)
     {
         // Only check public constructors since Activator.CreateInstance will only use public constructors
@@ -1168,6 +1216,7 @@ internal static class Program
     private const string TestDataAttributeMetadataName = "global::NextUnit.TestDataAttribute";
     private const string CategoryAttributeMetadataName = "global::NextUnit.CategoryAttribute";
     private const string TagAttributeMetadataName = "global::NextUnit.TagAttribute";
+    private const string TimeoutAttributeMetadataName = "global::NextUnit.TimeoutAttribute";
     private const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
 
     private static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
@@ -1202,7 +1251,8 @@ internal static class Program
             ImmutableArray<string> categories,
             ImmutableArray<string> tags,
             bool isStatic,
-            bool requiresTestOutput)
+            bool requiresTestOutput,
+            int? timeoutMs)
         {
             Id = id;
             DisplayName = displayName;
@@ -1220,6 +1270,7 @@ internal static class Program
             Tags = tags;
             IsStatic = isStatic;
             RequiresTestOutput = requiresTestOutput;
+            TimeoutMs = timeoutMs;
         }
 
         public string Id { get; }
@@ -1238,6 +1289,7 @@ internal static class Program
         public ImmutableArray<string> Tags { get; }
         public bool IsStatic { get; }
         public bool RequiresTestOutput { get; }
+        public int? TimeoutMs { get; }
     }
 
     private sealed class LifecycleMethodDescriptor

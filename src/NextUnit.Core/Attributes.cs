@@ -130,3 +130,34 @@ public sealed class DependsOnAttribute : Attribute
         MethodNames = methodNames;
     }
 }
+
+/// <summary>
+/// Specifies the maximum execution time for a test, class, or assembly before it is considered timed out.
+/// </summary>
+/// <remarks>
+/// When applied to a test method, the timeout applies to that specific test.
+/// When applied to a class, the timeout applies to all tests in that class (unless overridden by method-level timeout).
+/// When applied to an assembly, the timeout applies to all tests in that assembly (unless overridden by class or method-level timeout).
+/// </remarks>
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class TimeoutAttribute : Attribute
+{
+    /// <summary>
+    /// Gets the timeout duration in milliseconds.
+    /// </summary>
+    public int Milliseconds { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TimeoutAttribute"/> class.
+    /// </summary>
+    /// <param name="milliseconds">The timeout duration in milliseconds.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="milliseconds"/> is less than or equal to zero.</exception>
+    public TimeoutAttribute(int milliseconds)
+    {
+        if (milliseconds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(milliseconds), "Timeout must be greater than zero.");
+        }
+        Milliseconds = milliseconds;
+    }
+}

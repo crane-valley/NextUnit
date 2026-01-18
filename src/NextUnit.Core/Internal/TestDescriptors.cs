@@ -194,6 +194,11 @@ public sealed class TestCaseDescriptor
     public bool RequiresTestOutput { get; init; }
 
     /// <summary>
+    /// Gets or initializes the timeout for the test in milliseconds, or <c>null</c> if no timeout is specified.
+    /// </summary>
+    public int? TimeoutMs { get; init; }
+
+    /// <summary>
     /// Creates a copy of the current <see cref="TestCaseDescriptor"/> with updated skip-related properties.
     /// </summary>
     /// <param name="reason">The reason for skipping the test.</param>
@@ -217,7 +222,8 @@ public sealed class TestCaseDescriptor
         Arguments = Arguments,
         Categories = Categories,
         Tags = Tags,
-        RequiresTestOutput = RequiresTestOutput
+        RequiresTestOutput = RequiresTestOutput,
+        TimeoutMs = TimeoutMs
     };
 }
 
@@ -306,4 +312,9 @@ public sealed class TestDataDescriptor
     /// Gets or initializes a value indicating whether the test class constructor requires an ITestOutput parameter.
     /// </summary>
     public bool RequiresTestOutput { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the timeout for the test in milliseconds, or <c>null</c> if no timeout is specified.
+    /// </summary>
+    public int? TimeoutMs { get; init; }
 }

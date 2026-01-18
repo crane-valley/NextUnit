@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.8] - 2026-01-18
+
+### Added - Timeout Support
+
+- **`[Timeout(milliseconds)]` attribute** - Set timeout for test methods
+  - Method-level: `[Timeout(5000)]` sets 5 second timeout
+  - Class-level: `[Timeout(3000)]` applies to all tests in the class
+  - Method-level timeout overrides class-level timeout
+  - Graceful cancellation via CancellationToken
+- **`TestTimeoutException`** - Thrown when test exceeds timeout
+  - Clear error message with timeout value
+  - Reported as test error (not failure)
+- **Timeout handling in TestExecutionEngine**
+  - Uses linked CancellationTokenSource for clean cancellation
+  - Distinguishes timeout from external cancellation
+  - Timeout exceptions don't affect other tests
+
 ## [1.6.7] - 2026-01-18
 
 ### Added - Runtime Test Skipping
