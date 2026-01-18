@@ -15,6 +15,7 @@ git checkout -b <branch-type>/<description>
 ```
 
 Branch name examples:
+
 - `fix/docs-typo` - Documentation fixes
 - `feat/assert-skip` - New feature
 - `update/plans-roadmap` - Plan updates
@@ -66,6 +67,7 @@ gh pr create --title "<title>" --body "<description>"
 ```
 
 Commit message types:
+
 - `feat:` - New feature
 - `fix:` - Bug fix
 - `docs:` - Documentation only changes
@@ -99,6 +101,7 @@ gh api repos/crane-valley/NextUnit/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/repli
 ```
 
 Common reply patterns:
+
 - Fixed issue: `"Fixed in commit abc1234. <description of fix>"`
 - Intentional design: `"This is intentional. <explanation of why>"`
 - Already addressed: `"This is already using <solution>. <details>"`
@@ -160,6 +163,7 @@ If the user confirms, add a **separate commit** for version bump:
    - `NUGET_README.md` - Update version if mentioned
 
 2. Create a separate commit for version bump only:
+
    ```bash
    git add Directory.Build.props Directory.Packages.props CHANGELOG.md docs/ NUGET_README.md
    git commit -m "chore: Bump version to X.Y.Z"
@@ -176,7 +180,8 @@ If the user confirms, add a **separate commit** for version bump:
 
 ## Project Overview
 
-NextUnit is a modern, high-performance test framework for .NET 10+ with Visual Studio Test Explorer integration via VSTest adapter.
+NextUnit is a modern, high-performance test framework for .NET 10+ with Visual Studio Test Explorer
+integration via VSTest adapter.
 
 ## Key Packages
 
@@ -260,6 +265,7 @@ dotnet build
 ### 3. Version Update Files
 
 Update version in these files:
+
 - `Directory.Build.props` - `<Version>` property
 - `Directory.Packages.props` - All `NextUnit.*` package versions
 - `CHANGELOG.md` - Add release notes
@@ -267,6 +273,7 @@ Update version in these files:
 ### 4. Solution File Check
 
 Ensure all packable projects are in `NextUnit.slnx`:
+
 - `src/NextUnit.Core/NextUnit.Core.csproj`
 - `src/NextUnit.Generator/NextUnit.Generator.csproj`
 - `src/NextUnit.TestAdapter/NextUnit.TestAdapter.csproj`
@@ -275,6 +282,7 @@ Ensure all packable projects are in `NextUnit.slnx`:
 ### 5. Release Workflow Check
 
 Verify `.github/workflows/release.yml` includes all packages in:
+
 - Pack step
 - Verify step
 
@@ -285,6 +293,7 @@ Verify `.github/workflows/release.yml` includes all packages in:
 **Cause:** Project not included in solution file or release workflow.
 
 **Solution:**
+
 1. Add project to `NextUnit.slnx`
 2. Add pack step to `.github/workflows/release.yml`
 3. Add verification step to release workflow
@@ -294,6 +303,7 @@ Verify `.github/workflows/release.yml` includes all packages in:
 **Cause:** `NextUnit.targets` has incorrect settings.
 
 **Solution:** Ensure `src/NextUnit/build/NextUnit.targets` only contains VSTest-compatible settings:
+
 ```xml
 <Project>
   <PropertyGroup>
@@ -307,6 +317,7 @@ Verify `.github/workflows/release.yml` includes all packages in:
 **Cause:** Missing TestAdapter or incorrect project configuration.
 
 **Solution:**
+
 1. Ensure `NextUnit.TestAdapter` is included in the package
 2. Verify `IsTestProject=true` in consuming project
 3. Check that `Microsoft.NET.Test.Sdk` is referenced
@@ -331,14 +342,17 @@ Verify `.github/workflows/release.yml` includes all packages in:
 
 ### Code Quality and Maintainability
 
-- **Proactive Refactoring**: Actively refactor design and implementation to improve maintainability. Don't hesitate to reorganize code structure when it improves clarity.
+- **Proactive Refactoring**: Actively refactor design and implementation to improve maintainability.
+  Don't hesitate to reorganize code structure when it improves clarity.
 - **Delete Unused Code**: Remove dead code, unused imports, and obsolete implementations immediately.
 - **Consistent Patterns**: Follow established patterns throughout the codebase.
 
 ### Documentation Synchronization
 
-- **Documentation Must Match Implementation**: Keep all documentation (README.md, docs/, XML comments) synchronized with the actual implementation.
-- **Remove Outdated Documentation**: Delete documentation that no longer reflects reality. Outdated docs are worse than no docs.
+- **Documentation Must Match Implementation**: Keep all documentation (README.md, docs/, XML comments)
+  synchronized with the actual implementation.
+- **Remove Outdated Documentation**: Delete documentation that no longer reflects reality.
+  Outdated docs are worse than no docs.
 - **Update Immediately**: When implementation changes, update related documentation in the same commit.
 - **Files to Keep in Sync**:
   - `README.md` - Overview and quick start
