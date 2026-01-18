@@ -939,6 +939,103 @@ public static class Assert
                 message ?? $"Value {actual} is in range [{min}, {max}] but should not be.");
         }
     }
+
+    // Runtime Skip Assertions
+
+    /// <summary>
+    /// Skips the current test with a specified reason.
+    /// </summary>
+    /// <param name="reason">The reason for skipping the test.</param>
+    /// <exception cref="TestSkippedException">Always thrown to indicate the test should be skipped.</exception>
+    /// <remarks>
+    /// Use this method to skip a test at runtime based on dynamic conditions.
+    /// For compile-time skipping, use the <see cref="SkipAttribute"/> instead.
+    /// </remarks>
+    [System.Diagnostics.CodeAnalysis.DoesNotReturn]
+    public static void Skip(string reason)
+    {
+        throw new TestSkippedException(reason);
+    }
+
+    /// <summary>
+    /// Skips the current test if the specified condition is true.
+    /// </summary>
+    /// <param name="condition">If <c>true</c>, the test will be skipped.</param>
+    /// <param name="reason">The reason for skipping the test.</param>
+    /// <exception cref="TestSkippedException">Thrown when the condition is true.</exception>
+    public static void SkipWhen(bool condition, string reason)
+    {
+        if (condition)
+        {
+            throw new TestSkippedException(reason);
+        }
+    }
+
+    /// <summary>
+    /// Skips the current test unless the specified condition is true.
+    /// </summary>
+    /// <param name="condition">If <c>false</c>, the test will be skipped.</param>
+    /// <param name="reason">The reason for skipping the test.</param>
+    /// <exception cref="TestSkippedException">Thrown when the condition is false.</exception>
+    public static void SkipUnless(bool condition, string reason)
+    {
+        if (!condition)
+        {
+            throw new TestSkippedException(reason);
+        }
+    }
+
+    /// <summary>
+    /// Skips the current test when running on Windows.
+    /// </summary>
+    /// <param name="reason">The reason for skipping on Windows. If null, a default message is used.</param>
+    /// <exception cref="TestSkippedException">Thrown when running on Windows.</exception>
+    public static void SkipOnWindows(string? reason = null)
+    {
+        SkipWhen(
+            System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.Windows),
+            reason ?? "Test skipped on Windows.");
+    }
+
+    /// <summary>
+    /// Skips the current test when running on Linux.
+    /// </summary>
+    /// <param name="reason">The reason for skipping on Linux. If null, a default message is used.</param>
+    /// <exception cref="TestSkippedException">Thrown when running on Linux.</exception>
+    public static void SkipOnLinux(string? reason = null)
+    {
+        SkipWhen(
+            System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.Linux),
+            reason ?? "Test skipped on Linux.");
+    }
+
+    /// <summary>
+    /// Skips the current test when running on macOS.
+    /// </summary>
+    /// <param name="reason">The reason for skipping on macOS. If null, a default message is used.</param>
+    /// <exception cref="TestSkippedException">Thrown when running on macOS.</exception>
+    public static void SkipOnMacOS(string? reason = null)
+    {
+        SkipWhen(
+            System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.OSX),
+            reason ?? "Test skipped on macOS.");
+    }
+
+    /// <summary>
+    /// Skips the current test when running on FreeBSD.
+    /// </summary>
+    /// <param name="reason">The reason for skipping on FreeBSD. If null, a default message is used.</param>
+    /// <exception cref="TestSkippedException">Thrown when running on FreeBSD.</exception>
+    public static void SkipOnFreeBSD(string? reason = null)
+    {
+        SkipWhen(
+            System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.FreeBSD),
+            reason ?? "Test skipped on FreeBSD.");
+    }
 }
 
 /// <summary>
@@ -963,4 +1060,35 @@ public sealed class AssertionFailedException : Exception
     /// <param name="message">The message that describes the assertion failure.</param>
     /// <param name="inner">The exception that is the cause of the current exception.</param>
     public AssertionFailedException(string message, Exception inner) : base(message, inner) { }
+}
+
+/// <summary>
+/// Represents an exception that is thrown when a test is skipped during execution.
+/// </summary>
+/// <remarks>
+/// This exception is thrown by <see cref="Assert.Skip"/> and related methods
+/// to indicate that a test should be skipped at runtime rather than failing.
+/// </remarks>
+public sealed class TestSkippedException : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TestSkippedException"/> class
+    /// with a default message.
+    /// </summary>
+    public TestSkippedException() : base("Test was skipped.") { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TestSkippedException"/> class
+    /// with a specified reason for skipping the test.
+    /// </summary>
+    /// <param name="reason">The reason why the test is being skipped.</param>
+    public TestSkippedException(string reason) : base(reason) { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TestSkippedException"/> class
+    /// with a specified reason and inner exception.
+    /// </summary>
+    /// <param name="reason">The reason why the test is being skipped.</param>
+    /// <param name="inner">The exception that is the cause of the current exception.</param>
+    public TestSkippedException(string reason, Exception inner) : base(reason, inner) { }
 }
