@@ -28,6 +28,9 @@ Before committing, always run:
 # - Verify README.md and docs/ match the implementation
 # - Verify source code XML comments are accurate
 
+# Markdown lint (run when adding/modifying .md files)
+markdownlint --config .markdownlint.json <changed-files>.md
+
 # Build verification
 dotnet build
 
@@ -39,6 +42,10 @@ dotnet test samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
 dotnet test samples/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests/ClassLibrary.Sample.Tests.csproj
 dotnet test samples/Console.Sample.Tests/Console.Sample.Tests/Console.Sample.Tests.csproj
 ```
+
+**Note**: When modifying markdown files (`.md`), always run `markdownlint` before committing.
+The project uses `.markdownlint.json` for configuration.
+Install markdownlint-cli globally if not available: `npm install -g markdownlint-cli`.
 
 ### 3. Commit and Create PR
 
