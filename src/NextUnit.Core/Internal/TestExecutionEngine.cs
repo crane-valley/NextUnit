@@ -343,8 +343,17 @@ public sealed class TestExecutionEngine
             {
                 await sink.ReportFailedAsync(testCase, ex, testOutput.GetOutput()).ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException
-                                        and not StackOverflowException)
+            catch (OutOfMemoryException)
+            {
+                // Rethrow to preserve fail-fast behavior for critical exception types.
+                throw;
+            }
+            catch (StackOverflowException)
+            {
+                // Rethrow to preserve fail-fast behavior for critical exception types.
+                throw;
+            }
+            catch (Exception ex)
             {
                 await sink.ReportErrorAsync(testCase, ex, testOutput.GetOutput()).ConfigureAwait(false);
             }
