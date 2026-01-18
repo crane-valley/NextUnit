@@ -17,10 +17,10 @@ public class RetryTests
     public void RetryEventuallyPasses()
     {
         // This test fails twice and then passes on the third attempt
-        _retryCounter++;
-        if (_retryCounter < 3)
+        var attempt = Interlocked.Increment(ref _retryCounter);
+        if (attempt < 3)
         {
-            Assert.True(false, $"Intentional failure on attempt {_retryCounter}");
+            Assert.True(false, $"Intentional failure on attempt {attempt}");
         }
         Assert.True(true, "Passed on third attempt");
     }
@@ -47,10 +47,10 @@ public class RetryTests
     public void FlakyTestWithRetry()
     {
         // This test is both flaky and has retry enabled
-        _flakyCounter++;
-        if (_flakyCounter < 2)
+        var attempt = Interlocked.Increment(ref _flakyCounter);
+        if (attempt < 2)
         {
-            Assert.True(false, $"Intentional failure on attempt {_flakyCounter}");
+            Assert.True(false, $"Intentional failure on attempt {attempt}");
         }
         Assert.True(true, "Passed on second attempt");
     }
@@ -58,9 +58,9 @@ public class RetryTests
     [Before(LifecycleScope.Class)]
     public void ResetCounters()
     {
-        // Reset counters before each class run
-        _retryCounter = 0;
-        _flakyCounter = 0;
+        // Reset counters before each class run using thread-safe operations
+        Interlocked.Exchange(ref _retryCounter, 0);
+        Interlocked.Exchange(ref _flakyCounter, 0);
     }
 }
 
@@ -73,10 +73,10 @@ public class ClassLevelRetryTests
     public void InheritedRetryFromClass()
     {
         // This test inherits retry count from the class
-        _classRetryCounter++;
-        if (_classRetryCounter < 2)
+        var attempt = Interlocked.Increment(ref _classRetryCounter);
+        if (attempt < 2)
         {
-            Assert.True(false, $"Intentional failure on attempt {_classRetryCounter}");
+            Assert.True(false, $"Intentional failure on attempt {attempt}");
         }
         Assert.True(true, "Passed on second attempt");
     }
@@ -92,7 +92,7 @@ public class ClassLevelRetryTests
     [Before(LifecycleScope.Class)]
     public void ResetCounters()
     {
-        _classRetryCounter = 0;
+        Interlocked.Exchange(ref _classRetryCounter, 0);
     }
 }
 

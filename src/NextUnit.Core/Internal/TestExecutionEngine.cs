@@ -379,23 +379,27 @@ public sealed class TestExecutionEngine
                     // Rethrow to preserve fail-fast behavior for critical exception types.
                     throw;
                 }
-                catch (Exception ex) when (attempt < maxAttempts)
-                {
-                    // Failure but we have more attempts - save exception and continue
-                    lastException = ex;
-                    lastOutput = testOutput.GetOutput();
-                }
-                catch (AssertionFailedException ex)
-                {
-                    // Final attempt - assertion failure
-                    await sink.ReportFailedAsync(testCase, ex, testOutput.GetOutput()).ConfigureAwait(false);
-                    return;
-                }
                 catch (Exception ex)
                 {
-                    // Final attempt - general error
-                    await sink.ReportErrorAsync(testCase, ex, testOutput.GetOutput()).ConfigureAwait(false);
-                    return;
+                    // Check if we have more attempts
+                    if (attempt < maxAttempts)
+                    {
+                        // Save exception and continue to next attempt
+                        lastException = ex;
+                        lastOutput = testOutput.GetOutput();
+                    }
+                    else if (ex is AssertionFailedException assertionEx)
+                    {
+                        // Final attempt - assertion failure
+                        await sink.ReportFailedAsync(testCase, assertionEx, testOutput.GetOutput()).ConfigureAwait(false);
+                        return;
+                    }
+                    else
+                    {
+                        // Final attempt - general error
+                        await sink.ReportErrorAsync(testCase, ex, testOutput.GetOutput()).ConfigureAwait(false);
+                        return;
+                    }
                 }
                 finally
                 {
@@ -416,14 +420,22 @@ public sealed class TestExecutionEngine
                 }
             }
 
-            // Should not reach here, but handle edge case
-            if (lastException is AssertionFailedException assertionEx)
+            // Should not reach here, but handle edge case where all retries exhausted
+            if (lastException is AssertionFailedException lastAssertionEx)
             {
-                await sink.ReportFailedAsync(testCase, assertionEx, lastOutput).ConfigureAwait(false);
+                await sink.ReportFailedAsync(testCase, lastAssertionEx, lastOutput).ConfigureAwait(false);
             }
             else if (lastException is not null)
             {
                 await sink.ReportErrorAsync(testCase, lastException, lastOutput).ConfigureAwait(false);
+            }
+            else
+            {
+                // This should never happen - report as error if it does
+                await sink.ReportErrorAsync(
+                    testCase,
+                    new InvalidOperationException("Test completed without result"),
+                    string.Empty).ConfigureAwait(false);
             }
         }
         finally
