@@ -215,7 +215,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Package Configuration** - Set `DevelopmentDependency=true` for all NextUnit packages
-  - NextUnit.Core, NextUnit.Generator, NextUnit.Platform, and NextUnit meta-package now marked as development dependencies
+  - NextUnit.Core, NextUnit.Generator, NextUnit.Platform, and NextUnit meta-package
+    now marked as development dependencies
   - Prevents transitive dependency propagation when consuming projects reference NextUnit
   - Improves package dependency management for library authors using NextUnit for testing
 
@@ -271,16 +272,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - Predicate-based Collection Assertions
 
-- **`Assert.Contains<T>(IEnumerable<T>, Predicate<T>)`** - Verifies that a collection contains an element matching a predicate
+- **`Assert.Contains<T>(IEnumerable<T>, Predicate<T>)`**
+  - Verifies that a collection contains an element matching a predicate
   - Returns the first matching element (not void) for chaining assertions
   - Enables xUnit-compatible syntax: `var match = Assert.Contains(items, item => item.Id == expectedId)`
   - Supports both lambda expressions and `Predicate<T>` delegates
   
-- **`Assert.DoesNotContain<T>(IEnumerable<T>, Predicate<T>)`** - Verifies that a collection does not contain an element matching a predicate
+- **`Assert.DoesNotContain<T>(IEnumerable<T>, Predicate<T>)`**
+  - Verifies that a collection does not contain an element matching a predicate
   - Complements the predicate-based Contains for consistency
   - Useful for verifying absence of items with specific properties
-  
-- **`Assert.Single<T>(IEnumerable<T>, Predicate<T>)`** - Verifies that a collection contains exactly one element matching a predicate
+
+- **`Assert.Single<T>(IEnumerable<T>, Predicate<T>)`**
+  - Verifies that a collection contains exactly one element matching a predicate
   - Returns the single matching element for further assertions
   - Throws clear errors when zero or multiple elements match
 
@@ -334,6 +338,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Source generator provides 50-100x faster test discovery vs reflection-based approaches
 
 ### Removed
+
 - **dotnet test support** - Removed `Microsoft.Testing.Platform.MSBuild` package dependency
   - Removed `docs/DOTNET_TEST_SUPPORT.md` documentation
   - Removed `IsTestProject` condition from `NextUnit.targets`
@@ -341,14 +346,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Simplified project configuration - no longer need `EnableMSTestRunner` property
 
 ### Changed
+
 - **README.md** - Updated to state that tests should be executed using `dotnet run`
 - **NUGET_README.md** - Removed `EnableMSTestRunner` from example project configuration
-- **NextUnit.targets** - Removed conditional logic, now unconditionally sets `OutputType=Exe` and `GenerateProgramFile=false`
+- **NextUnit.targets** - Removed conditional logic
+  - Now unconditionally sets `OutputType=Exe` and `GenerateProgramFile=false`
 
 ## [1.3.1] - 2025-12-09
 
 ### Added - dotnet test Support Documentation
-- **`Microsoft.Testing.Platform.MSBuild` package dependency** - Added as a direct package reference to NextUnit meta-package
+- **`Microsoft.Testing.Platform.MSBuild` package dependency**
+  - Added as a direct package reference to NextUnit meta-package
   - Ensures the package is properly restored for consumers
   - Provides MSBuild integration for Microsoft.Testing.Platform
   - Enables optional `dotnet test` support on .NET 10 SDK with proper configuration
@@ -364,7 +372,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **NextUnit.targets** - Simplified to only set OutputType=Exe (package dependency handles MSBuild integration)
 
 ### Fixed
-- **Package restore issue** - Microsoft.Testing.Platform.MSBuild now properly restored as a dependency instead of only being referenced in build targets
+- **Package restore issue** - Microsoft.Testing.Platform.MSBuild now properly restored
+  - Was previously only referenced in build targets, now a proper dependency
 
 ### Note
 - `dotnet run` remains the recommended way to run NextUnit tests
@@ -404,7 +413,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Test count increased from 116 to 123 tests
   - Added 7 new tests demonstrating test output functionality (`TestOutputTests`)
-  - Tests cover simple output, formatted output, multiline output, parameterized tests, async tests, and failed tests with output
+  - Tests cover simple output, formatted output, multiline output, parameterized tests,
+    async tests, and failed tests with output
 - Framework version bumped to 1.3.0
 
 ## [1.2.1] - 2025-12-07
@@ -486,7 +496,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2025-12-06
 
 ### Added - TestData Support
-- **`[TestData]` attribute support** - Source generator now processes `[TestData]` attributes for runtime test data expansion
+- **`[TestData]` attribute support**
+  - Source generator now processes `[TestData]` attributes for runtime test data expansion
   - Static method data sources via `[TestData(nameof(MethodName))]`
   - Static property data sources via `[TestData(nameof(PropertyName))]`
   - External class data sources via `MemberType` property
@@ -571,6 +582,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Per-test Overhead**: ~7ms average (includes test logic)
 - **Framework Memory**: ~5MB baseline
 - **Zero reflection** in test execution path
+
 ### Technical Details
 - **Target Framework**: .NET 10+
 - **Native AOT Compatible**: Full support
