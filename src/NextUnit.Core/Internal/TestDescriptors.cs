@@ -192,6 +192,29 @@ public sealed class TestCaseDescriptor
     /// Gets or initializes a value indicating whether the test class constructor requires an ITestOutput parameter.
     /// </summary>
     public bool RequiresTestOutput { get; init; }
+
+    /// <summary>
+    /// Creates a new <see cref="TestCaseDescriptor"/> with the skip reason set.
+    /// </summary>
+    /// <param name="reason">The reason for skipping the test.</param>
+    /// <returns>A new instance with <see cref="IsSkipped"/> set to <c>true</c> and <see cref="SkipReason"/> set.</returns>
+    public TestCaseDescriptor WithSkipReason(string reason) => new()
+    {
+        Id = Id,
+        DisplayName = DisplayName,
+        TestClass = TestClass,
+        MethodName = MethodName,
+        TestMethod = TestMethod,
+        Lifecycle = Lifecycle,
+        Parallel = Parallel,
+        Dependencies = Dependencies,
+        IsSkipped = true,
+        SkipReason = reason,
+        Arguments = Arguments,
+        Categories = Categories,
+        Tags = Tags,
+        RequiresTestOutput = RequiresTestOutput
+    };
 }
 
 /// <summary>

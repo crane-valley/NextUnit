@@ -280,25 +280,8 @@ public sealed class TestExecutionEngine
         }
         catch (TestSkippedException ex)
         {
-            // Runtime skip - create a modified descriptor with the skip reason
-            var skippedTest = new TestCaseDescriptor
-            {
-                Id = testCase.Id,
-                DisplayName = testCase.DisplayName,
-                TestClass = testCase.TestClass,
-                MethodName = testCase.MethodName,
-                TestMethod = testCase.TestMethod,
-                Lifecycle = testCase.Lifecycle,
-                Parallel = testCase.Parallel,
-                Dependencies = testCase.Dependencies,
-                IsSkipped = true,
-                SkipReason = ex.Message,
-                Arguments = testCase.Arguments,
-                Categories = testCase.Categories,
-                Tags = testCase.Tags,
-                RequiresTestOutput = testCase.RequiresTestOutput
-            };
-            await sink.ReportSkippedAsync(skippedTest).ConfigureAwait(false);
+            // Runtime skip - use WithSkipReason to create a modified descriptor
+            await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message)).ConfigureAwait(false);
         }
         catch (AssertionFailedException ex)
         {
