@@ -377,7 +377,10 @@ public sealed class TestExecutionEngine
             else
             {
                 // Final attempt - report the exception
-                await ReportFinalExceptionAsync(testCase, sink, attemptResult.Exception!, testOutput.GetOutput()).ConfigureAwait(false);
+                // Note: Exception is guaranteed non-null for Retriable outcome, but use defensive fallback
+                var finalException = attemptResult.Exception
+                    ?? new InvalidOperationException("Retriable attempt result must have a non-null exception.");
+                await ReportFinalExceptionAsync(testCase, sink, finalException, testOutput.GetOutput()).ConfigureAwait(false);
                 return;
             }
         }
@@ -426,13 +429,13 @@ public sealed class TestExecutionEngine
             // Timeout occurred - do not retry timeouts
             var timeoutEx = new TestTimeoutException(testCase.TimeoutMs!.Value);
             await sink.ReportErrorAsync(testCase, timeoutEx, testOutput.GetOutput()).ConfigureAwait(false);
-            return AttemptResult.Passed; // Terminal - don't retry
+            return AttemptResult.TimedOut;
         }
         catch (TestSkippedException ex)
         {
             // Runtime skip - do not retry skips
             await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message)).ConfigureAwait(false);
-            return AttemptResult.Passed; // Terminal - don't retry
+            return AttemptResult.Skipped;
         }
         catch (OutOfMemoryException)
         {
@@ -446,7 +449,7 @@ public sealed class TestExecutionEngine
         }
         catch (Exception ex)
         {
-            return AttemptResult.Failed(ex);
+            return AttemptResult.Retriable(ex);
         }
         finally
         {
@@ -512,11 +515,44 @@ public sealed class TestExecutionEngine
     /// </summary>
     private readonly struct AttemptResult
     {
-        public bool IsTerminal { get; init; }
+        /// <summary>The outcome of the test attempt.</summary>
+        public AttemptOutcome Outcome { get; init; }
+
+        /// <summary>The exception that caused the failure, if any.</summary>
         public Exception? Exception { get; init; }
 
-        public static AttemptResult Passed => new() { IsTerminal = true };
-        public static AttemptResult Failed(Exception ex) => new() { IsTerminal = false, Exception = ex };
+        /// <summary>Whether the result is terminal (should not retry).</summary>
+        public bool IsTerminal => Outcome != AttemptOutcome.Retriable;
+
+        /// <summary>Test passed successfully (terminal, no retry).</summary>
+        public static AttemptResult Passed => new() { Outcome = AttemptOutcome.Passed };
+
+        /// <summary>Test was skipped at runtime (terminal, no retry).</summary>
+        public static AttemptResult Skipped => new() { Outcome = AttemptOutcome.Skipped };
+
+        /// <summary>Test timed out (terminal, no retry).</summary>
+        public static AttemptResult TimedOut => new() { Outcome = AttemptOutcome.TimedOut };
+
+        /// <summary>Test failed with a retriable exception.</summary>
+        public static AttemptResult Retriable(Exception ex) => new() { Outcome = AttemptOutcome.Retriable, Exception = ex };
+    }
+
+    /// <summary>
+    /// Represents the outcome of a single test attempt.
+    /// </summary>
+    private enum AttemptOutcome
+    {
+        /// <summary>Test passed successfully.</summary>
+        Passed,
+
+        /// <summary>Test was skipped at runtime.</summary>
+        Skipped,
+
+        /// <summary>Test timed out.</summary>
+        TimedOut,
+
+        /// <summary>Test failed and may be retried.</summary>
+        Retriable
     }
 
     /// <summary>
