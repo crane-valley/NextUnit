@@ -25,6 +25,39 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 ## Upcoming Features
 
+### Priority 0: Internal Refactoring (v1.7.x)
+
+**Status**: In Progress
+**Goal**: Improve code quality, reduce duplication, and enhance maintainability
+
+#### 0.1 Critical: Code Duplication Elimination
+
+- [ ] Extract `AssemblyLoader` utility (shared assembly loading with exception handling)
+  - Consolidate from: TestDiscoverer, TestExecutor, NextUnitFramework
+- [ ] Extract `ExceptionHelper.IsCriticalException()` (shared exception classification)
+  - Consolidate from: TestDiscoverer, TestExecutor
+- [ ] Refactor `ExecuteSingleAsync` in TestExecutionEngine (reduce complexity)
+  - Break into: `ValidateTestAsync`, `ExecuteWithRetryAsync`, `ReportResultAsync`
+
+#### 0.2 High: Architecture Improvements
+
+- [ ] Split `NextUnitGenerator.cs` (1,557 lines) into focused classes
+  - TestRegistryGenerator, TestCaseEmitter, TestDataDescriptorEmitter
+  - LifecycleMethodBuilder, ParameterBuilder, ArgumentFormatter
+- [ ] Extract `VSTestCaseFactory` (consolidate VSTest case creation)
+  - Consolidate from: TestDiscoverer, TestExecutor
+- [ ] Centralize `TestFilter` logic (unified filtering across Platform and TestAdapter)
+- [ ] Consolidate argument formatting methods in Generator
+
+#### 0.3 Medium: Code Quality
+
+- [ ] Add Regex caching in `NextUnitFramework`
+- [ ] Extract `LifecycleScope` enum (replace magic numbers 0,1,2,3)
+- [ ] Extract `DisposeHelper` for IDisposable/IAsyncDisposable pattern
+- [ ] Resolve TODO comments and unused fields
+
+---
+
 ### Priority 1: Core Enhancements
 
 #### 1.1 Runtime Test Skipping
@@ -302,13 +335,16 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 3. ~~Test Context Injection~~ - **Completed** (v1.6.9)
 4. ~~Retry support~~ - **Completed** (v1.6.9)
 5. ~~Display name customization~~ - **Completed** (v1.7.0)
+6. **Internal Refactoring** - In Progress (v1.7.x)
+   - Critical: Code duplication elimination
+   - High: Architecture improvements
 
 ### Q2 2026
 
-1. Enhanced parallel control (constraint keys)
-2. Matrix data sources
-3. Basic Roslyn analyzers (5-10 rules)
-4. Test repeat support
+1. Internal Refactoring (Medium priority items)
+2. Enhanced parallel control (constraint keys)
+3. Matrix data sources
+4. Basic Roslyn analyzers (5-10 rules)
 
 ### Q3 2026
 
@@ -387,4 +423,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-19
-**Next Focus**: Enhanced Parallel Control
+**Next Focus**: Internal Refactoring (Priority 0)

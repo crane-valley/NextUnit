@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Security;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging;
@@ -19,14 +17,6 @@ public sealed class NextUnitTestExecutor : ITestExecutor
     public const string ExecutorUri = "executor://NextUnitTestExecutor/v1";
 
     private CancellationTokenSource? _cancellationTokenSource;
-
-    private static bool IsCriticalException(Exception ex)
-    {
-        return ex is OutOfMemoryException
-            or StackOverflowException
-            or ThreadAbortException
-            or AccessViolationException;
-    }
 
     /// <summary>
     /// Runs all tests from the specified sources.
@@ -62,7 +52,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             }
             catch (Exception ex)
             {
-                if (IsCriticalException(ex))
+                if (ExceptionHelper.IsCriticalException(ex))
                 {
                     throw;
                 }
@@ -114,7 +104,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             }
             catch (Exception ex)
             {
-                if (IsCriticalException(ex))
+                if (ExceptionHelper.IsCriticalException(ex))
                 {
                     throw;
                 }
@@ -142,50 +132,21 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         IFrameworkHandle frameworkHandle,
         CancellationToken cancellationToken)
     {
-        if (!File.Exists(source))
+        var loadResult = AssemblyLoader.TryLoadAssembly(source);
+        if (!loadResult.Success)
         {
-            return;
-        }
-
-        Assembly assembly;
-        try
-        {
-            assembly = Assembly.LoadFrom(source);
-        }
-        catch (FileNotFoundException ex)
-        {
-            frameworkHandle.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (file not found): {ex.Message}");
-            return;
-        }
-        catch (BadImageFormatException ex)
-        {
-            frameworkHandle.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (bad image format): {ex.Message}");
-            return;
-        }
-        catch (FileLoadException ex)
-        {
-            frameworkHandle.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (file load error): {ex.Message}");
-            return;
-        }
-        catch (IOException ex)
-        {
-            frameworkHandle.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (I/O error): {ex.Message}");
-            return;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            frameworkHandle.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (access denied): {ex.Message}");
-            return;
-        }
-        catch (SecurityException ex)
-        {
-            frameworkHandle.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (security error): {ex.Message}");
+            if (loadResult.ErrorMessage is not null)
+            {
+                frameworkHandle.SendMessage(
+                    TestMessageLevel.Warning,
+                    $"NextUnit: Could not load assembly {source} ({loadResult.ErrorCategory}): {loadResult.ErrorMessage}");
+            }
             return;
         }
 
         // Look for NextUnit.Generated.GeneratedTestRegistry
-        var registryType = assembly.GetType("NextUnit.Generated.GeneratedTestRegistry");
-        if (registryType == null)
+        var registryType = AssemblyLoader.GetTestRegistryType(loadResult.Assembly!);
+        if (registryType is null)
         {
             return;
         }
@@ -194,34 +155,26 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         var allTestCases = new List<TestCaseDescriptor>();
 
         // Get static TestCases
-        var testCasesProperty = registryType.GetProperty("TestCases", BindingFlags.Public | BindingFlags.Static);
-        if (testCasesProperty != null)
+        var testCases = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestCaseDescriptor>>(registryType, "TestCases");
+        if (testCases is not null)
         {
-            var testCases = testCasesProperty.GetValue(null) as IReadOnlyList<TestCaseDescriptor>;
-            if (testCases != null)
-            {
-                allTestCases.AddRange(testCases);
-            }
+            allTestCases.AddRange(testCases);
         }
 
         // Get TestDataDescriptors and expand them
-        var testDataDescriptorsProperty = registryType.GetProperty("TestDataDescriptors", BindingFlags.Public | BindingFlags.Static);
-        if (testDataDescriptorsProperty != null)
+        var testDataDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestDataDescriptor>>(registryType, "TestDataDescriptors");
+        if (testDataDescriptors is not null)
         {
-            var testDataDescriptors = testDataDescriptorsProperty.GetValue(null) as IReadOnlyList<TestDataDescriptor>;
-            if (testDataDescriptors != null)
+            // Filter descriptors before expansion to avoid invoking expensive data sources for unrelated tests
+            IEnumerable<TestDataDescriptor> descriptorsToExpand = testDataDescriptors;
+            if (testIdsToRun is not null)
             {
-                // Filter descriptors before expansion to avoid invoking expensive data sources for unrelated tests
-                IEnumerable<TestDataDescriptor> descriptorsToExpand = testDataDescriptors;
-                if (testIdsToRun != null)
-                {
-                    descriptorsToExpand = testDataDescriptors.Where(d =>
-                        testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
-                }
-
-                var expandedTests = TestDataExpander.Expand(descriptorsToExpand.ToList());
-                allTestCases.AddRange(expandedTests);
+                descriptorsToExpand = testDataDescriptors.Where(d =>
+                    testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
             }
+
+            var expandedTests = TestDataExpander.Expand(descriptorsToExpand.ToList());
+            allTestCases.AddRange(expandedTests);
         }
 
         // Filter tests if specific tests were requested

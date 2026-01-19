@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Security;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging;
@@ -15,13 +13,6 @@ namespace NextUnit.TestAdapter;
 [FileExtension(".exe")]
 public sealed class NextUnitTestDiscoverer : ITestDiscoverer
 {
-    private static bool IsCriticalException(Exception ex)
-    {
-        return ex is OutOfMemoryException
-            or StackOverflowException
-            or ThreadAbortException
-            or AccessViolationException;
-    }
 
     /// <summary>
     /// Discovers tests from the specified sources.
@@ -42,7 +33,7 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
             }
             catch (Exception ex)
             {
-                if (IsCriticalException(ex))
+                if (ExceptionHelper.IsCriticalException(ex))
                 {
                     throw;
                 }
@@ -61,50 +52,21 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
         IMessageLogger logger,
         ITestCaseDiscoverySink discoverySink)
     {
-        if (!File.Exists(source))
+        var loadResult = AssemblyLoader.TryLoadAssembly(source);
+        if (!loadResult.Success)
         {
-            return;
-        }
-
-        Assembly assembly;
-        try
-        {
-            assembly = Assembly.LoadFrom(source);
-        }
-        catch (FileNotFoundException ex)
-        {
-            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (file not found): {ex.Message}");
-            return;
-        }
-        catch (BadImageFormatException ex)
-        {
-            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (bad image format): {ex.Message}");
-            return;
-        }
-        catch (FileLoadException ex)
-        {
-            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (file load error): {ex.Message}");
-            return;
-        }
-        catch (IOException ex)
-        {
-            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (I/O error): {ex.Message}");
-            return;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (access denied): {ex.Message}");
-            return;
-        }
-        catch (SecurityException ex)
-        {
-            logger.SendMessage(TestMessageLevel.Warning, $"NextUnit: Could not load assembly {source} (security error): {ex.Message}");
+            if (loadResult.ErrorMessage is not null)
+            {
+                logger.SendMessage(
+                    TestMessageLevel.Warning,
+                    $"NextUnit: Could not load assembly {source} ({loadResult.ErrorCategory}): {loadResult.ErrorMessage}");
+            }
             return;
         }
 
         // Look for NextUnit.Generated.GeneratedTestRegistry
-        var registryType = assembly.GetType("NextUnit.Generated.GeneratedTestRegistry");
-        if (registryType == null)
+        var registryType = AssemblyLoader.GetTestRegistryType(loadResult.Assembly!);
+        if (registryType is null)
         {
             // Not a NextUnit test assembly
             return;
@@ -113,17 +75,10 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
         logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found test registry in {Path.GetFileName(source)}");
 
         // Get TestCases property
-        var testCasesProperty = registryType.GetProperty("TestCases", BindingFlags.Public | BindingFlags.Static);
-        if (testCasesProperty == null)
+        var testCases = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestCaseDescriptor>>(registryType, "TestCases");
+        if (testCases is null)
         {
-            logger.SendMessage(TestMessageLevel.Warning, "NextUnit: TestCases property not found");
-            return;
-        }
-
-        var testCases = testCasesProperty.GetValue(null) as IReadOnlyList<TestCaseDescriptor>;
-        if (testCases == null)
-        {
-            logger.SendMessage(TestMessageLevel.Warning, "NextUnit: Could not get test cases");
+            logger.SendMessage(TestMessageLevel.Warning, "NextUnit: TestCases property not found or returned null");
             return;
         }
 
@@ -135,20 +90,16 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
         }
 
         // Get TestDataDescriptors property for parameterized tests
-        var testDataDescriptorsProperty = registryType.GetProperty("TestDataDescriptors", BindingFlags.Public | BindingFlags.Static);
-        if (testDataDescriptorsProperty != null)
+        var testDataDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestDataDescriptor>>(registryType, "TestDataDescriptors");
+        if (testDataDescriptors is not null && testDataDescriptors.Count > 0)
         {
-            var testDataDescriptors = testDataDescriptorsProperty.GetValue(null) as IReadOnlyList<TestDataDescriptor>;
-            if (testDataDescriptors != null && testDataDescriptors.Count > 0)
-            {
-                logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {testDataDescriptors.Count} test data descriptors");
+            logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {testDataDescriptors.Count} test data descriptors");
 
-                // Expand TestDataDescriptors into TestCaseDescriptors
-                var expandedTests = TestDataExpander.Expand(testDataDescriptors);
-                foreach (var vsTestCase in expandedTests.Select(tc => CreateVSTestCase(tc, source)))
-                {
-                    discoverySink.SendTestCase(vsTestCase);
-                }
+            // Expand TestDataDescriptors into TestCaseDescriptors
+            var expandedTests = TestDataExpander.Expand(testDataDescriptors);
+            foreach (var vsTestCase in expandedTests.Select(tc => CreateVSTestCase(tc, source)))
+            {
+                discoverySink.SendTestCase(vsTestCase);
             }
         }
     }
