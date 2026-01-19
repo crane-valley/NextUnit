@@ -378,14 +378,16 @@ public sealed class TestExecutionEngine
             {
                 // Final attempt - report the exception
                 // Exception is guaranteed non-null because AttemptResult.Retriable(Exception) requires non-null parameter
-                await ReportFinalExceptionAsync(testCase, sink, attemptResult.Exception!, testOutput.GetOutput()).ConfigureAwait(false);
+                var finalException = attemptResult.Exception
+                    ?? throw new InvalidOperationException("Retriable attempt result must have a non-null exception.");
+                await ReportFinalExceptionAsync(testCase, sink, finalException, testOutput.GetOutput()).ConfigureAwait(false);
                 return;
             }
         }
 
-        // Note: This line is intentionally kept as a safety net, though it should be unreachable
-        // because the final attempt (attempt == maxAttempts) always returns from the else branch above.
-        await ReportFinalExceptionAsync(testCase, sink, lastException, lastOutput).ConfigureAwait(false);
+        // Reaching this point indicates a violation of the retry logic invariants and should be impossible.
+        // Throwing here makes such logic errors immediately visible during development.
+        throw new InvalidOperationException("Unreachable code path in ExecuteWithRetryAsync: no terminal attempt result was produced.");
     }
 
     /// <summary>
@@ -414,8 +416,10 @@ public sealed class TestExecutionEngine
             }
 
             // Execute the test method
-            // TestMethod is guaranteed non-null because CheckSkipConditionsAsync validates it at line 294
-            await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
+            // TestMethod is guaranteed non-null because CheckSkipConditionsAsync validates it before execution
+            var testMethod = testCase.TestMethod
+                ?? throw new InvalidOperationException($"Test method delegate is null for test '{testCase.Id.Value}'.");
+            await testMethod(instance, effectiveToken).ConfigureAwait(false);
 
             // Execute after lifecycle methods (test-scoped)
             foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
