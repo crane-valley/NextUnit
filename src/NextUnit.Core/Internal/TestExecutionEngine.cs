@@ -373,9 +373,11 @@ public sealed class TestExecutionEngine
             {
                 // Final attempt - report the exception
                 // Exception is guaranteed non-null because AttemptResult.Retriable(Exception) requires non-null parameter
-                var finalException = attemptResult.Exception
-                    ?? throw new InvalidOperationException("Retriable attempt result must have a non-null exception.");
-                await ReportFinalExceptionAsync(testCase, sink, finalException, testOutput.GetOutput()).ConfigureAwait(false);
+                if (attemptResult.Exception is null)
+                {
+                    throw new InvalidOperationException("Retriable attempt result must have a non-null exception.");
+                }
+                await ReportFinalExceptionAsync(testCase, sink, attemptResult.Exception, testOutput.GetOutput()).ConfigureAwait(false);
                 return;
             }
         }
@@ -412,8 +414,11 @@ public sealed class TestExecutionEngine
 
             // Execute the test method
             // TestMethod is guaranteed non-null because CheckSkipConditionsAsync validates it before execution
-            System.Diagnostics.Debug.Assert(testCase.TestMethod is not null, "TestMethod should have been validated by CheckSkipConditionsAsync");
-            await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
+            if (testCase.TestMethod is null)
+            {
+                throw new InvalidOperationException($"TestMethod must be initialized before executing test '{testCase.Id.Value}'.");
+            }
+            await testCase.TestMethod(instance, effectiveToken).ConfigureAwait(false);
 
             // Execute after lifecycle methods (test-scoped)
             foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
@@ -461,27 +466,22 @@ public sealed class TestExecutionEngine
     /// <summary>
     /// Reports the final exception after all retry attempts are exhausted.
     /// </summary>
+    /// <remarks>
+    /// Callers must ensure the exception is non-null before calling this method.
+    /// </remarks>
     private static async Task ReportFinalExceptionAsync(
         TestCaseDescriptor testCase,
         ITestExecutionSink sink,
-        Exception? exception,
+        Exception exception,
         string? output)
     {
         if (exception is AssertionFailedException assertionEx)
         {
             await sink.ReportFailedAsync(testCase, assertionEx, output).ConfigureAwait(false);
         }
-        else if (exception is not null)
-        {
-            await sink.ReportErrorAsync(testCase, exception, output).ConfigureAwait(false);
-        }
         else
         {
-            // This should never happen - report as error if it does
-            await sink.ReportErrorAsync(
-                testCase,
-                new InvalidOperationException("Test completed without result"),
-                string.Empty).ConfigureAwait(false);
+            await sink.ReportErrorAsync(testCase, exception, output).ConfigureAwait(false);
         }
     }
 
