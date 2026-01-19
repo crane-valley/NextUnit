@@ -414,11 +414,7 @@ public sealed class TestExecutionEngine
 
             // Execute the test method
             // TestMethod is guaranteed non-null because CheckSkipConditionsAsync validates it before execution
-            if (testCase.TestMethod is null)
-            {
-                throw new InvalidOperationException($"TestMethod must be initialized before executing test '{testCase.Id.Value}'.");
-            }
-            await testCase.TestMethod(instance, effectiveToken).ConfigureAwait(false);
+            await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
 
             // Execute after lifecycle methods (test-scoped)
             foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
