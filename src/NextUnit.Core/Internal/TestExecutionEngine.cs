@@ -345,8 +345,6 @@ public sealed class TestExecutionEngine
     {
         var maxAttempts = testCase.Retry.Count ?? 1;
         var retryDelayMs = testCase.Retry.DelayMs;
-        Exception? lastException = null;
-        string? lastOutput = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
@@ -365,9 +363,6 @@ public sealed class TestExecutionEngine
             // Non-terminal failure - check if we should retry
             if (attempt < maxAttempts)
             {
-                lastException = attemptResult.Exception;
-                lastOutput = testOutput.GetOutput();
-
                 // Wait before retry if delay is specified
                 if (retryDelayMs > 0)
                 {
