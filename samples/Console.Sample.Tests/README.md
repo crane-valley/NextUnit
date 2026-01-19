@@ -1,10 +1,12 @@
 # Console Application Testing Sample
 
-This sample demonstrates how to use **NextUnit** to test a .NET console application. It showcases testing command-line argument parsing, file processing logic, and other console application patterns.
+This sample demonstrates how to use **NextUnit** to test a .NET console application.
+It showcases testing command-line argument parsing, file processing logic,
+and other console application patterns.
 
 ## Project Structure
 
-```
+```text
 Console.Sample/                # The console application being tested
 ├── Program.cs                 # Main entry point
 ├── ArgumentParser.cs          # Command-line argument parsing
@@ -18,6 +20,7 @@ Console.Sample.Tests/          # NextUnit test project
 ## Console Application Features
 
 The sample console application analyzes text files and provides statistics:
+
 - Line count, word count, character count
 - Search functionality with case-sensitive/insensitive options
 - Line filtering capabilities
@@ -122,6 +125,7 @@ dotnet run -- -o output.txt input1.txt input2.txt
 ## Test Categories
 
 ### ArgumentParserTests (11 tests)
+
 - Empty arguments handling
 - Help flag parsing (short and long forms)
 - Verbose flag parsing  
@@ -133,6 +137,7 @@ dotnet run -- -o output.txt input1.txt input2.txt
 - Parameterized flag variations
 
 ### FileProcessorTests (14 tests)
+
 - Empty content handling
 - Single and multi-line statistics
 - Line filtering with predicates
@@ -183,7 +188,8 @@ Assert.Equal(expectedValue, actualValue);
 ## Best Practices for Console App Testing
 
 1. **Separate Business Logic**: Keep command-line parsing and core logic separate for easier testing
-2. **Dependency Injection**: Use interfaces for file system operations to enable testing without actual files
+2. **Dependency Injection**: Use interfaces for file system operations
+   to enable testing without actual files
 3. **Test Exit Codes**: Verify the application returns correct exit codes
 4. **Test Error Messages**: Ensure error messages are helpful and clear
 5. **Mock External Dependencies**: Use test doubles for file I/O, network calls, etc.
@@ -284,7 +290,7 @@ Assert.Contains("Usage:", output);
 ## Common NextUnit Assertions for Console Apps
 
 | Assertion | Purpose | Example |
-|-----------|---------|---------|
+| --------- | ------- | ------- |
 | `Assert.True(condition)` | Boolean validation | `Assert.True(options.IsValid)` |
 | `Assert.Equal(expected, actual)` | Value comparison | `Assert.Equal(3, result.Count())` |
 | `Assert.Empty(collection)` | Empty collection | `Assert.Empty(errors)` |

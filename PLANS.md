@@ -9,7 +9,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ## Completed Features
 
 | Version | Key Features |
-|---------|-------------|
+| ------- | ------------ |
 | 1.7.x | `[DisplayName]` attribute, `[DisplayNameFormatter<T>]`, custom display name formatting |
 | 1.6.x | VSTest adapter, Visual Studio Test Explorer, rich failure messages, advanced CLI filtering, `[Timeout]` attribute |
 | 1.5.x | Predicate-based collection assertions, xUnit API compatibility |
@@ -28,6 +28,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Priority 1: Core Enhancements
 
 #### 1.1 Runtime Test Skipping
+
 **Status**: Completed (v1.6.7)
 
 - [x] `Assert.Skip(reason)` - Skip test during execution with reason
@@ -37,6 +38,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [x] `TestSkippedException` for runtime skip handling
 
 #### 1.2 Timeout Support
+
 **Status**: Completed (v1.6.8)
 
 - [x] `[Timeout(milliseconds)]` attribute per test
@@ -45,6 +47,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [x] `TestTimeoutException` for clear timeout reporting
 
 #### 1.3 Test Context Injection
+
 **Status**: Completed (v1.6.9)
 
 - [x] `ITestContext` interface with test name, class, assembly info
@@ -55,6 +58,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [x] `StateBag` for test-scoped data storage
 
 #### 1.4 Retry and Flaky Test Support
+
 **Status**: Completed (v1.6.9)
 
 - [x] `[Retry(count)]` attribute for automatic retry on failure
@@ -64,6 +68,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [x] `[Flaky]` attribute to mark known flaky tests
 
 #### 1.5 Display Name Customization
+
 **Status**: Completed (v1.7.0)
 
 - [x] `[DisplayName("Custom name")]` attribute
@@ -71,6 +76,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [x] Support for parameterized test display names with `{0}`, `{1}` placeholders
 
 #### 1.6 Enhanced Parallel Control
+
 **Status**: Not Started
 **Goal**: Fine-grained parallelism control
 
@@ -82,6 +88,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Priority 2: Advanced Data Sources
 
 #### 2.1 Matrix Data Source
+
 **Status**: Not Started
 **Goal**: Cartesian product of test parameters
 
@@ -92,6 +99,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] `[MatrixSourceRange(1, 10, step: 2)]` for numeric ranges
 
 #### 2.2 Class Data Source
+
 **Status**: Not Started
 **Goal**: Type-safe class-based test data
 
@@ -101,6 +109,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] AOT-compatible implementation
 
 #### 2.3 Combined Data Sources
+
 **Status**: Not Started
 **Goal**: Mix different data sources per parameter
 
@@ -111,6 +120,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Priority 3: Developer Experience
 
 #### 3.1 Roslyn Analyzers
+
 **Status**: Not Started
 **Goal**: Catch common mistakes at compile time
 
@@ -125,6 +135,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] Code fixers for common violations
 
 #### 3.2 Test Repeat Support
+
 **Status**: Not Started
 **Goal**: Run tests multiple times
 
@@ -133,6 +144,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] Aggregate results across repeats
 
 #### 3.3 Test Execution Priority
+
 **Status**: Not Started
 **Goal**: Control test execution order
 
@@ -141,6 +153,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] Combine with `[DependsOn]` for complex ordering
 
 #### 3.4 Explicit Tests
+
 **Status**: Not Started
 **Goal**: Tests only run when explicitly selected
 
@@ -149,6 +162,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] Run with `--explicit` CLI flag
 
 #### 3.5 Test Artifacts
+
 **Status**: Not Started
 **Goal**: Attach files to test results
 
@@ -158,6 +172,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] Display in Test Explorer
 
 #### 3.6 Watch Mode
+
 **Status**: Not Started
 **Goal**: Automatically re-run tests on file changes
 
@@ -169,6 +184,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Priority 4: Ecosystem Integration
 
 #### 4.1 ASP.NET Core Integration Package
+
 **Status**: Not Started
 **Goal**: First-class web application testing
 
@@ -179,6 +195,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] `TestWebApplicationFactory` utilities
 
 #### 4.2 Playwright Integration Package
+
 **Status**: Not Started
 **Goal**: Browser testing support
 
@@ -189,6 +206,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] Trace recording
 
 #### 4.3 Project Templates
+
 **Status**: Not Started
 **Goal**: Quick project scaffolding
 
@@ -198,6 +216,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] `dotnet new nextunit-playwright` - Browser testing
 
 #### 4.4 .NET Aspire Testing Support
+
 **Status**: Not Started
 **Goal**: Distributed app testing
 
@@ -209,6 +228,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Priority 5: Documentation & Community
 
 #### 5.1 Migration Guides
+
 **Status**: Partial
 **Goal**: Easy migration from other frameworks
 
@@ -218,6 +238,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] Automated migration tool (Roslyn-based)
 
 #### 5.2 Sample Projects
+
 **Status**: Partial
 **Goal**: Real-world usage examples
 
@@ -229,6 +250,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] gRPC service testing
 
 #### 5.3 Documentation Site
+
 **Status**: Not Started
 **Goal**: Comprehensive documentation
 
@@ -240,6 +262,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Priority 6: CI/CD Infrastructure
 
 #### 6.1 Enhanced Benchmark Workflow
+
 **Status**: Partial
 **Goal**: Comprehensive performance tracking
 
@@ -251,6 +274,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] Benchmark results in PR comments
 
 #### 6.2 Security Scanning
+
 **Status**: Not Started
 **Goal**: Automated security analysis
 
@@ -259,6 +283,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 - [ ] SBOM generation
 
 #### 6.3 Multi-Locale Testing
+
 **Status**: Not Started
 **Goal**: Ensure locale-independent behavior
 
@@ -271,6 +296,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ## Implementation Timeline
 
 ### Q1 2026 (Current)
+
 1. ~~Runtime test skipping~~ - **Completed** (v1.6.7)
 2. ~~Timeout support~~ - **Completed** (v1.6.8)
 3. ~~Test Context Injection~~ - **Completed** (v1.6.9)
@@ -278,24 +304,28 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 5. ~~Display name customization~~ - **Completed** (v1.7.0)
 
 ### Q2 2026
+
 1. Enhanced parallel control (constraint keys)
 2. Matrix data sources
 3. Basic Roslyn analyzers (5-10 rules)
 4. Test repeat support
 
 ### Q3 2026
+
 1. Class data sources
 2. Combined data sources
 3. Test artifacts
 4. ASP.NET Core integration package
 
 ### Q4 2026
+
 1. Playwright integration
 2. Project templates
 3. Documentation site
 4. Additional analyzers (20+ rules)
 
 ### 2027
+
 1. .NET Aspire integration
 2. Watch mode
 3. Property-based testing (FsCheck integration)
@@ -305,12 +335,12 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 ## Performance Benchmarks
 
-| Framework | Per-Test Time | Tests/Sec | vs NextUnit |
-|-----------|---------------|-----------|-------------|
+| Framework | Per-Test Time | Tests/Sec | vs NextUnit  |
+| --------- | ------------- | --------- | ------------ |
 | NextUnit  | 2.77ms        | 361       | **Baseline** |
-| MSTest    | 6.04ms        | 165       | 2.2x slower |
-| NUnit     | 6.28ms        | 159       | 2.3x slower |
-| xUnit     | 6.64ms        | 150       | 2.4x slower |
+| MSTest    | 6.04ms        | 165       | 2.2x slower  |
+| NUnit     | 6.28ms        | 159       | 2.3x slower  |
+| xUnit     | 6.64ms        | 150       | 2.4x slower  |
 
 **Note**: NextUnit's source-generator architecture significantly outperforms reflection-based frameworks.
 
@@ -323,17 +353,20 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 We welcome contributions! Priority areas:
 
 ### Good First Issues
+
 - Documentation improvements
 - Sample projects
 - Migration guides (NUnit, MSTest)
 
 ### Medium Complexity
+
 - `[Repeat]` attribute
 - `[Explicit]` attribute
 - Basic analyzers
 - Enhanced parallel control
 
 ### Advanced
+
 - Matrix data sources
 - Roslyn analyzers with code fixers
 - ASP.NET Core integration

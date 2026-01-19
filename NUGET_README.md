@@ -4,6 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/crane-valley/NextUnit/blob/main/LICENSE)
 
 **NextUnit** is a modern, high-performance test framework for .NET 10+ that combines:
+
 - **TUnit's modern architecture** - Microsoft.Testing.Platform, Native AOT, source generators
 - **xUnit's familiar assertions** - Classic `Assert.Equal(expected, actual)`, no fluent syntax
 
@@ -12,11 +13,13 @@
 ### Installation
 
 **Simple - One Package (Recommended)**:
+
 ```bash
 dotnet add package NextUnit
 ```
 
 This meta-package includes everything you need:
+
 - NextUnit.Core - Attributes, assertions, execution engine
 - NextUnit.Generator - Source generator for zero-reflection discovery
 - NextUnit.TestAdapter - VSTest adapter for Visual Studio Test Explorer
@@ -80,7 +83,7 @@ dotnet test
 ## Packages
 
 | Package | Description | Size |
-|---------|-------------|------|
+| ------- | ----------- | ---- |
 | **NextUnit** | Meta-package with all components (recommended) | 4.2 KB |
 | **NextUnit.Core** | Core attributes, assertions, execution engine | 32.1 KB |
 | **NextUnit.Generator** | Source generator for test discovery | 20.7 KB |
@@ -98,7 +101,7 @@ dotnet test
 ## What's Different from xUnit?
 
 | Feature | xUnit | NextUnit |
-|---------|-------|----------|
+| ------- | ----- | -------- |
 | Test Attribute | `[Fact]` | `[Test]` (clearer) |
 | Parameterized | `[Theory]` + `[InlineData]` | `[Test]` + `[Arguments]` |
 | Discovery | Runtime reflection | Source generator (faster) |
@@ -117,10 +120,11 @@ Contributions welcome! See our [Contributing Guide](https://github.com/crane-val
 ## Acknowledgments
 
 Inspired by:
+
 - **TUnit** - Modern architecture, source generators
 - **xUnit** - Ergonomic assertions, proven patterns
 - **NUnit/MSTest** - Battle-tested reliability
 
 ---
 
-**Built with love for .NET 10+ developers who want modern performance with familiar syntax**
+Built with love for .NET 10+ developers who want modern performance with familiar syntax.

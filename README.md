@@ -78,7 +78,7 @@ dotnet test --filter "FullyQualifiedName~Calc" # Filter by name
 ## Assertions
 
 | Category | Methods |
-|----------|---------|
+| -------- | ------- |
 | Basic | `Equal`, `NotEqual`, `True`, `False`, `Null`, `NotNull` |
 | Collections | `Contains`, `DoesNotContain`, `Empty`, `NotEmpty`, `Single`, `All` |
 | Strings | `StartsWith`, `EndsWith`, `Contains` |
@@ -134,7 +134,7 @@ NEXTUNIT_EXCLUDE_TAGS=Slow dotnet test
 ## Performance
 
 | Metric | Result |
-|--------|--------|
+| ------ | ------ |
 | Discovery (1,000 tests) | ~2ms |
 | Per-test overhead | ~0.7ms |
 | Throughput | 1,852 tests/sec |
@@ -176,4 +176,5 @@ dotnet test samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
 
 ## Acknowledgments
 
-Inspired by [TUnit](https://github.com/thomhurst/TUnit) (architecture), [xUnit](https://github.com/xunit/xunit) (assertions), and NUnit/MSTest.
+Inspired by [TUnit](https://github.com/thomhurst/TUnit) (architecture),
+[xUnit](https://github.com/xunit/xunit) (assertions), and NUnit/MSTest.

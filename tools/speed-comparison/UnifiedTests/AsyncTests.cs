@@ -6,7 +6,7 @@ namespace UnifiedTests;
 public class AsyncTests
 {
     [Test]
-    public async Task SimpleAsyncTest()
+    public async Task SimpleAsyncTestAsync()
     {
         var result = await ComputeAsync(10);
         var text = await ProcessTextAsync("hello");
@@ -15,7 +15,7 @@ public class AsyncTests
     }
 
     [Test]
-    public async Task ParallelAsyncOperationsTest()
+    public async Task ParallelAsyncOperationsTestAsync()
     {
         var tasks = Enumerable.Range(0, 10)
             .Select(i => ComputeAsync(i))
@@ -28,7 +28,7 @@ public class AsyncTests
     }
 
     [Test]
-    public async Task MultipleAsyncPatternsTest()
+    public async Task MultipleAsyncPatternsTestAsync()
     {
         var task1 = ComputeAsync(5);
         var task2 = ProcessTextAsync("world");

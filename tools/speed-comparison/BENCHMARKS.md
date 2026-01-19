@@ -15,29 +15,34 @@ Each framework implements the following test categories:
 
 ## Running Benchmarks
 
-### Quick Start (No manual build required):
+### Quick Start (No manual build required)
+
 ```bash
 # The benchmarks will automatically build missing test executables
 cd tools/speed-comparison
 dotnet run -c Release --project Tests.Benchmark
 ```
 
-### For AOT Benchmarks:
+### For AOT Benchmarks
+
 AOT builds can take 5-10 minutes. You have two options:
 
 Option 1: Build AOT manually before running benchmarks:
+
 ```bash
 dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true
 ```
 
 Option 2: Let the benchmark build AOT automatically (requires environment variable):
+
 ```bash
 set AUTOBUILD_AOT=true  # Windows
 export AUTOBUILD_AOT=true  # Linux/Mac
 dotnet run -c Release --project Tests.Benchmark
 ```
 
-### Run specific benchmark categories:
+### Run specific benchmark categories
+
 ```bash
 # Build benchmarks (measures compilation time)
 dotnet run -c Release --project Tests.Benchmark -- --filter "*BuildBenchmarks*"
@@ -61,7 +66,8 @@ dotnet run -c Release --project Tests.Benchmark -- --filter "*RuntimeBenchmarks*
 # - SetupTeardownTests
 ```
 
-### Run all benchmarks:
+### Run all benchmarks
+
 ```bash
 dotnet run -c Release --project Tests.Benchmark
 ```
@@ -99,6 +105,7 @@ dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXT
 ```
 
 Or use the provided script:
+
 ```bash
 # Windows
 ./prepare-aot.bat
@@ -130,6 +137,7 @@ This new benchmarking system complements the existing SpeedComparison.Runner:
 - **SpeedComparison.Runner (existing)**: Simpler runner for quick comparisons and CI integration
 
 Both can coexist and serve different purposes:
+
 - Use Tests.Benchmark for detailed performance analysis
 - Use SpeedComparison.Runner for automated CI checks
 
