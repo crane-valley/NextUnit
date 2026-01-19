@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-01-19
+
+### Fixed
+
+- **NuGet package reference issue** - Remove `DevelopmentDependency` setting that caused compile assets to be excluded
+  - When updating NextUnit via NuGet Package Manager, `compile` assets were incorrectly excluded
+  - This caused CS0616 (`[Test]` not recognized as attribute) and CS0103 (`Assert` not found) errors
+  - Removed `DevelopmentDependency=true` from NextUnit.Core, NextUnit.TestAdapter, and NextUnit meta-package
+
 ## [1.7.0] - 2026-01-19
 
 ### Added - Display Name Customization
