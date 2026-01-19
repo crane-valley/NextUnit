@@ -377,15 +377,14 @@ public sealed class TestExecutionEngine
             else
             {
                 // Final attempt - report the exception
-                // Note: Exception is guaranteed non-null for Retriable outcome, but use defensive fallback
-                var finalException = attemptResult.Exception
-                    ?? new InvalidOperationException("Retriable attempt result must have a non-null exception.");
-                await ReportFinalExceptionAsync(testCase, sink, finalException, testOutput.GetOutput()).ConfigureAwait(false);
+                // Exception is guaranteed non-null because AttemptResult.Retriable(Exception) requires non-null parameter
+                await ReportFinalExceptionAsync(testCase, sink, attemptResult.Exception!, testOutput.GetOutput()).ConfigureAwait(false);
                 return;
             }
         }
 
-        // All retry attempts exhausted - report the last exception
+        // Note: This line is intentionally kept as a safety net, though it should be unreachable
+        // because the final attempt (attempt == maxAttempts) always returns from the else branch above.
         await ReportFinalExceptionAsync(testCase, sink, lastException, lastOutput).ConfigureAwait(false);
     }
 
@@ -401,7 +400,10 @@ public sealed class TestExecutionEngine
         CancellationToken cancellationToken)
     {
         // Create test instance (each test gets its own instance)
-        var instance = CreateTestInstance(testCase.TestClass, testOutput, TestContext.Current!);
+        // TestContext.Current is guaranteed non-null because SetCurrent() is called in ExecuteWithRetryAsync before this method
+        var currentContext = TestContext.Current
+            ?? throw new InvalidOperationException("TestContext.Current must be initialized before executing a test attempt.");
+        var instance = CreateTestInstance(testCase.TestClass, testOutput, currentContext);
 
         try
         {
@@ -412,6 +414,7 @@ public sealed class TestExecutionEngine
             }
 
             // Execute the test method
+            // TestMethod is guaranteed non-null because CheckSkipConditionsAsync validates it at line 294
             await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
 
             // Execute after lifecycle methods (test-scoped)
