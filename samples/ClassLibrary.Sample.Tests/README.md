@@ -1,10 +1,11 @@
 # Class Library Testing Sample
 
-This sample demonstrates how to use **NextUnit** to test a .NET class library. It showcases common testing patterns and NextUnit features for testing business logic.
+This sample demonstrates how to use **NextUnit** to test a .NET class library.
+It showcases common testing patterns and NextUnit features for testing business logic.
 
 ## Project Structure
 
-```
+```text
 ClassLibrary.Sample/          # The class library being tested
 ├── Calculator.cs             # Basic arithmetic operations
 ├── StringHelpers.cs          # String manipulation utilities
@@ -74,6 +75,7 @@ public void Reverse_VariousInputs_ReturnsExpectedOutput(string input, string exp
 ### 5. Business Logic Testing
 
 The `OrderProcessorTests` class demonstrates:
+
 - Validating complex business rules
 - Testing object properties and calculations
 - Testing conditional logic (coupons, shipping)
@@ -161,7 +163,8 @@ Edit `ClassLibrary.Sample.Tests.csproj`:
 
 ### 4. Add NextUnit Packages
 
-The NextUnit packages are defined in the parent `Directory.Packages.props` file using Central Package Management. If you're creating a standalone project, add version numbers:
+The NextUnit packages are defined in the parent `Directory.Packages.props` file using Central Package Management.
+If you're creating a standalone project, add version numbers:
 
 ```xml
 <PackageReference Include="NextUnit" Version="1.6.6" />
@@ -172,6 +175,7 @@ The NextUnit packages are defined in the parent `Directory.Packages.props` file 
 This sample follows the pattern: `MethodName_Scenario_ExpectedResult`
 
 Examples:
+
 - `Add_TwoPositiveNumbers_ReturnsSum`
 - `Divide_ByZero_ThrowsDivideByZeroException`
 - `ApplyCoupon_ValidCoupon_AppliesDiscount`
@@ -191,7 +195,7 @@ This makes tests self-documenting and easy to understand.
 ## Common NextUnit Assertions Used
 
 | Assertion | Purpose | Example |
-|-----------|---------|---------|
+| --------- | ------- | ------- |
 | `Assert.Equal(expected, actual)` | Equality comparison | `Assert.Equal(8, result)` |
 | `Assert.Equal(expected, actual, precision)` | Floating-point equality | `Assert.Equal(0.333, result, 3)` |
 | `Assert.True(condition)` | Boolean true | `Assert.True(result.IsValid)` |

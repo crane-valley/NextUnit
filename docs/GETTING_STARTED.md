@@ -5,6 +5,7 @@ Welcome to NextUnit! This guide will help you get up and running with NextUnit i
 ## What is NextUnit?
 
 NextUnit is a modern, high-performance test framework for .NET that combines:
+
 - **Zero-reflection test execution** via source generators
 - **xUnit-style assertions** (familiar `Assert.Equal`, `Assert.True`, etc.)
 - **Fine-grained parallel execution** with `[ParallelLimit]` and `[NotInParallel]`
@@ -14,6 +15,7 @@ NextUnit is a modern, high-performance test framework for .NET that combines:
 ## Installation
 
 ### Prerequisites
+
 - .NET 10 or later
 - Visual Studio 2026 or VS Code with C# Dev Kit
 
@@ -52,7 +54,9 @@ Update your `.csproj` file:
 </Project>
 ```
 
-**Note**: The `NextUnit` meta-package automatically includes all required dependencies (NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, and Microsoft.NET.Test.Sdk). No `OutputType=Exe` or `Program.cs` is needed.
+**Note**: The `NextUnit` meta-package automatically includes all required dependencies
+(NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, and Microsoft.NET.Test.Sdk).
+No `OutputType=Exe` or `Program.cs` is needed.
 
 ## Writing Your First Test
 
@@ -338,14 +342,14 @@ public void PendingTest() { }
 
 ## Getting Help
 
-- **GitHub Issues**: https://github.com/crane-valley/NextUnit/issues
-- **Documentation**: https://github.com/crane-valley/NextUnit/wiki
+- **GitHub Issues**: <https://github.com/crane-valley/NextUnit/issues>
+- **Documentation**: <https://github.com/crane-valley/NextUnit/wiki>
 - **Examples**: See `samples/NextUnit.SampleTests` in the repository
 
 ## What's Different from xUnit?
 
 | Feature | xUnit | NextUnit |
-|---------|-------|----------|
+| ------- | ----- | -------- |
 | Test Attribute | `[Fact]` | `[Test]` |
 | Parameterized | `[Theory]` + `[InlineData]` | `[Test]` + `[Arguments]` |
 | Discovery | Reflection at runtime | Source generator (faster) |
@@ -353,4 +357,4 @@ public void PendingTest() { }
 | Lifecycle | Constructor + `IDisposable` | Multi-scope `[Before]`/`[After]` |
 | AOT Support | Limited | Full Native AOT compatible |
 
-Welcome to the future of .NET testing! 🚀
+Welcome to the future of .NET testing!

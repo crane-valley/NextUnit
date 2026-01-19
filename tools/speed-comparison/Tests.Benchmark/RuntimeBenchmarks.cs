@@ -9,8 +9,8 @@ namespace Tests.Benchmark;
 [BenchmarkCategory("Runtime")]
 public class RuntimeBenchmarks : BenchmarkBase
 {
-    private static readonly Regex ClassNameValidationRegex = new Regex(@"^[a-zA-Z0-9._]+$", RegexOptions.Compiled);
-    private static readonly HashSet<string> ValidRuntimeIdentifiers = new HashSet<string>
+    private static readonly Regex _classNameValidationRegex = new Regex(@"^[a-zA-Z0-9._]+$", RegexOptions.Compiled);
+    private static readonly HashSet<string> _validRuntimeIdentifiers = new HashSet<string>
     {
         "win-x64", "win-x86", "win-arm64",
         "linux-x64", "linux-arm64", "linux-arm",
@@ -34,7 +34,7 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         // Only allow alphanumeric characters, dots, and underscores
         // This prevents command injection while allowing typical class name patterns
-        if (!ClassNameValidationRegex.IsMatch(className))
+        if (!_classNameValidationRegex.IsMatch(className))
         {
             throw new ArgumentException($"Invalid CLASS_NAME value: '{className}'. Only alphanumeric characters, dots, and underscores are allowed.");
         }
@@ -125,7 +125,7 @@ public class RuntimeBenchmarks : BenchmarkBase
         }
 
         // Validate against whitelist as an extra safety measure
-        if (!ValidRuntimeIdentifiers.Contains(rid))
+        if (!_validRuntimeIdentifiers.Contains(rid))
         {
             throw new PlatformNotSupportedException($"Runtime identifier '{rid}' is not in the validated whitelist.");
         }

@@ -2,7 +2,8 @@
 
 ## Overview
 
-This document provides performance benchmarks for NextUnit v1.6.6, demonstrating the framework's excellent performance characteristics for test discovery and execution.
+This document provides performance benchmarks for NextUnit v1.6.6, demonstrating the framework's
+excellent performance characteristics for test discovery and execution.
 
 ## Benchmark Environment
 
@@ -15,12 +16,14 @@ This document provides performance benchmarks for NextUnit v1.6.6, demonstrating
 ## Test Suite Characteristics
 
 ### Large Test Suite (1,000 Tests)
+
 - **Test Count**: 1,000 simple tests
 - **Test Classes**: 20 classes (50 tests each)
 - **Test Complexity**: Minimal (simple assertions like `Assert.True(true)`)
 - **Purpose**: Measure framework overhead and scalability
 
 ### Sample Test Suite (125 Tests)
+
 - **Test Count**: 125 tests
 - **Test Variety**: Mix of simple, parameterized, lifecycle, and real-world scenarios
 - **Purpose**: Measure realistic workload performance
@@ -32,15 +35,16 @@ This document provides performance benchmarks for NextUnit v1.6.6, demonstrating
 Execution times across 5 runs:
 
 | Run | Test Execution | Total Time (real) | User CPU | System CPU |
-|-----|----------------|-------------------|----------|------------|
-| 1   | 545ms          | 1.308s           | 1.807s   | 0.367s     |
-| 2   | 540ms          | 1.288s           | 1.722s   | 0.373s     |
-| 3   | 530ms          | 1.273s           | 1.723s   | 0.347s     |
-| 4   | 551ms          | 1.301s           | 1.732s   | 0.369s     |
-| 5   | 535ms          | 1.272s           | 1.721s   | 0.353s     |
+| --- | -------------- | ----------------- | -------- | ---------- |
+| 1 | 545ms | 1.308s | 1.807s | 0.367s |
+| 2 | 540ms | 1.288s | 1.722s | 0.373s |
+| 3 | 530ms | 1.273s | 1.723s | 0.347s |
+| 4 | 551ms | 1.301s | 1.732s | 0.369s |
+| 5 | 535ms | 1.272s | 1.721s | 0.353s |
 | **Average** | **540ms** | **1.288s** | **1.741s** | **0.362s** |
 
 **Key Metrics**:
+
 - **Per-test overhead**: ~0.54ms per test (540ms / 1,000 tests)
 - **Throughput**: ~1,852 tests/second
 - **Total runtime**: ~1.29 seconds (including startup)
@@ -49,6 +53,7 @@ Execution times across 5 runs:
 ### Sample Test Suite (125 Tests)
 
 Based on previous test runs:
+
 - **Test Execution**: ~670ms
 - **Total Tests**: 125 (121 passed, 4 skipped)
 - **Per-test overhead**: ~5.4ms per test
@@ -83,13 +88,14 @@ Based on previous test runs:
 While we don't have direct xUnit benchmarks in this environment, industry benchmarks suggest:
 
 | Metric | NextUnit | xUnit (typical) | Improvement |
-|--------|----------|----------------|-------------|
+| ------ | -------- | --------------- | ----------- |
 | Test Discovery | < 10ms | 500-1000ms | 50-100x |
 | Startup Overhead | ~750ms | ~1000ms | 25% faster |
 | Per-test Overhead | 0.5-5ms | 1-10ms | Similar |
-| Native AOT Support | ✅ Yes | ❌ No | N/A |
+| Native AOT Support | Yes | No | N/A |
 
 **Notes**:
+
 - xUnit values are estimates based on typical usage
 - Direct comparison requires identical test suites
 - NextUnit's source generator provides significant discovery performance advantage

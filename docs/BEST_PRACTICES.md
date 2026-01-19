@@ -21,6 +21,7 @@ This guide provides proven patterns and recommendations for writing effective te
 Follow the pattern: `MethodName_Scenario_ExpectedResult`
 
 ✅ **Good**:
+
 ```csharp
 [Test]
 public void Add_TwoPositiveNumbers_ReturnsCorrectSum()
@@ -37,6 +38,7 @@ public void Divide_ByZero_ThrowsDivideByZeroException()
 ```
 
 ❌ **Avoid**:
+
 ```csharp
 [Test]
 public void Test1() { } // What does this test?
@@ -109,6 +111,7 @@ public class CalculatorTests
 ### One Logical Assertion Per Test
 
 ✅ **Good** - Single focus:
+
 ```csharp
 [Test]
 public void CreateUser_ValidData_SetsCorrectName()
@@ -126,6 +129,7 @@ public void CreateUser_ValidData_SetsCorrectLastName()
 ```
 
 ⚠️ **Acceptable** - Related assertions:
+
 ```csharp
 [Test]
 public void CreateUser_ValidData_SetsAllProperties()
@@ -577,6 +581,7 @@ public async Task ProcessAsync_Completes()
 **Cause**: Sequential execution, expensive setup
 
 **Solutions**:
+
 1. Remove `[NotInParallel]` if not needed
 2. Use class/assembly scope for setup
 3. Mock expensive dependencies
@@ -628,4 +633,6 @@ public class ModerateTests { }
 
 ---
 
-**Remember**: Good tests are fast, isolated, deterministic, and easy to understand. NextUnit's parallel execution and multi-scope lifecycle make it easy to write efficient, maintainable test suites!
+**Remember**: Good tests are fast, isolated, deterministic, and easy to understand.
+NextUnit's parallel execution and multi-scope lifecycle make it easy to write efficient,
+maintainable test suites!

@@ -2,7 +2,9 @@
 
 ## Overview
 
-The speed-comparison benchmarking system for NextUnit uses BenchmarkDotNet and conditional compilation to benchmark NextUnit against other popular .NET test frameworks (xUnit, NUnit, MSTest) using identical test cases.
+The speed-comparison benchmarking system for NextUnit uses BenchmarkDotNet and conditional
+compilation to benchmark NextUnit against other popular .NET test frameworks (xUnit, NUnit,
+MSTest) using identical test cases.
 
 ## Current Architecture
 
@@ -38,6 +40,7 @@ Professional benchmarking using BenchmarkDotNet:
 ## Previous Implementation (Removed)
 
 The old implementation used separate projects for each framework:
+
 - SpeedComparison.NextUnit (removed)
 - SpeedComparison.XUnit (removed)
 - SpeedComparison.NUnit (removed)
@@ -45,27 +48,32 @@ The old implementation used separate projects for each framework:
 - SpeedComparison.Shared (removed)
 - SpeedComparison.Runner (removed)
 
-**Reason for removal**: Code duplication, maintenance burden, and less rigorous statistical analysis compared to the new BenchmarkDotNet-based approach with UnifiedTests.
+**Reason for removal**: Code duplication, maintenance burden, and less rigorous statistical
+analysis compared to the new BenchmarkDotNet-based approach with UnifiedTests.
 
 ## Key Features
 
 ✅ **Fair Comparison**
+
 - Identical test logic via conditional compilation
 - Framework-native patterns and best practices
 - No code duplication
 
 ✅ **Professional Benchmarking**
+
 - BenchmarkDotNet statistical analysis
 - Build time and runtime measurements
 - Native AOT support for NextUnit
 - Mean, median, standard deviation metrics
 
 ✅ **Automated Execution**
+
 - GitHub Actions workflow
 - Weekly scheduled runs
 - Results displayed in workflow outputs
 
 ✅ **Transparent Methodology**
+
 - Documented test categories
 - Clear measurement approach using BenchmarkDotNet
 - Multiple iterations handled automatically
@@ -73,12 +81,17 @@ The old implementation used separate projects for each framework:
 ## Technical Decisions
 
 ### Why Conditional Compilation?
-Single codebase ensures 100% identical test logic across all frameworks while eliminating maintenance burden.
+
+Single codebase ensures 100% identical test logic across all frameworks while eliminating
+maintenance burden.
 
 ### Why BenchmarkDotNet?
-Industry-standard benchmarking with rigorous statistical analysis, proper warmup, and professional reporting.
+
+Industry-standard benchmarking with rigorous statistical analysis, proper warmup, and
+professional reporting.
 
 ### Why UnifiedTests?
+
 - No code duplication
 - Easy to maintain and extend
 - Framework selection at build time
@@ -94,16 +107,20 @@ Industry-standard benchmarking with rigorous statistical analysis, proper warmup
 ## Usage Instructions
 
 ### Run Locally
+
 ```bash
 cd tools/speed-comparison
 dotnet run -c Release --project Tests.Benchmark
 ```
 
 ### Trigger via GitHub Actions
+
 Go to Actions → Speed Comparison Benchmarks → Run workflow
 
 ### View Results
-BenchmarkDotNet results are displayed in console output and saved to BenchmarkDotNet.Artifacts directory.
+
+BenchmarkDotNet results are displayed in console output and saved to
+BenchmarkDotNet.Artifacts directory.
 
 ## Benefits of Current Approach
 
@@ -113,12 +130,12 @@ BenchmarkDotNet results are displayed in console output and saved to BenchmarkDo
 4. **Build Benchmarks**: Measures compilation time differences
 5. **AOT Support**: Native AOT benchmarks for NextUnit
 
-1. **Run initial benchmarks** to populate BENCHMARK_RESULTS.md
-2. **Add more frameworks** (Fixie, Expecto, etc.)
-3. **Platform comparison** (Windows vs Linux vs macOS)
-4. **Native AOT benchmarks**
-5. **Trend visualization** (charts from historical data)
-6. **Real-world test scenarios** (integration tests, database tests)
+6. **Run initial benchmarks** to populate BENCHMARK_RESULTS.md
+7. **Add more frameworks** (Fixie, Expecto, etc.)
+8. **Platform comparison** (Windows vs Linux vs macOS)
+9. **Native AOT benchmarks**
+10. **Trend visualization** (charts from historical data)
+11. **Real-world test scenarios** (integration tests, database tests)
 
 ## Success Criteria ✅
 
@@ -134,14 +151,16 @@ All requirements from the problem statement have been met:
 
 ## Summary
 
-The NextUnit speed-comparison system is **complete and production-ready**. It provides:
+The NextUnit speed-comparison system is **complete and production-ready**.
+It provides:
 
 - Fair, transparent performance comparisons
 - Automated benchmarking via GitHub Actions
 - Historical tracking for regression detection
 - Comprehensive documentation for users and contributors
 
-The system can be used immediately to benchmark NextUnit against other frameworks and track performance improvements over time.
+The system can be used immediately to benchmark NextUnit against other frameworks and track
+performance improvements over time.
 
 ---
 

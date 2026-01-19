@@ -3,6 +3,7 @@
 This guide explains how to integrate NextUnit tests into various CI/CD systems and generate test reports in different formats.
 
 ## Table of Contents
+
 - [TRX Report Format (Visual Studio)](#trx-report-format-visual-studio)
 - [GitHub Actions Integration](#github-actions-integration)
 - [Azure DevOps Integration](#azure-devops-integration)
@@ -29,6 +30,7 @@ dotnet test YourTests.csproj --logger "trx;LogFileName=custom-results.trx" --res
 ```
 
 The TRX file will be created in the specified results directory and can be:
+
 - Viewed in Visual Studio (Test Explorer → Open Test Results)
 - Published to Azure DevOps test runs
 - Analyzed by various test reporting tools
@@ -421,6 +423,7 @@ dotnet test tests/YourTests.csproj
 ```
 
 Available environment variables:
+
 - `NEXTUNIT_INCLUDE_CATEGORIES` - Comma-separated list of categories to include
 - `NEXTUNIT_EXCLUDE_CATEGORIES` - Comma-separated list of categories to exclude
 - `NEXTUNIT_INCLUDE_TAGS` - Comma-separated list of tags to include
@@ -435,16 +438,19 @@ Available environment variables:
 ### Tests Not Discovered in CI
 
 1. Ensure test project is built:
+
    ```bash
    dotnet build tests/YourTests.csproj
    ```
 
 2. Check that source generator ran:
+
    ```bash
    ls tests/YourTests/obj/Debug/net10.0/generated/
    ```
 
 3. Verify test adapter can discover tests:
+
    ```bash
    dotnet test tests/YourTests.csproj --list-tests
    ```
@@ -452,11 +458,13 @@ Available environment variables:
 ### TRX File Not Generated
 
 1. Ensure you're using the `--logger trx` option:
+
    ```bash
    dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults
    ```
 
 2. Ensure results directory exists or can be created:
+
    ```bash
    mkdir -p TestResults
    dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults
@@ -492,6 +500,7 @@ See [PLANS.md](../PLANS.md) for the complete roadmap.
 ## Examples Repository
 
 Complete CI/CD examples are available in the NextUnit repository:
+
 - GitHub Actions workflows: `.github/workflows/`
 - Sample projects: `samples/`
 

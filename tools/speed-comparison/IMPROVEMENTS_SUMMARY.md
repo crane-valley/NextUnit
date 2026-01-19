@@ -2,7 +2,9 @@
 
 ## Overview
 
-Successfully enhanced NextUnit's speed-comparison tool by implementing a professional BenchmarkDotNet-based benchmarking system inspired by TUnit's approach, while maintaining the existing simple runner for CI integration.
+Successfully enhanced NextUnit's speed-comparison tool by implementing a professional
+BenchmarkDotNet-based benchmarking system inspired by TUnit's approach, while maintaining
+the existing simple runner for CI integration.
 
 ## Key Improvements Implemented
 
@@ -13,29 +15,33 @@ Added professional benchmarking capabilities using BenchmarkDotNet (v0.14.0):
 - **BuildBenchmarks**: Measures compilation time for each framework
 - **RuntimeBenchmarks**: Measures test execution time with statistical analysis
 - **Framework version detection**: Automatic version tracking via FrameworkVersionColumn
-- **Professional output**: Markdown tables with mean, median, standard deviation, and baseline ratios
+- **Professional output**: Markdown tables with mean, median, standard deviation,
+  and baseline ratios
 
 ### 2. UnifiedTests Architecture ✅
 
 Implemented a single-codebase approach for all test frameworks using conditional compilation:
 
 **Benefits:**
+
 - ✅ 100% identical test logic across all frameworks
 - ✅ No code duplication (single source files)
 - ✅ Easy to maintain and extend
 - ✅ Framework selection at build time via `-p:TestFramework=NEXTUNIT|XUNIT|NUNIT|MSTEST`
 
 **Key Files:**
+
 - `UnifiedTests.csproj`: Conditional package references based on TestFramework property
 - `GlobalUsings.cs`: Framework-specific namespace imports and attribute aliases
-- Test files: AsyncTests, DataDrivenTests, ScaleTests, MassiveParallelTests, MatrixTests, SetupTeardownTests
+- Test files: AsyncTests, DataDrivenTests, ScaleTests, MassiveParallelTests, MatrixTests,
+  SetupTeardownTests
 
 ### 3. New Test Categories ✅
 
 Added comprehensive test categories covering different performance aspects:
 
 | Category | Tests | Purpose |
-|----------|-------|---------|
+| -------- | ----- | ------- |
 | AsyncTests | 3 | Async/await patterns performance |
 | DataDrivenTests | 4 | Parameterized test overhead |
 | ScaleTests | 18 | Varying computational complexity |
@@ -74,7 +80,7 @@ Updated Directory.Packages.props with new dependencies:
 
 ### Old Approach (Removed)
 
-```
+```text
 SpeedComparison.NextUnit/ (200 tests) - REMOVED
 SpeedComparison.XUnit/ (200 tests) - REMOVED
 SpeedComparison.NUnit/ (200 tests) - REMOVED
@@ -83,6 +89,7 @@ SpeedComparison.Runner/ (orchestrator) - REMOVED
 ```
 
 **Issues:**
+
 - ❌ Code duplication (4 copies of same tests)
 - ❌ Hard to maintain consistency
 - ❌ Simple timing (stopwatch only)
@@ -90,12 +97,13 @@ SpeedComparison.Runner/ (orchestrator) - REMOVED
 
 ### New Approach (Unified + BenchmarkDotNet)
 
-```
+```text
 UnifiedTests/ (127 tests × 4 frameworks via conditional compilation)
 Tests.Benchmark/ (BenchmarkDotNet-based professional benchmarking)
 ```
 
 **Advantages:**
+
 - ✅ Single source of truth
 - ✅ Professional statistical analysis
 - ✅ Build + runtime benchmarks
@@ -128,7 +136,7 @@ Tests.Benchmark/ (BenchmarkDotNet-based professional benchmarking)
 All frameworks build and run successfully:
 
 | Framework | Build Status | Tests | Duration |
-|-----------|--------------|-------|----------|
+| --------- | ------------ | ----- | -------- |
 | NextUnit | ✅ Success (0 warnings) | 127 passed | 117ms |
 | xUnit | ✅ Success (4 warnings) | 127 passed | ~200ms |
 | NUnit | ✅ Success (0 warnings) | 127 passed | 502ms |
@@ -176,9 +184,12 @@ dotnet run -c Release --project Tests.Benchmark
 ## File Statistics
 
 **Files in current system:**
+
 - UnifiedTests/ (8 files): GlobalUsings.cs + 6 test files + .csproj
-- Tests.Benchmark/ (7 files): Program.cs + BenchmarkBase.cs + BenchmarkConfig.cs + BuildBenchmarks.cs + RuntimeBenchmarks.cs + FrameworkVersionColumn.cs + .csproj
-- Documentation: BENCHMARKS.md + prepare-aot.ps1 + prepare-aot.bat + README.md + IMPROVEMENTS_SUMMARY.md + IMPLEMENTATION_SUMMARY.md
+- Tests.Benchmark/ (7 files): Program.cs + BenchmarkBase.cs + BenchmarkConfig.cs +
+  BuildBenchmarks.cs + RuntimeBenchmarks.cs + FrameworkVersionColumn.cs + .csproj
+- Documentation: BENCHMARKS.md + prepare-aot.ps1 + prepare-aot.bat + README.md +
+  IMPROVEMENTS_SUMMARY.md + IMPLEMENTATION_SUMMARY.md
 
 **Lines of code**: ~2,500 lines
 

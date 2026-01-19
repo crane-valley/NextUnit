@@ -1,6 +1,7 @@
 # Migrating from xUnit to NextUnit
 
-This guide helps you migrate your xUnit tests to NextUnit. The good news: NextUnit is designed to be familiar to xUnit users, so migration is straightforward!
+This guide helps you migrate your xUnit tests to NextUnit.
+The good news: NextUnit is designed to be familiar to xUnit users, so migration is straightforward!
 
 ## Why Migrate to NextUnit?
 
@@ -40,6 +41,7 @@ dotnet add package NextUnit
 ### Update .csproj
 
 **Before (xUnit)**:
+
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -56,6 +58,7 @@ dotnet add package NextUnit
 ```
 
 **After (NextUnit)**:
+
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -68,13 +71,16 @@ dotnet add package NextUnit
 </Project>
 ```
 
-**Note**: The `NextUnit` meta-package automatically includes all required dependencies (NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, and Microsoft.NET.Test.Sdk). No `OutputType=Exe` or `Program.cs` is needed - NextUnit uses a VSTest adapter.
+**Note**: The `NextUnit` meta-package automatically includes all required dependencies
+(NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, and Microsoft.NET.Test.Sdk).
+No `OutputType=Exe` or `Program.cs` is needed - NextUnit uses a VSTest adapter.
 
 ## Step 2: Update Test Attributes
 
 ### Basic Tests
 
 **xUnit**:
+
 ```csharp
 [Fact]
 public void Add_TwoNumbers_ReturnsSum()
@@ -85,6 +91,7 @@ public void Add_TwoNumbers_ReturnsSum()
 ```
 
 **NextUnit**:
+
 ```csharp
 [Test]  // Just change [Fact] to [Test]
 public void Add_TwoNumbers_ReturnsSum()
@@ -97,6 +104,7 @@ public void Add_TwoNumbers_ReturnsSum()
 ### Parameterized Tests
 
 **xUnit**:
+
 ```csharp
 [Theory]
 [InlineData(1, 2, 3)]
@@ -110,6 +118,7 @@ public void Add_ParameterizedTests(int a, int b, int expected)
 ```
 
 **NextUnit**:
+
 ```csharp
 [Test]  // Use [Test] instead of [Theory]
 [Arguments(1, 2, 3)]        // [Arguments] instead of [InlineData]
@@ -125,6 +134,7 @@ public void Add_ParameterizedTests(int a, int b, int expected)
 ### Skipping Tests
 
 **xUnit**:
+
 ```csharp
 [Fact(Skip = "Not implemented yet")]
 public void FutureFeature()
@@ -134,6 +144,7 @@ public void FutureFeature()
 ```
 
 **NextUnit**:
+
 ```csharp
 [Test]
 [Skip("Not implemented yet")]  // Separate [Skip] attribute
@@ -146,6 +157,7 @@ public void FutureFeature()
 ### Test Categorization
 
 **xUnit**:
+
 ```csharp
 [Fact]
 [Trait("Category", "Integration")]
@@ -154,6 +166,7 @@ public void DatabaseTest() { }
 ```
 
 **NextUnit**:
+
 ```csharp
 [Test]
 [Category("Integration")]  // Clearer attribute names
@@ -166,6 +179,7 @@ public void DatabaseTest() { }
 ### Class Fixtures
 
 **xUnit**:
+
 ```csharp
 public class DatabaseFixture : IDisposable
 {
@@ -201,6 +215,7 @@ public class DatabaseTests : IClassFixture<DatabaseFixture>
 ```
 
 **NextUnit**:
+
 ```csharp
 public class DatabaseTests
 {
@@ -230,6 +245,7 @@ public class DatabaseTests
 ### Collection Fixtures
 
 **xUnit**:
+
 ```csharp
 [CollectionDefinition("Database collection")]
 public class DatabaseCollection : ICollectionFixture<DatabaseFixture>
@@ -252,6 +268,7 @@ public class SecondDatabaseTests
 ```
 
 **NextUnit**:
+
 ```csharp
 // Use Assembly-scoped lifecycle for shared setup across classes
 public class FirstDatabaseTests
@@ -332,6 +349,7 @@ Assert.IsAssignableFrom<T>(...)  // → Use pattern matching
 ### xUnit Parallelization
 
 **xUnit** (`xunit.runner.json`):
+
 ```json
 {
   "parallelizeAssembly": true,
@@ -343,6 +361,7 @@ Assert.IsAssignableFrom<T>(...)  // → Use pattern matching
 ### NextUnit Parallelization
 
 **NextUnit** (attribute-based):
+
 ```csharp
 // Limit concurrent tests in a class to 4
 [ParallelLimit(4)]
@@ -382,6 +401,7 @@ public class NormalTests
 ### xUnit Test Ordering
 
 **xUnit**:
+
 ```csharp
 [Collection("Sequential")]
 public class OrderedTests
@@ -397,6 +417,7 @@ public class OrderedTests
 ### NextUnit Test Ordering
 
 **NextUnit**:
+
 ```csharp
 public class OrderedTests
 {
@@ -418,6 +439,7 @@ public class OrderedTests
 ### Setup and Teardown
 
 **xUnit**:
+
 ```csharp
 public class MyTests : IDisposable
 {
@@ -437,6 +459,7 @@ public class MyTests : IDisposable
 ```
 
 **NextUnit**:
+
 ```csharp
 public class MyTests
 {
@@ -460,6 +483,7 @@ public class MyTests
 ### Async Lifecycle
 
 **xUnit**:
+
 ```csharp
 public class AsyncTests : IAsyncLifetime
 {
@@ -476,6 +500,7 @@ public class AsyncTests : IAsyncLifetime
 ```
 
 **NextUnit**:
+
 ```csharp
 public class AsyncTests
 {
@@ -496,7 +521,7 @@ public class AsyncTests
 ## Feature Comparison
 
 | Feature | xUnit | NextUnit |
-|---------|-------|----------|
+| ------- | ----- | -------- |
 | Basic Tests | `[Fact]` | `[Test]` |
 | Parameterized Tests | `[Theory]` + `[InlineData]` | `[Test]` + `[Arguments]` |
 | Data Sources | `[MemberData]`, `[ClassData]` | `[TestData]` |
@@ -523,15 +548,18 @@ public class AsyncTests
 ## Troubleshooting
 
 ### "Test not discovered"
+
 - Ensure `[Test]` attribute is applied
 - Verify the generator is referenced correctly in `.csproj`
 - Check that `Program.cs` calls `builder.AddNextUnit()`
 
 ### "Tests run in wrong order"
+
 - Add `[DependsOn(nameof(OtherTest))]` for explicit ordering
 - Use `[NotInParallel]` if tests must run serially
 
 ### "Shared state issues"
+
 - Use `[NotInParallel]` for tests that modify shared state
 - Consider class-scoped or assembly-scoped lifecycle for expensive setup
 
@@ -541,6 +569,6 @@ If you encounter issues during migration:
 
 1. Check the [API Reference](API_REFERENCE.md)
 2. Review [Sample Tests](../samples/NextUnit.SampleTests)
-3. Open an issue: https://github.com/crane-valley/NextUnit/issues
+3. Open an issue: <https://github.com/crane-valley/NextUnit/issues>
 
-Welcome to NextUnit! 🚀
+Welcome to NextUnit!

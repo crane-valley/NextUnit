@@ -1,10 +1,12 @@
 # NuGet Package Release Process
 
-This document describes the complete process for releasing a new version of NextUnit NuGet packages. This guide is designed to be read by both humans and Copilot agents to ensure consistent and complete releases.
+This document describes the complete process for releasing a new version of NextUnit NuGet packages.
+This guide is designed to be read by both humans and Copilot agents to ensure consistent and complete releases.
 
 ## Overview
 
 NextUnit consists of five NuGet packages:
+
 - **NextUnit** (meta-package) - Aggregates all components
 - **NextUnit.Core** - Core attributes, assertions, execution engine
 - **NextUnit.Generator** - Source generator for test discovery
@@ -44,18 +46,19 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 ### Documentation Files
 
-3. **README.md**
+1. **README.md**
    - Location: `/README.md`
    - Update: `**Current Version**: X.Y.Z (Stable)` near the top of the file
 
-4. **NUGET_README.md**
+2. **NUGET_README.md**
    - Location: `/NUGET_README.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the Quick Start section
 
-5. **CHANGELOG.md**
+3. **CHANGELOG.md**
    - Location: `/CHANGELOG.md`
    - Add new version section above the previous version
    - Format:
+
      ```markdown
      ## [X.Y.Z] - YYYY-MM-DD
 
@@ -63,39 +66,41 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
      - Description of changes
      ```
 
-6. **PLANS.md**
+4. **PLANS.md**
    - Location: `/PLANS.md`
    - Add new version to the Version History table
    - Format: `| X.Y.Z | YYYY-MM-DD | ✅ Released | Brief description |`
 
 ### User Documentation
 
-7. **docs/GETTING_STARTED.md**
+1. **docs/GETTING_STARTED.md**
    - Location: `/docs/GETTING_STARTED.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in examples
 
-8. **docs/MIGRATION_FROM_XUNIT.md**
+2. **docs/MIGRATION_FROM_XUNIT.md**
    - Location: `/docs/MIGRATION_FROM_XUNIT.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in examples
 
-9. **docs/PERFORMANCE.md**
+3. **docs/PERFORMANCE.md**
    - Location: `/docs/PERFORMANCE.md`
    - Update: `**NextUnit Version**: X.Y.Z` in the version information section
 
 ### Tools and Benchmarks
 
-10. **tools/speed-comparison/README.md**
-    - Location: `/tools/speed-comparison/README.md`
-    - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
+1. **tools/speed-comparison/README.md**
+   - Location: `/tools/speed-comparison/README.md`
+   - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
 
-11. **tools/speed-comparison/BENCHMARKS.md**
-    - Location: `/tools/speed-comparison/BENCHMARKS.md`
-    - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
+2. **tools/speed-comparison/BENCHMARKS.md**
+   - Location: `/tools/speed-comparison/BENCHMARKS.md`
+   - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
 
-12. **tools/speed-comparison/UnifiedTests/UnifiedTests.csproj**
-    - Location: `/tools/speed-comparison/UnifiedTests/UnifiedTests.csproj`
-    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the NextUnit configuration
-    - **NOTE**: This file should be updated AFTER the new package version is published to NuGet, since it references the published package for benchmarking. Update this in a separate commit/PR after the release.
+3. **tools/speed-comparison/UnifiedTests/UnifiedTests.csproj**
+   - Location: `/tools/speed-comparison/UnifiedTests/UnifiedTests.csproj`
+   - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the NextUnit configuration
+   - **NOTE**: This file should be updated AFTER the new package version is published to NuGet,
+     since it references the published package for benchmarking.
+     Update this in a separate commit/PR after the release.
 
 ## Release Process Steps
 
@@ -108,7 +113,8 @@ git checkout -b release/vX.Y.Z main
 
 ### 2. Update All Version References
 
-Follow the Version Update Checklist above and update files 1-11. Skip file #12 (UnifiedTests.csproj) for now - it will be updated after the package is published.
+Follow the Version Update Checklist above and update files 1-11.
+Skip file #12 (UnifiedTests.csproj) for now - it will be updated after the package is published.
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -116,6 +122,7 @@ You can use the `edit` tool to make multiple updates in parallel for efficiency.
 ### 3. Update CHANGELOG.md
 
 Add a new section for the release with:
+
 - Version number and date
 - Category sections (Added/Changed/Fixed/Removed) as appropriate
 - Clear description of all changes
@@ -170,21 +177,23 @@ After PR approval, merge to main branch.
 
 Creating a release on GitHub automatically triggers the NuGet package publishing via GitHub Actions (`.github/workflows/release.yml`):
 
-1. Go to: https://github.com/crane-valley/NextUnit/releases/new
+1. Go to: <https://github.com/crane-valley/NextUnit/releases/new>
 2. Click "Choose a tag" and create a new tag: `vX.Y.Z`
 3. Release title: `NextUnit vX.Y.Z`
 4. Description: Copy the CHANGELOG entry for this version
 5. Publish release
 
 **What happens automatically:**
+
 - GitHub Actions workflow (`.github/workflows/release.yml`) is triggered
 - Packages are built and packed
-- All five packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, NextUnit.Platform) are published to NuGet.org using GitHub OIDC authentication
+- All five packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, NextUnit.Platform)
+  are published to NuGet.org using GitHub OIDC authentication
 - No manual API key or `dotnet nuget push` commands needed
 
 ### 9. Verify Release
 
-- [ ] NuGet packages are visible at https://www.nuget.org/packages/NextUnit/
+- [ ] NuGet packages are visible at <https://www.nuget.org/packages/NextUnit/>
 - [ ] GitHub release is created
 - [ ] Documentation on main branch shows correct version
 - [ ] Badge on README.md shows correct version
@@ -210,6 +219,7 @@ NextUnit follows [Semantic Versioning](https://semver.org/):
 - **Patch (1.6.X)**: Bug fixes, backward-compatible fixes
 
 Examples:
+
 - `1.6.0` → `1.6.1`: Bug fixes, configuration changes (PATCH)
 - `1.6.0` → `1.7.0`: New assertions, new features (MINOR)
 - `1.6.0` → `2.0.0`: Breaking API changes (MAJOR)
@@ -217,11 +227,13 @@ Examples:
 ## Package Configuration Notes
 
 All NextUnit packages have `DevelopmentDependency=true` set:
+
 - This prevents transitive dependency propagation
 - Consuming projects won't expose NextUnit to their consumers
 - Appropriate for test frameworks that are build-time only
 
 This setting is in the individual `.csproj` files:
+
 - `/src/NextUnit/NextUnit.csproj`
 - `/src/NextUnit.Core/NextUnit.Core.csproj`
 - `/src/NextUnit.Generator/NextUnit.Generator.csproj`
@@ -240,7 +252,8 @@ This setting is in the individual `.csproj` files:
 
 ### Issue: Tests fail after version update
 
-**Solution**: The version update itself shouldn't affect tests. Investigate what other changes were made. Revert to previous version if needed.
+**Solution**: The version update itself shouldn't affect tests.
+Investigate what other changes were made. Revert to previous version if needed.
 
 ## For Copilot Agents
 
@@ -252,6 +265,7 @@ When asked to prepare a NuGet release:
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
 6. **Verify completeness**: Check that no files were missed using:
+
    ```bash
    grep -r "OLD_VERSION" --include="*.md" --include="*.props" --include="*.csproj"
    ```
@@ -269,6 +283,7 @@ grep -rE "1\.[0-9]+\.[0-9]+" --include="*.md" --include="*.props" --include="*.c
 ## Summary
 
 This document provides a complete checklist for releasing NextUnit NuGet packages. Following this process ensures:
+
 - All version references are updated consistently
 - Documentation remains accurate
 - Users can smoothly upgrade to new versions
