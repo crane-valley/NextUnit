@@ -238,35 +238,10 @@ public sealed class TestExecutionEngine
         ITestExecutionSink sink,
         CancellationToken cancellationToken)
     {
-        // Check if test is skipped (compile-time)
-        if (testCase.IsSkipped)
+        // Handle pre-execution skip conditions
+        var skipResult = await CheckSkipConditionsAsync(testCase, sink, cancellationToken).ConfigureAwait(false);
+        if (skipResult.ShouldReturn)
         {
-            await sink.ReportSkippedAsync(testCase).ConfigureAwait(false);
-            return;
-        }
-
-        // Check if assembly setup requested skip
-        if (_assemblySkipReason is not null)
-        {
-            await sink.ReportSkippedAsync(testCase.WithSkipReason(_assemblySkipReason)).ConfigureAwait(false);
-            return;
-        }
-
-        if (testCase.TestMethod is null)
-        {
-            await sink.ReportErrorAsync(
-                testCase,
-                new InvalidOperationException($"Test method delegate is null for test '{testCase.Id.Value}'")).ConfigureAwait(false);
-            return;
-        }
-
-        // Execute class-level setup if not already done
-        await EnsureClassSetupAsync(testCase, cancellationToken).ConfigureAwait(false);
-
-        // Check if class setup requested skip
-        if (_classContexts.TryGetValue(testCase.TestClass, out var classContext) && classContext.SkipReason is not null)
-        {
-            await sink.ReportSkippedAsync(testCase.WithSkipReason(classContext.SkipReason)).ConfigureAwait(false);
             return;
         }
 
@@ -279,11 +254,73 @@ public sealed class TestExecutionEngine
             : null;
         var effectiveToken = linkedCts?.Token ?? cancellationToken;
 
-        // Always create test output capture to support ITestOutput injection and ITestContext.Output access
-        var testOutput = new TestOutputCapture();
+        // Set up test context for async-local access
+        TestContext.SetCurrent(CreateTestContext(testCase, effectiveToken, new TestOutputCapture()));
 
-        // Always create test context for static TestContext.Current access
-        var testContext = new TestContextCapture(
+        try
+        {
+            await ExecuteWithRetryAsync(testCase, sink, effectiveToken, timeoutCts, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Always clear the test context, even if instance creation fails
+            TestContext.SetCurrent(null);
+        }
+    }
+
+    /// <summary>
+    /// Checks pre-execution skip conditions for a test case.
+    /// </summary>
+    /// <returns>A result indicating whether the test should be skipped and execution should return.</returns>
+    private async Task<SkipCheckResult> CheckSkipConditionsAsync(
+        TestCaseDescriptor testCase,
+        ITestExecutionSink sink,
+        CancellationToken cancellationToken)
+    {
+        // Check if test is skipped (compile-time)
+        if (testCase.IsSkipped)
+        {
+            await sink.ReportSkippedAsync(testCase).ConfigureAwait(false);
+            return SkipCheckResult.Skip;
+        }
+
+        // Check if assembly setup requested skip
+        if (_assemblySkipReason is not null)
+        {
+            await sink.ReportSkippedAsync(testCase.WithSkipReason(_assemblySkipReason)).ConfigureAwait(false);
+            return SkipCheckResult.Skip;
+        }
+
+        if (testCase.TestMethod is null)
+        {
+            await sink.ReportErrorAsync(
+                testCase,
+                new InvalidOperationException($"Test method delegate is null for test '{testCase.Id.Value}'")).ConfigureAwait(false);
+            return SkipCheckResult.Skip;
+        }
+
+        // Execute class-level setup if not already done
+        await EnsureClassSetupAsync(testCase, cancellationToken).ConfigureAwait(false);
+
+        // Check if class setup requested skip
+        if (_classContexts.TryGetValue(testCase.TestClass, out var classContext) && classContext.SkipReason is not null)
+        {
+            await sink.ReportSkippedAsync(testCase.WithSkipReason(classContext.SkipReason)).ConfigureAwait(false);
+            return SkipCheckResult.Skip;
+        }
+
+        return SkipCheckResult.Continue;
+    }
+
+    /// <summary>
+    /// Creates a new test context for the specified test case.
+    /// </summary>
+    private static TestContextCapture CreateTestContext(
+        TestCaseDescriptor testCase,
+        CancellationToken effectiveToken,
+        TestOutputCapture testOutput)
+    {
+        return new TestContextCapture(
             testName: testCase.MethodName,
             className: testCase.TestClass.Name,
             assemblyName: testCase.TestClass.Assembly.GetName().Name ?? "",
@@ -294,155 +331,192 @@ public sealed class TestExecutionEngine
             timeoutMs: testCase.TimeoutMs,
             cancellationToken: effectiveToken,
             output: testOutput);
+    }
 
-        // Set the test context for async-local access
-        TestContext.SetCurrent(testContext);
+    /// <summary>
+    /// Executes a test case with retry logic.
+    /// </summary>
+    private async Task ExecuteWithRetryAsync(
+        TestCaseDescriptor testCase,
+        ITestExecutionSink sink,
+        CancellationToken effectiveToken,
+        CancellationTokenSource? timeoutCts,
+        CancellationToken cancellationToken)
+    {
+        var maxAttempts = testCase.Retry.Count ?? 1;
+        var retryDelayMs = testCase.Retry.DelayMs;
+        Exception? lastException = null;
+        string? lastOutput = null;
 
-        try
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            // Determine retry configuration
-            var maxAttempts = testCase.Retry.Count ?? 1;
-            var retryDelayMs = testCase.Retry.DelayMs;
-            Exception? lastException = null;
-            string? lastOutput = null;
+            var testOutput = new TestOutputCapture();
+            var testContext = CreateTestContext(testCase, effectiveToken, testOutput);
+            TestContext.SetCurrent(testContext);
 
-            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            var attemptResult = await ExecuteSingleAttemptAsync(
+                testCase, sink, effectiveToken, timeoutCts, testOutput, cancellationToken).ConfigureAwait(false);
+
+            if (attemptResult.IsTerminal)
             {
-                // Reset test output for each retry attempt
-                if (attempt > 1)
-                {
-                    testOutput = new TestOutputCapture();
-                    testContext = new TestContextCapture(
-                        testName: testCase.MethodName,
-                        className: testCase.TestClass.Name,
-                        assemblyName: testCase.TestClass.Assembly.GetName().Name ?? "",
-                        fullyQualifiedName: testCase.Id.Value,
-                        categories: testCase.Categories,
-                        tags: testCase.Tags,
-                        arguments: testCase.Arguments,
-                        timeoutMs: testCase.TimeoutMs,
-                        cancellationToken: effectiveToken,
-                        output: testOutput);
-                    TestContext.SetCurrent(testContext);
-                }
+                return;
+            }
 
-                // Create test instance (each test gets its own instance)
-                // Constructor injection priority:
-                // 1. (ITestContext, ITestOutput) or (ITestOutput, ITestContext) - both
-                // 2. (ITestContext) - only context
-                // 3. (ITestOutput) - only output (backwards compatible)
-                // 4. () - parameterless
-                // If none of the above constructors are available, falls back to Activator.CreateInstance.
-                var instance = CreateTestInstance(testCase.TestClass, testOutput, testContext);
-
-                try
-                {
-                    // Execute before lifecycle methods (test-scoped)
-                    foreach (var beforeMethod in testCase.Lifecycle.BeforeTestMethods)
-                    {
-                        await beforeMethod(instance, effectiveToken).ConfigureAwait(false);
-                    }
-
-                    // Execute the test method
-                    await testCase.TestMethod(instance, effectiveToken).ConfigureAwait(false);
-
-                    // Execute after lifecycle methods (test-scoped)
-                    foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
-                    {
-                        await afterMethod(instance, effectiveToken).ConfigureAwait(false);
-                    }
-
-                    // Test passed - report success and exit
-                    await sink.ReportPassedAsync(testCase, testOutput.GetOutput()).ConfigureAwait(false);
-                    return;
-                }
-                catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true && !cancellationToken.IsCancellationRequested)
-                {
-                    // Timeout occurred - do not retry timeouts
-                    var timeoutEx = new TestTimeoutException(testCase.TimeoutMs!.Value);
-                    await sink.ReportErrorAsync(testCase, timeoutEx, testOutput.GetOutput()).ConfigureAwait(false);
-                    return;
-                }
-                catch (TestSkippedException ex)
-                {
-                    // Runtime skip - do not retry skips
-                    await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message)).ConfigureAwait(false);
-                    return;
-                }
-                catch (OutOfMemoryException)
-                {
-                    // Rethrow to preserve fail-fast behavior for critical exception types.
-                    throw;
-                }
-                catch (StackOverflowException)
-                {
-                    // Rethrow to preserve fail-fast behavior for critical exception types.
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    // Check if we have more attempts
-                    if (attempt < maxAttempts)
-                    {
-                        // Save exception and continue to next attempt
-                        lastException = ex;
-                        lastOutput = testOutput.GetOutput();
-                    }
-                    else if (ex is AssertionFailedException assertionEx)
-                    {
-                        // Final attempt - assertion failure
-                        await sink.ReportFailedAsync(testCase, assertionEx, testOutput.GetOutput()).ConfigureAwait(false);
-                        return;
-                    }
-                    else
-                    {
-                        // Final attempt - general error
-                        await sink.ReportErrorAsync(testCase, ex, testOutput.GetOutput()).ConfigureAwait(false);
-                        return;
-                    }
-                }
-                finally
-                {
-                    if (instance is IDisposable disposable)
-                    {
-                        disposable.Dispose();
-                    }
-                    else if (instance is IAsyncDisposable asyncDisposable)
-                    {
-                        await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-                    }
-                }
+            // Non-terminal failure - check if we should retry
+            if (attempt < maxAttempts)
+            {
+                lastException = attemptResult.Exception;
+                lastOutput = testOutput.GetOutput();
 
                 // Wait before retry if delay is specified
-                if (retryDelayMs > 0 && attempt < maxAttempts)
+                if (retryDelayMs > 0)
                 {
                     await Task.Delay(retryDelayMs, cancellationToken).ConfigureAwait(false);
                 }
             }
-
-            // All retry attempts exhausted - report the last exception
-            if (lastException is AssertionFailedException lastAssertionEx)
-            {
-                await sink.ReportFailedAsync(testCase, lastAssertionEx, lastOutput).ConfigureAwait(false);
-            }
-            else if (lastException is not null)
-            {
-                await sink.ReportErrorAsync(testCase, lastException, lastOutput).ConfigureAwait(false);
-            }
             else
             {
-                // This should never happen - report as error if it does
-                await sink.ReportErrorAsync(
-                    testCase,
-                    new InvalidOperationException("Test completed without result"),
-                    string.Empty).ConfigureAwait(false);
+                // Final attempt - report the exception
+                await ReportFinalExceptionAsync(testCase, sink, attemptResult.Exception!, testOutput.GetOutput()).ConfigureAwait(false);
+                return;
             }
+        }
+
+        // All retry attempts exhausted - report the last exception
+        await ReportFinalExceptionAsync(testCase, sink, lastException, lastOutput).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Executes a single test attempt (one iteration of the retry loop).
+    /// </summary>
+    private async Task<AttemptResult> ExecuteSingleAttemptAsync(
+        TestCaseDescriptor testCase,
+        ITestExecutionSink sink,
+        CancellationToken effectiveToken,
+        CancellationTokenSource? timeoutCts,
+        TestOutputCapture testOutput,
+        CancellationToken cancellationToken)
+    {
+        // Create test instance (each test gets its own instance)
+        var instance = CreateTestInstance(testCase.TestClass, testOutput, TestContext.Current!);
+
+        try
+        {
+            // Execute before lifecycle methods (test-scoped)
+            foreach (var beforeMethod in testCase.Lifecycle.BeforeTestMethods)
+            {
+                await beforeMethod(instance, effectiveToken).ConfigureAwait(false);
+            }
+
+            // Execute the test method
+            await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
+
+            // Execute after lifecycle methods (test-scoped)
+            foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
+            {
+                await afterMethod(instance, effectiveToken).ConfigureAwait(false);
+            }
+
+            // Test passed - report success
+            await sink.ReportPassedAsync(testCase, testOutput.GetOutput()).ConfigureAwait(false);
+            return AttemptResult.Passed;
+        }
+        catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true && !cancellationToken.IsCancellationRequested)
+        {
+            // Timeout occurred - do not retry timeouts
+            var timeoutEx = new TestTimeoutException(testCase.TimeoutMs!.Value);
+            await sink.ReportErrorAsync(testCase, timeoutEx, testOutput.GetOutput()).ConfigureAwait(false);
+            return AttemptResult.Passed; // Terminal - don't retry
+        }
+        catch (TestSkippedException ex)
+        {
+            // Runtime skip - do not retry skips
+            await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message)).ConfigureAwait(false);
+            return AttemptResult.Passed; // Terminal - don't retry
+        }
+        catch (OutOfMemoryException)
+        {
+            // Rethrow to preserve fail-fast behavior for critical exception types.
+            throw;
+        }
+        catch (StackOverflowException)
+        {
+            // Rethrow to preserve fail-fast behavior for critical exception types.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return AttemptResult.Failed(ex);
         }
         finally
         {
-            // Always clear the test context, even if instance creation fails
-            TestContext.SetCurrent(null);
+            await DisposeInstanceAsync(instance).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Reports the final exception after all retry attempts are exhausted.
+    /// </summary>
+    private static async Task ReportFinalExceptionAsync(
+        TestCaseDescriptor testCase,
+        ITestExecutionSink sink,
+        Exception? exception,
+        string? output)
+    {
+        if (exception is AssertionFailedException assertionEx)
+        {
+            await sink.ReportFailedAsync(testCase, assertionEx, output).ConfigureAwait(false);
+        }
+        else if (exception is not null)
+        {
+            await sink.ReportErrorAsync(testCase, exception, output).ConfigureAwait(false);
+        }
+        else
+        {
+            // This should never happen - report as error if it does
+            await sink.ReportErrorAsync(
+                testCase,
+                new InvalidOperationException("Test completed without result"),
+                string.Empty).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Disposes a test instance if it implements IDisposable or IAsyncDisposable.
+    /// </summary>
+    private static async Task DisposeInstanceAsync(object instance)
+    {
+        if (instance is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+        else if (instance is IAsyncDisposable asyncDisposable)
+        {
+            await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Result of checking skip conditions before test execution.
+    /// </summary>
+    private readonly struct SkipCheckResult
+    {
+        public bool ShouldReturn { get; init; }
+
+        public static SkipCheckResult Skip => new() { ShouldReturn = true };
+        public static SkipCheckResult Continue => new() { ShouldReturn = false };
+    }
+
+    /// <summary>
+    /// Result of a single test attempt.
+    /// </summary>
+    private readonly struct AttemptResult
+    {
+        public bool IsTerminal { get; init; }
+        public Exception? Exception { get; init; }
+
+        public static AttemptResult Passed => new() { IsTerminal = true };
+        public static AttemptResult Failed(Exception ex) => new() { IsTerminal = false, Exception = ex };
     }
 
     /// <summary>
