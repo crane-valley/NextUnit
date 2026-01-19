@@ -43,9 +43,10 @@ internal static class AssemblyLoader
     {
         if (!File.Exists(assemblyPath))
         {
+            // Do not include the assembly path here because the caller already logs it.
             return new AssemblyLoadResult
             {
-                ErrorMessage = $"Assembly file not found: {assemblyPath}",
+                ErrorMessage = "Assembly file not found",
                 ErrorCategory = "file not found"
             };
         }

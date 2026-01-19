@@ -78,7 +78,7 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
         var testCases = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestCaseDescriptor>>(registryType, "TestCases");
         if (testCases is null)
         {
-            logger.SendMessage(TestMessageLevel.Warning, "NextUnit: TestCases property not found or empty");
+            logger.SendMessage(TestMessageLevel.Warning, "NextUnit: TestCases property not found or returned null");
             return;
         }
 
