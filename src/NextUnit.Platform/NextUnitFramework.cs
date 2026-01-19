@@ -1,4 +1,3 @@
-using System.Reflection;
 using Microsoft.Testing.Platform.Capabilities.TestFramework;
 using Microsoft.Testing.Platform.CommandLine;
 using Microsoft.Testing.Platform.Extensions.Messages;
@@ -178,10 +177,15 @@ internal sealed class NextUnitFramework :
         // Try to find generated test registry using reflection
         // This is a one-time operation during test discovery, not during test execution
         var testAssemblyPath = Environment.GetCommandLineArgs()[0];
-        var testAssembly = Assembly.LoadFrom(testAssemblyPath);
+        var loadResult = AssemblyLoader.TryLoadAssembly(testAssemblyPath);
+        if (!loadResult.Success)
+        {
+            _testCases = Array.Empty<TestCaseDescriptor>();
+            return _testCases;
+        }
 
         // Look for NextUnit.Generated.GeneratedTestRegistry
-        var generatedRegistryType = testAssembly.GetType("NextUnit.Generated.GeneratedTestRegistry");
+        var generatedRegistryType = AssemblyLoader.GetTestRegistryType(loadResult.Assembly!);
         if (generatedRegistryType is null)
         {
             _testCases = Array.Empty<TestCaseDescriptor>();
@@ -191,38 +195,24 @@ internal sealed class NextUnitFramework :
         var allTestCases = new List<TestCaseDescriptor>();
 
         // Get static test cases from TestCases property
-        var testCasesProperty = generatedRegistryType.GetProperty(
-            "TestCases",
-            BindingFlags.Public | BindingFlags.Static);
-
-        if (testCasesProperty is not null)
+        var staticTestCases = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestCaseDescriptor>>(generatedRegistryType, "TestCases");
+        if (staticTestCases is not null)
         {
-            var staticTestCases = (IReadOnlyList<TestCaseDescriptor>?)testCasesProperty.GetValue(null);
-            if (staticTestCases is not null)
-            {
-                allTestCases.AddRange(staticTestCases);
-            }
+            allTestCases.AddRange(staticTestCases);
         }
 
         // Get dynamic test cases from TestDataDescriptors property
-        var testDataDescriptorsProperty = generatedRegistryType.GetProperty(
-            "TestDataDescriptors",
-            BindingFlags.Public | BindingFlags.Static);
-
-        if (testDataDescriptorsProperty is not null)
+        var testDataDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestDataDescriptor>>(generatedRegistryType, "TestDataDescriptors");
+        if (testDataDescriptors is not null)
         {
-            var testDataDescriptors = (IReadOnlyList<TestDataDescriptor>?)testDataDescriptorsProperty.GetValue(null);
-            if (testDataDescriptors is not null)
-            {
-                // Filter TestDataDescriptors BEFORE expansion to avoid executing data providers for excluded tests
-                var filteredDescriptors = testDataDescriptors
-                    .Where(td => _filterConfig.ShouldIncludeTest(td.Categories, td.Tags, td.DisplayName))
-                    .ToList();
+            // Filter TestDataDescriptors BEFORE expansion to avoid executing data providers for excluded tests
+            var filteredDescriptors = testDataDescriptors
+                .Where(td => _filterConfig.ShouldIncludeTest(td.Categories, td.Tags, td.DisplayName))
+                .ToList();
 
-                // Expand only the filtered TestDataDescriptors into TestCaseDescriptors at runtime
-                var expandedTests = TestDataExpander.Expand(filteredDescriptors);
-                allTestCases.AddRange(expandedTests);
-            }
+            // Expand only the filtered TestDataDescriptors into TestCaseDescriptors at runtime
+            var expandedTests = TestDataExpander.Expand(filteredDescriptors);
+            allTestCases.AddRange(expandedTests);
         }
 
         // Apply category and tag filtering to static test cases

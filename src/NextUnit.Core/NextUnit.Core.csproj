@@ -14,6 +14,14 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
+  <!-- Expose internal types to related assemblies -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="NextUnit.TestAdapter" />
+    <InternalsVisibleTo Include="NextUnit.Platform" />
+    <InternalsVisibleTo Include="NextUnit.Platform.Tests" />
+    <InternalsVisibleTo Include="NextUnit.Generator.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
