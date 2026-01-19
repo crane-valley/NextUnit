@@ -12,8 +12,6 @@
     <Description>NextUnit - A modern, high-performance test framework for .NET 10+ that combines TUnit's architecture with xUnit's familiar assertions. This meta-package includes all required components for getting started with NextUnit.</Description>
     <PackageTags>$(PackageTags);metapackage</PackageTags>
 
-    <!-- Meta-package Settings -->
-    <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
 
   <ItemGroup>
