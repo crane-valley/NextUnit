@@ -46,15 +46,15 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 ### Documentation Files
 
-1. **README.md**
+3. **README.md**
    - Location: `/README.md`
    - Update: `**Current Version**: X.Y.Z (Stable)` near the top of the file
 
-2. **NUGET_README.md**
+4. **NUGET_README.md**
    - Location: `/NUGET_README.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the Quick Start section
 
-3. **CHANGELOG.md**
+5. **CHANGELOG.md**
    - Location: `/CHANGELOG.md`
    - Add new version section above the previous version
    - Format:
@@ -66,36 +66,36 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
      - Description of changes
      ```
 
-4. **PLANS.md**
+6. **PLANS.md**
    - Location: `/PLANS.md`
    - Add new version to the Version History table
    - Format: `| X.Y.Z | YYYY-MM-DD | ✅ Released | Brief description |`
 
 ### User Documentation
 
-1. **docs/GETTING_STARTED.md**
+7. **docs/GETTING_STARTED.md**
    - Location: `/docs/GETTING_STARTED.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in examples
 
-2. **docs/MIGRATION_FROM_XUNIT.md**
+8. **docs/MIGRATION_FROM_XUNIT.md**
    - Location: `/docs/MIGRATION_FROM_XUNIT.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in examples
 
-3. **docs/PERFORMANCE.md**
+9. **docs/PERFORMANCE.md**
    - Location: `/docs/PERFORMANCE.md`
    - Update: `**NextUnit Version**: X.Y.Z` in the version information section
 
 ### Tools and Benchmarks
 
-1. **tools/speed-comparison/README.md**
+10. **tools/speed-comparison/README.md**
     - Location: `/tools/speed-comparison/README.md`
     - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
 
-2. **tools/speed-comparison/BENCHMARKS.md**
+11. **tools/speed-comparison/BENCHMARKS.md**
     - Location: `/tools/speed-comparison/BENCHMARKS.md`
     - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
 
-3. **tools/speed-comparison/UnifiedTests/UnifiedTests.csproj**
+12. **tools/speed-comparison/UnifiedTests/UnifiedTests.csproj**
     - Location: `/tools/speed-comparison/UnifiedTests/UnifiedTests.csproj`
     - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the NextUnit configuration
     - **NOTE**: This file should be updated AFTER the new package version is published to NuGet,
