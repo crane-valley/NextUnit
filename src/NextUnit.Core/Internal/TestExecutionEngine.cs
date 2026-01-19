@@ -417,9 +417,8 @@ public sealed class TestExecutionEngine
 
             // Execute the test method
             // TestMethod is guaranteed non-null because CheckSkipConditionsAsync validates it before execution
-            var testMethod = testCase.TestMethod
-                ?? throw new InvalidOperationException($"Test method delegate is null for test '{testCase.Id.Value}'.");
-            await testMethod(instance, effectiveToken).ConfigureAwait(false);
+            System.Diagnostics.Debug.Assert(testCase.TestMethod is not null, "TestMethod should have been validated by CheckSkipConditionsAsync");
+            await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
 
             // Execute after lifecycle methods (test-scoped)
             foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
