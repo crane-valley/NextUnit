@@ -9,10 +9,10 @@
 
 | Framework | Version | Total Time | Per-Test Time | Peak Memory | Tests/Sec | Relative Performance |
 | --------- | ------- | ---------- | ------------- | ----------- | --------- | -------------------- |
-| NextUnit  | 1.4.0   | 554ms      | 2.77ms        | 0.0MB       | 361       | Baseline |
-| MSTest    | 3.7.0   | 1209ms     | 6.04ms        | 0.0MB       | 165       | 2.2x     |
-| NUnit     | 4.3.1   | 1256ms     | 6.28ms        | 0.0MB       | 159       | 2.3x     |
-| xUnit     | 2.9.3   | 1329ms     | 6.64ms        | 0.0MB       | 150       | 2.4x     |
+| NextUnit  | 1.4.0   | 554ms      | 2.77ms        | 0.0MB       | 361       | Baseline             |
+| MSTest    | 3.7.0   | 1209ms     | 6.04ms        | 0.0MB       | 165       | 2.2x                 |
+| NUnit     | 4.3.1   | 1256ms     | 6.28ms        | 0.0MB       | 159       | 2.3x                 |
+| xUnit     | 2.9.3   | 1329ms     | 6.64ms        | 0.0MB       | 150       | 2.4x                 |
 
 ## Detailed Results
 
