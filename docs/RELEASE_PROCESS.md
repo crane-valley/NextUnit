@@ -46,15 +46,15 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 ### Documentation Files
 
-3. **README.md**
+1. **README.md**
    - Location: `/README.md`
    - Update: `**Current Version**: X.Y.Z (Stable)` near the top of the file
 
-4. **NUGET_README.md**
+2. **NUGET_README.md**
    - Location: `/NUGET_README.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the Quick Start section
 
-5. **CHANGELOG.md**
+3. **CHANGELOG.md**
    - Location: `/CHANGELOG.md`
    - Add new version section above the previous version
    - Format:
@@ -66,41 +66,41 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
      - Description of changes
      ```
 
-6. **PLANS.md**
+4. **PLANS.md**
    - Location: `/PLANS.md`
    - Add new version to the Version History table
    - Format: `| X.Y.Z | YYYY-MM-DD | ✅ Released | Brief description |`
 
 ### User Documentation
 
-7. **docs/GETTING_STARTED.md**
+1. **docs/GETTING_STARTED.md**
    - Location: `/docs/GETTING_STARTED.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in examples
 
-8. **docs/MIGRATION_FROM_XUNIT.md**
+2. **docs/MIGRATION_FROM_XUNIT.md**
    - Location: `/docs/MIGRATION_FROM_XUNIT.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in examples
 
-9. **docs/PERFORMANCE.md**
+3. **docs/PERFORMANCE.md**
    - Location: `/docs/PERFORMANCE.md`
    - Update: `**NextUnit Version**: X.Y.Z` in the version information section
 
 ### Tools and Benchmarks
 
-10. **tools/speed-comparison/README.md**
-    - Location: `/tools/speed-comparison/README.md`
-    - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
+1. **tools/speed-comparison/README.md**
+   - Location: `/tools/speed-comparison/README.md`
+   - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
 
-11. **tools/speed-comparison/BENCHMARKS.md**
-    - Location: `/tools/speed-comparison/BENCHMARKS.md`
-    - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
+2. **tools/speed-comparison/BENCHMARKS.md**
+   - Location: `/tools/speed-comparison/BENCHMARKS.md`
+   - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
 
-12. **tools/speed-comparison/UnifiedTests/UnifiedTests.csproj**
-    - Location: `/tools/speed-comparison/UnifiedTests/UnifiedTests.csproj`
-    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the NextUnit configuration
-    - **NOTE**: This file should be updated AFTER the new package version is published to NuGet,
-      since it references the published package for benchmarking.
-      Update this in a separate commit/PR after the release.
+3. **tools/speed-comparison/UnifiedTests/UnifiedTests.csproj**
+   - Location: `/tools/speed-comparison/UnifiedTests/UnifiedTests.csproj`
+   - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the NextUnit configuration
+   - **NOTE**: This file should be updated AFTER the new package version is published to NuGet,
+     since it references the published package for benchmarking.
+     Update this in a separate commit/PR after the release.
 
 ## Release Process Steps
 
