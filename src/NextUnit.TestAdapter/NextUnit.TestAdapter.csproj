@@ -17,7 +17,6 @@
     <PackageTags>$(PackageTags);testadapter;vstest;visualstudio</PackageTags>
 
     <!-- NuGet Package Settings -->
-    <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
