@@ -36,7 +36,9 @@ internal sealed class TestMethodDescriptor
         string? flakyReason,
         string? customDisplayName,
         string? displayNameFormatterType,
-        int? repeatCount)
+        int? repeatCount,
+        ImmutableArray<MatrixParameterDescriptor> matrixParameters,
+        ImmutableArray<MatrixExclusionDescriptor> matrixExclusions)
     {
         Id = id;
         DisplayName = displayName;
@@ -66,6 +68,8 @@ internal sealed class TestMethodDescriptor
         CustomDisplayName = customDisplayName;
         DisplayNameFormatterType = displayNameFormatterType;
         RepeatCount = repeatCount;
+        MatrixParameters = matrixParameters;
+        MatrixExclusions = matrixExclusions;
     }
 
     public string Id { get; }
@@ -96,6 +100,8 @@ internal sealed class TestMethodDescriptor
     public string? CustomDisplayName { get; }
     public string? DisplayNameFormatterType { get; }
     public int? RepeatCount { get; }
+    public ImmutableArray<MatrixParameterDescriptor> MatrixParameters { get; }
+    public ImmutableArray<MatrixExclusionDescriptor> MatrixExclusions { get; }
 }
 
 /// <summary>
@@ -152,4 +158,34 @@ internal sealed class DependencyDescriptor
 
     public string DependsOnId { get; }
     public bool ProceedOnFailure { get; }
+}
+
+/// <summary>
+/// Describes a matrix parameter with its possible values for Cartesian product generation.
+/// </summary>
+internal sealed class MatrixParameterDescriptor
+{
+    public MatrixParameterDescriptor(int parameterIndex, string parameterName, ImmutableArray<TypedConstant> values)
+    {
+        ParameterIndex = parameterIndex;
+        ParameterName = parameterName;
+        Values = values;
+    }
+
+    public int ParameterIndex { get; }
+    public string ParameterName { get; }
+    public ImmutableArray<TypedConstant> Values { get; }
+}
+
+/// <summary>
+/// Describes a combination of values to exclude from matrix test generation.
+/// </summary>
+internal sealed class MatrixExclusionDescriptor
+{
+    public MatrixExclusionDescriptor(ImmutableArray<TypedConstant> values)
+    {
+        Values = values;
+    }
+
+    public ImmutableArray<TypedConstant> Values { get; }
 }

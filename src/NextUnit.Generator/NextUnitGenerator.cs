@@ -101,6 +101,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var timeoutMs = AttributeHelper.GetTimeout(methodSymbol, typeSymbol);
         var (retryCount, retryDelayMs, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol);
         var repeatCount = AttributeHelper.GetRepeatCount(methodSymbol);
+        var matrixParameters = AttributeHelper.GetMatrixParameters(methodSymbol);
+        var matrixExclusions = AttributeHelper.GetMatrixExclusions(methodSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -130,7 +132,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             flakyReason,
             customDisplayName,
             displayNameFormatterType,
-            repeatCount);
+            repeatCount,
+            matrixParameters,
+            matrixExclusions);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
@@ -273,6 +277,73 @@ internal static class Program
                     Location.None,
                     test.Id));
             }
+
+            // Matrix validation: [Matrix] and [Arguments] conflict
+            if (!test.MatrixParameters.IsDefaultOrEmpty && !test.ArgumentSets.IsDefaultOrEmpty)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    new DiagnosticDescriptor(
+                        "NEXTUNIT004",
+                        "Conflicting test data attributes",
+                        "Test '{0}' has both [Matrix] and [Arguments] attributes. Use only one approach for parameterizing tests.",
+                        "NextUnit",
+                        DiagnosticSeverity.Error,
+                        isEnabledByDefault: true),
+                    Location.None,
+                    test.Id));
+            }
+
+            // Matrix validation: [Matrix] and [TestData] conflict
+            if (!test.MatrixParameters.IsDefaultOrEmpty && !test.TestDataSources.IsDefaultOrEmpty)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    new DiagnosticDescriptor(
+                        "NEXTUNIT005",
+                        "Conflicting test data attributes",
+                        "Test '{0}' has both [Matrix] and [TestData] attributes. Use only one approach for parameterizing tests.",
+                        "NextUnit",
+                        DiagnosticSeverity.Error,
+                        isEnabledByDefault: true),
+                    Location.None,
+                    test.Id));
+            }
+
+            // Matrix validation: All parameters must have [Matrix] if any do
+            if (!test.MatrixParameters.IsDefaultOrEmpty && test.MatrixParameters.Length != test.Parameters.Length)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    new DiagnosticDescriptor(
+                        "NEXTUNIT006",
+                        "Incomplete matrix parameters",
+                        "Test '{0}' has {1} parameters but only {2} have [Matrix] attributes. All parameters must have [Matrix] when using matrix tests.",
+                        "NextUnit",
+                        DiagnosticSeverity.Error,
+                        isEnabledByDefault: true),
+                    Location.None,
+                    test.Id,
+                    test.Parameters.Length,
+                    test.MatrixParameters.Length));
+            }
+
+            // Matrix validation: [MatrixExclusion] parameter count mismatch
+            if (!test.MatrixExclusions.IsDefaultOrEmpty && !test.MatrixParameters.IsDefaultOrEmpty)
+            {
+                foreach (var exclusion in test.MatrixExclusions.Where(e => e.Values.Length != test.MatrixParameters.Length))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        new DiagnosticDescriptor(
+                            "NEXTUNIT007",
+                            "Matrix exclusion parameter count mismatch",
+                            "Test '{0}' has [MatrixExclusion] with {1} values but the test has {2} matrix parameters.",
+                            "NextUnit",
+                            DiagnosticSeverity.Error,
+                            isEnabledByDefault: true),
+                        Location.None,
+                        test.Id,
+                        exclusion.Values.Length,
+                        test.MatrixParameters.Length));
+                }
+            }
         }
     }
 
@@ -350,19 +421,24 @@ internal static class Program
         builder.AppendLine("    }");
         builder.AppendLine();
 
-        // Separate tests with TestData from regular tests
+        // Separate tests by type: regular, matrix, and TestData
         var regularTests = new List<TestMethodDescriptor>();
+        var matrixTests = new List<TestMethodDescriptor>();
         var testDataTests = new List<TestMethodDescriptor>();
 
         foreach (var test in tests)
         {
-            if (test.TestDataSources.IsDefaultOrEmpty)
+            if (!test.TestDataSources.IsDefaultOrEmpty)
             {
-                regularTests.Add(test);
+                testDataTests.Add(test);
+            }
+            else if (!test.MatrixParameters.IsDefaultOrEmpty)
+            {
+                matrixTests.Add(test);
             }
             else
             {
-                testDataTests.Add(test);
+                regularTests.Add(test);
             }
         }
 
@@ -400,6 +476,30 @@ internal static class Program
                         var repeatIndexToEmit = hasRepeatAttribute ? repeatIndex : (int?)null;
                         TestCaseEmitter.EmitTestCase(builder, test, lifecycleMethods, test.ArgumentSets[argIndex], argIndex, repeatIndexToEmit);
                     }
+                }
+            }
+        }
+
+        // Emit matrix test cases
+        foreach (var test in matrixTests)
+        {
+            var lifecycleMethods = lifecycleByType.TryGetValue(test.FullyQualifiedTypeName, out var methods)
+                ? methods
+                : new List<LifecycleMethodDescriptor>();
+
+            var repeatCount = test.RepeatCount ?? 1;
+            var hasRepeatAttribute = test.RepeatCount.HasValue;
+
+            // Compute Cartesian product and apply exclusions
+            var combinations = MatrixHelper.ComputeCartesianProduct(test.MatrixParameters);
+            combinations = MatrixHelper.ApplyExclusions(combinations, test.MatrixExclusions);
+
+            for (var matrixIndex = 0; matrixIndex < combinations.Length; matrixIndex++)
+            {
+                for (var repeatIndex = 0; repeatIndex < repeatCount; repeatIndex++)
+                {
+                    var repeatIndexToEmit = hasRepeatAttribute ? repeatIndex : (int?)null;
+                    TestCaseEmitter.EmitMatrixTestCase(builder, test, lifecycleMethods, combinations[matrixIndex], matrixIndex, repeatIndexToEmit);
                 }
             }
         }

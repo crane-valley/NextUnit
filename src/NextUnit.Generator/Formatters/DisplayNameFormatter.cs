@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using NextUnit.Generator.Models;
 
 namespace NextUnit.Generator.Formatters;
 
@@ -10,6 +11,40 @@ namespace NextUnit.Generator.Formatters;
 /// </summary>
 internal static class DisplayNameFormatter
 {
+    /// <summary>
+    /// Builds a display name for a matrix test, including parameter names.
+    /// </summary>
+    public static string BuildMatrixDisplayName(
+        string methodName,
+        string? customDisplayName,
+        ImmutableArray<MatrixParameterDescriptor> matrixParameters,
+        ImmutableArray<TypedConstant> combination)
+    {
+        if (customDisplayName is not null)
+        {
+            return FormatDisplayNameWithPlaceholders(customDisplayName, combination);
+        }
+
+        var builder = new StringBuilder();
+        builder.Append(methodName);
+        builder.Append('(');
+
+        for (var i = 0; i < combination.Length && i < matrixParameters.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+
+            builder.Append(matrixParameters[i].ParameterName);
+            builder.Append(": ");
+            builder.Append(FormatArgumentForDisplay(combination[i]));
+        }
+
+        builder.Append(')');
+        return builder.ToString();
+    }
+
     /// <summary>
     /// Builds a display name for a parameterized test.
     /// </summary>

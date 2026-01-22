@@ -28,6 +28,8 @@ internal static class AttributeHelper
     public const string RepeatAttributeMetadataName = "global::NextUnit.RepeatAttribute";
     public const string DisplayNameAttributeMetadataName = "global::NextUnit.DisplayNameAttribute";
     public const string DisplayNameFormatterAttributeMetadataName = "global::NextUnit.DisplayNameFormatterAttribute";
+    public const string MatrixAttributeMetadataName = "global::NextUnit.MatrixAttribute";
+    public const string MatrixExclusionAttributeMetadataName = "global::NextUnit.MatrixExclusionAttribute";
     public const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
     public const string ITestContextMetadataName = "global::NextUnit.Core.ITestContext";
 
@@ -539,6 +541,63 @@ internal static class AttributeHelper
         }
 
         return null;
+    }
+
+    public static ImmutableArray<MatrixParameterDescriptor> GetMatrixParameters(IMethodSymbol methodSymbol)
+    {
+        var builder = ImmutableArray.CreateBuilder<MatrixParameterDescriptor>();
+
+        for (var i = 0; i < methodSymbol.Parameters.Length; i++)
+        {
+            var parameter = methodSymbol.Parameters[i];
+
+            foreach (var attribute in parameter.GetAttributes())
+            {
+                if (!IsAttribute(attribute, MatrixAttributeMetadataName))
+                {
+                    continue;
+                }
+
+                if (attribute.ConstructorArguments.Length == 0)
+                {
+                    continue;
+                }
+
+                var valuesArg = attribute.ConstructorArguments[0];
+                if (valuesArg.Kind == TypedConstantKind.Array)
+                {
+                    builder.Add(new MatrixParameterDescriptor(i, parameter.Name, valuesArg.Values));
+                }
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    public static ImmutableArray<MatrixExclusionDescriptor> GetMatrixExclusions(IMethodSymbol methodSymbol)
+    {
+        var builder = ImmutableArray.CreateBuilder<MatrixExclusionDescriptor>();
+
+        foreach (var attribute in methodSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, MatrixExclusionAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            var valuesArg = attribute.ConstructorArguments[0];
+            if (valuesArg.Kind == TypedConstantKind.Array)
+            {
+                builder.Add(new MatrixExclusionDescriptor(valuesArg.Values));
+            }
+        }
+
+        return builder.ToImmutable();
     }
 
     private static (int? count, int delayMs) GetRetryFromSymbol(ISymbol symbol)
