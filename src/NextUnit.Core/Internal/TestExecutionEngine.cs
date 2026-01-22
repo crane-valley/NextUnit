@@ -116,7 +116,9 @@ public sealed class TestExecutionEngine
         ITestExecutionSink sink,
         CancellationToken cancellationToken)
     {
-        // Handle skip batches - these are tests that should be skipped due to failed dependencies
+        // Handle skip batches - tests skipped due to failed dependencies.
+        // These tests have already been marked with skip reasons via WithSkipReason("Dependency failed")
+        // in ParallelScheduler.GetExecutionBatchesAsync before being yielded as a skip batch.
         if (batch.IsSkipBatch)
         {
             foreach (var test in batch.Tests)

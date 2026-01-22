@@ -117,6 +117,10 @@ internal static class AttributeHelper
         var containingType = methodSymbol.ContainingType;
         var typeName = containingType.ToDisplayString(TestIdTypeFormat);
 
+        // Build fully-qualified dependency ID from method name
+        string BuildDependencyId(string name) =>
+            name.Contains('.') ? name : $"{typeName}.{name}";
+
         foreach (var attribute in methodSymbol.GetAttributes())
         {
             if (!IsAttribute(attribute, DependsOnMetadataName))
@@ -143,15 +147,13 @@ internal static class AttributeHelper
                 {
                     if (value.Value is string name && !string.IsNullOrWhiteSpace(name))
                     {
-                        var dependencyId = name.Contains('.') ? name : $"{typeName}.{name}";
-                        builder.Add(new DependencyDescriptor(dependencyId, proceedOnFailure));
+                        builder.Add(new DependencyDescriptor(BuildDependencyId(name), proceedOnFailure));
                     }
                 }
             }
             else if (argument.Value is string singleName && !string.IsNullOrWhiteSpace(singleName))
             {
-                var dependencyId = singleName.Contains('.') ? singleName : $"{typeName}.{singleName}";
-                builder.Add(new DependencyDescriptor(dependencyId, proceedOnFailure));
+                builder.Add(new DependencyDescriptor(BuildDependencyId(singleName), proceedOnFailure));
             }
         }
 
