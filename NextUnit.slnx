@@ -31,6 +31,7 @@
     <Project Path="samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj" Id="cc1ced14-e28b-41b6-be0f-9e4536c6225a" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/NextUnit.Analyzers.Tests/NextUnit.Analyzers.Tests.csproj" />
     <Project Path="tests/NextUnit.Generator.Tests/NextUnit.Generator.Tests.csproj" />
     <Project Path="tests/NextUnit.Platform.Tests/NextUnit.Platform.Tests.csproj" />
   </Folder>
@@ -47,6 +48,7 @@
     <Project Path="tools/speed-comparison/Tests.Benchmark/Tests.Benchmark.csproj" />
     <Project Path="tools/speed-comparison/UnifiedTests/UnifiedTests.csproj" />
   </Folder>
+  <Project Path="src/NextUnit.Analyzers/NextUnit.Analyzers.csproj" />
   <Project Path="src/NextUnit.Core/NextUnit.Core.csproj" />
   <Project Path="src/NextUnit.Generator/NextUnit.Generator.csproj" />
   <Project Path="src/NextUnit.Platform/NextUnit.Platform.csproj" />
