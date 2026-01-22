@@ -40,15 +40,6 @@ public sealed class AsyncVoidTestAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool HasTestAttribute(IMethodSymbol method)
-    {
-        foreach (var attribute in method.GetAttributes())
-        {
-            if (attribute.AttributeClass?.ToDisplayString() == TestAttributeFullName)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+    private static bool HasTestAttribute(IMethodSymbol method) =>
+        method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == TestAttributeFullName);
 }

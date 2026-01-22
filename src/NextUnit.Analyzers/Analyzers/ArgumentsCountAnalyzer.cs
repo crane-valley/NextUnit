@@ -42,17 +42,9 @@ public sealed class ArgumentsCountAnalyzer : DiagnosticAnalyzer
 
             // The first constructor argument is the params array
             var argsValue = constructorArgs[0];
-            int argumentCount;
-
-            if (argsValue.Kind == TypedConstantKind.Array)
-            {
-                argumentCount = argsValue.Values.Length;
-            }
-            else
-            {
-                // Single value not in array form
-                argumentCount = 1;
-            }
+            var argumentCount = argsValue.Kind == TypedConstantKind.Array
+                ? argsValue.Values.Length
+                : 1;
 
             var parameterCount = method.Parameters.Length;
 
