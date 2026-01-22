@@ -133,12 +133,12 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 2.1 Matrix Data Source
 
-**Status**: Not Started
+**Status**: Completed (v1.8.2)
 **Goal**: Cartesian product of test parameters
 
-- [ ] `[Matrix(1, 2, 3)]` attribute for parameter values
-- [ ] `[MatrixDataSource]` to enable matrix generation
-- [ ] `[MatrixExclusion(1, "a")]` to skip specific combinations
+- [x] `[Matrix(1, 2, 3)]` attribute for parameter values
+- [x] Automatic Cartesian product generation across parameters
+- [x] `[MatrixExclusion(1, "a")]` to skip specific combinations
 - [ ] `[MatrixSourceMethod(nameof(Method))]` for dynamic values
 - [ ] `[MatrixSourceRange(1, 10, step: 2)]` for numeric ranges
 
@@ -165,18 +165,22 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 3.1 Roslyn Analyzers
 
-**Status**: Not Started
+**Status**: Phase 1 Completed (v1.8.2)
 **Goal**: Catch common mistakes at compile time
 
-- [ ] `NU0001`: Async void test methods
-- [ ] `NU0002`: Missing `[Test]` attribute on public methods
+Phase 1 (Completed):
+
+- [x] `NU0001`: Async void test methods (Warning) + Code Fix
+- [x] `NU0002`: Test methods must be public (Error) + Code Fix
+- [x] `NU0004`: Arguments count mismatch with parameters (Error)
+- [x] `NU0006`: Timeout value must be positive (Error)
+
+Phase 2 (Future):
+
 - [ ] `NU0003`: Invalid data source references
-- [ ] `NU0004`: DependsOn circular dependency detection
 - [ ] `NU0005`: Invalid lifecycle hook placement
-- [ ] `NU0006`: Console.WriteLine usage (suggest ITestOutput)
-- [ ] `NU0007`: Disposable field not disposed
-- [ ] `NU0008`: AOT compatibility issues
-- [ ] Code fixers for common violations
+- [ ] `NU0007`: DependsOn references non-existent test
+- [ ] `NU0008`: Matrix parameters count mismatch
 
 #### 3.2 Test Repeat Support
 
@@ -354,8 +358,8 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 1. ~~Enhanced parallel control~~ - **Completed** (v1.8.0)
 2. ~~Test repeat support~~ - **Completed** (v1.8.1)
-3. Matrix data sources
-4. Basic Roslyn analyzers (5-10 rules)
+3. ~~Matrix data sources~~ - **Completed** (v1.8.2)
+4. ~~Basic Roslyn analyzers~~ - **Phase 1 Completed** (v1.8.2)
 
 ### Q3 2026
 
@@ -433,4 +437,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-22
-**Next Focus**: Priority 2 - Matrix Data Sources, Priority 3.1 - Roslyn Analyzers
+**Next Focus**: Priority 2.2 - Class Data Sources, Priority 3.1 Phase 2 - Additional Analyzers
