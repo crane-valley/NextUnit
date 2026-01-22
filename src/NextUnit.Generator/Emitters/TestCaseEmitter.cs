@@ -22,7 +22,8 @@ internal static class TestCaseEmitter
         TestMethodDescriptor test,
         List<LifecycleMethodDescriptor> lifecycleMethods,
         ImmutableArray<TypedConstant>? arguments,
-        int argumentSetIndex)
+        int argumentSetIndex,
+        int? repeatIndex = null)
     {
         var testId = test.Id;
         var displayName = test.DisplayName;
@@ -31,6 +32,13 @@ internal static class TestCaseEmitter
         {
             testId = $"{test.Id}[{argumentSetIndex}]";
             displayName = DisplayNameFormatter.BuildParameterizedDisplayName(test.MethodName, test.CustomDisplayName, arguments.Value);
+        }
+
+        // Append repeat index to test ID and display name
+        if (repeatIndex.HasValue)
+        {
+            testId = $"{testId}#{repeatIndex.Value}";
+            displayName = $"{displayName} (Repeat #{repeatIndex.Value + 1})";
         }
 
         builder.AppendLine("            new global::NextUnit.Internal.TestCaseDescriptor");
@@ -76,6 +84,7 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                RequiresTestContext = {test.RequiresTestContext.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")},");
+        builder.AppendLine($"                RepeatIndex = {(repeatIndex.HasValue ? repeatIndex.Value.ToString(CultureInfo.InvariantCulture) : "null")},");
         builder.AppendLine("                Retry = new global::NextUnit.Internal.RetryInfo");
         builder.AppendLine("                {");
         builder.AppendLine($"                    Count = {(test.RetryCount is int retryCount ? retryCount.ToString(CultureInfo.InvariantCulture) : "null")},");

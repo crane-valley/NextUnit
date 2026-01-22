@@ -35,7 +35,8 @@ internal sealed class TestMethodDescriptor
         bool isFlaky,
         string? flakyReason,
         string? customDisplayName,
-        string? displayNameFormatterType)
+        string? displayNameFormatterType,
+        int? repeatCount)
     {
         Id = id;
         DisplayName = displayName;
@@ -64,6 +65,7 @@ internal sealed class TestMethodDescriptor
         FlakyReason = flakyReason;
         CustomDisplayName = customDisplayName;
         DisplayNameFormatterType = displayNameFormatterType;
+        RepeatCount = repeatCount;
     }
 
     public string Id { get; }
@@ -93,6 +95,7 @@ internal sealed class TestMethodDescriptor
     public string? FlakyReason { get; }
     public string? CustomDisplayName { get; }
     public string? DisplayNameFormatterType { get; }
+    public int? RepeatCount { get; }
 }
 
 /// <summary>

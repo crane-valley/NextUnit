@@ -330,6 +330,7 @@ public sealed class TestExecutionEngine
             tags: testCase.Tags,
             arguments: testCase.Arguments,
             timeoutMs: testCase.TimeoutMs,
+            repeatIndex: testCase.RepeatIndex,
             cancellationToken: effectiveToken,
             output: testOutput);
     }

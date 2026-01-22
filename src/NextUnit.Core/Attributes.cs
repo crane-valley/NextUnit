@@ -401,3 +401,45 @@ public sealed class FlakyAttribute : Attribute
         Reason = reason;
     }
 }
+
+/// <summary>
+/// Specifies that a test should be repeated multiple times.
+/// </summary>
+/// <remarks>
+/// Each repeat is executed as a separate test case, allowing individual tracking
+/// of pass/fail status per repeat. The repeat index is available via
+/// <see cref="NextUnit.Core.TestContext.Current"/>.<see cref="NextUnit.Core.ITestContext.RepeatIndex"/>.
+/// </remarks>
+/// <example>
+/// <code>
+/// [Test]
+/// [Repeat(5)]
+/// public void TestRunsFiveTimes()
+/// {
+///     var repeatIndex = TestContext.Current?.RepeatIndex;
+///     // repeatIndex will be 0, 1, 2, 3, 4 for each repeat
+/// }
+/// </code>
+/// </example>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+public sealed class RepeatAttribute : Attribute
+{
+    /// <summary>
+    /// Gets the number of times to repeat the test.
+    /// </summary>
+    public int Count { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RepeatAttribute"/> class.
+    /// </summary>
+    /// <param name="count">The number of times to repeat the test. Must be at least 1.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="count"/> is less than 1.</exception>
+    public RepeatAttribute(int count)
+    {
+        if (count < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count), "Repeat count must be at least 1.");
+        }
+        Count = count;
+    }
+}

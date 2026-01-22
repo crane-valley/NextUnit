@@ -280,6 +280,12 @@ public sealed class TestCaseDescriptor
     public int? TimeoutMs { get; init; }
 
     /// <summary>
+    /// Gets or initializes the zero-based repeat index for tests marked with <see cref="NextUnit.RepeatAttribute"/>,
+    /// or <c>null</c> for non-repeated tests.
+    /// </summary>
+    public int? RepeatIndex { get; init; }
+
+    /// <summary>
     /// Gets or initializes the retry configuration for the test.
     /// </summary>
     public RetryInfo Retry { get; init; } = new();
@@ -322,6 +328,7 @@ public sealed class TestCaseDescriptor
         RequiresTestOutput = RequiresTestOutput,
         RequiresTestContext = RequiresTestContext,
         TimeoutMs = TimeoutMs,
+        RepeatIndex = RepeatIndex,
         Retry = Retry,
         CustomDisplayNameTemplate = CustomDisplayNameTemplate,
         DisplayNameFormatterType = DisplayNameFormatterType

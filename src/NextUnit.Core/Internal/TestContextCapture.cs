@@ -21,6 +21,7 @@ internal sealed class TestContextCapture : ITestContext
     /// <param name="tags">The tags assigned to the test.</param>
     /// <param name="arguments">The arguments for parameterized tests, or null.</param>
     /// <param name="timeoutMs">The timeout in milliseconds, or null.</param>
+    /// <param name="repeatIndex">The zero-based repeat index for repeated tests, or null.</param>
     /// <param name="cancellationToken">The cancellation token for the test.</param>
     /// <param name="output">The test output writer.</param>
     public TestContextCapture(
@@ -32,6 +33,7 @@ internal sealed class TestContextCapture : ITestContext
         IReadOnlyList<string> tags,
         object?[]? arguments,
         int? timeoutMs,
+        int? repeatIndex,
         CancellationToken cancellationToken,
         ITestOutput output)
     {
@@ -43,6 +45,7 @@ internal sealed class TestContextCapture : ITestContext
         Tags = tags;
         Arguments = arguments;
         TimeoutMs = timeoutMs;
+        RepeatIndex = repeatIndex;
         CancellationToken = cancellationToken;
         Output = output;
     }
@@ -70,6 +73,9 @@ internal sealed class TestContextCapture : ITestContext
 
     /// <inheritdoc/>
     public int? TimeoutMs { get; }
+
+    /// <inheritdoc/>
+    public int? RepeatIndex { get; }
 
     /// <inheritdoc/>
     public CancellationToken CancellationToken { get; }
@@ -121,6 +127,9 @@ internal sealed class NullTestContext : ITestContext
 
     /// <inheritdoc/>
     public int? TimeoutMs => null;
+
+    /// <inheritdoc/>
+    public int? RepeatIndex => null;
 
     /// <inheritdoc/>
     public CancellationToken CancellationToken => CancellationToken.None;

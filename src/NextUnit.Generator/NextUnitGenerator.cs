@@ -100,6 +100,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var requiresTestContext = AttributeHelper.RequiresTestContext(typeSymbol);
         var timeoutMs = AttributeHelper.GetTimeout(methodSymbol, typeSymbol);
         var (retryCount, retryDelayMs, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol);
+        var repeatCount = AttributeHelper.GetRepeatCount(methodSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -128,7 +129,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             isFlaky,
             flakyReason,
             customDisplayName,
-            displayNameFormatterType);
+            displayNameFormatterType,
+            repeatCount);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
@@ -374,15 +376,27 @@ internal static class Program
                 ? methods
                 : new List<LifecycleMethodDescriptor>();
 
+            var repeatCount = test.RepeatCount ?? 1;
+
             if (test.ArgumentSets.IsDefaultOrEmpty)
             {
-                TestCaseEmitter.EmitTestCase(builder, test, lifecycleMethods, null, -1);
+                // No arguments - emit repeatCount test cases
+                for (var repeatIndex = 0; repeatIndex < repeatCount; repeatIndex++)
+                {
+                    var actualRepeatIndex = repeatCount > 1 ? repeatIndex : (int?)null;
+                    TestCaseEmitter.EmitTestCase(builder, test, lifecycleMethods, null, -1, actualRepeatIndex);
+                }
             }
             else
             {
-                for (var i = 0; i < test.ArgumentSets.Length; i++)
+                // With arguments - emit argumentSets.Length * repeatCount test cases
+                for (var argIndex = 0; argIndex < test.ArgumentSets.Length; argIndex++)
                 {
-                    TestCaseEmitter.EmitTestCase(builder, test, lifecycleMethods, test.ArgumentSets[i], i);
+                    for (var repeatIndex = 0; repeatIndex < repeatCount; repeatIndex++)
+                    {
+                        var actualRepeatIndex = repeatCount > 1 ? repeatIndex : (int?)null;
+                        TestCaseEmitter.EmitTestCase(builder, test, lifecycleMethods, test.ArgumentSets[argIndex], argIndex, actualRepeatIndex);
+                    }
                 }
             }
         }
