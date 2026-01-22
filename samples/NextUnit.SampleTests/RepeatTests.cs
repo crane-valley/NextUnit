@@ -1,3 +1,5 @@
+using NextUnit.Core;
+
 namespace NextUnit.SampleTests;
 
 /// <summary>
