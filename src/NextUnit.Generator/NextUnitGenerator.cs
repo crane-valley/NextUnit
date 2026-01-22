@@ -328,23 +328,20 @@ internal static class Program
             // Matrix validation: [MatrixExclusion] parameter count mismatch
             if (!test.MatrixExclusions.IsDefaultOrEmpty && !test.MatrixParameters.IsDefaultOrEmpty)
             {
-                foreach (var exclusion in test.MatrixExclusions)
+                foreach (var exclusion in test.MatrixExclusions.Where(e => e.Values.Length != test.MatrixParameters.Length))
                 {
-                    if (exclusion.Values.Length != test.MatrixParameters.Length)
-                    {
-                        context.ReportDiagnostic(Diagnostic.Create(
-                            new DiagnosticDescriptor(
-                                "NEXTUNIT007",
-                                "Matrix exclusion parameter count mismatch",
-                                "Test '{0}' has [MatrixExclusion] with {1} values but the test has {2} matrix parameters.",
-                                "NextUnit",
-                                DiagnosticSeverity.Error,
-                                isEnabledByDefault: true),
-                            Location.None,
-                            test.Id,
-                            exclusion.Values.Length,
-                            test.MatrixParameters.Length));
-                    }
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        new DiagnosticDescriptor(
+                            "NEXTUNIT007",
+                            "Matrix exclusion parameter count mismatch",
+                            "Test '{0}' has [MatrixExclusion] with {1} values but the test has {2} matrix parameters.",
+                            "NextUnit",
+                            DiagnosticSeverity.Error,
+                            isEnabledByDefault: true),
+                        Location.None,
+                        test.Id,
+                        exclusion.Values.Length,
+                        test.MatrixParameters.Length));
                 }
             }
         }

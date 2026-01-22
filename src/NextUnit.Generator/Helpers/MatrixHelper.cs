@@ -58,32 +58,16 @@ internal static class MatrixHelper
             return combinations;
         }
 
-        var builder = ImmutableArray.CreateBuilder<ImmutableArray<TypedConstant>>();
-
-        foreach (var combination in combinations)
-        {
-            if (!IsExcluded(combination, exclusions))
-            {
-                builder.Add(combination);
-            }
-        }
-
-        return builder.ToImmutable();
+        return combinations
+            .Where(combination => !IsExcluded(combination, exclusions))
+            .ToImmutableArray();
     }
 
     private static bool IsExcluded(
         ImmutableArray<TypedConstant> combination,
         ImmutableArray<MatrixExclusionDescriptor> exclusions)
     {
-        foreach (var exclusion in exclusions)
-        {
-            if (MatchesExclusion(combination, exclusion.Values))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return exclusions.Any(exclusion => MatchesExclusion(combination, exclusion.Values));
     }
 
     private static bool MatchesExclusion(
@@ -120,7 +104,29 @@ internal static class MatrixHelper
             return false;
         }
 
-        // Compare values directly
+        // Handle array-typed constants element-wise
+        if (a.Kind == TypedConstantKind.Array && b.Kind == TypedConstantKind.Array)
+        {
+            var aValues = a.Values;
+            var bValues = b.Values;
+
+            if (aValues.Length != bValues.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < aValues.Length; i++)
+            {
+                if (!TypedConstantsEqual(aValues[i], bValues[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Compare values directly for non-array types
         return Equals(a.Value, b.Value);
     }
 }
