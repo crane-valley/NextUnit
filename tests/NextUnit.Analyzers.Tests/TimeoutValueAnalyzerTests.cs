@@ -7,7 +7,7 @@ namespace NextUnit.Analyzers.Tests;
 public class TimeoutValueAnalyzerTests
 {
     [Fact]
-    public async Task TimeoutZero_ReportsDiagnostic()
+    public async Task TimeoutZero_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -30,7 +30,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task TimeoutNegative_ReportsDiagnostic()
+    public async Task TimeoutNegative_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -53,7 +53,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task TimeoutPositive_NoDiagnostic()
+    public async Task TimeoutPositive_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -71,7 +71,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task TimeoutOnClass_Positive_NoDiagnostic()
+    public async Task TimeoutOnClass_Positive_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -89,7 +89,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task NoTimeoutAttribute_NoDiagnostic()
+    public async Task NoTimeoutAttribute_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;

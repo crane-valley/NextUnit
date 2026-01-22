@@ -8,7 +8,7 @@ namespace NextUnit.Analyzers.Tests;
 public class AsyncVoidTestAnalyzerTests
 {
     [Fact]
-    public async Task AsyncVoidTest_ReportsDiagnostic()
+    public async Task AsyncVoidTest_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -32,7 +32,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task AsyncTaskTest_NoDiagnostic()
+    public async Task AsyncTaskTest_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -51,7 +51,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task SyncVoidTest_NoDiagnostic()
+    public async Task SyncVoidTest_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -68,7 +68,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task AsyncVoidNonTest_NoDiagnostic()
+    public async Task AsyncVoidNonTest_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -86,7 +86,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task CodeFix_ChangesAsyncVoidToAsyncTask()
+    public async Task CodeFix_ChangesAsyncVoidToAsyncTaskAsync()
     {
         var source = @"
 using NextUnit;

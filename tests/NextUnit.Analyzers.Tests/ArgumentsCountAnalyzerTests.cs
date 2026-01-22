@@ -7,7 +7,7 @@ namespace NextUnit.Analyzers.Tests;
 public class ArgumentsCountAnalyzerTests
 {
     [Fact]
-    public async Task ArgumentsCountMismatch_TooManyArguments_ReportsDiagnostic()
+    public async Task ArgumentsCountMismatch_TooManyArguments_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -30,7 +30,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task ArgumentsCountMismatch_TooFewArguments_ReportsDiagnostic()
+    public async Task ArgumentsCountMismatch_TooFewArguments_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -53,7 +53,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task ArgumentsCountMatches_NoDiagnostic()
+    public async Task ArgumentsCountMatches_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -71,7 +71,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task MultipleArgumentsAttributes_AllMatch_NoDiagnostic()
+    public async Task MultipleArgumentsAttributes_AllMatch_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -90,7 +90,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task MultipleArgumentsAttributes_OneMismatch_ReportsDiagnostic()
+    public async Task MultipleArgumentsAttributes_OneMismatch_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -114,7 +114,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task NoArgumentsAttribute_NoDiagnostic()
+    public async Task NoArgumentsAttribute_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;

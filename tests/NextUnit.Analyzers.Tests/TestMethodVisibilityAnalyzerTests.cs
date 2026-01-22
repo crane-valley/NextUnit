@@ -8,7 +8,7 @@ namespace NextUnit.Analyzers.Tests;
 public class TestMethodVisibilityAnalyzerTests
 {
     [Fact]
-    public async Task PrivateTestMethod_ReportsDiagnostic()
+    public async Task PrivateTestMethod_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -30,7 +30,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task InternalTestMethod_ReportsDiagnostic()
+    public async Task InternalTestMethod_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -52,7 +52,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task ProtectedTestMethod_ReportsDiagnostic()
+    public async Task ProtectedTestMethod_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -74,7 +74,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task PublicTestMethod_NoDiagnostic()
+    public async Task PublicTestMethod_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -91,7 +91,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task PrivateNonTestMethod_NoDiagnostic()
+    public async Task PrivateNonTestMethod_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -107,7 +107,7 @@ public class Tests
     }
 
     [Fact]
-    public async Task CodeFix_MakesPrivateMethodPublic()
+    public async Task CodeFix_MakesPrivateMethodPublicAsync()
     {
         var source = @"
 using NextUnit;
