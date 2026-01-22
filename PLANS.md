@@ -56,10 +56,15 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 0.3 Medium: Code Quality
 
-- [ ] Add Regex caching in `NextUnitFramework`
-- [ ] Extract `LifecycleScope` enum (replace magic numbers 0,1,2,3)
-- [ ] Extract `DisposeHelper` for IDisposable/IAsyncDisposable pattern
-- [ ] Resolve TODO comments and unused fields
+- [x] Add Regex caching in `TestFilterConfiguration`
+  - Wildcard patterns compiled once on assignment, cached for reuse
+- [x] Extract `LifecycleScopeConstants` (replace magic numbers 0,1,2,3)
+  - Constants defined in Generator to mirror Core enum values
+- [x] Extract `DisposeHelper` for IDisposable/IAsyncDisposable pattern
+  - Consolidated 4 duplicated disposal patterns in `TestExecutionEngine`
+- [x] Resolve TODO comments and unused fields
+  - M4 DI work left as planned future work
+  - Invalid regex warning comment updated
 
 ---
 
@@ -428,4 +433,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-22
-**Next Focus**: Internal Refactoring (Priority 0.3) - Regex caching, LifecycleScope enum, DisposeHelper
+**Next Focus**: Priority 1 - Enhanced Parallel Control, Matrix Data Sources
