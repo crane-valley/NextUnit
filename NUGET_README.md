@@ -34,7 +34,7 @@ This meta-package includes everything you need:
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.8.0" />
+    <PackageReference Include="NextUnit" Version="1.9.0" />
   </ItemGroup>
 </Project>
 ```
@@ -75,6 +75,8 @@ dotnet test
 
 - **Zero-reflection execution** - Fast test discovery via source generators
 - **Rich assertions** - Collections, strings, numerics with great error messages
+- **Matrix data source** - `[Matrix]` for Cartesian product test generation
+- **Roslyn analyzers** - Compile-time validation of test code
 - **Multi-scope lifecycle** - Test, Class, Assembly scopes
 - **Parallel control** - `[ParallelLimit]`, `[NotInParallel("key")]`, `[ParallelGroup("name")]`
 - **Test dependencies** - `[DependsOn]` with `ProceedOnFailure` option
