@@ -55,15 +55,58 @@ public sealed class ParallelScheduler
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Collect all tests that are ready to run
+            // Collect all tests that are ready to run, separating those to skip
             var readyTests = new List<DependencyGraph.Node>();
+            var testsToSkip = new List<DependencyGraph.Node>();
             while (ready.Count > 0)
             {
                 var node = ready.Dequeue();
-                if (!ShouldSkipDueToDependencies(node, completed))
+                if (!AreDependenciesComplete(node, completed))
+                {
+                    // Dependencies not complete yet, can't run - shouldn't happen as we check remainingDeps
+                    continue;
+                }
+                if (ShouldSkipDueToFailedDependencies(node))
+                {
+                    testsToSkip.Add(node);
+                }
+                else
                 {
                     readyTests.Add(node);
                 }
+            }
+
+            // Handle tests that should be skipped due to failed dependencies
+            // Mark them as completed and decrement dependents so they can be evaluated
+            foreach (var node in testsToSkip)
+            {
+                // Report as skipped and mark completed
+                ReportOutcome(node.Test.Id, TestOutcome.Skipped);
+                completed.Add(node.Test.Id);
+
+                // Decrement remaining deps for dependents
+                foreach (var dependent in node.Dependents)
+                {
+                    remainingDeps[dependent.Test.Id]--;
+                    if (remainingDeps[dependent.Test.Id] == 0)
+                    {
+                        ready.Enqueue(dependent);
+                    }
+                }
+            }
+
+            // Yield skip batch if any tests need to be reported as skipped
+            if (testsToSkip.Count > 0)
+            {
+                yield return new TestBatch
+                {
+                    Tests = testsToSkip.Select(n => n.Test.WithSkipReason("Dependency failed")).ToList(),
+                    MaxDegreeOfParallelism = 1,
+                    IsSerial = true,
+                    IsSkipBatch = true,
+                    ParallelGroup = null,
+                    ConstraintKeys = Array.Empty<string>()
+                };
             }
 
             if (readyTests.Count == 0)
@@ -292,23 +335,30 @@ public sealed class ParallelScheduler
     }
 
     /// <summary>
-    /// Determines whether a test should be skipped due to failed or skipped dependencies.
+    /// Checks whether all dependencies of a test have completed.
     /// </summary>
     /// <param name="node">The test node to check.</param>
     /// <param name="completed">The set of completed test identifiers.</param>
-    /// <returns><c>true</c> if the test should be skipped; otherwise, <c>false</c>.</returns>
-    private bool ShouldSkipDueToDependencies(DependencyGraph.Node node, HashSet<TestCaseId> completed)
+    /// <returns><c>true</c> if all dependencies have completed; otherwise, <c>false</c>.</returns>
+    private static bool AreDependenciesComplete(DependencyGraph.Node node, HashSet<TestCaseId> completed)
     {
-        // Check if all dependencies have completed
         foreach (var depId in node.Test.Dependencies)
         {
             if (!completed.Contains(depId))
             {
-                return true;
+                return false;
             }
         }
+        return true;
+    }
 
-        // Check if any dependency failed/skipped and ProceedOnFailure is not set
+    /// <summary>
+    /// Determines whether a test should be skipped because a dependency failed or was skipped.
+    /// </summary>
+    /// <param name="node">The test node to check.</param>
+    /// <returns><c>true</c> if the test should be skipped due to failed dependencies; otherwise, <c>false</c>.</returns>
+    private bool ShouldSkipDueToFailedDependencies(DependencyGraph.Node node)
+    {
         foreach (var depInfo in node.Test.DependencyInfos)
         {
             if (!depInfo.ProceedOnFailure &&
@@ -318,7 +368,6 @@ public sealed class ParallelScheduler
                 return true;
             }
         }
-
         return false;
     }
 
@@ -354,6 +403,12 @@ public sealed class TestBatch
     /// Gets or initializes a value indicating whether this batch must be executed serially.
     /// </summary>
     public required bool IsSerial { get; init; }
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether this batch contains tests that should be
+    /// reported as skipped due to failed dependencies.
+    /// </summary>
+    public bool IsSkipBatch { get; init; }
 
     /// <summary>
     /// Gets or initializes the parallel group name for this batch, if any.

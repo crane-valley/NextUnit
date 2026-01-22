@@ -116,6 +116,16 @@ public sealed class TestExecutionEngine
         ITestExecutionSink sink,
         CancellationToken cancellationToken)
     {
+        // Handle skip batches - these are tests that should be skipped due to failed dependencies
+        if (batch.IsSkipBatch)
+        {
+            foreach (var test in batch.Tests)
+            {
+                await sink.ReportSkippedAsync(test).ConfigureAwait(false);
+            }
+            return;
+        }
+
         if (batch.IsSerial || batch.MaxDegreeOfParallelism == 1)
         {
             // Execute serially
