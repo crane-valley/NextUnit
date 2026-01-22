@@ -3,6 +3,7 @@
 - Respond in Japanese
 - Source code, comments, logs, error messages: English
 - Create feature branch → commit → push → PR (merge is done by humans)
+- **PR comments must be replied to and resolved before merge**
 - **After completing work, update PLANS.md** (mark completed items, update version)
 
 ## Commands
