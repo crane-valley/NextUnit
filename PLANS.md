@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.7.0 (Stable)
+## Current Version: 1.7.1 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -32,10 +32,10 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 0.1 Critical: Code Duplication Elimination
 
-- [ ] Extract `AssemblyLoader` utility (shared assembly loading with exception handling)
-  - Consolidate from: TestDiscoverer, TestExecutor, NextUnitFramework
-- [ ] Extract `ExceptionHelper.IsCriticalException()` (shared exception classification)
-  - Consolidate from: TestDiscoverer, TestExecutor
+- [x] Extract `AssemblyLoader` utility (shared assembly loading with exception handling)
+  - Consolidated in: `NextUnit.Core/Internal/AssemblyLoader.cs`
+- [x] Extract `ExceptionHelper.IsCriticalException()` (shared exception classification)
+  - Consolidated in: `NextUnit.Core/Internal/ExceptionHelper.cs`
 - [ ] Refactor `ExecuteSingleAsync` in TestExecutionEngine (reduce complexity)
   - Break into: `ValidateTestAsync`, `ExecuteWithRetryAsync`, `ReportResultAsync`
 
@@ -422,5 +422,5 @@ We welcome contributions! Priority areas:
 
 ---
 
-**Last Updated**: 2026-01-19
-**Next Focus**: Internal Refactoring (Priority 0)
+**Last Updated**: 2026-01-22
+**Next Focus**: Internal Refactoring (Priority 0) - NextUnitGenerator.cs split
