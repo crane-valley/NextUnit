@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.7.1 (Stable)
+## Current Version: 1.8.0 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 

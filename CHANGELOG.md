@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-01-22
+
+### Added - Enhanced Parallel Control
+
+- **Constraint keys for `[NotInParallel]`** - Fine-grained resource locking
+  - `[NotInParallel("Database")]` - Tests sharing the same key run serially
+  - `[NotInParallel("Database", "FileSystem")]` - Multiple keys supported
+  - Tests with disjoint keys are grouped using union-find algorithm
+  - Existing `[NotInParallel]` (no keys) continues to work as full serial execution
+
+- **`[ParallelGroup("name")]` attribute** - Exclusive group execution
+  - All tests in the same group run together, isolated from other groups
+  - `[ParallelGroup("Integration")]` on class or method level
+  - Groups respect `[ParallelLimit]` within the group
+
+- **`ProceedOnFailure` property for `[DependsOn]`** - Continue despite dependency failures
+  - `[DependsOn("Setup", ProceedOnFailure = true)]` - Run even if Setup fails
+  - Default is `false` (skip dependent test if dependency fails)
+  - Skipped tests are now properly reported and tracked
+
+### Changed
+
+- **ParallelScheduler** rewritten with constraint-based batching
+  - Union-find algorithm for grouping tests by constraint keys
+  - `ConcurrentDictionary` for thread-safe outcome tracking
+  - Proper handling of dependency-skipped tests (dependents' counters decremented)
+
+- **TestBatch** now includes:
+  - `ConstraintKeys` - Keys that apply to this batch
+  - `ParallelGroup` - Group name if applicable
+  - `IsSkipBatch` - Indicates tests should be reported as skipped
+
+### Technical Notes
+
+- `DependencyInfo` class added to track per-dependency options
+- `OutcomeTrackingSink` wrapper reports outcomes to scheduler
+- Generator extracts constraint keys and parallel groups from attributes
+
 ## [1.7.1] - 2026-01-19
 
 ### Fixed
@@ -795,6 +833,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.8.0 | 2026-01-22 | 236+ | Enhanced Parallel Control | Released |
+| 1.7.1 | 2026-01-19 | 236+ | NuGet package fix | Released |
+| 1.7.0 | 2026-01-19 | 236+ | Display Name Customization | Released |
 | 1.6.3 | 2026-01-14 | 236+ | VSTest Adapter, VS Test Explorer | Released |
 | 1.6.2 | 2025-12-20 | 167+ | CLI Filtering, Rich Failure Messages | Released |
 | 1.0.0 | 2025-12-06 | 102+ | Complete v1.0 feature set | Released |
