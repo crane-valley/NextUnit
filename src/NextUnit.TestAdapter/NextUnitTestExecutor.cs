@@ -204,7 +204,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null)
         {
-            var vsTestCase = CreateVSTestCase(test);
+            var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
             {
                 Outcome = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Passed,
@@ -222,7 +222,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null)
         {
-            var vsTestCase = CreateVSTestCase(test);
+            var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
             {
                 Outcome = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Failed,
@@ -242,7 +242,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null)
         {
-            var vsTestCase = CreateVSTestCase(test);
+            var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
             {
                 Outcome = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Failed,
@@ -262,7 +262,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         public Task ReportSkippedAsync(TestCaseDescriptor test)
         {
-            var vsTestCase = CreateVSTestCase(test);
+            var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
             {
                 Outcome = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Skipped,
@@ -272,14 +272,6 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
             _frameworkHandle.RecordResult(result);
             return Task.CompletedTask;
-        }
-
-        private TestCase CreateVSTestCase(TestCaseDescriptor descriptor)
-        {
-            return new TestCase(descriptor.Id.Value, new Uri(ExecutorUri), _source)
-            {
-                DisplayName = descriptor.DisplayName
-            };
         }
     }
 }

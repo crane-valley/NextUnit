@@ -84,7 +84,7 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
 
         logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {testCases.Count} static test cases");
 
-        foreach (var vsTestCase in testCases.Select(tc => CreateVSTestCase(tc, source)))
+        foreach (var vsTestCase in testCases.Select(tc => VSTestCaseFactory.Create(tc, source)))
         {
             discoverySink.SendTestCase(vsTestCase);
         }
@@ -97,33 +97,10 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
 
             // Expand TestDataDescriptors into TestCaseDescriptors
             var expandedTests = TestDataExpander.Expand(testDataDescriptors);
-            foreach (var vsTestCase in expandedTests.Select(tc => CreateVSTestCase(tc, source)))
+            foreach (var vsTestCase in expandedTests.Select(tc => VSTestCaseFactory.Create(tc, source)))
             {
                 discoverySink.SendTestCase(vsTestCase);
             }
         }
-    }
-
-    private static TestCase CreateVSTestCase(TestCaseDescriptor descriptor, string source)
-    {
-        var testCase = new TestCase(descriptor.Id.Value, new Uri(NextUnitTestExecutor.ExecutorUri), source)
-        {
-            DisplayName = descriptor.DisplayName,
-            CodeFilePath = null, // Could be populated if we had source info
-            LineNumber = 0
-        };
-
-        // Add traits for categories and tags
-        foreach (var category in descriptor.Categories)
-        {
-            testCase.Traits.Add(new Trait("Category", category));
-        }
-
-        foreach (var tag in descriptor.Tags)
-        {
-            testCase.Traits.Add(new Trait("Tag", tag));
-        }
-
-        return testCase;
     }
 }
