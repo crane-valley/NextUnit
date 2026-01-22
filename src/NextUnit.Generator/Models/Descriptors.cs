@@ -14,8 +14,11 @@ internal sealed class TestMethodDescriptor
         string fullyQualifiedTypeName,
         string methodName,
         bool notInParallel,
+        ImmutableArray<string> constraintKeys,
+        string? parallelGroup,
         int? parallelLimit,
         ImmutableArray<string> dependencies,
+        ImmutableArray<DependencyDescriptor> dependencyInfos,
         bool isSkipped,
         string? skipReason,
         ImmutableArray<ImmutableArray<TypedConstant>> argumentSets,
@@ -39,8 +42,11 @@ internal sealed class TestMethodDescriptor
         FullyQualifiedTypeName = fullyQualifiedTypeName;
         MethodName = methodName;
         NotInParallel = notInParallel;
+        ConstraintKeys = constraintKeys;
+        ParallelGroup = parallelGroup;
         ParallelLimit = parallelLimit;
         Dependencies = dependencies;
+        DependencyInfos = dependencyInfos;
         IsSkipped = isSkipped;
         SkipReason = skipReason;
         ArgumentSets = argumentSets;
@@ -65,8 +71,11 @@ internal sealed class TestMethodDescriptor
     public string FullyQualifiedTypeName { get; }
     public string MethodName { get; }
     public bool NotInParallel { get; }
+    public ImmutableArray<string> ConstraintKeys { get; }
+    public string? ParallelGroup { get; }
     public int? ParallelLimit { get; }
     public ImmutableArray<string> Dependencies { get; }
+    public ImmutableArray<DependencyDescriptor> DependencyInfos { get; }
     public bool IsSkipped { get; }
     public string? SkipReason { get; }
     public ImmutableArray<ImmutableArray<TypedConstant>> ArgumentSets { get; }
@@ -125,4 +134,19 @@ internal sealed class TestDataSource
 
     public string MemberName { get; }
     public string? MemberTypeName { get; }
+}
+
+/// <summary>
+/// Describes a test dependency including proceed-on-failure setting.
+/// </summary>
+internal sealed class DependencyDescriptor
+{
+    public DependencyDescriptor(string dependsOnId, bool proceedOnFailure)
+    {
+        DependsOnId = dependsOnId;
+        ProceedOnFailure = proceedOnFailure;
+    }
+
+    public string DependsOnId { get; }
+    public bool ProceedOnFailure { get; }
 }

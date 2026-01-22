@@ -53,9 +53,12 @@ internal static class TestCaseEmitter
         builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
         builder.AppendLine("                {");
         builder.AppendLine($"                    NotInParallel = {test.NotInParallel.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    ConstraintKeys = {CodeBuilder.BuildStringArrayLiteral(test.ConstraintKeys)},");
+        builder.AppendLine($"                    ParallelGroup = {(test.ParallelGroup is not null ? AttributeHelper.ToLiteral(test.ParallelGroup) : "null")},");
         builder.AppendLine($"                    ParallelLimit = {(test.ParallelLimit is int limit ? limit.ToString(CultureInfo.InvariantCulture) : "null")}");
         builder.AppendLine("                },");
         builder.AppendLine($"                Dependencies = {CodeBuilder.BuildDependenciesLiteral(test.Dependencies)},");
+        builder.AppendLine($"                DependencyInfos = {CodeBuilder.BuildDependencyInfosLiteral(test.DependencyInfos)},");
         builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? AttributeHelper.ToLiteral(test.SkipReason) : "null")},");
 
@@ -110,9 +113,12 @@ internal static class TestCaseEmitter
         builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
         builder.AppendLine("                {");
         builder.AppendLine($"                    NotInParallel = {test.NotInParallel.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    ConstraintKeys = {CodeBuilder.BuildStringArrayLiteral(test.ConstraintKeys)},");
+        builder.AppendLine($"                    ParallelGroup = {(test.ParallelGroup is not null ? AttributeHelper.ToLiteral(test.ParallelGroup) : "null")},");
         builder.AppendLine($"                    ParallelLimit = {(test.ParallelLimit is int limit ? limit.ToString(CultureInfo.InvariantCulture) : "null")}");
         builder.AppendLine("                },");
         builder.AppendLine($"                Dependencies = {CodeBuilder.BuildDependenciesLiteral(test.Dependencies)},");
+        builder.AppendLine($"                DependencyInfos = {CodeBuilder.BuildDependencyInfosLiteral(test.DependencyInfos)},");
         builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? AttributeHelper.ToLiteral(test.SkipReason) : "null")},");
         builder.AppendLine($"                Categories = {CodeBuilder.BuildStringArrayLiteral(test.Categories)},");

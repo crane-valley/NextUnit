@@ -160,6 +160,7 @@ public static class TestDataExpander
             Lifecycle = descriptor.Lifecycle,
             Parallel = descriptor.Parallel,
             Dependencies = descriptor.Dependencies,
+            DependencyInfos = descriptor.DependencyInfos,
             IsSkipped = descriptor.IsSkipped,
             SkipReason = descriptor.SkipReason,
             Arguments = arguments,

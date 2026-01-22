@@ -213,4 +213,32 @@ internal static class CodeBuilder
         builder.Append(" }");
         return builder.ToString();
     }
+
+    /// <summary>
+    /// Builds a dependency infos literal array.
+    /// </summary>
+    public static string BuildDependencyInfosLiteral(ImmutableArray<DependencyDescriptor> dependencyInfos)
+    {
+        if (dependencyInfos.IsDefaultOrEmpty)
+        {
+            return "global::System.Array.Empty<global::NextUnit.Internal.DependencyInfo>()";
+        }
+
+        var builder = new StringBuilder();
+        builder.Append("new global::NextUnit.Internal.DependencyInfo[] { ");
+
+        for (var i = 0; i < dependencyInfos.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+
+            var dep = dependencyInfos[i];
+            builder.Append($"new global::NextUnit.Internal.DependencyInfo {{ DependsOnId = new global::NextUnit.Internal.TestCaseId({AttributeHelper.ToLiteral(dep.DependsOnId)}), ProceedOnFailure = {dep.ProceedOnFailure.ToString().ToLowerInvariant()} }}");
+        }
+
+        builder.Append(" }");
+        return builder.ToString();
+    }
 }

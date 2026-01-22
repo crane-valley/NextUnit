@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace NextUnit.Internal;
@@ -9,6 +10,7 @@ public sealed class ParallelScheduler
 {
     private readonly DependencyGraph _graph;
     private readonly int _globalMaxDegreeOfParallelism;
+    private readonly ConcurrentDictionary<TestCaseId, TestOutcome> _outcomes = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ParallelScheduler"/> class.
@@ -19,6 +21,16 @@ public sealed class ParallelScheduler
     {
         _graph = graph;
         _globalMaxDegreeOfParallelism = maxDegreeOfParallelism ?? Environment.ProcessorCount;
+    }
+
+    /// <summary>
+    /// Reports the outcome of a test execution. Used to determine whether dependent tests should be skipped.
+    /// </summary>
+    /// <param name="testId">The test case identifier.</param>
+    /// <param name="outcome">The test outcome.</param>
+    public void ReportOutcome(TestCaseId testId, TestOutcome outcome)
+    {
+        _outcomes.TryAdd(testId, outcome);
     }
 
     /// <summary>
@@ -95,19 +107,76 @@ public sealed class ParallelScheduler
     {
         var batches = new List<TestBatch>();
 
-        // Separate tests that must run serially
-        var serialTests = readyTests.Where(n => n.Test.Parallel.NotInParallel).ToList();
-        var parallelTests = readyTests.Where(n => !n.Test.Parallel.NotInParallel).ToList();
+        // First, separate tests by parallel group
+        var groupedTests = readyTests
+            .Where(n => n.Test.Parallel.ParallelGroup is not null)
+            .GroupBy(n => n.Test.Parallel.ParallelGroup!)
+            .ToList();
 
-        // Create serial batches (one test per batch)
-        foreach (var node in serialTests)
+        var ungroupedTests = readyTests
+            .Where(n => n.Test.Parallel.ParallelGroup is null)
+            .ToList();
+
+        // Create batches for each parallel group (group runs exclusively)
+        foreach (var group in groupedTests)
+        {
+            var groupTests = group.Select(n => n.Test).ToList();
+            var limit = groupTests.Min(t => t.Parallel.ParallelLimit) ?? _globalMaxDegreeOfParallelism;
+
+            batches.Add(new TestBatch
+            {
+                Tests = groupTests,
+                MaxDegreeOfParallelism = limit,
+                IsSerial = false,
+                ParallelGroup = group.Key,
+                ConstraintKeys = Array.Empty<string>()
+            });
+        }
+
+        // Handle ungrouped tests
+        // Separate by constraint keys and NotInParallel flag
+        var serialWithoutKeys = ungroupedTests
+            .Where(n => n.Test.Parallel.NotInParallel && n.Test.Parallel.ConstraintKeys.Count == 0)
+            .ToList();
+
+        var serialWithKeys = ungroupedTests
+            .Where(n => n.Test.Parallel.NotInParallel && n.Test.Parallel.ConstraintKeys.Count > 0)
+            .ToList();
+
+        var parallelTests = ungroupedTests
+            .Where(n => !n.Test.Parallel.NotInParallel)
+            .ToList();
+
+        // Create serial batches for tests without constraint keys (one test per batch)
+        foreach (var node in serialWithoutKeys)
         {
             batches.Add(new TestBatch
             {
                 Tests = new[] { node.Test },
                 MaxDegreeOfParallelism = 1,
-                IsSerial = true
+                IsSerial = true,
+                ParallelGroup = null,
+                ConstraintKeys = Array.Empty<string>()
             });
+        }
+
+        // Group tests with constraint keys by their keys
+        // Tests sharing any constraint key cannot run in parallel
+        var constraintKeyGroups = GroupByConstraintKeys(serialWithKeys);
+        foreach (var constraintGroup in constraintKeyGroups)
+        {
+            // Each constraint group runs one test at a time
+            foreach (var node in constraintGroup.Nodes)
+            {
+                batches.Add(new TestBatch
+                {
+                    Tests = new[] { node.Test },
+                    MaxDegreeOfParallelism = 1,
+                    IsSerial = true,
+                    ParallelGroup = null,
+                    ConstraintKeys = constraintGroup.Keys.ToArray()
+                });
+            }
         }
 
         // Group parallel tests by their ParallelLimit
@@ -132,7 +201,9 @@ public sealed class ParallelScheduler
                 {
                     Tests = batchTests,
                     MaxDegreeOfParallelism = limit,
-                    IsSerial = false
+                    IsSerial = false,
+                    ParallelGroup = null,
+                    ConstraintKeys = Array.Empty<string>()
                 });
             }
         }
@@ -141,12 +212,92 @@ public sealed class ParallelScheduler
     }
 
     /// <summary>
+    /// Groups tests by constraint keys using union-find to merge tests sharing any key.
+    /// </summary>
+    private static List<ConstraintKeyGroup> GroupByConstraintKeys(List<DependencyGraph.Node> tests)
+    {
+        if (tests.Count == 0)
+        {
+            return new List<ConstraintKeyGroup>();
+        }
+
+        // Build a mapping of constraint key to test indices
+        var keyToIndices = new Dictionary<string, List<int>>();
+        for (var i = 0; i < tests.Count; i++)
+        {
+            foreach (var key in tests[i].Test.Parallel.ConstraintKeys)
+            {
+                if (!keyToIndices.TryGetValue(key, out var indices))
+                {
+                    indices = new List<int>();
+                    keyToIndices[key] = indices;
+                }
+                indices.Add(i);
+            }
+        }
+
+        // Union-find to group tests sharing any constraint key
+        var parent = new int[tests.Count];
+        for (var i = 0; i < parent.Length; i++)
+        {
+            parent[i] = i;
+        }
+
+        int Find(int x)
+        {
+            if (parent[x] != x)
+            {
+                parent[x] = Find(parent[x]);
+            }
+            return parent[x];
+        }
+
+        void Union(int x, int y)
+        {
+            var px = Find(x);
+            var py = Find(y);
+            if (px != py)
+            {
+                parent[px] = py;
+            }
+        }
+
+        // Union tests that share any constraint key
+        foreach (var indices in keyToIndices.Values)
+        {
+            for (var i = 1; i < indices.Count; i++)
+            {
+                Union(indices[0], indices[i]);
+            }
+        }
+
+        // Group tests by their root parent
+        var groups = new Dictionary<int, (HashSet<string> Keys, List<DependencyGraph.Node> Nodes)>();
+        for (var i = 0; i < tests.Count; i++)
+        {
+            var root = Find(i);
+            if (!groups.TryGetValue(root, out var group))
+            {
+                group = (new HashSet<string>(), new List<DependencyGraph.Node>());
+                groups[root] = group;
+            }
+            group.Nodes.Add(tests[i]);
+            foreach (var key in tests[i].Test.Parallel.ConstraintKeys)
+            {
+                group.Keys.Add(key);
+            }
+        }
+
+        return groups.Values.Select(g => new ConstraintKeyGroup(g.Keys, g.Nodes)).ToList();
+    }
+
+    /// <summary>
     /// Determines whether a test should be skipped due to failed or skipped dependencies.
     /// </summary>
     /// <param name="node">The test node to check.</param>
     /// <param name="completed">The set of completed test identifiers.</param>
     /// <returns><c>true</c> if the test should be skipped; otherwise, <c>false</c>.</returns>
-    private static bool ShouldSkipDueToDependencies(DependencyGraph.Node node, HashSet<TestCaseId> completed)
+    private bool ShouldSkipDueToDependencies(DependencyGraph.Node node, HashSet<TestCaseId> completed)
     {
         // Check if all dependencies have completed
         foreach (var depId in node.Test.Dependencies)
@@ -157,7 +308,30 @@ public sealed class ParallelScheduler
             }
         }
 
+        // Check if any dependency failed/skipped and ProceedOnFailure is not set
+        foreach (var depInfo in node.Test.DependencyInfos)
+        {
+            if (!depInfo.ProceedOnFailure &&
+                _outcomes.TryGetValue(depInfo.DependsOnId, out var outcome) &&
+                outcome != TestOutcome.Passed)
+            {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private sealed class ConstraintKeyGroup
+    {
+        public ConstraintKeyGroup(HashSet<string> keys, List<DependencyGraph.Node> nodes)
+        {
+            Keys = keys;
+            Nodes = nodes;
+        }
+
+        public HashSet<string> Keys { get; }
+        public List<DependencyGraph.Node> Nodes { get; }
     }
 }
 
@@ -180,4 +354,14 @@ public sealed class TestBatch
     /// Gets or initializes a value indicating whether this batch must be executed serially.
     /// </summary>
     public required bool IsSerial { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the parallel group name for this batch, if any.
+    /// </summary>
+    public required string? ParallelGroup { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the constraint keys that apply to this batch.
+    /// </summary>
+    public required IReadOnlyList<string> ConstraintKeys { get; init; }
 }
