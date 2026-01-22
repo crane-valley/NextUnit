@@ -7,7 +7,7 @@ internal static class DisposeHelper
 {
     /// <summary>
     /// Disposes an object if it implements IDisposable or IAsyncDisposable.
-    /// Prefers IAsyncDisposable when both interfaces are implemented.
+    /// Prefers IDisposable for backward compatibility with existing test classes.
     /// </summary>
     /// <param name="instance">The object to dispose.</param>
     /// <returns>A task representing the asynchronous dispose operation.</returns>
@@ -47,7 +47,8 @@ internal static class DisposeHelper
         }
         else if (instance is IAsyncDisposable asyncDisposable)
         {
-            asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // ConfigureAwait(false) avoids synchronization-context deadlocks when blocking
+            asyncDisposable.DisposeAsync().AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
         }
     }
 }

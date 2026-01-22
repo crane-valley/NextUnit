@@ -96,16 +96,13 @@ internal sealed class TestFilterConfiguration
             return Array.Empty<Regex>();
         }
 
-        var compiled = new List<Regex>(patterns.Count);
-        foreach (var pattern in patterns)
+        return patterns.Select(pattern =>
         {
             var regexPattern = "^" + Regex.Escape(pattern)
                 .Replace("\\*", ".*")
                 .Replace("\\?", ".") + "$";
 
-            compiled.Add(new Regex(regexPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled));
-        }
-
-        return compiled;
+            return new Regex(regexPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        }).ToList();
     }
 }
