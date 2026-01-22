@@ -36,8 +36,8 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
   - Consolidated in: `NextUnit.Core/Internal/AssemblyLoader.cs`
 - [x] Extract `ExceptionHelper.IsCriticalException()` (shared exception classification)
   - Consolidated in: `NextUnit.Core/Internal/ExceptionHelper.cs`
-- [ ] Refactor `ExecuteSingleAsync` in TestExecutionEngine (reduce complexity)
-  - Break into: `ValidateTestAsync`, `ExecuteWithRetryAsync`, `ReportResultAsync`
+- [x] Refactor `ExecuteSingleAsync` in TestExecutionEngine (reduce complexity)
+  - Already refactored into: `CheckSkipConditionsAsync`, `ExecuteWithRetryAsync`, `ExecuteSingleAttemptAsync`, `ReportFinalExceptionAsync`
 
 #### 0.2 High: Architecture Improvements
 
