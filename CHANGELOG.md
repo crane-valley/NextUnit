@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-01-22
+
+### Added - Matrix Data Source & Roslyn Analyzers
+
+- **`[Matrix]` attribute** - Cartesian product test data generation
+  - `[Matrix(1, 2, 3)]` on parameters generates all combinations
+  - Multiple parameters create full Cartesian product
+  - Example: 3 values × 2 values = 6 test cases automatically
+
+- **`[MatrixExclusion]` attribute** - Skip specific combinations
+  - `[MatrixExclusion(1, "a")]` excludes that specific combination
+  - Multiple exclusions supported
+  - Useful for invalid or unnecessary test combinations
+
+- **Roslyn Analyzers (Phase 1)** - Compile-time test validation
+  - `NU0001` (Warning): Async void test methods should be async Task
+  - `NU0002` (Error): Test methods must be public
+  - `NU0004` (Error): Arguments count mismatch with method parameters
+  - `NU0006` (Error): Timeout value must be positive
+
+- **Code Fix Providers** - Automatic fixes for common issues
+  - `NU0001` fix: Change `async void` to `async Task`
+  - `NU0002` fix: Change method visibility to `public`
+
+### Changed
+
+- **Line endings normalized to LF** - Cross-platform consistency
+  - `.editorconfig` now uses `end_of_line = lf`
+  - Added `.gitattributes` for automatic line ending normalization
+  - Fixes CI format check issues between Windows and Linux
+
+### Technical Notes
+
+- Analyzers target `netstandard2.0` for broad IDE compatibility
+- Analyzers automatically included via `NextUnit.Core` package reference
+- 22 analyzer tests covering all rules and code fixes
+
 ## [1.8.0] - 2026-01-22
 
 ### Added - Enhanced Parallel Control
@@ -833,6 +870,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.9.0 | 2026-01-22 | 258+ | Matrix Data Source, Roslyn Analyzers | Released |
 | 1.8.0 | 2026-01-22 | 236+ | Enhanced Parallel Control | Released |
 | 1.7.1 | 2026-01-19 | 236+ | NuGet package fix | Released |
 | 1.7.0 | 2026-01-19 | 236+ | Display Name Customization | Released |
