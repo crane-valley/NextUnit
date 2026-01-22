@@ -26,4 +26,12 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
+  <!-- Include analyzers in the package -->
+  <ItemGroup>
+    <ProjectReference Include="..\NextUnit.Analyzers\NextUnit.Analyzers.csproj"
+                      PrivateAssets="all"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer" />
+  </ItemGroup>
+
 </Project>
