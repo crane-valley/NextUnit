@@ -110,9 +110,50 @@ public sealed class ParallelInfo
     public bool NotInParallel { get; init; }
 
     /// <summary>
+    /// Gets or initializes the constraint keys for parallel execution.
+    /// Tests sharing any constraint key will not run in parallel.
+    /// </summary>
+    /// <remarks>
+    /// When <see cref="NotInParallel"/> is <c>true</c> and this array is empty,
+    /// the test will not run in parallel with any other <see cref="NotInParallel"/> test.
+    /// When constraint keys are specified, only tests sharing at least one key are serialized.
+    /// </remarks>
+    public IReadOnlyList<string> ConstraintKeys { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or initializes the parallel group name for exclusive group execution.
+    /// </summary>
+    /// <remarks>
+    /// Tests in the same group run in parallel with each other but the entire group
+    /// does not run in parallel with other groups or ungrouped tests.
+    /// </remarks>
+    public string? ParallelGroup { get; init; }
+
+    /// <summary>
     /// Gets or initializes the maximum degree of parallelism for the test, or <c>null</c> if no limit is specified.
     /// </summary>
     public int? ParallelLimit { get; init; }
+}
+
+/// <summary>
+/// Contains information about a test dependency.
+/// </summary>
+public sealed class DependencyInfo
+{
+    /// <summary>
+    /// Gets or initializes the identifier of the test this dependency refers to.
+    /// </summary>
+    public TestCaseId DependsOnId { get; init; } = new("");
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the dependent test should proceed
+    /// even if this dependency fails or is skipped.
+    /// </summary>
+    /// <remarks>
+    /// When <c>true</c>, the dependent test will run regardless of the outcome of this dependency.
+    /// When <c>false</c> (default), the dependent test will be skipped if this dependency fails.
+    /// </remarks>
+    public bool ProceedOnFailure { get; init; }
 }
 
 /// <summary>
@@ -184,7 +225,16 @@ public sealed class TestCaseDescriptor
     /// <summary>
     /// Gets or initializes the collection of test case identifiers that this test depends on.
     /// </summary>
+    /// <remarks>
+    /// This is a simplified view of dependencies. Use <see cref="DependencyInfos"/> for
+    /// full dependency information including <see cref="DependencyInfo.ProceedOnFailure"/>.
+    /// </remarks>
     public IReadOnlyList<TestCaseId> Dependencies { get; init; } = Array.Empty<TestCaseId>();
+
+    /// <summary>
+    /// Gets or initializes the detailed dependency information including proceed-on-failure settings.
+    /// </summary>
+    public IReadOnlyList<DependencyInfo> DependencyInfos { get; init; } = Array.Empty<DependencyInfo>();
 
     /// <summary>
     /// Gets or initializes a value indicating whether the test should be skipped.
@@ -263,6 +313,7 @@ public sealed class TestCaseDescriptor
         Lifecycle = Lifecycle,
         Parallel = Parallel,
         Dependencies = Dependencies,
+        DependencyInfos = DependencyInfos,
         IsSkipped = true,
         SkipReason = reason,
         Arguments = Arguments,
@@ -330,7 +381,16 @@ public sealed class TestDataDescriptor
     /// <summary>
     /// Gets or initializes the collection of test case identifiers that this test depends on.
     /// </summary>
+    /// <remarks>
+    /// This is a simplified view of dependencies. Use <see cref="DependencyInfos"/> for
+    /// full dependency information including <see cref="DependencyInfo.ProceedOnFailure"/>.
+    /// </remarks>
     public IReadOnlyList<TestCaseId> Dependencies { get; init; } = Array.Empty<TestCaseId>();
+
+    /// <summary>
+    /// Gets or initializes the detailed dependency information including proceed-on-failure settings.
+    /// </summary>
+    public IReadOnlyList<DependencyInfo> DependencyInfos { get; init; } = Array.Empty<DependencyInfo>();
 
     /// <summary>
     /// Gets or initializes a value indicating whether the test should be skipped.

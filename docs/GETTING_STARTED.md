@@ -49,7 +49,7 @@ Update your `.csproj` file:
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.7.1" />
+    <PackageReference Include="NextUnit" Version="1.8.0" />
   </ItemGroup>
 </Project>
 ```

@@ -83,12 +83,13 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var customDisplayName = AttributeHelper.GetCustomDisplayName(methodSymbol);
         var displayName = customDisplayName ?? methodSymbol.Name;
         var displayNameFormatterType = AttributeHelper.GetDisplayNameFormatterType(methodSymbol, typeSymbol);
-        var notInParallel = AttributeHelper.HasAttribute(methodSymbol, AttributeHelper.NotInParallelMetadataName) ||
-                           AttributeHelper.HasAttribute(typeSymbol, AttributeHelper.NotInParallelMetadataName);
+        var (notInParallel, constraintKeys) = AttributeHelper.GetNotInParallelInfo(methodSymbol, typeSymbol);
+        var parallelGroup = AttributeHelper.GetParallelGroup(methodSymbol, typeSymbol);
         var methodParallelLimit = AttributeHelper.GetParallelLimit(methodSymbol);
         var typeParallelLimit = AttributeHelper.GetParallelLimit(typeSymbol);
         var parallelLimit = methodParallelLimit ?? typeParallelLimit;
         var dependencies = AttributeHelper.GetDependencies(methodSymbol);
+        var dependencyInfos = AttributeHelper.GetDependencyInfos(methodSymbol);
         var (isSkipped, skipReason) = AttributeHelper.GetSkipInfo(methodSymbol);
         var argumentSets = AttributeHelper.GetArgumentSets(methodSymbol);
         var testDataSources = AttributeHelper.GetTestDataSources(methodSymbol);
@@ -106,8 +107,11 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             fullyQualifiedTypeName,
             methodSymbol.Name,
             notInParallel,
+            constraintKeys,
+            parallelGroup,
             parallelLimit,
             dependencies,
+            dependencyInfos,
             isSkipped,
             skipReason,
             argumentSets,

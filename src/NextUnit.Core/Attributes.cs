@@ -103,16 +103,151 @@ public sealed class ParallelLimitAttribute : Attribute
 }
 
 /// <summary>
-/// Indicates that a test class or method should not be executed in parallel with other tests.
+/// Indicates that a test class or method should not be executed in parallel with other tests
+/// that share the same constraint keys.
 /// </summary>
+/// <remarks>
+/// <para>
+/// When used without constraint keys, the test will not run in parallel with any other test
+/// marked with <see cref="NotInParallelAttribute"/>.
+/// </para>
+/// <para>
+/// When used with constraint keys, the test will only be serialized with other tests that
+/// share at least one constraint key. This allows fine-grained control over which tests
+/// need exclusive access to shared resources.
+/// </para>
+/// <example>
+/// <code>
+/// // Tests that need exclusive database access
+/// [NotInParallel("Database")]
+/// [Test]
+/// public void TestDatabaseOperation() { }
+///
+/// // Tests that need exclusive file system and database access
+/// [NotInParallel("Database", "FileSystem")]
+/// [Test]
+/// public void TestDatabaseAndFileOperation() { }
+/// </code>
+/// </example>
+/// </remarks>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class NotInParallelAttribute : Attribute
 {
+    /// <summary>
+    /// Gets the constraint keys that determine which tests should not run in parallel together.
+    /// </summary>
+    /// <remarks>
+    /// Tests with overlapping constraint keys will not run in parallel with each other.
+    /// An empty array means the test will not run in parallel with any other
+    /// <see cref="NotInParallelAttribute"/> marked tests.
+    /// </remarks>
+    public string[] ConstraintKeys { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="NotInParallelAttribute"/> class
+    /// with no constraint keys (fully serial execution).
+    /// </summary>
+    public NotInParallelAttribute()
+    {
+        ConstraintKeys = Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="NotInParallelAttribute"/> class
+    /// with the specified constraint keys.
+    /// </summary>
+    /// <param name="constraintKeys">
+    /// The constraint keys that identify shared resources.
+    /// Tests sharing any constraint key will not run in parallel.
+    /// </param>
+    public NotInParallelAttribute(params string[] constraintKeys)
+    {
+        ConstraintKeys = constraintKeys ?? Array.Empty<string>();
+    }
 }
 
 /// <summary>
-/// Specifies that a test method depends on the successful completion of other test methods.
+/// Groups tests together for exclusive execution within the group.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Tests in the same parallel group will run in parallel with each other,
+/// but the entire group will not run in parallel with other groups or ungrouped tests.
+/// </para>
+/// <para>
+/// This is useful when you have a set of tests that can safely run in parallel with each other
+/// but need isolation from other test groups (e.g., tests sharing a test database).
+/// </para>
+/// <example>
+/// <code>
+/// // These tests run in parallel with each other, but not with other tests
+/// [ParallelGroup("UserTests")]
+/// public class UserRepositoryTests
+/// {
+///     [Test] public void CreateUser() { }
+///     [Test] public void DeleteUser() { }
+/// }
+///
+/// // These tests also run in parallel with each other, but not with UserTests
+/// [ParallelGroup("OrderTests")]
+/// public class OrderRepositoryTests
+/// {
+///     [Test] public void CreateOrder() { }
+///     [Test] public void CancelOrder() { }
+/// }
+/// </code>
+/// </example>
+/// </remarks>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class ParallelGroupAttribute : Attribute
+{
+    /// <summary>
+    /// Gets the name of the parallel group.
+    /// </summary>
+    public string GroupName { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ParallelGroupAttribute"/> class.
+    /// </summary>
+    /// <param name="groupName">The name of the parallel group.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="groupName"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="groupName"/> is empty or whitespace.</exception>
+    public ParallelGroupAttribute(string groupName)
+    {
+        if (groupName is null)
+        {
+            throw new ArgumentNullException(nameof(groupName));
+        }
+        if (string.IsNullOrWhiteSpace(groupName))
+        {
+            throw new ArgumentException("Group name cannot be empty or whitespace.", nameof(groupName));
+        }
+        GroupName = groupName;
+    }
+}
+
+/// <summary>
+/// Specifies that a test method depends on other test methods.
+/// </summary>
+/// <remarks>
+/// <para>
+/// By default, if a dependency fails, the dependent test will be skipped.
+/// Use <see cref="ProceedOnFailure"/> to run the test even if dependencies fail.
+/// </para>
+/// <example>
+/// <code>
+/// // This test only runs if SetupDatabase passes
+/// [DependsOn(nameof(SetupDatabase))]
+/// [Test]
+/// public void TestDatabaseQuery() { }
+///
+/// // This test runs even if SetupDatabase fails (for cleanup scenarios)
+/// [DependsOn(nameof(SetupDatabase), ProceedOnFailure = true)]
+/// [Test]
+/// public void CleanupDatabase() { }
+/// </code>
+/// </example>
+/// </remarks>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public sealed class DependsOnAttribute : Attribute
 {
@@ -122,12 +257,22 @@ public sealed class DependsOnAttribute : Attribute
     public string[] MethodNames { get; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the test should proceed even if dependencies fail.
+    /// </summary>
+    /// <remarks>
+    /// When <c>true</c>, the test will run regardless of whether the dependency passed, failed, or was skipped.
+    /// When <c>false</c> (default), the test will be skipped if any dependency fails or is skipped.
+    /// </remarks>
+    public bool ProceedOnFailure { get; set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="DependsOnAttribute"/> class.
     /// </summary>
     /// <param name="methodNames">The names of the test methods this test depends on.</param>
     public DependsOnAttribute(params string[] methodNames)
     {
         MethodNames = methodNames;
+        ProceedOnFailure = false;
     }
 }
 

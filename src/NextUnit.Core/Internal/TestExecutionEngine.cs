@@ -80,6 +80,9 @@ public sealed class TestExecutionEngine
         var graph = DependencyGraph.Build(testCasesList);
         var scheduler = new ParallelScheduler(graph);
 
+        // Wrap sink to track outcomes for ProceedOnFailure support
+        var trackingSink = new OutcomeTrackingSink(sink, scheduler);
+
         try
         {
             // Execute assembly-level setup
@@ -88,7 +91,7 @@ public sealed class TestExecutionEngine
             // Execute tests in batches with parallel constraints
             await foreach (var batch in scheduler.GetExecutionBatchesAsync(cancellationToken).ConfigureAwait(false))
             {
-                await ExecuteBatchAsync(batch, sink, cancellationToken).ConfigureAwait(false);
+                await ExecuteBatchAsync(batch, trackingSink, cancellationToken).ConfigureAwait(false);
             }
         }
         finally
@@ -113,6 +116,18 @@ public sealed class TestExecutionEngine
         ITestExecutionSink sink,
         CancellationToken cancellationToken)
     {
+        // Handle skip batches - tests skipped due to failed dependencies.
+        // These tests have already been marked with skip reasons via WithSkipReason("Dependency failed")
+        // in ParallelScheduler.GetExecutionBatchesAsync before being yielded as a skip batch.
+        if (batch.IsSkipBatch)
+        {
+            foreach (var test in batch.Tests)
+            {
+                await sink.ReportSkippedAsync(test).ConfigureAwait(false);
+            }
+            return;
+        }
+
         if (batch.IsSerial || batch.MaxDegreeOfParallelism == 1)
         {
             // Execute serially
@@ -705,5 +720,44 @@ public sealed class TestExecutionEngine
         public bool SetupExecuted { get; set; }
         public string? SkipReason { get; set; }
         public SemaphoreSlim SetupLock { get; init; } = null!;
+    }
+
+    /// <summary>
+    /// A sink wrapper that tracks test outcomes and reports them to the scheduler.
+    /// </summary>
+    private sealed class OutcomeTrackingSink : ITestExecutionSink
+    {
+        private readonly ITestExecutionSink _inner;
+        private readonly ParallelScheduler _scheduler;
+
+        public OutcomeTrackingSink(ITestExecutionSink inner, ParallelScheduler scheduler)
+        {
+            _inner = inner;
+            _scheduler = scheduler;
+        }
+
+        public async Task ReportPassedAsync(TestCaseDescriptor test, string? output = null)
+        {
+            _scheduler.ReportOutcome(test.Id, TestOutcome.Passed);
+            await _inner.ReportPassedAsync(test, output).ConfigureAwait(false);
+        }
+
+        public async Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null)
+        {
+            _scheduler.ReportOutcome(test.Id, TestOutcome.Failed);
+            await _inner.ReportFailedAsync(test, ex, output).ConfigureAwait(false);
+        }
+
+        public async Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null)
+        {
+            _scheduler.ReportOutcome(test.Id, TestOutcome.Error);
+            await _inner.ReportErrorAsync(test, ex, output).ConfigureAwait(false);
+        }
+
+        public async Task ReportSkippedAsync(TestCaseDescriptor test)
+        {
+            _scheduler.ReportOutcome(test.Id, TestOutcome.Skipped);
+            await _inner.ReportSkippedAsync(test).ConfigureAwait(false);
+        }
     }
 }

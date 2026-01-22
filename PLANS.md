@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.7.1 (Stable)
+## Current Version: 1.8.0 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -10,6 +10,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 | Version | Key Features |
 | ------- | ------------ |
+| 1.8.x | Enhanced parallel control: constraint keys, `[ParallelGroup]`, `ProceedOnFailure` |
 | 1.7.x | `[DisplayName]` attribute, `[DisplayNameFormatter<T>]`, custom display name formatting |
 | 1.6.x | VSTest adapter, Visual Studio Test Explorer, rich failure messages, advanced CLI filtering, `[Timeout]` attribute |
 | 1.5.x | Predicate-based collection assertions, xUnit API compatibility |
@@ -120,13 +121,13 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 1.6 Enhanced Parallel Control
 
-**Status**: Not Started
+**Status**: Completed (v1.8.0)
 **Goal**: Fine-grained parallelism control
 
-- [ ] `[NotInParallel("constraintKey")]` - Constraint-based resource locking
-- [ ] Multiple constraint keys: `[NotInParallel("Database", "FileSystem")]`
-- [ ] `[ParallelGroup("groupName")]` - Exclusive group execution
-- [ ] `[DependsOn(..., ProceedOnFailure = true)]` - Continue despite failures
+- [x] `[NotInParallel("constraintKey")]` - Constraint-based resource locking
+- [x] Multiple constraint keys: `[NotInParallel("Database", "FileSystem")]`
+- [x] `[ParallelGroup("groupName")]` - Exclusive group execution
+- [x] `[DependsOn(..., ProceedOnFailure = true)]` - Continue despite failures
 
 ### Priority 2: Advanced Data Sources
 
@@ -351,10 +352,10 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 ### Q2 2026
 
-1. Internal Refactoring (Medium priority items)
-2. Enhanced parallel control (constraint keys)
-3. Matrix data sources
-4. Basic Roslyn analyzers (5-10 rules)
+1. ~~Enhanced parallel control~~ - **Completed** (v1.8.0)
+2. Matrix data sources
+3. Basic Roslyn analyzers (5-10 rules)
+4. Test repeat support
 
 ### Q3 2026
 
@@ -433,4 +434,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-22
-**Next Focus**: Priority 1 - Enhanced Parallel Control, Matrix Data Sources
+**Next Focus**: Priority 2 - Matrix Data Sources, Priority 3 - Roslyn Analyzers

@@ -14,6 +14,7 @@ internal static class AttributeHelper
     public const string BeforeAttributeMetadataName = "global::NextUnit.BeforeAttribute";
     public const string AfterAttributeMetadataName = "global::NextUnit.AfterAttribute";
     public const string NotInParallelMetadataName = "global::NextUnit.NotInParallelAttribute";
+    public const string ParallelGroupMetadataName = "global::NextUnit.ParallelGroupAttribute";
     public const string ParallelLimitMetadataName = "global::NextUnit.ParallelLimitAttribute";
     public const string DependsOnMetadataName = "global::NextUnit.DependsOnAttribute";
     public const string SkipAttributeMetadataName = "global::NextUnit.SkipAttribute";
@@ -104,6 +105,55 @@ internal static class AttributeHelper
             {
                 var dependencyId = singleName.Contains('.') ? singleName : $"{typeName}.{singleName}";
                 builder.Add(dependencyId);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    public static ImmutableArray<DependencyDescriptor> GetDependencyInfos(IMethodSymbol methodSymbol)
+    {
+        var builder = ImmutableArray.CreateBuilder<DependencyDescriptor>();
+        var containingType = methodSymbol.ContainingType;
+        var typeName = containingType.ToDisplayString(TestIdTypeFormat);
+
+        // Build fully-qualified dependency ID from method name
+        string BuildDependencyId(string name) =>
+            name.Contains('.') ? name : $"{typeName}.{name}";
+
+        foreach (var attribute in methodSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, DependsOnMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            // Get ProceedOnFailure named argument
+            var proceedOnFailure = attribute.NamedArguments
+                .Where(arg => arg.Key == "ProceedOnFailure" && arg.Value.Value is bool)
+                .Select(arg => (bool)arg.Value.Value!)
+                .FirstOrDefault();
+
+            var argument = attribute.ConstructorArguments[0];
+
+            if (argument.Kind == TypedConstantKind.Array)
+            {
+                foreach (var value in argument.Values)
+                {
+                    if (value.Value is string name && !string.IsNullOrWhiteSpace(name))
+                    {
+                        builder.Add(new DependencyDescriptor(BuildDependencyId(name), proceedOnFailure));
+                    }
+                }
+            }
+            else if (argument.Value is string singleName && !string.IsNullOrWhiteSpace(singleName))
+            {
+                builder.Add(new DependencyDescriptor(BuildDependencyId(singleName), proceedOnFailure));
             }
         }
 
@@ -290,6 +340,92 @@ internal static class AttributeHelper
             if (value is int limit)
             {
                 return limit;
+            }
+        }
+
+        return null;
+    }
+
+    public static (bool notInParallel, ImmutableArray<string> constraintKeys) GetNotInParallelInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        // Method-level takes precedence
+        var methodInfo = GetNotInParallelFromSymbol(methodSymbol);
+        if (methodInfo.HasValue)
+        {
+            return (true, methodInfo.Value);
+        }
+
+        // Fall back to class-level
+        var classInfo = GetNotInParallelFromSymbol(typeSymbol);
+        if (classInfo.HasValue)
+        {
+            return (true, classInfo.Value);
+        }
+
+        return (false, ImmutableArray<string>.Empty);
+    }
+
+    private static ImmutableArray<string>? GetNotInParallelFromSymbol(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, NotInParallelMetadataName))
+            {
+                continue;
+            }
+
+            // NotInParallelAttribute can have no arguments (fully serial)
+            // or params string[] constraintKeys
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                return ImmutableArray<string>.Empty;
+            }
+
+            var argument = attribute.ConstructorArguments[0];
+            if (argument.Kind == TypedConstantKind.Array)
+            {
+                var builder = ImmutableArray.CreateBuilder<string>();
+                foreach (var value in argument.Values)
+                {
+                    if (value.Value is string key && !string.IsNullOrWhiteSpace(key))
+                    {
+                        builder.Add(key);
+                    }
+                }
+                return builder.ToImmutable();
+            }
+        }
+
+        return null;
+    }
+
+    public static string? GetParallelGroup(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        // Method-level takes precedence
+        var methodGroup = GetParallelGroupFromSymbol(methodSymbol);
+        if (methodGroup is not null)
+        {
+            return methodGroup;
+        }
+
+        // Fall back to class-level
+        return GetParallelGroupFromSymbol(typeSymbol);
+    }
+
+    private static string? GetParallelGroupFromSymbol(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, ParallelGroupMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length > 0 &&
+                attribute.ConstructorArguments[0].Value is string groupName &&
+                !string.IsNullOrWhiteSpace(groupName))
+            {
+                return groupName;
             }
         }
 
