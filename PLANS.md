@@ -180,11 +180,11 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 3.2 Test Repeat Support
 
-**Status**: Not Started
+**Status**: Completed (v1.8.1)
 **Goal**: Run tests multiple times
 
-- [ ] `[Repeat(count)]` attribute
-- [ ] Repeat index available via `TestContext`
+- [x] `[Repeat(count)]` attribute
+- [x] Repeat index available via `TestContext`
 - [ ] Aggregate results across repeats
 
 #### 3.3 Test Execution Priority
@@ -353,9 +353,9 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 ### Q2 2026
 
 1. ~~Enhanced parallel control~~ - **Completed** (v1.8.0)
-2. Matrix data sources
-3. Basic Roslyn analyzers (5-10 rules)
-4. Test repeat support
+2. ~~Test repeat support~~ - **Completed** (v1.8.1)
+3. Matrix data sources
+4. Basic Roslyn analyzers (5-10 rules)
 
 ### Q3 2026
 
@@ -407,10 +407,9 @@ We welcome contributions! Priority areas:
 
 ### Medium Complexity
 
-- `[Repeat]` attribute
 - `[Explicit]` attribute
 - Basic analyzers
-- Enhanced parallel control
+- Test execution priority
 
 ### Advanced
 
@@ -434,4 +433,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-22
-**Next Focus**: Priority 2 - Matrix Data Sources, Priority 3 - Roslyn Analyzers
+**Next Focus**: Priority 2 - Matrix Data Sources, Priority 3.1 - Roslyn Analyzers
