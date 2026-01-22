@@ -25,6 +25,7 @@ internal static class AttributeHelper
     public const string TimeoutAttributeMetadataName = "global::NextUnit.TimeoutAttribute";
     public const string RetryAttributeMetadataName = "global::NextUnit.RetryAttribute";
     public const string FlakyAttributeMetadataName = "global::NextUnit.FlakyAttribute";
+    public const string RepeatAttributeMetadataName = "global::NextUnit.RepeatAttribute";
     public const string DisplayNameAttributeMetadataName = "global::NextUnit.DisplayNameAttribute";
     public const string DisplayNameFormatterAttributeMetadataName = "global::NextUnit.DisplayNameFormatterAttribute";
     public const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
@@ -515,6 +516,29 @@ internal static class AttributeHelper
         var flakyReason = methodFlakyReason ?? classFlakyReason;
 
         return (retryCount, retryDelayMs, isFlaky, flakyReason);
+    }
+
+    public static int? GetRepeatCount(IMethodSymbol methodSymbol)
+    {
+        foreach (var attribute in methodSymbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, RepeatAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments[0].Value is int count && count > 0)
+            {
+                return count;
+            }
+        }
+
+        return null;
     }
 
     private static (int? count, int delayMs) GetRetryFromSymbol(ISymbol symbol)

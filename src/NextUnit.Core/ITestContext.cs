@@ -47,6 +47,15 @@ public interface ITestContext
     public int? TimeoutMs { get; }
 
     /// <summary>
+    /// Gets the zero-based repeat index for tests marked with <see cref="RepeatAttribute"/>,
+    /// or <c>null</c> for non-repeated tests.
+    /// </summary>
+    /// <remarks>
+    /// For a test with <c>[Repeat(5)]</c>, this will be 0, 1, 2, 3, 4 for each repeat iteration.
+    /// </remarks>
+    public int? RepeatIndex { get; }
+
+    /// <summary>
     /// Gets a cancellation token that is triggered when the test should be cancelled (either due to timeout or external cancellation).
     /// </summary>
     public CancellationToken CancellationToken { get; }
