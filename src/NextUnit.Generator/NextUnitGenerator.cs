@@ -377,14 +377,16 @@ internal static class Program
                 : new List<LifecycleMethodDescriptor>();
 
             var repeatCount = test.RepeatCount ?? 1;
+            var hasRepeatAttribute = test.RepeatCount.HasValue;
 
             if (test.ArgumentSets.IsDefaultOrEmpty)
             {
                 // No arguments - emit repeatCount test cases
                 for (var repeatIndex = 0; repeatIndex < repeatCount; repeatIndex++)
                 {
-                    var actualRepeatIndex = repeatCount > 1 ? repeatIndex : (int?)null;
-                    TestCaseEmitter.EmitTestCase(builder, test, lifecycleMethods, null, -1, actualRepeatIndex);
+                    // Emit repeat index if [Repeat] attribute is present (even for Repeat(1))
+                    var repeatIndexToEmit = hasRepeatAttribute ? repeatIndex : (int?)null;
+                    TestCaseEmitter.EmitTestCase(builder, test, lifecycleMethods, null, -1, repeatIndexToEmit);
                 }
             }
             else
@@ -394,8 +396,9 @@ internal static class Program
                 {
                     for (var repeatIndex = 0; repeatIndex < repeatCount; repeatIndex++)
                     {
-                        var actualRepeatIndex = repeatCount > 1 ? repeatIndex : (int?)null;
-                        TestCaseEmitter.EmitTestCase(builder, test, lifecycleMethods, test.ArgumentSets[argIndex], argIndex, actualRepeatIndex);
+                        // Emit repeat index if [Repeat] attribute is present (even for Repeat(1))
+                        var repeatIndexToEmit = hasRepeatAttribute ? repeatIndex : (int?)null;
+                        TestCaseEmitter.EmitTestCase(builder, test, lifecycleMethods, test.ArgumentSets[argIndex], argIndex, repeatIndexToEmit);
                     }
                 }
             }
