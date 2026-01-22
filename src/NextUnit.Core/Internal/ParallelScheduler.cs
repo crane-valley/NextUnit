@@ -342,9 +342,9 @@ public sealed class ParallelScheduler
     /// <returns><c>true</c> if all dependencies have completed; otherwise, <c>false</c>.</returns>
     private static bool AreDependenciesComplete(DependencyGraph.Node node, HashSet<TestCaseId> completed)
     {
-        foreach (var depId in node.Test.Dependencies)
+        foreach (var depInfo in node.Test.DependencyInfos)
         {
-            if (!completed.Contains(depId))
+            if (!completed.Contains(depInfo.DependsOnId))
             {
                 return false;
             }
