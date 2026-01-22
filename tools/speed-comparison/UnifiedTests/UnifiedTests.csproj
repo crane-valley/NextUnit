@@ -40,7 +40,7 @@
 
     <!-- NextUnit packages -->
     <ItemGroup Condition="'$(TestFramework)' == 'NEXTUNIT'">
-        <PackageReference Include="NextUnit" Version="1.8.0" />
+        <PackageReference Include="NextUnit" Version="1.7.1" />
     </ItemGroup>
 
     <!-- xUnit packages -->
