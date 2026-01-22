@@ -47,9 +47,11 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
   - Formatters: `ArgumentFormatter`, `DisplayNameFormatter`
   - Builders: `CodeBuilder` (delegates, literals)
   - Emitters: `TestCaseEmitter` (test case/data descriptor emission)
-- [ ] Extract `VSTestCaseFactory` (consolidate VSTest case creation)
-  - Consolidate from: TestDiscoverer, TestExecutor
-- [ ] Centralize `TestFilter` logic (unified filtering across Platform and TestAdapter)
+- [x] Extract `VSTestCaseFactory` (consolidate VSTest case creation)
+  - Consolidated from: TestDiscoverer, TestExecutor
+- [x] Centralize `TestFilter` logic
+  - `TestFilterConfiguration` already centralized in Platform for CLI filtering
+  - TestAdapter uses VSTest's built-in trait-based filtering (no duplication)
 - [x] Consolidate argument formatting methods in Generator (via `ArgumentFormatter`)
 
 #### 0.3 Medium: Code Quality
@@ -426,4 +428,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-22
-**Next Focus**: Internal Refactoring (Priority 0) - VSTestCaseFactory extraction, TestFilter centralization
+**Next Focus**: Internal Refactoring (Priority 0.3) - Regex caching, LifecycleScope enum, DisposeHelper
