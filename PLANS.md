@@ -41,13 +41,16 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 0.2 High: Architecture Improvements
 
-- [ ] Split `NextUnitGenerator.cs` (1,557 lines) into focused classes
-  - TestRegistryGenerator, TestCaseEmitter, TestDataDescriptorEmitter
-  - LifecycleMethodBuilder, ParameterBuilder, ArgumentFormatter
+- [x] Split `NextUnitGenerator.cs` into focused classes
+  - Models: `TestMethodDescriptor`, `LifecycleMethodDescriptor`, `TestDataSource`
+  - Helpers: `AttributeHelper` (attribute extraction)
+  - Formatters: `ArgumentFormatter`, `DisplayNameFormatter`
+  - Builders: `CodeBuilder` (delegates, literals)
+  - Emitters: `TestCaseEmitter` (test case/data descriptor emission)
 - [ ] Extract `VSTestCaseFactory` (consolidate VSTest case creation)
   - Consolidate from: TestDiscoverer, TestExecutor
 - [ ] Centralize `TestFilter` logic (unified filtering across Platform and TestAdapter)
-- [ ] Consolidate argument formatting methods in Generator
+- [x] Consolidate argument formatting methods in Generator (via `ArgumentFormatter`)
 
 #### 0.3 Medium: Code Quality
 
@@ -423,4 +426,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-22
-**Next Focus**: Internal Refactoring (Priority 0) - NextUnitGenerator.cs split
+**Next Focus**: Internal Refactoring (Priority 0) - VSTestCaseFactory extraction, TestFilter centralization
