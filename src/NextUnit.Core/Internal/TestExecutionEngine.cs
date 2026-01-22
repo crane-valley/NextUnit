@@ -174,14 +174,7 @@ public sealed class TestExecutionEngine
             }
 
             // Dispose the temporary instance
-            if (assemblyInstance is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-            else if (assemblyInstance is IAsyncDisposable asyncDisposable)
-            {
-                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-            }
+            await DisposeHelper.DisposeAsync(assemblyInstance).ConfigureAwait(false);
 
             _assemblySetupExecuted = true;
         }
@@ -215,14 +208,7 @@ public sealed class TestExecutionEngine
         finally
         {
             // Dispose the temporary instance
-            if (assemblyInstance is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-            else if (assemblyInstance is IAsyncDisposable asyncDisposable)
-            {
-                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-            }
+            await DisposeHelper.DisposeAsync(assemblyInstance).ConfigureAwait(false);
         }
     }
 
@@ -486,14 +472,7 @@ public sealed class TestExecutionEngine
     /// </summary>
     private static async Task DisposeInstanceAsync(object instance)
     {
-        if (instance is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
-        else if (instance is IAsyncDisposable asyncDisposable)
-        {
-            await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-        }
+        await DisposeHelper.DisposeAsync(instance).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -699,14 +678,7 @@ public sealed class TestExecutionEngine
                 }
 
                 // Dispose instance
-                if (context.Instance is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-                else if (context.Instance is IAsyncDisposable asyncDisposable)
-                {
-                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-                }
+                await DisposeHelper.DisposeAsync(context.Instance).ConfigureAwait(false);
             }
             catch
             {

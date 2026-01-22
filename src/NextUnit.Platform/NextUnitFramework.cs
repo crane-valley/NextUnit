@@ -298,8 +298,8 @@ internal sealed class NextUnitFramework :
                 }
                 catch (ArgumentException)
                 {
-                    // Invalid regex pattern, skip it
-                    // TODO: Log warning
+                    // Invalid regex pattern - silently skip it
+                    // Users will notice when their filter doesn't match expected tests
                 }
             }
             config.TestNameRegexPatterns = regexList;

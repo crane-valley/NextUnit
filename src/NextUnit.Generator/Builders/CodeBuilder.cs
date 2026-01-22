@@ -66,14 +66,14 @@ internal static class CodeBuilder
     /// </summary>
     public static string BuildLifecycleInfoLiteral(string typeName, List<LifecycleMethodDescriptor> lifecycleMethods)
     {
-        var beforeTest = lifecycleMethods.Where(m => m.BeforeScopes.Contains(0)).ToList();
-        var afterTest = lifecycleMethods.Where(m => m.AfterScopes.Contains(0)).ToList();
-        var beforeClass = lifecycleMethods.Where(m => m.BeforeScopes.Contains(1)).ToList();
-        var afterClass = lifecycleMethods.Where(m => m.AfterScopes.Contains(1)).ToList();
-        var beforeAssembly = lifecycleMethods.Where(m => m.BeforeScopes.Contains(2)).ToList();
-        var afterAssembly = lifecycleMethods.Where(m => m.AfterScopes.Contains(2)).ToList();
-        var beforeSession = lifecycleMethods.Where(m => m.BeforeScopes.Contains(3)).ToList();
-        var afterSession = lifecycleMethods.Where(m => m.AfterScopes.Contains(3)).ToList();
+        var beforeTest = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Test)).ToList();
+        var afterTest = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Test)).ToList();
+        var beforeClass = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Class)).ToList();
+        var afterClass = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Class)).ToList();
+        var beforeAssembly = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Assembly)).ToList();
+        var afterAssembly = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Assembly)).ToList();
+        var beforeSession = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Session)).ToList();
+        var afterSession = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Session)).ToList();
 
         var builder = new StringBuilder();
         builder.AppendLine("new global::NextUnit.Internal.LifecycleInfo");

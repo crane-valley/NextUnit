@@ -7,6 +7,9 @@ namespace NextUnit.Platform;
 /// </summary>
 internal sealed class TestFilterConfiguration
 {
+    private IReadOnlyList<string> _testNamePatterns = Array.Empty<string>();
+    private IReadOnlyList<Regex> _compiledWildcardPatterns = Array.Empty<Regex>();
+
     /// <summary>
     /// Gets or sets the categories to include. Only tests with at least one of these categories will run.
     /// </summary>
@@ -29,8 +32,17 @@ internal sealed class TestFilterConfiguration
 
     /// <summary>
     /// Gets or sets the test name patterns to include (supports * and ? wildcards).
+    /// Patterns are compiled to regex on assignment for better performance.
     /// </summary>
-    public IReadOnlyList<string> TestNamePatterns { get; set; } = Array.Empty<string>();
+    public IReadOnlyList<string> TestNamePatterns
+    {
+        get => _testNamePatterns;
+        set
+        {
+            _testNamePatterns = value;
+            _compiledWildcardPatterns = CompileWildcardPatterns(value);
+        }
+    }
 
     /// <summary>
     /// Gets or sets the test name regular expression patterns to include.
@@ -59,7 +71,7 @@ internal sealed class TestFilterConfiguration
 
         // If no include filters are specified, test passes
         var hasIncludeFilters = IncludeCategories.Count > 0 || IncludeTags.Count > 0
-            || TestNamePatterns.Count > 0 || TestNameRegexPatterns.Count > 0;
+            || _compiledWildcardPatterns.Count > 0 || TestNameRegexPatterns.Count > 0;
         if (!hasIncludeFilters)
         {
             return true;
@@ -68,22 +80,29 @@ internal sealed class TestFilterConfiguration
         // Test must match at least one include filter (OR logic)
         var matchesCategory = IncludeCategories.Count > 0 && categories.Any(c => IncludeCategories.Contains(c, StringComparer.OrdinalIgnoreCase));
         var matchesTag = IncludeTags.Count > 0 && tags.Any(t => IncludeTags.Contains(t, StringComparer.OrdinalIgnoreCase));
-        var matchesNamePattern = TestNamePatterns.Count > 0 && TestNamePatterns.Any(pattern => MatchesWildcard(testName, pattern));
+        var matchesNamePattern = _compiledWildcardPatterns.Count > 0 && _compiledWildcardPatterns.Any(regex => regex.IsMatch(testName));
         var matchesRegex = TestNameRegexPatterns.Count > 0 && TestNameRegexPatterns.Any(regex => regex.IsMatch(testName));
 
         return matchesCategory || matchesTag || matchesNamePattern || matchesRegex;
     }
 
     /// <summary>
-    /// Checks if a test name matches a wildcard pattern (* and ? support).
+    /// Compiles wildcard patterns (* and ?) to cached regex objects.
     /// </summary>
-    private static bool MatchesWildcard(string testName, string pattern)
+    private static IReadOnlyList<Regex> CompileWildcardPatterns(IReadOnlyList<string> patterns)
     {
-        // Convert wildcard pattern to regex
-        var regexPattern = "^" + Regex.Escape(pattern)
-            .Replace("\\*", ".*")
-            .Replace("\\?", ".") + "$";
+        if (patterns.Count == 0)
+        {
+            return Array.Empty<Regex>();
+        }
 
-        return Regex.IsMatch(testName, regexPattern, RegexOptions.IgnoreCase);
+        return patterns.Select(pattern =>
+        {
+            var regexPattern = "^" + Regex.Escape(pattern)
+                .Replace("\\*", ".*")
+                .Replace("\\?", ".") + "$";
+
+            return new Regex(regexPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        }).ToList();
     }
 }
