@@ -42,7 +42,8 @@ internal sealed class TestMethodDescriptor
         int? repeatCount,
         ImmutableArray<MatrixParameterDescriptor> matrixParameters,
         ImmutableArray<MatrixExclusionDescriptor> matrixExclusions,
-        ImmutableArray<ParameterDataSourceDescriptor> combinedParameterSources)
+        ImmutableArray<ParameterDataSourceDescriptor> combinedParameterSources,
+        int priority)
     {
         Id = id;
         DisplayName = displayName;
@@ -78,6 +79,7 @@ internal sealed class TestMethodDescriptor
         MatrixParameters = matrixParameters;
         MatrixExclusions = matrixExclusions;
         CombinedParameterSources = combinedParameterSources;
+        Priority = priority;
     }
 
     public string Id { get; }
@@ -114,6 +116,7 @@ internal sealed class TestMethodDescriptor
     public ImmutableArray<MatrixParameterDescriptor> MatrixParameters { get; }
     public ImmutableArray<MatrixExclusionDescriptor> MatrixExclusions { get; }
     public ImmutableArray<ParameterDataSourceDescriptor> CombinedParameterSources { get; }
+    public int Priority { get; }
 }
 
 /// <summary>

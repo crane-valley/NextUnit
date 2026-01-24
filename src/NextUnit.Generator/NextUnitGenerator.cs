@@ -107,6 +107,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var matrixParameters = AttributeHelper.GetMatrixParameters(methodSymbol);
         var matrixExclusions = AttributeHelper.GetMatrixExclusions(methodSymbol);
         var combinedParameterSources = AttributeHelper.GetCombinedParameterSources(methodSymbol);
+        var priority = AttributeHelper.GetExecutionPriority(methodSymbol, typeSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -142,7 +143,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             repeatCount,
             matrixParameters,
             matrixExclusions,
-            combinedParameterSources);
+            combinedParameterSources,
+            priority);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)

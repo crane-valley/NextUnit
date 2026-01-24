@@ -314,6 +314,12 @@ public sealed class TestCaseDescriptor
     public Type? DisplayNameFormatterType { get; init; }
 
     /// <summary>
+    /// Gets or initializes the execution priority for the test.
+    /// Higher values indicate higher priority (run first). Default is 0.
+    /// </summary>
+    public int Priority { get; init; }
+
+    /// <summary>
     /// Creates a copy of the current <see cref="TestCaseDescriptor"/> with updated skip-related properties.
     /// </summary>
     /// <param name="reason">The reason for skipping the test.</param>
@@ -346,7 +352,8 @@ public sealed class TestCaseDescriptor
         RepeatIndex = RepeatIndex,
         Retry = Retry,
         CustomDisplayNameTemplate = CustomDisplayNameTemplate,
-        DisplayNameFormatterType = DisplayNameFormatterType
+        DisplayNameFormatterType = DisplayNameFormatterType,
+        Priority = Priority
     };
 }
 
@@ -480,6 +487,12 @@ public sealed class TestDataDescriptor
     /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
     /// </summary>
     public Type? DisplayNameFormatterType { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the execution priority for the test.
+    /// Higher values indicate higher priority (run first). Default is 0.
+    /// </summary>
+    public int Priority { get; init; }
 }
 
 /// <summary>
@@ -681,6 +694,12 @@ public sealed class CombinedDataSourceDescriptor
     /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
     /// </summary>
     public Type? DisplayNameFormatterType { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the execution priority for the test.
+    /// Higher values indicate higher priority (run first). Default is 0.
+    /// </summary>
+    public int Priority { get; init; }
 }
 
 /// <summary>
@@ -816,4 +835,10 @@ public sealed class ClassDataSourceDescriptor
     /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
     /// </summary>
     public Type? DisplayNameFormatterType { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the execution priority for the test.
+    /// Higher values indicate higher priority (run first). Default is 0.
+    /// </summary>
+    public int Priority { get; init; }
 }

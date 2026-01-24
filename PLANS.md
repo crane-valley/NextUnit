@@ -10,6 +10,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 | Version | Key Features |
 | ------- | ------------ |
+| 1.14.x | Roslyn Analyzers Phase 2: NU0003, NU0005, NU0007, NU0008 |
 | 1.13.x | `[Explicit]` attribute: exclude tests from default runs, `--explicit` CLI flag |
 | 1.12.x | Test artifacts: `TestContext.AttachArtifact()`, internal refactoring (DisplayNameBuilder, TestMethodValidator) |
 | 1.11.x | Combined data sources: `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product |
@@ -179,22 +180,22 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 3.1 Roslyn Analyzers
 
-**Status**: Phase 1 Completed (v1.8.2)
+**Status**: Phase 2 Completed (v1.14.0)
 **Goal**: Catch common mistakes at compile time
 
-Phase 1 (Completed):
+Phase 1 (Completed - v1.8.2):
 
 - [x] `NU0001`: Async void test methods (Warning) + Code Fix
 - [x] `NU0002`: Test methods must be public (Error) + Code Fix
 - [x] `NU0004`: Arguments count mismatch with parameters (Error)
 - [x] `NU0006`: Timeout value must be positive (Error)
 
-Phase 2 (Future):
+Phase 2 (Completed - v1.14.0):
 
-- [ ] `NU0003`: Invalid data source references
-- [ ] `NU0005`: Invalid lifecycle hook placement
-- [ ] `NU0007`: DependsOn references non-existent test
-- [ ] `NU0008`: Matrix parameters count mismatch
+- [x] `NU0003`: TestData/ValuesFromMember references non-existent member (Error)
+- [x] `NU0005`: Lifecycle methods ([Before]/[After]) with unhandled throws (Info)
+- [x] `NU0007`: DependsOn references non-existent test (Warning)
+- [x] `NU0008`: MatrixExclusion value count mismatch (Error)
 
 #### 3.2 Test Repeat Support
 
@@ -385,10 +386,10 @@ Phase 2 (Future):
 
 ### Q4 2026
 
-1. Playwright integration
-2. Project templates
-3. Documentation site
-4. Additional analyzers (20+ rules)
+1. ~~Roslyn Analyzers Phase 2~~ - **Completed** (v1.14.0)
+2. Playwright integration
+3. Project templates
+4. Documentation site
 
 ### 2027
 
@@ -452,4 +453,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-24
-**Next Focus**: Priority 3.1 Phase 2 - Additional Analyzers, Priority 4.1 - ASP.NET Core Integration
+**Next Focus**: Priority 4.1 - ASP.NET Core Integration

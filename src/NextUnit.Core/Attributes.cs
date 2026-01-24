@@ -443,3 +443,55 @@ public sealed class RepeatAttribute : Attribute
         Count = count;
     }
 }
+
+/// <summary>
+/// Specifies the execution priority of a test. Higher values run first.
+/// </summary>
+/// <remarks>
+/// This attribute controls the execution order of tests within the same dependency level.
+/// Tests with higher priority values will be executed before tests with lower priority values.
+/// The default priority is 0 if not specified.
+/// <para>
+/// This attribute does not override <see cref="DependsOnAttribute"/> dependencies.
+/// Tests will still wait for their dependencies regardless of priority.
+/// </para>
+/// </remarks>
+/// <example>
+/// <code>
+/// [Test]
+/// [ExecutionPriority(100)]  // Runs before tests with lower priority
+/// public void HighPriorityTest() { }
+///
+/// [Test]
+/// [ExecutionPriority(-100)] // Runs after tests with higher priority
+/// public void LowPriorityTest() { }
+///
+/// [ExecutionPriority(10)]   // Class-level default priority
+/// public class PriorityTests
+/// {
+///     [Test]
+///     public void InheritsPriority10() { }
+///
+///     [Test]
+///     [ExecutionPriority(50)] // Override class-level priority
+///     public void HasPriority50() { }
+/// }
+/// </code>
+/// </example>
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+public sealed class ExecutionPriorityAttribute : Attribute
+{
+    /// <summary>
+    /// Gets the execution priority. Higher values indicate higher priority (run first).
+    /// </summary>
+    public int Priority { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ExecutionPriorityAttribute"/> class.
+    /// </summary>
+    /// <param name="priority">The execution priority. Higher values run first. Default is 0.</param>
+    public ExecutionPriorityAttribute(int priority)
+    {
+        Priority = priority;
+    }
+}

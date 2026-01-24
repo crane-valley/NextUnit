@@ -171,7 +171,8 @@ public static class TestDataExpander
             TimeoutMs = descriptor.TimeoutMs,
             Retry = descriptor.Retry,
             CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate,
-            DisplayNameFormatterType = descriptor.DisplayNameFormatterType
+            DisplayNameFormatterType = descriptor.DisplayNameFormatterType,
+            Priority = descriptor.Priority
         };
     }
 
