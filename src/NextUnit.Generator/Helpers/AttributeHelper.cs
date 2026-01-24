@@ -30,6 +30,7 @@ internal static class AttributeHelper
     public const string DisplayNameFormatterAttributeMetadataName = "global::NextUnit.DisplayNameFormatterAttribute";
     public const string MatrixAttributeMetadataName = "global::NextUnit.MatrixAttribute";
     public const string MatrixExclusionAttributeMetadataName = "global::NextUnit.MatrixExclusionAttribute";
+    public const string ClassDataSourceAttributePrefix = "ClassDataSourceAttribute`";
     public const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
     public const string ITestContextMetadataName = "global::NextUnit.Core.ITestContext";
 
@@ -39,6 +40,15 @@ internal static class AttributeHelper
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
             miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                                    SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+
+    /// <summary>
+    /// Format for typeof() expressions - excludes nullable reference type annotations since C# typeof() does not support them.
+    /// </summary>
+    public static readonly SymbolDisplayFormat TypeofCompatibleFormat =
+        new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
+            typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+            genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
 
     public static readonly SymbolDisplayFormat TestIdTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
@@ -245,6 +255,56 @@ internal static class AttributeHelper
             string? memberTypeName = memberTypeArg?.ToDisplayString(FullyQualifiedTypeFormat);
 
             builder.Add(new TestDataSource(memberName, memberTypeName));
+        }
+
+        return builder.ToImmutable();
+    }
+
+    public static ImmutableArray<ClassDataSource> GetClassDataSources(IMethodSymbol methodSymbol)
+    {
+        var builder = ImmutableArray.CreateBuilder<ClassDataSource>();
+
+        foreach (var attribute in methodSymbol.GetAttributes())
+        {
+            var attrClass = attribute.AttributeClass;
+            if (attrClass is not { IsGenericType: true })
+            {
+                continue;
+            }
+
+            var constructedFrom = attrClass.ConstructedFrom;
+            var metadataName = constructedFrom.MetadataName;
+
+            // Check if it's a ClassDataSourceAttribute<T> variant (T1 through T4)
+            if (!metadataName.StartsWith(ClassDataSourceAttributePrefix, StringComparison.Ordinal) ||
+                constructedFrom.ContainingNamespace.ToDisplayString() != "NextUnit")
+            {
+                continue;
+            }
+
+            // Extract Shared and Key named arguments
+            var sharedType = 0; // SharedType.None
+            var key = (string?)null;
+
+            foreach (var namedArg in attribute.NamedArguments)
+            {
+                if (namedArg.Key == "Shared" && namedArg.Value.Value is int sharedValue)
+                {
+                    sharedType = sharedValue;
+                }
+                else if (namedArg.Key == "Key" && namedArg.Value.Value is string keyValue)
+                {
+                    key = keyValue;
+                }
+            }
+
+            // Extract all type arguments from the generic attribute
+            // Use TypeofCompatibleFormat to exclude nullable annotations (typeof() doesn't support them)
+            foreach (var typeArg in attrClass.TypeArguments)
+            {
+                var typeName = typeArg.ToDisplayString(TypeofCompatibleFormat);
+                builder.Add(new ClassDataSource(typeName, sharedType, key));
+            }
         }
 
         return builder.ToImmutable();

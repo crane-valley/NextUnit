@@ -23,6 +23,7 @@ internal sealed class TestMethodDescriptor
         string? skipReason,
         ImmutableArray<ImmutableArray<TypedConstant>> argumentSets,
         ImmutableArray<TestDataSource> testDataSources,
+        ImmutableArray<ClassDataSource> classDataSources,
         ImmutableArray<IParameterSymbol> parameters,
         ImmutableArray<string> categories,
         ImmutableArray<string> tags,
@@ -54,6 +55,7 @@ internal sealed class TestMethodDescriptor
         SkipReason = skipReason;
         ArgumentSets = argumentSets;
         TestDataSources = testDataSources;
+        ClassDataSources = classDataSources;
         Parameters = parameters;
         Categories = categories;
         Tags = tags;
@@ -86,6 +88,7 @@ internal sealed class TestMethodDescriptor
     public string? SkipReason { get; }
     public ImmutableArray<ImmutableArray<TypedConstant>> ArgumentSets { get; }
     public ImmutableArray<TestDataSource> TestDataSources { get; }
+    public ImmutableArray<ClassDataSource> ClassDataSources { get; }
     public ImmutableArray<IParameterSymbol> Parameters { get; }
     public ImmutableArray<string> Categories { get; }
     public ImmutableArray<string> Tags { get; }
@@ -188,4 +191,32 @@ internal sealed class MatrixExclusionDescriptor
     }
 
     public ImmutableArray<TypedConstant> Values { get; }
+}
+
+/// <summary>
+/// Describes a class-based data source for parameterized tests.
+/// </summary>
+internal sealed class ClassDataSource
+{
+    public ClassDataSource(string typeName, int sharedType, string? key)
+    {
+        TypeName = typeName;
+        SharedType = sharedType;
+        Key = key;
+    }
+
+    /// <summary>
+    /// Gets the fully qualified type name of the data source class.
+    /// </summary>
+    public string TypeName { get; }
+
+    /// <summary>
+    /// Gets the sharing scope as an integer (maps to NextUnit.SharedType enum).
+    /// </summary>
+    public int SharedType { get; }
+
+    /// <summary>
+    /// Gets the key for keyed sharing (null if not applicable).
+    /// </summary>
+    public string? Key { get; }
 }

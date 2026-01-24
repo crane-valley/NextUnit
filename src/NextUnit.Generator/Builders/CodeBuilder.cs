@@ -207,7 +207,7 @@ internal static class CodeBuilder
                 builder.Append(", ");
             }
 
-            builder.Append($"typeof({parameters[i].Type.ToDisplayString(AttributeHelper.FullyQualifiedTypeFormat)})");
+            builder.Append($"typeof({parameters[i].Type.ToDisplayString(AttributeHelper.TypeofCompatibleFormat)})");
         }
 
         builder.Append(" }");

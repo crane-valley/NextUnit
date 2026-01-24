@@ -205,4 +205,68 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
         builder.AppendLine("            },");
     }
+
+    /// <summary>
+    /// Emits a class data source descriptor for tests using [ClassDataSource&lt;T&gt;].
+    /// </summary>
+    public static void EmitClassDataSourceDescriptor(
+        StringBuilder builder,
+        TestMethodDescriptor test,
+        List<LifecycleMethodDescriptor> lifecycleMethods,
+        ImmutableArray<ClassDataSource> classDataSources)
+    {
+        // Build the DataSourceTypes array literal
+        var typesList = string.Join(", ", classDataSources.Select(s => $"typeof({s.TypeName})"));
+        var dataSourceTypesLiteral = $"new global::System.Type[] {{ {typesList} }}";
+
+        // Use the first data source's shared type and key (all should be the same from one attribute)
+        var firstSource = classDataSources[0];
+        var sharedTypeLiteral = firstSource.SharedType switch
+        {
+            0 => "global::NextUnit.SharedType.None",
+            1 => "global::NextUnit.SharedType.Keyed",
+            2 => "global::NextUnit.SharedType.PerClass",
+            3 => "global::NextUnit.SharedType.PerAssembly",
+            4 => "global::NextUnit.SharedType.PerSession",
+            _ => "global::NextUnit.SharedType.None"
+        };
+
+        builder.AppendLine("            new global::NextUnit.Internal.ClassDataSourceDescriptor");
+        builder.AppendLine("            {");
+        builder.AppendLine($"                BaseId = {AttributeHelper.ToLiteral(test.Id)},");
+        builder.AppendLine($"                DisplayName = {AttributeHelper.ToLiteral(test.DisplayName)},");
+        builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
+        builder.AppendLine($"                MethodName = {AttributeHelper.ToLiteral(test.MethodName)},");
+        builder.AppendLine($"                DataSourceTypes = {dataSourceTypesLiteral},");
+        builder.AppendLine($"                SharedType = {sharedTypeLiteral},");
+        builder.AppendLine($"                SharedKey = {(firstSource.Key is not null ? AttributeHelper.ToLiteral(firstSource.Key) : "null")},");
+        builder.AppendLine($"                ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
+        builder.AppendLine($"                Lifecycle = {CodeBuilder.BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
+        builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
+        builder.AppendLine("                {");
+        builder.AppendLine($"                    NotInParallel = {test.NotInParallel.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    ConstraintKeys = {CodeBuilder.BuildStringArrayLiteral(test.ConstraintKeys)},");
+        builder.AppendLine($"                    ParallelGroup = {(test.ParallelGroup is not null ? AttributeHelper.ToLiteral(test.ParallelGroup) : "null")},");
+        builder.AppendLine($"                    ParallelLimit = {(test.ParallelLimit is int limit ? limit.ToString(CultureInfo.InvariantCulture) : "null")}");
+        builder.AppendLine("                },");
+        builder.AppendLine($"                Dependencies = {CodeBuilder.BuildDependenciesLiteral(test.Dependencies)},");
+        builder.AppendLine($"                DependencyInfos = {CodeBuilder.BuildDependencyInfosLiteral(test.DependencyInfos)},");
+        builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? AttributeHelper.ToLiteral(test.SkipReason) : "null")},");
+        builder.AppendLine($"                Categories = {CodeBuilder.BuildStringArrayLiteral(test.Categories)},");
+        builder.AppendLine($"                Tags = {CodeBuilder.BuildStringArrayLiteral(test.Tags)},");
+        builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                RequiresTestContext = {test.RequiresTestContext.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")},");
+        builder.AppendLine("                Retry = new global::NextUnit.Internal.RetryInfo");
+        builder.AppendLine("                {");
+        builder.AppendLine($"                    Count = {(test.RetryCount is int retryCount ? retryCount.ToString(CultureInfo.InvariantCulture) : "null")},");
+        builder.AppendLine($"                    DelayMs = {test.RetryDelayMs.ToString(CultureInfo.InvariantCulture)},");
+        builder.AppendLine($"                    IsFlaky = {test.IsFlaky.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? AttributeHelper.ToLiteral(test.FlakyReason) : "null")}");
+        builder.AppendLine("                },");
+        builder.AppendLine($"                CustomDisplayNameTemplate = {(test.CustomDisplayName is not null ? AttributeHelper.ToLiteral(test.CustomDisplayName) : "null")},");
+        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
+        builder.AppendLine("            },");
+    }
 }
