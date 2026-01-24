@@ -93,17 +93,7 @@ internal sealed class TestContextCapture : ITestContext
     /// <inheritdoc/>
     public void AttachArtifact(string filePath, string? description = null)
     {
-        if (!File.Exists(filePath))
-        {
-            throw new FileNotFoundException("Artifact file not found", filePath);
-        }
-
-        _artifacts.Add(new Artifact
-        {
-            FilePath = Path.GetFullPath(filePath),
-            Description = description,
-            MimeType = GetMimeType(filePath)
-        });
+        AttachArtifact(new Artifact { FilePath = filePath, Description = description });
     }
 
     /// <inheritdoc/>
@@ -122,27 +112,33 @@ internal sealed class TestContextCapture : ITestContext
         });
     }
 
+    private static readonly Dictionary<string, string> _mimeTypeMappings = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { ".txt", "text/plain" },
+        { ".log", "text/plain" },
+        { ".html", "text/html" },
+        { ".htm", "text/html" },
+        { ".json", "application/json" },
+        { ".xml", "application/xml" },
+        { ".png", "image/png" },
+        { ".jpg", "image/jpeg" },
+        { ".jpeg", "image/jpeg" },
+        { ".gif", "image/gif" },
+        { ".bmp", "image/bmp" },
+        { ".webp", "image/webp" },
+        { ".svg", "image/svg+xml" },
+        { ".mp4", "video/mp4" },
+        { ".webm", "video/webm" },
+        { ".pdf", "application/pdf" },
+        { ".zip", "application/zip" },
+    };
+
     private static string GetMimeType(string filePath)
     {
-        var ext = Path.GetExtension(filePath).ToLowerInvariant();
-        return ext switch
-        {
-            ".txt" or ".log" => "text/plain",
-            ".html" or ".htm" => "text/html",
-            ".json" => "application/json",
-            ".xml" => "application/xml",
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".gif" => "image/gif",
-            ".bmp" => "image/bmp",
-            ".webp" => "image/webp",
-            ".svg" => "image/svg+xml",
-            ".mp4" => "video/mp4",
-            ".webm" => "video/webm",
-            ".pdf" => "application/pdf",
-            ".zip" => "application/zip",
-            _ => "application/octet-stream"
-        };
+        var ext = Path.GetExtension(filePath);
+        return _mimeTypeMappings.TryGetValue(ext, out var mimeType)
+            ? mimeType
+            : "application/octet-stream";
     }
 }
 

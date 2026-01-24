@@ -529,15 +529,18 @@ internal sealed class NextUnitFramework :
             }
         }
 
-        public async Task ReportSkippedAsync(TestCaseDescriptor test)
+        public async Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
         {
             var explanation = test.SkipReason ?? "Test was skipped";
+            var properties = new List<IProperty> { new SkippedTestNodeStateProperty(explanation) };
+
+            AddArtifactProperties(properties, artifacts);
+
             var testNode = new TestNode
             {
                 Uid = new TestNodeUid(test.Id.Value),
                 DisplayName = test.DisplayName,
-                Properties = new PropertyBag(
-                    new SkippedTestNodeStateProperty(explanation))
+                Properties = new PropertyBag(properties.ToArray())
             };
 
             await _messageBus.PublishAsync(

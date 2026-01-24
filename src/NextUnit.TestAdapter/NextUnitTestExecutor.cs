@@ -295,7 +295,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             return Task.CompletedTask;
         }
 
-        public Task ReportSkippedAsync(TestCaseDescriptor test)
+        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
         {
             var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
@@ -305,6 +305,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
                 Duration = TimeSpan.Zero
             };
 
+            AttachArtifacts(result, artifacts);
             _frameworkHandle.RecordResult(result);
             return Task.CompletedTask;
         }
@@ -320,12 +321,21 @@ public sealed class NextUnitTestExecutor : ITestExecutor
                 new Uri("nextunit://test-artifacts"),
                 "NextUnit Test Artifacts");
 
-            foreach (var artifact in artifacts)
+            var attachments = artifacts.Select(artifact =>
             {
-                var attachment = new UriDataAttachment(
-                    new Uri(artifact.FilePath),
-                    artifact.Description ?? Path.GetFileName(artifact.FilePath));
+                // First try to interpret the value as an absolute URI; if that fails, treat it as a file path.
+                if (!Uri.TryCreate(artifact.FilePath, UriKind.Absolute, out var artifactUri))
+                {
+                    artifactUri = new Uri(new Uri("file://"), artifact.FilePath);
+                }
 
+                return new UriDataAttachment(
+                    artifactUri,
+                    artifact.Description ?? Path.GetFileName(artifact.FilePath));
+            });
+
+            foreach (var attachment in attachments)
+            {
                 attachmentSet.Attachments.Add(attachment);
             }
 

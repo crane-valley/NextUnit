@@ -42,8 +42,9 @@ public interface ITestExecutionSink
     /// Reports that a test was skipped.
     /// </summary>
     /// <param name="test">The test case that was skipped.</param>
+    /// <param name="artifacts">The artifacts attached to the test before skipping, or null if none.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public Task ReportSkippedAsync(TestCaseDescriptor test);
+    public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null);
 }
 
 /// <summary>
@@ -443,8 +444,9 @@ public sealed class TestExecutionEngine
         }
         catch (TestSkippedException ex)
         {
-            // Runtime skip - do not retry skips
-            await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message)).ConfigureAwait(false);
+            // Runtime skip - do not retry skips, but preserve artifacts collected before skip
+            var artifacts = currentContext.Artifacts;
+            await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message), artifacts).ConfigureAwait(false);
             return AttemptResult.Skipped;
         }
         catch (OutOfMemoryException)
@@ -762,10 +764,10 @@ public sealed class TestExecutionEngine
             await _inner.ReportErrorAsync(test, ex, output, artifacts).ConfigureAwait(false);
         }
 
-        public async Task ReportSkippedAsync(TestCaseDescriptor test)
+        public async Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
         {
             _scheduler.ReportOutcome(test.Id, TestOutcome.Skipped);
-            await _inner.ReportSkippedAsync(test).ConfigureAwait(false);
+            await _inner.ReportSkippedAsync(test, artifacts).ConfigureAwait(false);
         }
     }
 }

@@ -11,7 +11,9 @@ public class ArtifactTests
     public void TestWithTextArtifact()
     {
         // Create a temporary text file as an artifact
-        var path = Path.Combine(Path.GetTempPath(), $"nextunit_test_{Guid.NewGuid()}.txt");
+        var tempDir = Path.GetTempPath();
+        var fileName = $"nextunit_test_{Guid.NewGuid()}.txt";
+        var path = Path.Join(tempDir, fileName);
         File.WriteAllText(path, "This is a test log file.\nLine 2\nLine 3");
 
         // Attach the artifact
@@ -24,8 +26,8 @@ public class ArtifactTests
     public void TestWithMultipleArtifacts()
     {
         var tempDir = Path.GetTempPath();
-        var logPath = Path.Combine(tempDir, $"nextunit_log_{Guid.NewGuid()}.log");
-        var jsonPath = Path.Combine(tempDir, $"nextunit_data_{Guid.NewGuid()}.json");
+        var logPath = Path.Join(tempDir, $"nextunit_log_{Guid.NewGuid()}.log");
+        var jsonPath = Path.Join(tempDir, $"nextunit_data_{Guid.NewGuid()}.json");
 
         // Create test files
         File.WriteAllText(logPath, "Log output content");
@@ -47,7 +49,9 @@ public class ArtifactTests
     [Test]
     public void TestWithArtifactUsingFullApi()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"nextunit_html_{Guid.NewGuid()}.html");
+        var tempDir = Path.GetTempPath();
+        var fileName = $"nextunit_html_{Guid.NewGuid()}.html";
+        var path = Path.Join(tempDir, fileName);
         File.WriteAllText(path, "<html><body><h1>Test Report</h1></body></html>");
 
         // Use the full Artifact object
@@ -69,9 +73,10 @@ public class ArtifactTests
     [Test]
     public void TestArtifactMimeTypeAutoDetection()
     {
-        var txtPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid()}.txt");
-        var jsonPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid()}.json");
-        var pngPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid()}.png");
+        var tempDir = Path.GetTempPath();
+        var txtPath = Path.Join(tempDir, $"test_{Guid.NewGuid()}.txt");
+        var jsonPath = Path.Join(tempDir, $"test_{Guid.NewGuid()}.json");
+        var pngPath = Path.Join(tempDir, $"test_{Guid.NewGuid()}.png");
 
         File.WriteAllText(txtPath, "text");
         File.WriteAllText(jsonPath, "{}");
@@ -92,7 +97,8 @@ public class ArtifactTests
     [Test]
     public void TestArtifactNotFoundThrows()
     {
-        var nonExistentPath = Path.Combine(Path.GetTempPath(), $"does_not_exist_{Guid.NewGuid()}.txt");
+        var tempDir = Path.GetTempPath();
+        var nonExistentPath = Path.Join(tempDir, $"does_not_exist_{Guid.NewGuid()}.txt");
 
         Assert.Throws<FileNotFoundException>(() =>
         {
