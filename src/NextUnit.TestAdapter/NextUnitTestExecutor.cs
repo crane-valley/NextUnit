@@ -214,6 +214,13 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         {
             allTestCases = allTestCases.Where(t => testIdsToRun.Contains(t.Id.Value)).ToList();
         }
+        else
+        {
+            // When running all tests (no specific selection), exclude explicit tests by default
+            // This matches the behavior of the Platform CLI without --explicit flag
+            // Users can still run explicit tests by selecting them specifically in Test Explorer
+            allTestCases = allTestCases.Where(t => !t.IsExplicit).ToList();
+        }
 
         // Create execution engine and run tests
         var engine = new TestExecutionEngine();

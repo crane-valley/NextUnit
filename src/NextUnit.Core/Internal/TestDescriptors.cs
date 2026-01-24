@@ -249,6 +249,17 @@ public sealed class TestCaseDescriptor
     public string? SkipReason { get; init; }
 
     /// <summary>
+    /// Gets or initializes a value indicating whether the test is marked as explicit.
+    /// Explicit tests only run when specifically selected or when the --explicit flag is used.
+    /// </summary>
+    public bool IsExplicit { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the reason why the test is marked as explicit, or <c>null</c> if not provided.
+    /// </summary>
+    public string? ExplicitReason { get; init; }
+
+    /// <summary>
     /// Gets or initializes the arguments to pass to the test method for parameterized tests.
     /// </summary>
     /// <remarks>
@@ -324,6 +335,8 @@ public sealed class TestCaseDescriptor
         DependencyInfos = DependencyInfos,
         IsSkipped = true,
         SkipReason = reason,
+        IsExplicit = IsExplicit,
+        ExplicitReason = ExplicitReason,
         Arguments = Arguments,
         Categories = Categories,
         Tags = Tags,
@@ -410,6 +423,17 @@ public sealed class TestDataDescriptor
     /// Gets or initializes the reason why the test is skipped, or <c>null</c> if not skipped.
     /// </summary>
     public string? SkipReason { get; init; }
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test is marked as explicit.
+    /// Explicit tests only run when specifically selected or when the --explicit flag is used.
+    /// </summary>
+    public bool IsExplicit { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the reason why the test is marked as explicit, or <c>null</c> if not provided.
+    /// </summary>
+    public string? ExplicitReason { get; init; }
 
     /// <summary>
     /// Gets or initializes the categories assigned to the test.
@@ -608,6 +632,17 @@ public sealed class CombinedDataSourceDescriptor
     public string? SkipReason { get; init; }
 
     /// <summary>
+    /// Gets or initializes a value indicating whether the test is marked as explicit.
+    /// Explicit tests only run when specifically selected or when the --explicit flag is used.
+    /// </summary>
+    public bool IsExplicit { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the reason why the test is marked as explicit, or <c>null</c> if not provided.
+    /// </summary>
+    public string? ExplicitReason { get; init; }
+
+    /// <summary>
     /// Gets or initializes the categories assigned to the test.
     /// </summary>
     public IReadOnlyList<string> Categories { get; init; } = Array.Empty<string>();
@@ -724,6 +759,17 @@ public sealed class ClassDataSourceDescriptor
     /// Gets or initializes the reason why the test is skipped, or <c>null</c> if not skipped.
     /// </summary>
     public string? SkipReason { get; init; }
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test is marked as explicit.
+    /// Explicit tests only run when specifically selected or when the --explicit flag is used.
+    /// </summary>
+    public bool IsExplicit { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the reason why the test is marked as explicit, or <c>null</c> if not provided.
+    /// </summary>
+    public string? ExplicitReason { get; init; }
 
     /// <summary>
     /// Gets or initializes the categories assigned to the test.

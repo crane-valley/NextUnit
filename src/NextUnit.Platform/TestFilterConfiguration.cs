@@ -50,14 +50,28 @@ internal sealed class TestFilterConfiguration
     public IReadOnlyList<Regex> TestNameRegexPatterns { get; set; } = Array.Empty<Regex>();
 
     /// <summary>
+    /// Gets or sets a value indicating whether explicit tests should be included.
+    /// When <c>true</c>, tests marked with [Explicit] attribute will be executed.
+    /// Default is <c>false</c>.
+    /// </summary>
+    public bool IncludeExplicitTests { get; set; }
+
+    /// <summary>
     /// Determines whether a test should be included based on the filter configuration.
     /// </summary>
     /// <param name="categories">The categories assigned to the test.</param>
     /// <param name="tags">The tags assigned to the test.</param>
     /// <param name="testName">The full name of the test.</param>
+    /// <param name="isExplicit">Whether the test is marked with [Explicit] attribute.</param>
     /// <returns><c>true</c> if the test should be included; otherwise, <c>false</c>.</returns>
-    public bool ShouldIncludeTest(IReadOnlyList<string> categories, IReadOnlyList<string> tags, string testName)
+    public bool ShouldIncludeTest(IReadOnlyList<string> categories, IReadOnlyList<string> tags, string testName, bool isExplicit = false)
     {
+        // Explicit tests are excluded by default unless --explicit flag is used
+        if (isExplicit && !IncludeExplicitTests)
+        {
+            return false;
+        }
+
         // Exclude filters take precedence
         if (ExcludeCategories.Count > 0 && categories.Any(c => ExcludeCategories.Contains(c, StringComparer.OrdinalIgnoreCase)))
         {

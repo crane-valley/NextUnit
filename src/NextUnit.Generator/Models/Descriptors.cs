@@ -21,6 +21,8 @@ internal sealed class TestMethodDescriptor
         ImmutableArray<DependencyDescriptor> dependencyInfos,
         bool isSkipped,
         string? skipReason,
+        bool isExplicit,
+        string? explicitReason,
         ImmutableArray<ImmutableArray<TypedConstant>> argumentSets,
         ImmutableArray<TestDataSource> testDataSources,
         ImmutableArray<ClassDataSource> classDataSources,
@@ -54,6 +56,8 @@ internal sealed class TestMethodDescriptor
         DependencyInfos = dependencyInfos;
         IsSkipped = isSkipped;
         SkipReason = skipReason;
+        IsExplicit = isExplicit;
+        ExplicitReason = explicitReason;
         ArgumentSets = argumentSets;
         TestDataSources = testDataSources;
         ClassDataSources = classDataSources;
@@ -88,6 +92,8 @@ internal sealed class TestMethodDescriptor
     public ImmutableArray<DependencyDescriptor> DependencyInfos { get; }
     public bool IsSkipped { get; }
     public string? SkipReason { get; }
+    public bool IsExplicit { get; }
+    public string? ExplicitReason { get; }
     public ImmutableArray<ImmutableArray<TypedConstant>> ArgumentSets { get; }
     public ImmutableArray<TestDataSource> TestDataSources { get; }
     public ImmutableArray<ClassDataSource> ClassDataSources { get; }

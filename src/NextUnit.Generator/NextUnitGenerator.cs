@@ -92,6 +92,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var dependencies = AttributeHelper.GetDependencies(methodSymbol);
         var dependencyInfos = AttributeHelper.GetDependencyInfos(methodSymbol);
         var (isSkipped, skipReason) = AttributeHelper.GetSkipInfo(methodSymbol);
+        var (isExplicit, explicitReason) = AttributeHelper.GetExplicitInfo(methodSymbol, typeSymbol);
         var argumentSets = AttributeHelper.GetArgumentSets(methodSymbol);
         var testDataSources = AttributeHelper.GetTestDataSources(methodSymbol);
         var classDataSources = AttributeHelper.GetClassDataSources(methodSymbol);
@@ -120,6 +121,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             dependencyInfos,
             isSkipped,
             skipReason,
+            isExplicit,
+            explicitReason,
             argumentSets,
             testDataSources,
             classDataSources,

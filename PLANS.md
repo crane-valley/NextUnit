@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.12.0 (Stable)
+## Current Version: 1.13.0 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -28,9 +28,9 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 ## Upcoming Features
 
-### Priority 0: Internal Refactoring (v1.7.x)
+### Priority 0: Internal Refactoring (v1.7.x - v1.12.x)
 
-**Status**: In Progress
+**Status**: Completed
 **Goal**: Improve code quality, reduce duplication, and enhance maintainability
 
 #### 0.1 Critical: Code Duplication Elimination
@@ -41,6 +41,9 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
   - Consolidated in: `NextUnit.Core/Internal/ExceptionHelper.cs`
 - [x] Refactor `ExecuteSingleAsync` in TestExecutionEngine (reduce complexity)
   - Already refactored into: `CheckSkipConditionsAsync`, `ExecuteWithRetryAsync`, `ExecuteSingleAttemptAsync`, `ReportFinalExceptionAsync`
+- [x] Extract `DisplayNameBuilder` (consolidate display name formatting) (v1.12.1)
+  - Removed ~300 lines of duplicate code from ClassDataSourceExpander, CombinedDataSourceExpander, TestDataExpander
+  - Unified `BuildDisplayName`, `FormatWithPlaceholders`, `FormatArgument`, `FormatBoolean` methods
 
 #### 0.2 High: Architecture Improvements
 
@@ -56,6 +59,9 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
   - `TestFilterConfiguration` already centralized in Platform for CLI filtering
   - TestAdapter uses VSTest's built-in trait-based filtering (no duplication)
 - [x] Consolidate argument formatting methods in Generator (via `ArgumentFormatter`)
+- [x] Extract `TestMethodValidator` (split ValidateAndReportDiagnostics - 226 lines) (v1.12.1)
+  - ValidateDependencies, ValidateDataSourceConflicts, ValidateMatrixParameters
+  - ValidateClassDataSources, ValidateCombinedParameterSources
 
 #### 0.3 Medium: Code Quality
 
@@ -65,6 +71,8 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
   - Constants defined in Generator to mirror Core enum values
 - [x] Extract `DisposeHelper` for IDisposable/IAsyncDisposable pattern
   - Consolidated 4 duplicated disposal patterns in `TestExecutionEngine`
+- [x] Extend `DisposeHelper` with `DisposeAllIn` and `DisposeIfNeeded` (v1.12.1)
+  - Removed duplicate implementations from ClassDataSourceExpander, CombinedDataSourceExpander
 - [x] Resolve TODO comments and unused fields
   - M4 DI work left as planned future work
   - Invalid regex warning comment updated
@@ -206,12 +214,13 @@ Phase 2 (Future):
 
 #### 3.4 Explicit Tests
 
-**Status**: Not Started
+**Status**: Completed (v1.13.0)
 **Goal**: Tests only run when explicitly selected
 
-- [ ] `[Explicit]` attribute to exclude from default runs
-- [ ] `[Explicit("reason")]` with explanation
-- [ ] Run with `--explicit` CLI flag
+- [x] `[Explicit]` attribute to exclude from default runs
+- [x] `[Explicit("reason")]` with explanation
+- [x] Run with `--explicit` CLI flag
+- [x] VSTest adapter: explicit tests filtered by default, selectable in Test Explorer
 
 #### 3.5 Test Artifacts
 
@@ -354,9 +363,8 @@ Phase 2 (Future):
 3. ~~Test Context Injection~~ - **Completed** (v1.6.9)
 4. ~~Retry support~~ - **Completed** (v1.6.9)
 5. ~~Display name customization~~ - **Completed** (v1.7.0)
-6. **Internal Refactoring** - In Progress (v1.7.x)
-   - Critical: Code duplication elimination
-   - High: Architecture improvements
+6. ~~Internal Refactoring~~ - **Completed** (v1.7.x - v1.12.x)
+   - DisplayNameBuilder, TestMethodValidator, DisposeHelper extensions
 
 ### Q2 2026
 

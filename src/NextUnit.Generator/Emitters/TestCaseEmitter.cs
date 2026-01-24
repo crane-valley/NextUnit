@@ -69,6 +69,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DependencyInfos = {CodeBuilder.BuildDependencyInfosLiteral(test.DependencyInfos)},");
         builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? AttributeHelper.ToLiteral(test.SkipReason) : "null")},");
+        builder.AppendLine($"                IsExplicit = {test.IsExplicit.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                ExplicitReason = {(test.ExplicitReason is not null ? AttributeHelper.ToLiteral(test.ExplicitReason) : "null")},");
 
         if (arguments.HasValue)
         {
@@ -138,6 +140,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DependencyInfos = {CodeBuilder.BuildDependencyInfosLiteral(test.DependencyInfos)},");
         builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? AttributeHelper.ToLiteral(test.SkipReason) : "null")},");
+        builder.AppendLine($"                IsExplicit = {test.IsExplicit.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                ExplicitReason = {(test.ExplicitReason is not null ? AttributeHelper.ToLiteral(test.ExplicitReason) : "null")},");
         builder.AppendLine($"                Arguments = {ArgumentFormatter.BuildArgumentsLiteral(combination)},");
         builder.AppendLine($"                Categories = {CodeBuilder.BuildStringArrayLiteral(test.Categories)},");
         builder.AppendLine($"                Tags = {CodeBuilder.BuildStringArrayLiteral(test.Tags)},");
@@ -189,6 +193,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DependencyInfos = {CodeBuilder.BuildDependencyInfosLiteral(test.DependencyInfos)},");
         builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? AttributeHelper.ToLiteral(test.SkipReason) : "null")},");
+        builder.AppendLine($"                IsExplicit = {test.IsExplicit.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                ExplicitReason = {(test.ExplicitReason is not null ? AttributeHelper.ToLiteral(test.ExplicitReason) : "null")},");
         builder.AppendLine($"                Categories = {CodeBuilder.BuildStringArrayLiteral(test.Categories)},");
         builder.AppendLine($"                Tags = {CodeBuilder.BuildStringArrayLiteral(test.Tags)},");
         builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
@@ -253,6 +259,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DependencyInfos = {CodeBuilder.BuildDependencyInfosLiteral(test.DependencyInfos)},");
         builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? AttributeHelper.ToLiteral(test.SkipReason) : "null")},");
+        builder.AppendLine($"                IsExplicit = {test.IsExplicit.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                ExplicitReason = {(test.ExplicitReason is not null ? AttributeHelper.ToLiteral(test.ExplicitReason) : "null")},");
         builder.AppendLine($"                Categories = {CodeBuilder.BuildStringArrayLiteral(test.Categories)},");
         builder.AppendLine($"                Tags = {CodeBuilder.BuildStringArrayLiteral(test.Tags)},");
         builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
@@ -298,6 +306,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DependencyInfos = {CodeBuilder.BuildDependencyInfosLiteral(test.DependencyInfos)},");
         builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
         builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? AttributeHelper.ToLiteral(test.SkipReason) : "null")},");
+        builder.AppendLine($"                IsExplicit = {test.IsExplicit.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                ExplicitReason = {(test.ExplicitReason is not null ? AttributeHelper.ToLiteral(test.ExplicitReason) : "null")},");
         builder.AppendLine($"                Categories = {CodeBuilder.BuildStringArrayLiteral(test.Categories)},");
         builder.AppendLine($"                Tags = {CodeBuilder.BuildStringArrayLiteral(test.Tags)},");
         builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
