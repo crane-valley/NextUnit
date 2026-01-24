@@ -37,7 +37,7 @@ dotnet add package NextUnit
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.11.0" />
+    <PackageReference Include="NextUnit" Version="1.12.0" />
   </ItemGroup>
 </Project>
 ```
