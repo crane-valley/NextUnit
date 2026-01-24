@@ -933,6 +933,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.11.0 | 2026-01-24 | 350+ | Combined Data Sources | Released |
+| 1.10.0 | 2026-01-24 | 310+ | Class Data Source | Released |
 | 1.9.0 | 2026-01-22 | 258+ | Matrix Data Source, Roslyn Analyzers | Released |
 | 1.8.0 | 2026-01-22 | 236+ | Enhanced Parallel Control | Released |
 | 1.7.1 | 2026-01-19 | 236+ | NuGet package fix | Released |
