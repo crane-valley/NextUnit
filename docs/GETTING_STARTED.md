@@ -337,8 +337,8 @@ public void PendingTest() { }
 
 - Read [Best Practices Guide](BEST_PRACTICES.md) for advanced patterns
 - See [Migration Guide](MIGRATION_FROM_XUNIT.md) if coming from xUnit
-- Check [API Reference](API_REFERENCE.md) for complete documentation
-- View [Performance Tuning Guide](PERFORMANCE_TUNING.md) for optimization tips
+- Check [Performance Analysis](PERFORMANCE.md) for benchmarks and optimization tips
+- View [CI/CD Integration](CI_CD_INTEGRATION.md) for continuous integration setup
 
 ## Getting Help
 

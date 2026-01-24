@@ -567,7 +567,7 @@ public class AsyncTests
 
 If you encounter issues during migration:
 
-1. Check the [API Reference](API_REFERENCE.md)
+1. Check the [Best Practices Guide](BEST_PRACTICES.md)
 2. Review [Sample Tests](../samples/NextUnit.SampleTests)
 3. Open an issue: <https://github.com/crane-valley/NextUnit/issues>
 

@@ -628,8 +628,8 @@ public class ModerateTests { }
 
 - [Getting Started Guide](GETTING_STARTED.md) - Basic usage
 - [Migration Guide](MIGRATION_FROM_XUNIT.md) - Coming from xUnit
-- [API Reference](API_REFERENCE.md) - Complete assertion list
-- [Performance Tuning Guide](PERFORMANCE_TUNING.md) - Optimization tips
+- [Performance Analysis](PERFORMANCE.md) - Benchmarks and optimization tips
+- [CI/CD Integration](CI_CD_INTEGRATION.md) - Continuous integration setup
 
 ---
 

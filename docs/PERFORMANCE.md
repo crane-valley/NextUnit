@@ -1,8 +1,8 @@
-# NextUnit v1.6.6 Performance Benchmarks
+# NextUnit v1.12.0 Performance Benchmarks
 
 ## Overview
 
-This document provides performance benchmarks for NextUnit v1.6.6, demonstrating the framework's
+This document provides performance benchmarks for NextUnit v1.12.0, demonstrating the framework's
 excellent performance characteristics for test discovery and execution.
 
 ## Benchmark Environment
@@ -10,8 +10,8 @@ excellent performance characteristics for test discovery and execution.
 - **Runtime**: .NET 10.0.100
 - **OS**: Linux (Ubuntu)
 - **Hardware**: x64 architecture
-- **Test Date**: December 2025
-- **NextUnit Version**: v1.6.6
+- **Test Date**: January 2026
+- **NextUnit Version**: v1.12.0
 
 ## Test Suite Characteristics
 
@@ -150,6 +150,6 @@ The framework is **production-ready** for large test suites with excellent perfo
 
 ---
 
-**Last Updated**: 2025-01-14
-**NextUnit Version**: 1.6.6
+**Last Updated**: 2026-01-24
+**NextUnit Version**: v1.12.0
 **Benchmark Suite**: benchmarks/NextUnit.Benchmarks
