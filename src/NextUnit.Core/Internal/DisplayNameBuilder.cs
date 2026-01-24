@@ -11,7 +11,7 @@ namespace NextUnit.Internal;
 /// </summary>
 internal static class DisplayNameBuilder
 {
-    private static readonly ConcurrentDictionary<Type, IDisplayNameFormatter> FormatterCache = new();
+    private static readonly ConcurrentDictionary<Type, IDisplayNameFormatter> _formatterCache = new();
 
     /// <summary>
     /// Builds a display name for a test case using the priority order:
@@ -136,7 +136,7 @@ internal static class DisplayNameBuilder
     /// </exception>
     public static IDisplayNameFormatter GetFormatter(Type formatterType)
     {
-        return FormatterCache.GetOrAdd(formatterType, t =>
+        return _formatterCache.GetOrAdd(formatterType, t =>
         {
             var instance = Activator.CreateInstance(t)
                 ?? throw new InvalidOperationException(
