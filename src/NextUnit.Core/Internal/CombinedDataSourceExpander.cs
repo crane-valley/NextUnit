@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Reflection;
 
 namespace NextUnit.Internal;
@@ -16,9 +15,6 @@ public static class CombinedDataSourceExpander
     private static readonly ConcurrentDictionary<(Type TestClass, Type SourceType), object> _perClassInstances = new();
     private static readonly ConcurrentDictionary<Type, object> _perAssemblyInstances = new();
     private static readonly ConcurrentDictionary<Type, object> _perSessionInstances = new();
-
-    // Cache for display name formatters
-    private static readonly ConcurrentDictionary<Type, IDisplayNameFormatter> _formatterCache = new();
 
     /// <summary>
     /// Expands a collection of combined data source descriptors into test case descriptors.
@@ -82,10 +78,10 @@ public static class CombinedDataSourceExpander
     /// </summary>
     public static void ClearSharedInstances()
     {
-        DisposeAllIn(_keyedInstances.Values);
-        DisposeAllIn(_perClassInstances.Values);
-        DisposeAllIn(_perAssemblyInstances.Values);
-        DisposeAllIn(_perSessionInstances.Values);
+        DisposeHelper.DisposeAllIn(_keyedInstances.Values);
+        DisposeHelper.DisposeAllIn(_perClassInstances.Values);
+        DisposeHelper.DisposeAllIn(_perAssemblyInstances.Values);
+        DisposeHelper.DisposeAllIn(_perSessionInstances.Values);
 
         _keyedInstances.Clear();
         _perClassInstances.Clear();
@@ -108,7 +104,7 @@ public static class CombinedDataSourceExpander
         {
             if (_perClassInstances.TryRemove(key, out var instance))
             {
-                DisposeIfNeeded(instance);
+                DisposeHelper.DisposeIfNeeded(instance);
             }
         }
     }
@@ -319,7 +315,7 @@ public static class CombinedDataSourceExpander
         // Build unique test ID
         var testId = $"{descriptor.BaseId}:Combined[{index}]";
 
-        var displayName = BuildDisplayName(
+        var displayName = DisplayNameBuilder.Build(
             descriptor.MethodName,
             descriptor.CustomDisplayNameTemplate,
             descriptor.DisplayNameFormatterType,
@@ -366,114 +362,6 @@ public static class CombinedDataSourceExpander
         };
     }
 
-    private static string BuildDisplayName(
-        string methodName,
-        string? customDisplayNameTemplate,
-        Type? formatterType,
-        Type testClass,
-        object?[] arguments,
-        int argumentSetIndex)
-    {
-        // Priority 1: Custom formatter
-        if (formatterType is not null)
-        {
-            try
-            {
-                var formatter = GetFormatter(formatterType);
-                var context = new DisplayNameContext
-                {
-                    MethodName = methodName,
-                    TestClass = testClass,
-                    Arguments = arguments,
-                    ArgumentSetIndex = argumentSetIndex
-                };
-                return formatter.Format(context);
-            }
-            catch (InvalidOperationException ex)
-            {
-                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.Message}");
-            }
-            catch (TargetInvocationException ex)
-            {
-                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.InnerException?.Message ?? ex.Message}");
-            }
-        }
-
-        // Priority 2: Custom template with placeholders
-        if (customDisplayNameTemplate is not null)
-        {
-            return FormatDisplayNameWithPlaceholders(customDisplayNameTemplate, arguments);
-        }
-
-        // Priority 3: Default formatting
-        if (arguments.Length == 0)
-        {
-            return methodName;
-        }
-
-        var formattedArgs = string.Join(", ", arguments.Select(FormatArgument));
-        return $"{methodName}({formattedArgs})";
-    }
-
-    private static IDisplayNameFormatter GetFormatter(Type formatterType)
-    {
-        return _formatterCache.GetOrAdd(formatterType, t =>
-        {
-            var instance = Activator.CreateInstance(t)
-                ?? throw new InvalidOperationException(
-                    $"Failed to create display name formatter of type '{t.FullName}'. " +
-                    "Ensure the type has a public parameterless constructor.");
-
-            return instance as IDisplayNameFormatter
-                ?? throw new InvalidOperationException(
-                    $"Type '{t.FullName}' must implement IDisplayNameFormatter " +
-                    "to be used as a display name formatter.");
-        });
-    }
-
-    private static string FormatDisplayNameWithPlaceholders(string template, object?[] arguments)
-    {
-        var result = template;
-        for (var i = 0; i < arguments.Length; i++)
-        {
-            var placeholder = $"{{{i}}}";
-            if (result.Contains(placeholder))
-            {
-                result = result.Replace(placeholder, FormatArgument(arguments[i]));
-            }
-        }
-        return result;
-    }
-
-    private static string FormatArgument(object? arg)
-    {
-        return arg switch
-        {
-            null => "null",
-            string s => $"\"{s}\"",
-            char c => $"'{c}'",
-            bool b => b.ToString().ToLowerInvariant(),
-            IEnumerable enumerable when arg is not string => FormatEnumerable(enumerable),
-            _ => arg.ToString() ?? "null"
-        };
-    }
-
-    private static string FormatEnumerable(IEnumerable enumerable)
-    {
-        var items = enumerable.Cast<object?>().Take(4).ToList();
-
-        // Take 4 items to detect if there are more than 3, then display at most 3
-        var displayCount = Math.Min(3, items.Count);
-        var formatted = string.Join(", ", items.GetRange(0, displayCount).Select(FormatArgument));
-
-        if (items.Count > 3)
-        {
-            formatted += ", ...";
-        }
-
-        return $"[{formatted}]";
-    }
-
     private static TestMethodDelegate CreateTestMethodDelegate(MethodInfo methodInfo, object?[] arguments)
     {
         return async (instance, ct) =>
@@ -511,53 +399,4 @@ public static class CombinedDataSourceExpander
         };
     }
 
-    private static void DisposeAllIn(IEnumerable<object> instances)
-    {
-        foreach (var instance in instances)
-        {
-            DisposeIfNeeded(instance);
-        }
-    }
-
-    /// <summary>
-    /// Disposes an instance if it implements IDisposable or IAsyncDisposable.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Warning:</b> This method blocks on async disposal using GetAwaiter().GetResult().
-    /// In synchronization contexts that don't allow blocking (e.g., UI threads),
-    /// this could potentially cause deadlocks. In test frameworks, this is typically safe
-    /// as tests run on thread pool threads without special synchronization contexts.
-    /// </para>
-    /// <para>
-    /// If deadlocks occur in production use, consider implementing a fully async cleanup path.
-    /// </para>
-    /// </remarks>
-    private static void DisposeIfNeeded(object instance)
-    {
-        try
-        {
-            if (instance is IAsyncDisposable asyncDisposable)
-            {
-                asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            }
-            else if (instance is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-        }
-        catch (OutOfMemoryException)
-        {
-            throw; // Fatal exception - do not swallow
-        }
-        catch (OperationCanceledException)
-        {
-            throw; // Cancellation should propagate
-        }
-        catch (Exception ex) when (ex is not StackOverflowException)
-        {
-            // Best-effort disposal: log full exception and continue to avoid failing test cleanup
-            Debug.WriteLine($"[NextUnit] Failed to dispose shared instance '{instance.GetType().FullName}': {ex}");
-        }
-    }
 }
