@@ -18,12 +18,7 @@ internal static class VSTestCaseFactory
     /// <returns>A fully populated VSTest TestCase.</returns>
     public static TestCase CreateForDiscovery(TestCaseDescriptor descriptor, string source)
     {
-        var testCase = new TestCase(descriptor.Id.Value, new Uri(NextUnitTestExecutor.ExecutorUri), source)
-        {
-            DisplayName = descriptor.DisplayName,
-            CodeFilePath = null, // Could be populated if we had source info
-            LineNumber = 0
-        };
+        var testCase = CreateForExecution(descriptor, source);
 
         // Add traits for categories and tags
         foreach (var category in descriptor.Categories)
