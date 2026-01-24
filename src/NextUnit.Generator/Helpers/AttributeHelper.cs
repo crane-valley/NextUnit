@@ -299,9 +299,10 @@ internal static class AttributeHelper
             }
 
             // Extract all type arguments from the generic attribute
+            // Use TypeofCompatibleFormat to exclude nullable annotations (typeof() doesn't support them)
             foreach (var typeArg in attrClass.TypeArguments)
             {
-                var typeName = typeArg.ToDisplayString(FullyQualifiedTypeFormat);
+                var typeName = typeArg.ToDisplayString(TypeofCompatibleFormat);
                 builder.Add(new ClassDataSource(typeName, sharedType, key));
             }
         }

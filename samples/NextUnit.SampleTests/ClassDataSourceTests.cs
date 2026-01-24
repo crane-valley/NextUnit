@@ -72,6 +72,7 @@ public class ClassDataSourceTests
 
     /// <summary>
     /// Shared data source that tracks instance creation for testing.
+    /// Thread-safe using Interlocked.Increment for parallel test execution.
     /// </summary>
     public class SharedCountingTestData : IEnumerable<object?[]>
     {
@@ -79,13 +80,12 @@ public class ClassDataSourceTests
 
         public SharedCountingTestData()
         {
-            _instanceCount++;
-            InstanceId = _instanceCount;
+            InstanceId = System.Threading.Interlocked.Increment(ref _instanceCount);
         }
 
         public int InstanceId { get; }
 
-        public static void ResetCounter() => _instanceCount = 0;
+        public static void ResetCounter() => System.Threading.Interlocked.Exchange(ref _instanceCount, 0);
 
         public IEnumerator<object?[]> GetEnumerator()
         {
@@ -218,6 +218,7 @@ public class ClassDataSourceTests2
 {
     /// <summary>
     /// Data source for PerAssembly sharing tests.
+    /// Thread-safe using Interlocked.Increment for parallel test execution.
     /// </summary>
     public class AssemblySharedTestData : IEnumerable<object?[]>
     {
@@ -226,7 +227,7 @@ public class ClassDataSourceTests2
 
         public AssemblySharedTestData()
         {
-            InstanceId = ++_globalInstanceCount;
+            InstanceId = System.Threading.Interlocked.Increment(ref _globalInstanceCount);
         }
 
         public IEnumerator<object?[]> GetEnumerator()

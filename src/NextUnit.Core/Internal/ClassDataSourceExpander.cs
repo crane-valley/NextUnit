@@ -68,6 +68,10 @@ public static class ClassDataSourceExpander
                     }
                 }
             }
+            catch (OperationCanceledException)
+            {
+                throw; // Let cancellation propagate
+            }
             catch (Exception ex)
             {
                 throw new InvalidOperationException(
@@ -189,8 +193,8 @@ public static class ClassDataSourceExpander
         int index)
     {
         // Build unique test ID including all source type names
-        var sourceTypesName = string.Join("+", descriptor.DataSourceTypes.Select(t => t.Name));
-        var testId = $"{descriptor.BaseId}:ClassData:{sourceTypesName}[{index}]";
+        var combinedSourceTypesName = string.Join("+", descriptor.DataSourceTypes.Select(t => t.Name));
+        var testId = $"{descriptor.BaseId}:ClassData:{combinedSourceTypesName}[{index}]";
 
         var displayName = BuildDisplayName(
             descriptor.MethodName,
@@ -291,7 +295,17 @@ public static class ClassDataSourceExpander
     private static IDisplayNameFormatter GetFormatter(Type formatterType)
     {
         return _formatterCache.GetOrAdd(formatterType, t =>
-            (IDisplayNameFormatter)Activator.CreateInstance(t)!);
+        {
+            var instance = Activator.CreateInstance(t)
+                ?? throw new InvalidOperationException(
+                    $"Failed to create display name formatter of type '{t.FullName}'. " +
+                    "Ensure the type has a public parameterless constructor.");
+
+            return instance as IDisplayNameFormatter
+                ?? throw new InvalidOperationException(
+                    $"Type '{t.FullName}' must implement IDisplayNameFormatter " +
+                    "to be used as a display name formatter.");
+        });
     }
 
     private static string FormatDisplayNameWithPlaceholders(string template, object?[] arguments)
@@ -324,7 +338,10 @@ public static class ClassDataSourceExpander
     private static string FormatEnumerable(IEnumerable enumerable)
     {
         var items = enumerable.Cast<object?>().Take(4).ToList();
-        var formatted = string.Join(", ", items.Take(3).Select(FormatArgument));
+
+        // Use at most three items from the already materialized list
+        var displayCount = Math.Min(3, items.Count);
+        var formatted = string.Join(", ", items.GetRange(0, displayCount).Select(FormatArgument));
 
         if (items.Count > 3)
         {
@@ -344,9 +361,10 @@ public static class ClassDataSourceExpander
                 object?[] actualArguments = arguments;
 
                 // Check if the method expects a CancellationToken as the last parameter
+                // and arguments array has exactly one fewer element (the CancellationToken slot)
                 if (parameters.Length > 0 &&
                     parameters[^1].ParameterType == typeof(System.Threading.CancellationToken) &&
-                    arguments.Length < parameters.Length)
+                    arguments.Length == parameters.Length - 1)
                 {
                     actualArguments = new object?[arguments.Length + 1];
                     arguments.CopyTo(actualArguments, 0);
@@ -384,6 +402,8 @@ public static class ClassDataSourceExpander
         {
             if (instance is IAsyncDisposable asyncDisposable)
             {
+                // Note: Blocking on async disposal is necessary here as this is called during cleanup.
+                // In production, consider implementing async cleanup patterns if deadlocks occur.
                 asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
             }
             else if (instance is IDisposable disposable)
@@ -391,8 +411,13 @@ public static class ClassDataSourceExpander
                 disposable.Dispose();
             }
         }
+        catch (OutOfMemoryException)
+        {
+            throw; // Fatal exception - do not swallow
+        }
         catch (Exception ex)
         {
+            // Best-effort disposal: log and continue to avoid failing test cleanup
             Debug.WriteLine($"[NextUnit] Failed to dispose shared instance '{instance.GetType().FullName}': {ex.Message}");
         }
     }

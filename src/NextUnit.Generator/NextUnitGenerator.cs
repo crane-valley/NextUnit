@@ -367,7 +367,7 @@ internal static class Program
                 // Validate Keyed sharing requires Key
                 foreach (var source in test.ClassDataSources)
                 {
-                    if (source.SharedType == 1 && string.IsNullOrEmpty(source.Key)) // 1 = SharedType.Keyed
+                    if (source.SharedType == SharedTypeConstants.Keyed && string.IsNullOrEmpty(source.Key))
                     {
                         context.ReportDiagnostic(Diagnostic.Create(
                             new DiagnosticDescriptor(
