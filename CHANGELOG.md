@@ -30,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ExplicitAttribute` with `AttributeTargets.Method | AttributeTargets.Class`
 - `IsExplicit` and `ExplicitReason` properties added to all descriptor classes
-- Pre-expansion filtering for explicit tests in VSTest adapter (avoids data provider side effects)
+- Pre-expansion filtering during test execution (data providers not invoked for filtered explicit tests)
+- Discovery still expands all tests for Test Explorer visibility
 - `TestFilterConfiguration.IncludeExplicitTests` property for platform-level control
 
 ## [1.12.0] - 2026-01-24
