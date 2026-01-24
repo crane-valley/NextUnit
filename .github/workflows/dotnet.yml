@@ -111,7 +111,7 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Check code formatting
-      run: dotnet format --verify-no-changes --verbosity minimal
+      run: dotnet format NextUnit.slnx --verify-no-changes --verbosity minimal
 
     - name: Check required files
       run: |
