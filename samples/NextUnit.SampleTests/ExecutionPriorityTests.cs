@@ -58,7 +58,7 @@ public class ExecutionPriorityTests
         nameof(MediumPriorityTest),
         nameof(DefaultPriorityTest),
         nameof(LowPriorityTest))]
-    public void Validate_executionOrder()
+    public void ValidateExecutionOrder()
     {
         // Higher priority runs first: 100 > 50 > 0 > -100
         Assert.Equal(4, _executionOrder.Count);
