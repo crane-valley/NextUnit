@@ -193,7 +193,7 @@ internal static class TestMethodValidator
         }
 
         // Keyed sharing requires Key
-        foreach (var source in test.ClassDataSources.Where(s => s.SharedType == SharedTypeConstants.Keyed && string.IsNullOrEmpty(s.Key)))
+        foreach (var _ in test.ClassDataSources.Where(s => s.SharedType == SharedTypeConstants.Keyed && string.IsNullOrEmpty(s.Key)))
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 new DiagnosticDescriptor(
