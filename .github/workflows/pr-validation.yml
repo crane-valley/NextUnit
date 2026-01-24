@@ -67,14 +67,14 @@ jobs:
           ${{ runner.os }}-nuget-
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore src/ samples/NextUnit.SampleTests/
 
     - name: Build Release (strict mode)
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build src/ samples/NextUnit.SampleTests/ --configuration Release --no-restore
 
     - name: Verify no warnings
       run: |
-        dotnet build --configuration Release --no-restore 2>&1 | tee build.log
+        dotnet build src/ samples/NextUnit.SampleTests/ --configuration Release --no-restore 2>&1 | tee build.log
         if grep -E ": warning [A-Z]{2,}[0-9]+:" build.log; then
           echo "⚠️ Build warnings found"
           exit 1
@@ -122,7 +122,7 @@ jobs:
 
     - name: Check dependencies
       run: |
-        dotnet restore
+        dotnet restore src/
         echo "=== NextUnit.Core Dependencies ==="
         dotnet list src/NextUnit.Core/NextUnit.Core.csproj package
 
