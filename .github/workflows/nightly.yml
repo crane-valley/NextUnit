@@ -49,48 +49,58 @@ jobs:
         echo "Running NextUnit sample tests..."
         dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --configuration Release --no-build -- --minimum-expected-tests 20
 
-  # Native AOT compilation test
+  # Native AOT compilation and execution test
   native-aot-test:
-    name: Native AOT Compilation Test
+    name: Native AOT Test
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
-    
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '10.0.x'
-    
+
     - name: Install Native AOT prerequisites
       run: |
         sudo apt-get update
         sudo apt-get install -y clang zlib1g-dev
-    
+
     - name: Restore dependencies
       run: dotnet restore
-    
-    - name: Test Native AOT publishing (dry-run)
+
+    - name: Publish with Native AOT
       run: |
         dotnet publish samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj \
           --configuration Release \
+          --runtime linux-x64 \
           /p:PublishAot=true \
-          /p:PublishTrimmed=true \
-          /p:TrimMode=full \
-          --self-contained
-      continue-on-error: true  # Native AOT support is WIP
-    
-    - name: Check for trim warnings
+          --output ./aot-publish
+
+    - name: Verify AOT binary exists
       run: |
-        echo "Checking for trim analysis warnings..."
-        dotnet publish samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj \
-          --configuration Release \
-          /p:PublishTrimmed=true \
-          /p:EnableTrimAnalyzer=true \
-          /p:SuppressTrimAnalysisWarnings=false \
-          --self-contained
-      continue-on-error: true
+        echo "=== AOT Build Output ==="
+        ls -lh ./aot-publish/
+        file ./aot-publish/NextUnit.SampleTests
+
+    - name: Run AOT-compiled tests
+      run: |
+        echo "=== Running Native AOT Tests ==="
+        chmod +x ./aot-publish/NextUnit.SampleTests
+        ./aot-publish/NextUnit.SampleTests --minimum-expected-tests 20
+
+    - name: Compare binary sizes
+      run: |
+        echo "=== Binary Size Comparison ==="
+        echo "AOT binary size:"
+        ls -lh ./aot-publish/NextUnit.SampleTests
+        echo ""
+        echo "For reference, building standard Release..."
+        dotnet build samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --configuration Release --no-restore
+        echo "Standard DLL size:"
+        ls -lh samples/NextUnit.SampleTests/bin/Release/net10.0/NextUnit.SampleTests.dll
 
   # Performance benchmark
   performance-benchmark:
