@@ -229,6 +229,20 @@ internal sealed class NextUnitFramework :
             allTestCases.AddRange(expandedTests);
         }
 
+        // Get dynamic test cases from CombinedDataSourceDescriptors property
+        var combinedDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<CombinedDataSourceDescriptor>>(generatedRegistryType, "CombinedDataSourceDescriptors");
+        if (combinedDataSourceDescriptors is not null)
+        {
+            // Filter CombinedDataSourceDescriptors BEFORE expansion to avoid resolving data sources for excluded tests
+            var filteredDescriptors = combinedDataSourceDescriptors
+                .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName))
+                .ToList();
+
+            // Expand only the filtered CombinedDataSourceDescriptors into TestCaseDescriptors at runtime
+            var expandedTests = CombinedDataSourceExpander.Expand(filteredDescriptors);
+            allTestCases.AddRange(expandedTests);
+        }
+
         // Apply category and tag filtering to static test cases
         var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags, tc.DisplayName)).ToList();
 
