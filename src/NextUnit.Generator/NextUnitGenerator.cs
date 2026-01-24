@@ -525,7 +525,7 @@ internal static class Program
         builder.AppendLine();
 
         // Separate tests by type: regular, matrix, TestData, ClassDataSource, and CombinedDataSource
-        // Let List<T> grow dynamically to avoid over-allocating when tests are unevenly distributed
+        // Use default List<T> capacity - grows dynamically as items are added
         var regularTests = new List<TestMethodDescriptor>();
         var matrixTests = new List<TestMethodDescriptor>();
         var testDataTests = new List<TestMethodDescriptor>();

@@ -554,7 +554,7 @@ public static class CombinedDataSourceExpander
         {
             throw; // Cancellation should propagate
         }
-        catch (Exception ex) when (ex is not StackOverflowException and not ThreadAbortException and not ThreadInterruptedException)
+        catch (Exception ex) when (ex is not StackOverflowException)
         {
             // Best-effort disposal: log full exception and continue to avoid failing test cleanup
             Debug.WriteLine($"[NextUnit] Failed to dispose shared instance '{instance.GetType().FullName}': {ex}");
