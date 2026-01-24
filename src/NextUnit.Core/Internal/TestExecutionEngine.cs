@@ -14,8 +14,9 @@ public interface ITestExecutionSink
     /// </summary>
     /// <param name="test">The test case that passed.</param>
     /// <param name="output">The test output captured during execution, or null if no output.</param>
+    /// <param name="artifacts">The artifacts attached to the test, or null if none.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null);
+    public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null);
 
     /// <summary>
     /// Reports that a test has failed due to an assertion failure.
@@ -23,8 +24,9 @@ public interface ITestExecutionSink
     /// <param name="test">The test case that failed.</param>
     /// <param name="ex">The assertion exception that caused the failure.</param>
     /// <param name="output">The test output captured during execution, or null if no output.</param>
+    /// <param name="artifacts">The artifacts attached to the test, or null if none.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null);
+    public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null);
 
     /// <summary>
     /// Reports that a test encountered an unexpected error.
@@ -32,8 +34,9 @@ public interface ITestExecutionSink
     /// <param name="test">The test case that encountered an error.</param>
     /// <param name="ex">The exception that was thrown.</param>
     /// <param name="output">The test output captured during execution, or null if no output.</param>
+    /// <param name="artifacts">The artifacts attached to the test, or null if none.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null);
+    public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null);
 
     /// <summary>
     /// Reports that a test was skipped.
@@ -379,7 +382,8 @@ public sealed class TestExecutionEngine
                 {
                     throw new InvalidOperationException("Retriable attempt result must have a non-null exception.");
                 }
-                await ReportFinalExceptionAsync(testCase, sink, attemptResult.Exception, testOutput.GetOutput()).ConfigureAwait(false);
+                var artifacts = TestContext.Current?.Artifacts;
+                await ReportFinalExceptionAsync(testCase, sink, attemptResult.Exception, testOutput.GetOutput(), artifacts).ConfigureAwait(false);
                 return;
             }
         }
@@ -424,15 +428,17 @@ public sealed class TestExecutionEngine
                 await afterMethod(instance, effectiveToken).ConfigureAwait(false);
             }
 
-            // Test passed - report success
-            await sink.ReportPassedAsync(testCase, testOutput.GetOutput()).ConfigureAwait(false);
+            // Test passed - report success with artifacts
+            var artifacts = currentContext.Artifacts;
+            await sink.ReportPassedAsync(testCase, testOutput.GetOutput(), artifacts).ConfigureAwait(false);
             return AttemptResult.Passed;
         }
         catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true && !cancellationToken.IsCancellationRequested)
         {
             // Timeout occurred - do not retry timeouts
             var timeoutEx = new TestTimeoutException(testCase.TimeoutMs!.Value);
-            await sink.ReportErrorAsync(testCase, timeoutEx, testOutput.GetOutput()).ConfigureAwait(false);
+            var artifacts = currentContext.Artifacts;
+            await sink.ReportErrorAsync(testCase, timeoutEx, testOutput.GetOutput(), artifacts).ConfigureAwait(false);
             return AttemptResult.TimedOut;
         }
         catch (TestSkippedException ex)
@@ -471,15 +477,16 @@ public sealed class TestExecutionEngine
         TestCaseDescriptor testCase,
         ITestExecutionSink sink,
         Exception exception,
-        string? output)
+        string? output,
+        IReadOnlyList<Artifact>? artifacts = null)
     {
         if (exception is AssertionFailedException assertionEx)
         {
-            await sink.ReportFailedAsync(testCase, assertionEx, output).ConfigureAwait(false);
+            await sink.ReportFailedAsync(testCase, assertionEx, output, artifacts).ConfigureAwait(false);
         }
         else
         {
-            await sink.ReportErrorAsync(testCase, exception, output).ConfigureAwait(false);
+            await sink.ReportErrorAsync(testCase, exception, output, artifacts).ConfigureAwait(false);
         }
     }
 
@@ -737,22 +744,22 @@ public sealed class TestExecutionEngine
             _scheduler = scheduler;
         }
 
-        public async Task ReportPassedAsync(TestCaseDescriptor test, string? output = null)
+        public async Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             _scheduler.ReportOutcome(test.Id, TestOutcome.Passed);
-            await _inner.ReportPassedAsync(test, output).ConfigureAwait(false);
+            await _inner.ReportPassedAsync(test, output, artifacts).ConfigureAwait(false);
         }
 
-        public async Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null)
+        public async Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             _scheduler.ReportOutcome(test.Id, TestOutcome.Failed);
-            await _inner.ReportFailedAsync(test, ex, output).ConfigureAwait(false);
+            await _inner.ReportFailedAsync(test, ex, output, artifacts).ConfigureAwait(false);
         }
 
-        public async Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null)
+        public async Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             _scheduler.ReportOutcome(test.Id, TestOutcome.Error);
-            await _inner.ReportErrorAsync(test, ex, output).ConfigureAwait(false);
+            await _inner.ReportErrorAsync(test, ex, output, artifacts).ConfigureAwait(false);
         }
 
         public async Task ReportSkippedAsync(TestCaseDescriptor test)

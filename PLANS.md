@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.11.0 (Stable)
+## Current Version: 1.12.0 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -215,13 +215,13 @@ Phase 2 (Future):
 
 #### 3.5 Test Artifacts
 
-**Status**: Not Started
+**Status**: Completed (v1.12.0)
 **Goal**: Attach files to test results
 
-- [ ] `TestContext.AttachArtifact(path)` method
-- [ ] `TestContext.AttachArtifact(Artifact)` with metadata
-- [ ] Support for screenshots, logs, videos
-- [ ] Display in Test Explorer
+- [x] `TestContext.AttachArtifact(path)` method
+- [x] `TestContext.AttachArtifact(Artifact)` with metadata
+- [x] Support for screenshots, logs, videos
+- [x] Display in Test Explorer
 
 #### 3.6 Watch Mode
 
@@ -441,4 +441,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-24
-**Next Focus**: Priority 3.5 - Test Artifacts, Priority 3.1 Phase 2 - Additional Analyzers
+**Next Focus**: Priority 3.1 Phase 2 - Additional Analyzers, Priority 4.1 - ASP.NET Core Integration
