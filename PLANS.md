@@ -32,19 +32,19 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 0.1 Critical: Code Duplication Elimination
 
-- [ ] Extract `AssemblyLoader` utility (shared assembly loading with exception handling)
+- [x] Extract `AssemblyLoader` utility (shared assembly loading with exception handling)
   - Consolidate from: TestDiscoverer, TestExecutor, NextUnitFramework
-- [ ] Extract `ExceptionHelper.IsCriticalException()` (shared exception classification)
+- [x] Extract `ExceptionHelper.IsCriticalException()` (shared exception classification)
   - Consolidate from: TestDiscoverer, TestExecutor
-- [ ] Refactor `ExecuteSingleAsync` in TestExecutionEngine (reduce complexity)
-  - Break into: `ValidateTestAsync`, `ExecuteWithRetryAsync`, `ReportResultAsync`
+- [x] Refactor `ExecuteSingleAsync` in TestExecutionEngine (reduce complexity)
+  - Break into: `CheckSkipConditionsAsync`, `ExecuteWithRetryAsync`, `CreateTestContext`
 
 #### 0.2 High: Architecture Improvements
 
 - [ ] Split `NextUnitGenerator.cs` (1,557 lines) into focused classes
   - TestRegistryGenerator, TestCaseEmitter, TestDataDescriptorEmitter
   - LifecycleMethodBuilder, ParameterBuilder, ArgumentFormatter
-- [ ] Extract `VSTestCaseFactory` (consolidate VSTest case creation)
+- [x] Extract `VSTestCaseFactory` (consolidate VSTest case creation)
   - Consolidate from: TestDiscoverer, TestExecutor
 - [ ] Centralize `TestFilter` logic (unified filtering across Platform and TestAdapter)
 - [ ] Consolidate argument formatting methods in Generator
@@ -422,5 +422,5 @@ We welcome contributions! Priority areas:
 
 ---
 
-**Last Updated**: 2026-01-19
+**Last Updated**: 2026-01-24
 **Next Focus**: Internal Refactoring (Priority 0)

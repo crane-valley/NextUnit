@@ -276,10 +276,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         private TestCase CreateVSTestCase(TestCaseDescriptor descriptor)
         {
-            return new TestCase(descriptor.Id.Value, new Uri(ExecutorUri), _source)
-            {
-                DisplayName = descriptor.DisplayName
-            };
+            return VSTestCaseFactory.CreateForExecution(descriptor, _source);
         }
     }
 }
