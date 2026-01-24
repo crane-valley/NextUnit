@@ -69,6 +69,7 @@ internal static class DisposeHelper
     /// <summary>
     /// Disposes an object with error handling for cleanup scenarios.
     /// Logs errors but does not throw (except for fatal exceptions).
+    /// Prefers IDisposable over IAsyncDisposable for consistency with other methods.
     /// </summary>
     /// <param name="instance">The object to dispose.</param>
     /// <remarks>
@@ -91,13 +92,14 @@ internal static class DisposeHelper
 
         try
         {
-            if (instance is IAsyncDisposable asyncDisposable)
-            {
-                asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            }
-            else if (instance is IDisposable disposable)
+            // Prefer IDisposable for consistency with DisposeAsync and Dispose methods
+            if (instance is IDisposable disposable)
             {
                 disposable.Dispose();
+            }
+            else if (instance is IAsyncDisposable asyncDisposable)
+            {
+                asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
             }
         }
         catch (OutOfMemoryException)

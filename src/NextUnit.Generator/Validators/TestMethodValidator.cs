@@ -29,13 +29,13 @@ internal static class TestMethodValidator
         }
     }
 
-    private static System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>> BuildDependencyGraph(
+    private static Dictionary<string, HashSet<string>> BuildDependencyGraph(
         ImmutableArray<TestMethodDescriptor> tests)
     {
-        var graph = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>();
+        var graph = new Dictionary<string, HashSet<string>>();
         foreach (var test in tests)
         {
-            graph[test.Id] = new System.Collections.Generic.HashSet<string>(test.Dependencies);
+            graph[test.Id] = new HashSet<string>(test.Dependencies);
         }
         return graph;
     }
@@ -43,10 +43,10 @@ internal static class TestMethodValidator
     private static void ValidateDependencies(
         SourceProductionContext context,
         TestMethodDescriptor test,
-        System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>> dependencyGraph)
+        Dictionary<string, HashSet<string>> dependencyGraph)
     {
         // Check for dependency cycles
-        if (HasCycle(test.Id, new System.Collections.Generic.HashSet<string>(), dependencyGraph))
+        if (HasCycle(test.Id, new HashSet<string>(), dependencyGraph))
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 new DiagnosticDescriptor(
@@ -61,22 +61,19 @@ internal static class TestMethodValidator
         }
 
         // Check for unresolved dependencies
-        foreach (var depId in test.Dependencies)
+        foreach (var depId in test.Dependencies.Where(depId => !dependencyGraph.ContainsKey(depId)))
         {
-            if (!dependencyGraph.ContainsKey(depId))
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    new DiagnosticDescriptor(
-                        "NEXTUNIT002",
-                        "Unresolved test dependency",
-                        "Test '{0}' depends on '{1}' which does not exist",
-                        "NextUnit",
-                        DiagnosticSeverity.Warning,
-                        isEnabledByDefault: true),
-                    Location.None,
-                    test.Id,
-                    depId));
-            }
+            context.ReportDiagnostic(Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    "NEXTUNIT002",
+                    "Unresolved test dependency",
+                    "Test '{0}' depends on '{1}' which does not exist",
+                    "NextUnit",
+                    DiagnosticSeverity.Warning,
+                    isEnabledByDefault: true),
+                Location.None,
+                test.Id,
+                depId));
         }
     }
 
@@ -155,23 +152,20 @@ internal static class TestMethodValidator
         // [MatrixExclusion] parameter count validation
         if (!test.MatrixExclusions.IsDefaultOrEmpty)
         {
-            foreach (var exclusion in test.MatrixExclusions)
+            foreach (var exclusion in test.MatrixExclusions.Where(e => e.Values.Length != test.MatrixParameters.Length))
             {
-                if (exclusion.Values.Length != test.MatrixParameters.Length)
-                {
-                    context.ReportDiagnostic(Diagnostic.Create(
-                        new DiagnosticDescriptor(
-                            "NEXTUNIT007",
-                            "Matrix exclusion parameter count mismatch",
-                            "Test '{0}' has [MatrixExclusion] with {1} values but the test has {2} matrix parameters.",
-                            "NextUnit",
-                            DiagnosticSeverity.Error,
-                            isEnabledByDefault: true),
-                        Location.None,
-                        test.Id,
-                        exclusion.Values.Length,
-                        test.MatrixParameters.Length));
-                }
+                context.ReportDiagnostic(Diagnostic.Create(
+                    new DiagnosticDescriptor(
+                        "NEXTUNIT007",
+                        "Matrix exclusion parameter count mismatch",
+                        "Test '{0}' has [MatrixExclusion] with {1} values but the test has {2} matrix parameters.",
+                        "NextUnit",
+                        DiagnosticSeverity.Error,
+                        isEnabledByDefault: true),
+                    Location.None,
+                    test.Id,
+                    exclusion.Values.Length,
+                    test.MatrixParameters.Length));
             }
         }
     }
@@ -199,21 +193,18 @@ internal static class TestMethodValidator
         }
 
         // Keyed sharing requires Key
-        foreach (var source in test.ClassDataSources)
+        foreach (var source in test.ClassDataSources.Where(s => s.SharedType == SharedTypeConstants.Keyed && string.IsNullOrEmpty(s.Key)))
         {
-            if (source.SharedType == SharedTypeConstants.Keyed && string.IsNullOrEmpty(source.Key))
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    new DiagnosticDescriptor(
-                        "NEXTUNIT009",
-                        "Missing Key for Keyed ClassDataSource",
-                        "Test '{0}' uses ClassDataSource with SharedType.Keyed but no Key is specified.",
-                        "NextUnit",
-                        DiagnosticSeverity.Error,
-                        isEnabledByDefault: true),
-                    Location.None,
-                    test.Id));
-            }
+            context.ReportDiagnostic(Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    "NEXTUNIT009",
+                    "Missing Key for Keyed ClassDataSource",
+                    "Test '{0}' uses ClassDataSource with SharedType.Keyed but no Key is specified.",
+                    "NextUnit",
+                    DiagnosticSeverity.Error,
+                    isEnabledByDefault: true),
+                Location.None,
+                test.Id));
         }
     }
 
@@ -265,31 +256,29 @@ internal static class TestMethodValidator
         }
 
         // Keyed sharing requires Key
-        foreach (var source in test.CombinedParameterSources)
+        foreach (var source in test.CombinedParameterSources.Where(s =>
+            s.Kind == ParameterDataSourceKind.Class &&
+            s.SharedType == SharedTypeConstants.Keyed &&
+            string.IsNullOrEmpty(s.SharedKey)))
         {
-            if (source.Kind == ParameterDataSourceKind.Class &&
-                source.SharedType == SharedTypeConstants.Keyed &&
-                string.IsNullOrEmpty(source.SharedKey))
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    new DiagnosticDescriptor(
-                        "NEXTUNIT012",
-                        "Missing Key for Keyed ValuesFrom",
-                        "Test '{0}' uses [ValuesFrom] with SharedType.Keyed on parameter '{1}' but no Key is specified.",
-                        "NextUnit",
-                        DiagnosticSeverity.Error,
-                        isEnabledByDefault: true),
-                    Location.None,
-                    test.Id,
-                    source.ParameterName));
-            }
+            context.ReportDiagnostic(Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    "NEXTUNIT012",
+                    "Missing Key for Keyed ValuesFrom",
+                    "Test '{0}' uses [ValuesFrom] with SharedType.Keyed on parameter '{1}' but no Key is specified.",
+                    "NextUnit",
+                    DiagnosticSeverity.Error,
+                    isEnabledByDefault: true),
+                Location.None,
+                test.Id,
+                source.ParameterName));
         }
     }
 
     private static bool HasCycle(
         string testId,
-        System.Collections.Generic.HashSet<string> visited,
-        System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>> graph)
+        HashSet<string> visited,
+        Dictionary<string, HashSet<string>> graph)
     {
         if (!visited.Add(testId))
         {
@@ -302,12 +291,9 @@ internal static class TestMethodValidator
             return false;
         }
 
-        foreach (var dep in dependencies)
+        if (dependencies.Any(dep => HasCycle(dep, visited, graph)))
         {
-            if (HasCycle(dep, visited, graph))
-            {
-                return true;
-            }
+            return true;
         }
 
         visited.Remove(testId);

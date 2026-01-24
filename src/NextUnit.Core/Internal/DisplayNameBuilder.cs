@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reflection;
+using System.Text;
 
 namespace NextUnit.Internal;
 
@@ -80,24 +81,22 @@ internal static class DisplayNameBuilder
     /// <summary>
     /// Formats a display name template by replacing placeholders with argument values.
     /// Supports {0}, {1}, etc. for positional arguments.
+    /// Uses StringBuilder for efficient in-place replacements.
     /// </summary>
     /// <param name="template">The template string with placeholders.</param>
     /// <param name="arguments">The arguments to substitute.</param>
     /// <returns>The formatted display name.</returns>
     public static string FormatWithPlaceholders(string template, object?[] arguments)
     {
-        var result = template;
+        var sb = new StringBuilder(template);
 
         for (var i = 0; i < arguments.Length; i++)
         {
             var placeholder = $"{{{i}}}";
-            if (result.Contains(placeholder))
-            {
-                result = result.Replace(placeholder, FormatArgument(arguments[i]));
-            }
+            sb.Replace(placeholder, FormatArgument(arguments[i]));
         }
 
-        return result;
+        return sb.ToString();
     }
 
     /// <summary>
