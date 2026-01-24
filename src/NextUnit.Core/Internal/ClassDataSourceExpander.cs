@@ -237,7 +237,8 @@ public static class ClassDataSourceExpander
             TimeoutMs = descriptor.TimeoutMs,
             Retry = descriptor.Retry,
             CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate,
-            DisplayNameFormatterType = descriptor.DisplayNameFormatterType
+            DisplayNameFormatterType = descriptor.DisplayNameFormatterType,
+            Priority = descriptor.Priority
         };
     }
 

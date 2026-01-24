@@ -212,7 +212,9 @@ public sealed class ParallelScheduler
         foreach (var constraintGroup in constraintKeyGroups)
         {
             // Each constraint group runs one test at a time
-            foreach (var node in constraintGroup.Nodes)
+            // Sort nodes within each group by priority (descending - higher priority first)
+            var sortedNodes = constraintGroup.Nodes.OrderByDescending(n => n.Test.Priority);
+            foreach (var node in sortedNodes)
             {
                 batches.Add(new TestBatch
                 {
@@ -225,15 +227,15 @@ public sealed class ParallelScheduler
             }
         }
 
-        // Group parallel tests by their ParallelLimit
+        // Group parallel tests by their ParallelLimit, preserving priority order within each group
         var testsByLimit = parallelTests
             .GroupBy(n => n.Test.Parallel.ParallelLimit ?? _globalMaxDegreeOfParallelism)
+            .Select(g => (Limit: g.Key, Nodes: g.OrderByDescending(n => n.Test.Priority).ToList()))
             .ToList();
 
-        foreach (var group in testsByLimit)
+        foreach (var (limit, nodes) in testsByLimit)
         {
-            var limit = group.Key;
-            var tests = group.Select(n => n.Test).ToList();
+            var tests = nodes.Select(n => n.Test).ToList();
 
             // If there are many tests with the same limit, we can potentially split them
             // into multiple batches for better load balancing
