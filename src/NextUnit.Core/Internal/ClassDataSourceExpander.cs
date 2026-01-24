@@ -17,9 +17,6 @@ public static class ClassDataSourceExpander
     private static readonly ConcurrentDictionary<Type, object> _perAssemblyInstances = new();
     private static readonly ConcurrentDictionary<Type, object> _perSessionInstances = new();
 
-    // Cache for display name formatters
-    private static readonly ConcurrentDictionary<Type, IDisplayNameFormatter> _formatterCache = new();
-
     /// <summary>
     /// Expands a collection of class data source descriptors into test case descriptors.
     /// </summary>
@@ -196,7 +193,7 @@ public static class ClassDataSourceExpander
         var combinedSourceTypesName = string.Join("+", descriptor.DataSourceTypes.Select(t => t.Name));
         var testId = $"{descriptor.BaseId}:ClassData:{combinedSourceTypesName}[{index}]";
 
-        var displayName = BuildDisplayName(
+        var displayName = DisplayNameBuilder.Build(
             descriptor.MethodName,
             descriptor.CustomDisplayNameTemplate,
             descriptor.DisplayNameFormatterType,
@@ -241,114 +238,6 @@ public static class ClassDataSourceExpander
             CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate,
             DisplayNameFormatterType = descriptor.DisplayNameFormatterType
         };
-    }
-
-    private static string BuildDisplayName(
-        string methodName,
-        string? customDisplayNameTemplate,
-        Type? formatterType,
-        Type testClass,
-        object?[] arguments,
-        int argumentSetIndex)
-    {
-        // Priority 1: Custom formatter
-        if (formatterType is not null)
-        {
-            try
-            {
-                var formatter = GetFormatter(formatterType);
-                var context = new DisplayNameContext
-                {
-                    MethodName = methodName,
-                    TestClass = testClass,
-                    Arguments = arguments,
-                    ArgumentSetIndex = argumentSetIndex
-                };
-                return formatter.Format(context);
-            }
-            catch (InvalidOperationException ex)
-            {
-                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.Message}");
-            }
-            catch (TargetInvocationException ex)
-            {
-                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.InnerException?.Message ?? ex.Message}");
-            }
-        }
-
-        // Priority 2: Custom template with placeholders
-        if (customDisplayNameTemplate is not null)
-        {
-            return FormatDisplayNameWithPlaceholders(customDisplayNameTemplate, arguments);
-        }
-
-        // Priority 3: Default formatting
-        if (arguments.Length == 0)
-        {
-            return methodName;
-        }
-
-        var formattedArgs = string.Join(", ", arguments.Select(FormatArgument));
-        return $"{methodName}({formattedArgs})";
-    }
-
-    private static IDisplayNameFormatter GetFormatter(Type formatterType)
-    {
-        return _formatterCache.GetOrAdd(formatterType, t =>
-        {
-            var instance = Activator.CreateInstance(t)
-                ?? throw new InvalidOperationException(
-                    $"Failed to create display name formatter of type '{t.FullName}'. " +
-                    "Ensure the type has a public parameterless constructor.");
-
-            return instance as IDisplayNameFormatter
-                ?? throw new InvalidOperationException(
-                    $"Type '{t.FullName}' must implement IDisplayNameFormatter " +
-                    "to be used as a display name formatter.");
-        });
-    }
-
-    private static string FormatDisplayNameWithPlaceholders(string template, object?[] arguments)
-    {
-        var result = template;
-        for (var i = 0; i < arguments.Length; i++)
-        {
-            var placeholder = $"{{{i}}}";
-            if (result.Contains(placeholder))
-            {
-                result = result.Replace(placeholder, FormatArgument(arguments[i]));
-            }
-        }
-        return result;
-    }
-
-    private static string FormatArgument(object? arg)
-    {
-        return arg switch
-        {
-            null => "null",
-            string s => $"\"{s}\"",
-            char c => $"'{c}'",
-            bool b => b.ToString().ToLowerInvariant(),
-            IEnumerable enumerable when arg is not string => FormatEnumerable(enumerable),
-            _ => arg.ToString() ?? "null"
-        };
-    }
-
-    private static string FormatEnumerable(IEnumerable enumerable)
-    {
-        var items = enumerable.Cast<object?>().Take(4).ToList();
-
-        // Use at most three items from the already materialized list
-        var displayCount = Math.Min(3, items.Count);
-        var formatted = string.Join(", ", items.GetRange(0, displayCount).Select(FormatArgument));
-
-        if (items.Count > 3)
-        {
-            formatted += ", ...";
-        }
-
-        return $"[{formatted}]";
     }
 
     private static TestMethodDelegate CreateTestMethodDelegate(MethodInfo methodInfo, object?[] arguments)
