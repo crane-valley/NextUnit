@@ -33,23 +33,13 @@ public sealed class DependsOnAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Get all test method names in the class
-        var testMethodNames = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var member in containingType.GetMembers())
-        {
-            if (member is IMethodSymbol memberMethod)
-            {
-                // Check if method has [Test] attribute
-                foreach (var attr in memberMethod.GetAttributes())
-                {
-                    if (attr.AttributeClass?.ToDisplayString() == TestAttributeFullName)
-                    {
-                        testMethodNames.Add(memberMethod.Name);
-                        break;
-                    }
-                }
-            }
-        }
+        // Get all test method names in the class using LINQ
+        var testMethodNames = new HashSet<string>(
+            containingType.GetMembers()
+                .OfType<IMethodSymbol>()
+                .Where(m => m.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == TestAttributeFullName))
+                .Select(m => m.Name),
+            StringComparer.Ordinal);
 
         // Check each [DependsOn] attribute
         foreach (var attribute in method.GetAttributes())
@@ -92,21 +82,25 @@ public sealed class DependsOnAnalyzer : DiagnosticAnalyzer
 
                 // Check if the dependency exists
                 // For simple names (no dot), look in the same class
-                // For qualified names (with dot), we currently only check same class part
-                var methodName = dependencyName.Contains('.')
-                    ? dependencyName.Substring(dependencyName.LastIndexOf('.') + 1)
-                    : dependencyName;
+                // For qualified names (with dot), extract and validate
+                var dotIndex = dependencyName.LastIndexOf('.');
+                string methodName;
 
-                // If it contains a dot, the class part should match
-                if (dependencyName.Contains('.'))
+                if (dotIndex >= 0)
                 {
-                    var classPart = dependencyName.Substring(0, dependencyName.LastIndexOf('.'));
-                    if (classPart != containingType.Name && !classPart.EndsWith("." + containingType.Name))
+                    var classPart = dependencyName.Substring(0, dotIndex);
+                    methodName = dependencyName.Substring(dotIndex + 1);
+
+                    // Skip validation if referencing a different class
+                    if (!string.Equals(classPart, containingType.Name, StringComparison.Ordinal) &&
+                        !classPart.EndsWith("." + containingType.Name, StringComparison.Ordinal))
                     {
-                        // References a different class - we skip validation for now
-                        // as it would require cross-class analysis
                         continue;
                     }
+                }
+                else
+                {
+                    methodName = dependencyName;
                 }
 
                 if (!testMethodNames.Contains(methodName))

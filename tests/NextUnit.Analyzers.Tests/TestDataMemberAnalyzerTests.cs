@@ -80,8 +80,9 @@ public class TestDataMemberAnalyzerTests
     }
 
     [Fact]
-    public async Task TestDataWithPrivateMember_ReportsDiagnosticAsync()
+    public async Task TestDataWithPrivateStaticMember_NoDiagnosticAsync()
     {
+        // Private static members are valid data sources (runtime uses BindingFlags.NonPublic)
         var source = """
             using NextUnit;
             using System.Collections.Generic;
@@ -98,12 +99,7 @@ public class TestDataMemberAnalyzerTests
             }
             """;
 
-        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
-            .Diagnostic("NU0003")
-            .WithSpan(9, 6, 9, 27)
-            .WithArguments("TestCases", "Tests");
-
-        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
     }
 
     [Fact]

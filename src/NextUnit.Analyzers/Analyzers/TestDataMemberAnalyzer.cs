@@ -90,37 +90,15 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Look for the member
+        // Look for a static member (property, method, or field)
+        // Note: Runtime uses BindingFlags.Public | BindingFlags.NonPublic, so private/protected are valid
         var members = targetType.GetMembers(memberName);
-        var foundAccessibleMember = false;
+        var foundValidMember = members.Any(member =>
+            (member is IPropertySymbol property && property.IsStatic) ||
+            (member is IMethodSymbol memberMethod && memberMethod.IsStatic) ||
+            (member is IFieldSymbol field && field.IsStatic));
 
-        foreach (var member in members)
-        {
-            // Check if member is accessible (public or internal in same assembly)
-            if (member.DeclaredAccessibility == Accessibility.Public ||
-                member.DeclaredAccessibility == Accessibility.Internal ||
-                member.DeclaredAccessibility == Accessibility.ProtectedOrInternal)
-            {
-                // For properties and methods, they should be static for data sources
-                if (member is IPropertySymbol property && property.IsStatic)
-                {
-                    foundAccessibleMember = true;
-                    break;
-                }
-                else if (member is IMethodSymbol memberMethod && memberMethod.IsStatic)
-                {
-                    foundAccessibleMember = true;
-                    break;
-                }
-                else if (member is IFieldSymbol field && field.IsStatic)
-                {
-                    foundAccessibleMember = true;
-                    break;
-                }
-            }
-        }
-
-        if (!foundAccessibleMember)
+        if (!foundValidMember)
         {
             var location = attribute.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
                 ?? method.Locations[0];

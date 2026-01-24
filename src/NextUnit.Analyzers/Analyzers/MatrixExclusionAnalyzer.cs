@@ -28,19 +28,9 @@ public sealed class MatrixExclusionAnalyzer : DiagnosticAnalyzer
     {
         var method = (IMethodSymbol)context.Symbol;
 
-        // Count parameters with [Matrix] attribute
-        var matrixParameterCount = 0;
-        foreach (var parameter in method.Parameters)
-        {
-            foreach (var attribute in parameter.GetAttributes())
-            {
-                if (attribute.AttributeClass?.ToDisplayString() == MatrixAttributeFullName)
-                {
-                    matrixParameterCount++;
-                    break;
-                }
-            }
-        }
+        // Count parameters with [Matrix] attribute using LINQ
+        var matrixParameterCount = method.Parameters
+            .Count(p => p.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == MatrixAttributeFullName));
 
         // If no matrix parameters, nothing to check
         if (matrixParameterCount == 0)
@@ -57,14 +47,13 @@ public sealed class MatrixExclusionAnalyzer : DiagnosticAnalyzer
             }
 
             // Get the constructor arguments (the params object[] values)
-            var constructorArgs = attribute.ConstructorArguments;
-            if (constructorArgs.Length == 0)
+            if (attribute.ConstructorArguments.IsEmpty)
             {
                 continue;
             }
 
             // The first constructor argument is the params array
-            var valuesArg = constructorArgs[0];
+            var valuesArg = attribute.ConstructorArguments[0];
             var exclusionValueCount = valuesArg.Kind == TypedConstantKind.Array
                 ? valuesArg.Values.Length
                 : 1;

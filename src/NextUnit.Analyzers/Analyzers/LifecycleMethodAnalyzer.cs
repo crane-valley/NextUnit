@@ -30,30 +30,13 @@ public sealed class LifecycleMethodAnalyzer : DiagnosticAnalyzer
     {
         var methodSyntax = (MethodDeclarationSyntax)context.Node;
 
-        // Check if method has [Before] or [After] attribute
-        var hasLifecycleAttribute = false;
-        foreach (var attributeList in methodSyntax.AttributeLists)
-        {
-            foreach (var attribute in attributeList.Attributes)
-            {
-                var symbolInfo = context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken);
-                if (symbolInfo.Symbol is IMethodSymbol attributeConstructor)
-                {
-                    var attributeTypeName = attributeConstructor.ContainingType.ToDisplayString();
-                    if (attributeTypeName == BeforeAttributeFullName ||
-                        attributeTypeName == AfterAttributeFullName)
-                    {
-                        hasLifecycleAttribute = true;
-                        break;
-                    }
-                }
-            }
-
-            if (hasLifecycleAttribute)
-            {
-                break;
-            }
-        }
+        // Check if method has [Before] or [After] attribute using LINQ
+        var hasLifecycleAttribute = methodSyntax.AttributeLists
+            .SelectMany(al => al.Attributes)
+            .Select(attr => context.SemanticModel.GetSymbolInfo(attr, context.CancellationToken).Symbol)
+            .OfType<IMethodSymbol>()
+            .Select(ctor => ctor.ContainingType.ToDisplayString())
+            .Any(name => name == BeforeAttributeFullName || name == AfterAttributeFullName);
 
         if (!hasLifecycleAttribute)
         {
