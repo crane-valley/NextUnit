@@ -18,6 +18,7 @@ internal static class AttributeHelper
     public const string ParallelLimitMetadataName = "global::NextUnit.ParallelLimitAttribute";
     public const string DependsOnMetadataName = "global::NextUnit.DependsOnAttribute";
     public const string SkipAttributeMetadataName = "global::NextUnit.SkipAttribute";
+    public const string ExplicitAttributeMetadataName = "global::NextUnit.ExplicitAttribute";
     public const string ArgumentsAttributeMetadataName = "global::NextUnit.ArgumentsAttribute";
     public const string TestDataAttributeMetadataName = "global::NextUnit.TestDataAttribute";
     public const string CategoryAttributeMetadataName = "global::NextUnit.CategoryAttribute";
@@ -200,6 +201,44 @@ internal static class AttributeHelper
         }
 
         return (false, null);
+    }
+
+    /// <summary>
+    /// Gets explicit test information from the method or its containing type.
+    /// </summary>
+    /// <param name="methodSymbol">The test method symbol.</param>
+    /// <param name="typeSymbol">The containing type symbol.</param>
+    /// <returns>A tuple indicating if the test is explicit and the optional reason.</returns>
+    public static (bool isExplicit, string? explicitReason) GetExplicitInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        // Check method-level attribute first
+        var methodResult = GetExplicitFromSymbol(methodSymbol);
+        if (methodResult.isExplicit)
+        {
+            return methodResult;
+        }
+
+        // Check class-level attribute
+        return GetExplicitFromSymbol(typeSymbol);
+    }
+
+    private static (bool isExplicit, string? explicitReason) GetExplicitFromSymbol(ISymbol symbol)
+    {
+        var explicitAttribute = symbol.GetAttributes()
+            .FirstOrDefault(attr => IsAttribute(attr, ExplicitAttributeMetadataName));
+
+        if (explicitAttribute is null)
+        {
+            return (false, null);
+        }
+
+        if (explicitAttribute.ConstructorArguments.Length > 0 &&
+            explicitAttribute.ConstructorArguments[0].Value is string reason)
+        {
+            return (true, reason);
+        }
+
+        return (true, null);
     }
 
     public static ImmutableArray<ImmutableArray<TypedConstant>> GetArgumentSets(IMethodSymbol methodSymbol)

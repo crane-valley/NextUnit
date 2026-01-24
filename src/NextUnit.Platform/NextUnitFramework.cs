@@ -207,7 +207,7 @@ internal sealed class NextUnitFramework :
         {
             // Filter TestDataDescriptors BEFORE expansion to avoid executing data providers for excluded tests
             var filteredDescriptors = testDataDescriptors
-                .Where(td => _filterConfig.ShouldIncludeTest(td.Categories, td.Tags, td.DisplayName))
+                .Where(td => _filterConfig.ShouldIncludeTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit))
                 .ToList();
 
             // Expand only the filtered TestDataDescriptors into TestCaseDescriptors at runtime
@@ -221,7 +221,7 @@ internal sealed class NextUnitFramework :
         {
             // Filter ClassDataSourceDescriptors BEFORE expansion to avoid instantiating data sources for excluded tests
             var filteredDescriptors = classDataSourceDescriptors
-                .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName))
+                .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
                 .ToList();
 
             // Expand only the filtered ClassDataSourceDescriptors into TestCaseDescriptors at runtime
@@ -235,7 +235,7 @@ internal sealed class NextUnitFramework :
         {
             // Filter CombinedDataSourceDescriptors BEFORE expansion to avoid resolving data sources for excluded tests
             var filteredDescriptors = combinedDataSourceDescriptors
-                .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName))
+                .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
                 .ToList();
 
             // Expand only the filtered CombinedDataSourceDescriptors into TestCaseDescriptors at runtime
@@ -244,7 +244,7 @@ internal sealed class NextUnitFramework :
         }
 
         // Apply category and tag filtering to static test cases
-        var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags, tc.DisplayName)).ToList();
+        var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags, tc.DisplayName, tc.IsExplicit)).ToList();
 
         _testCases = filteredTestCases;
         return _testCases;
@@ -332,6 +332,16 @@ internal sealed class NextUnitFramework :
             }
             config.TestNameRegexPatterns = regexList;
         }
+
+        // Load --explicit flag (CLI takes priority over environment variable)
+        var cliOptionSet = commandLineOptions is not null &&
+            commandLineOptions.IsOptionSet(NextUnitCommandLineOptionsProvider.ExplicitOption);
+
+        var explicitEnv = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_EXPLICIT");
+        var envVarSet = string.Equals(explicitEnv, "true", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(explicitEnv, "1", StringComparison.OrdinalIgnoreCase);
+
+        config.IncludeExplicitTests = cliOptionSet || envVarSet;
 
         return config;
     }

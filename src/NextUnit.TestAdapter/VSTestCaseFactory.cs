@@ -46,5 +46,14 @@ internal static class VSTestCaseFactory
         {
             testCase.Traits.Add(new Trait("Tag", tag));
         }
+
+        if (descriptor.IsExplicit)
+        {
+            testCase.Traits.Add(new Trait("Explicit", "true"));
+            if (descriptor.ExplicitReason is not null)
+            {
+                testCase.Traits.Add(new Trait("ExplicitReason", descriptor.ExplicitReason));
+            }
+        }
     }
 }

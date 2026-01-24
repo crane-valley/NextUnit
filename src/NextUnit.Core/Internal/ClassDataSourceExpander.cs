@@ -227,6 +227,8 @@ public static class ClassDataSourceExpander
             DependencyInfos = descriptor.DependencyInfos,
             IsSkipped = descriptor.IsSkipped,
             SkipReason = descriptor.SkipReason,
+            IsExplicit = descriptor.IsExplicit,
+            ExplicitReason = descriptor.ExplicitReason,
             Arguments = arguments,
             Categories = descriptor.Categories,
             Tags = descriptor.Tags,

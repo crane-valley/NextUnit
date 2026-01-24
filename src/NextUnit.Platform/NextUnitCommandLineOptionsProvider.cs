@@ -15,6 +15,7 @@ internal sealed class NextUnitCommandLineOptionsProvider : ICommandLineOptionsPr
     public const string ExcludeTagOption = "exclude-tag";
     public const string TestNameOption = "test-name";
     public const string TestNameRegexOption = "test-name-regex";
+    public const string ExplicitOption = "explicit";
 
     /// <summary>
     /// Gets the unique identifier for this extension.
@@ -82,6 +83,12 @@ internal sealed class NextUnitCommandLineOptionsProvider : ICommandLineOptionsPr
                 TestNameRegexOption,
                 "Include only tests matching the specified regular expression pattern (can be specified multiple times)",
                 ArgumentArity.OneOrMore,
+                isHidden: false),
+
+            new CommandLineOption(
+                ExplicitOption,
+                "Include tests marked with [Explicit] attribute in test execution",
+                ArgumentArity.Zero,
                 isHidden: false)
         };
     }

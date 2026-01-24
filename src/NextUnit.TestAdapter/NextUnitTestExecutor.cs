@@ -172,6 +172,11 @@ public sealed class NextUnitTestExecutor : ITestExecutor
                 descriptorsToExpand = testDataDescriptors.Where(d =>
                     testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
             }
+            else
+            {
+                // When running all tests (no specific selection), exclude explicit tests by default
+                descriptorsToExpand = testDataDescriptors.Where(d => !d.IsExplicit);
+            }
 
             var expandedTests = TestDataExpander.Expand(descriptorsToExpand.ToList());
             allTestCases.AddRange(expandedTests);
@@ -187,6 +192,11 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             {
                 descriptorsToExpand = classDataSourceDescriptors.Where(d =>
                     testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
+            }
+            else
+            {
+                // When running all tests (no specific selection), exclude explicit tests by default
+                descriptorsToExpand = classDataSourceDescriptors.Where(d => !d.IsExplicit);
             }
 
             var expandedTests = ClassDataSourceExpander.Expand(descriptorsToExpand.ToList());
@@ -204,6 +214,11 @@ public sealed class NextUnitTestExecutor : ITestExecutor
                 descriptorsToExpand = combinedDataSourceDescriptors.Where(d =>
                     testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
             }
+            else
+            {
+                // When running all tests (no specific selection), exclude explicit tests by default
+                descriptorsToExpand = combinedDataSourceDescriptors.Where(d => !d.IsExplicit);
+            }
 
             var expandedTests = CombinedDataSourceExpander.Expand(descriptorsToExpand.ToList());
             allTestCases.AddRange(expandedTests);
@@ -213,6 +228,13 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         if (testIdsToRun != null)
         {
             allTestCases = allTestCases.Where(t => testIdsToRun.Contains(t.Id.Value)).ToList();
+        }
+        else
+        {
+            // When running all tests (no specific selection), exclude explicit tests by default
+            // This matches the behavior of the Platform CLI without --explicit flag
+            // Users can still run explicit tests by selecting them specifically in Test Explorer
+            allTestCases = allTestCases.Where(t => !t.IsExplicit).ToList();
         }
 
         // Create execution engine and run tests
