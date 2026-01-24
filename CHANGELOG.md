@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-01-24
+
+### Added - Test Artifacts
+
+- **`TestContext.AttachArtifact(path)` method** - Attach files to test results
+  - Attach screenshots, logs, videos, or any file to test results
+  - Files are displayed in Test Explorer
+  - `AttachArtifact(filePath, description)` for simple attachment
+
+- **`Artifact` class** - Full control over artifact metadata
+  - `FilePath` - Path to the artifact file
+  - `Description` - Optional description
+  - `MimeType` - MIME type (auto-detected if not specified)
+
+- **Automatic MIME type detection** - Common file types recognized
+  - Text: `.txt`, `.log`, `.json`, `.xml`, `.html`
+  - Images: `.png`, `.jpg`, `.gif`, `.bmp`, `.webp`, `.svg`
+  - Video: `.mp4`, `.webm`
+  - Other: `.pdf`, `.zip`
+
+### Technical Notes
+
+- `ITestContext.Artifacts` property for accessing attached artifacts
+- `ITestContext.AttachArtifact()` methods for attaching files
+- `ITestExecutionSink` updated to pass artifacts to test results
+- VSTest adapter uses `AttachmentSet` for Test Explorer integration
+- Microsoft.Testing.Platform uses `TestMetadataProperty` for artifact metadata
+
 ## [1.11.0] - 2026-01-24
 
 ### Added - Combined Data Sources
@@ -933,6 +961,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.12.0 | 2026-01-24 | 365+ | Test Artifacts | Released |
 | 1.11.0 | 2026-01-24 | 350+ | Combined Data Sources | Released |
 | 1.10.0 | 2026-01-24 | 310+ | Class Data Source | Released |
 | 1.9.0 | 2026-01-22 | 258+ | Matrix Data Source, Roslyn Analyzers | Released |

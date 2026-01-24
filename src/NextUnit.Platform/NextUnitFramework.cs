@@ -433,7 +433,7 @@ internal sealed class NextUnitFramework :
             _producer = producer;
         }
 
-        public async Task ReportPassedAsync(TestCaseDescriptor test, string? output = null)
+        public async Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             var properties = new List<IProperty> { PassedTestNodeStateProperty.CachedInstance };
 
@@ -442,6 +442,8 @@ internal sealed class NextUnitFramework :
                 properties.Add(new TestMetadataProperty("TestOutput", output));
             }
 
+            AddArtifactProperties(properties, artifacts);
+
             var testNode = new TestNode
             {
                 Uid = new TestNodeUid(test.Id.Value),
@@ -456,7 +458,7 @@ internal sealed class NextUnitFramework :
                     testNode)).ConfigureAwait(false);
         }
 
-        public async Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null)
+        public async Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             var properties = new List<IProperty> { new FailedTestNodeStateProperty(ex.Message) };
 
@@ -465,6 +467,8 @@ internal sealed class NextUnitFramework :
                 properties.Add(new TestMetadataProperty("TestOutput", output));
             }
 
+            AddArtifactProperties(properties, artifacts);
+
             var testNode = new TestNode
             {
                 Uid = new TestNodeUid(test.Id.Value),
@@ -479,7 +483,7 @@ internal sealed class NextUnitFramework :
                     testNode)).ConfigureAwait(false);
         }
 
-        public async Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null)
+        public async Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             var properties = new List<IProperty> { new ErrorTestNodeStateProperty(ex) };
 
@@ -488,6 +492,8 @@ internal sealed class NextUnitFramework :
                 properties.Add(new TestMetadataProperty("TestOutput", output));
             }
 
+            AddArtifactProperties(properties, artifacts);
+
             var testNode = new TestNode
             {
                 Uid = new TestNodeUid(test.Id.Value),
@@ -502,15 +508,39 @@ internal sealed class NextUnitFramework :
                     testNode)).ConfigureAwait(false);
         }
 
-        public async Task ReportSkippedAsync(TestCaseDescriptor test)
+        private static void AddArtifactProperties(List<IProperty> properties, IReadOnlyList<Artifact>? artifacts)
+        {
+            if (artifacts is null || artifacts.Count == 0)
+            {
+                return;
+            }
+
+            // Add artifact file paths as metadata
+            // Microsoft.Testing.Platform's TestFileArtifact requires specific API version
+            // For now, add as metadata properties
+            for (var i = 0; i < artifacts.Count; i++)
+            {
+                var artifact = artifacts[i];
+                properties.Add(new TestMetadataProperty($"Artifact[{i}].FilePath", artifact.FilePath));
+                if (artifact.Description is not null)
+                {
+                    properties.Add(new TestMetadataProperty($"Artifact[{i}].Description", artifact.Description));
+                }
+            }
+        }
+
+        public async Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
         {
             var explanation = test.SkipReason ?? "Test was skipped";
+            var properties = new List<IProperty> { new SkippedTestNodeStateProperty(explanation) };
+
+            AddArtifactProperties(properties, artifacts);
+
             var testNode = new TestNode
             {
                 Uid = new TestNodeUid(test.Id.Value),
                 DisplayName = test.DisplayName,
-                Properties = new PropertyBag(
-                    new SkippedTestNodeStateProperty(explanation))
+                Properties = new PropertyBag(properties.ToArray())
             };
 
             await _messageBus.PublishAsync(

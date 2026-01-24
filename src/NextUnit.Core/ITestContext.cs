@@ -69,4 +69,24 @@ public interface ITestContext
     /// Gets a dictionary for storing test-scoped data. Data stored here is available throughout the test execution.
     /// </summary>
     public IDictionary<string, object?> StateBag { get; }
+
+    /// <summary>
+    /// Gets the list of artifacts attached to this test.
+    /// </summary>
+    public IReadOnlyList<Artifact> Artifacts { get; }
+
+    /// <summary>
+    /// Attaches a file artifact to the test result.
+    /// </summary>
+    /// <param name="filePath">The path to the artifact file.</param>
+    /// <param name="description">An optional description of the artifact.</param>
+    /// <exception cref="FileNotFoundException">Thrown if the file does not exist.</exception>
+    public void AttachArtifact(string filePath, string? description = null);
+
+    /// <summary>
+    /// Attaches a file artifact to the test result.
+    /// </summary>
+    /// <param name="artifact">The artifact to attach.</param>
+    /// <exception cref="FileNotFoundException">Thrown if the artifact file does not exist.</exception>
+    public void AttachArtifact(Artifact artifact);
 }

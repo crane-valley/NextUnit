@@ -234,7 +234,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             _source = source;
         }
 
-        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null)
+        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
@@ -248,11 +248,12 @@ public sealed class NextUnitTestExecutor : ITestExecutor
                 result.Messages.Add(new TestResultMessage(TestResultMessage.StandardOutCategory, output));
             }
 
+            AttachArtifacts(result, artifacts);
             _frameworkHandle.RecordResult(result);
             return Task.CompletedTask;
         }
 
-        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null)
+        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
@@ -268,11 +269,12 @@ public sealed class NextUnitTestExecutor : ITestExecutor
                 result.Messages.Add(new TestResultMessage(TestResultMessage.StandardOutCategory, output));
             }
 
+            AttachArtifacts(result, artifacts);
             _frameworkHandle.RecordResult(result);
             return Task.CompletedTask;
         }
 
-        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null)
+        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
@@ -288,11 +290,12 @@ public sealed class NextUnitTestExecutor : ITestExecutor
                 result.Messages.Add(new TestResultMessage(TestResultMessage.StandardOutCategory, output));
             }
 
+            AttachArtifacts(result, artifacts);
             _frameworkHandle.RecordResult(result);
             return Task.CompletedTask;
         }
 
-        public Task ReportSkippedAsync(TestCaseDescriptor test)
+        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
         {
             var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
@@ -302,8 +305,41 @@ public sealed class NextUnitTestExecutor : ITestExecutor
                 Duration = TimeSpan.Zero
             };
 
+            AttachArtifacts(result, artifacts);
             _frameworkHandle.RecordResult(result);
             return Task.CompletedTask;
+        }
+
+        private static void AttachArtifacts(TestResult result, IReadOnlyList<Artifact>? artifacts)
+        {
+            if (artifacts is null || artifacts.Count == 0)
+            {
+                return;
+            }
+
+            var attachmentSet = new AttachmentSet(
+                new Uri("nextunit://test-artifacts"),
+                "NextUnit Test Artifacts");
+
+            var attachments = artifacts.Select(artifact =>
+            {
+                // First try to interpret the value as an absolute URI; if that fails, treat it as a file path.
+                if (!Uri.TryCreate(artifact.FilePath, UriKind.Absolute, out var artifactUri))
+                {
+                    artifactUri = new Uri(new Uri("file://"), artifact.FilePath);
+                }
+
+                return new UriDataAttachment(
+                    artifactUri,
+                    artifact.Description ?? Path.GetFileName(artifact.FilePath));
+            });
+
+            foreach (var attachment in attachments)
+            {
+                attachmentSet.Attachments.Add(attachment);
+            }
+
+            result.Attachments.Add(attachmentSet);
         }
     }
 }

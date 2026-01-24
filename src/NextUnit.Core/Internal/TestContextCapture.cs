@@ -9,6 +9,7 @@ namespace NextUnit.Internal;
 internal sealed class TestContextCapture : ITestContext
 {
     private readonly Dictionary<string, object?> _stateBag = new();
+    private readonly List<Artifact> _artifacts = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TestContextCapture"/> class.
@@ -85,6 +86,60 @@ internal sealed class TestContextCapture : ITestContext
 
     /// <inheritdoc/>
     public IDictionary<string, object?> StateBag => _stateBag;
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Artifact> Artifacts => _artifacts;
+
+    /// <inheritdoc/>
+    public void AttachArtifact(string filePath, string? description = null)
+    {
+        AttachArtifact(new Artifact { FilePath = filePath, Description = description });
+    }
+
+    /// <inheritdoc/>
+    public void AttachArtifact(Artifact artifact)
+    {
+        if (!File.Exists(artifact.FilePath))
+        {
+            throw new FileNotFoundException("Artifact file not found", artifact.FilePath);
+        }
+
+        _artifacts.Add(new Artifact
+        {
+            FilePath = Path.GetFullPath(artifact.FilePath),
+            Description = artifact.Description,
+            MimeType = artifact.MimeType ?? GetMimeType(artifact.FilePath)
+        });
+    }
+
+    private static readonly Dictionary<string, string> _mimeTypeMappings = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { ".txt", "text/plain" },
+        { ".log", "text/plain" },
+        { ".html", "text/html" },
+        { ".htm", "text/html" },
+        { ".json", "application/json" },
+        { ".xml", "application/xml" },
+        { ".png", "image/png" },
+        { ".jpg", "image/jpeg" },
+        { ".jpeg", "image/jpeg" },
+        { ".gif", "image/gif" },
+        { ".bmp", "image/bmp" },
+        { ".webp", "image/webp" },
+        { ".svg", "image/svg+xml" },
+        { ".mp4", "video/mp4" },
+        { ".webm", "video/webm" },
+        { ".pdf", "application/pdf" },
+        { ".zip", "application/zip" },
+    };
+
+    private static string GetMimeType(string filePath)
+    {
+        var ext = Path.GetExtension(filePath);
+        return _mimeTypeMappings.TryGetValue(ext, out var mimeType)
+            ? mimeType
+            : "application/octet-stream";
+    }
 }
 
 /// <summary>
@@ -99,6 +154,7 @@ internal sealed class NullTestContext : ITestContext
     public static readonly NullTestContext Instance = new();
 
     private static readonly IReadOnlyList<string> _emptyStringList = Array.Empty<string>();
+    private static readonly IReadOnlyList<Artifact> _emptyArtifactList = Array.Empty<Artifact>();
     private static readonly IDictionary<string, object?> _emptyStateBag =
         new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());
 
@@ -139,4 +195,19 @@ internal sealed class NullTestContext : ITestContext
 
     /// <inheritdoc/>
     public IDictionary<string, object?> StateBag => _emptyStateBag;
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Artifact> Artifacts => _emptyArtifactList;
+
+    /// <inheritdoc/>
+    public void AttachArtifact(string filePath, string? description = null)
+    {
+        // No-op for null context
+    }
+
+    /// <inheritdoc/>
+    public void AttachArtifact(Artifact artifact)
+    {
+        // No-op for null context
+    }
 }
