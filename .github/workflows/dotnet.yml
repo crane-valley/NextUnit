@@ -42,10 +42,10 @@ jobs:
           ${{ runner.os }}-nuget-
 
     - name: Restore dependencies
-      run: dotnet restore src/ samples/NextUnit.SampleTests/
+      run: dotnet restore NextUnit.CI.slnx
 
     - name: Build Release
-      run: dotnet build src/ samples/NextUnit.SampleTests/ --configuration Release --no-restore
+      run: dotnet build NextUnit.CI.slnx --configuration Release --no-restore
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -87,7 +87,7 @@ jobs:
         path: .
 
     - name: Restore dependencies
-      run: dotnet restore src/ samples/NextUnit.SampleTests/
+      run: dotnet restore NextUnit.CI.slnx
 
     - name: Run NextUnit sample tests
       run: |
@@ -154,10 +154,10 @@ jobs:
           ${{ runner.os }}-nuget-
 
     - name: Restore dependencies
-      run: dotnet restore src/
+      run: dotnet restore NextUnit.CI.slnx
 
     - name: Check for vulnerable packages
-      run: dotnet list src/ package --vulnerable --include-transitive
+      run: dotnet list NextUnit.CI.slnx package --vulnerable --include-transitive
       continue-on-error: true
 
   # Job 5: Verify generator output
