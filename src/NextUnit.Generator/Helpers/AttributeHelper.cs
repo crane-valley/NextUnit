@@ -37,6 +37,7 @@ internal static class AttributeHelper
     public const string ValuesFromAttributePrefix = "ValuesFromAttribute`";
     public const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
     public const string ITestContextMetadataName = "global::NextUnit.Core.ITestContext";
+    public const string ExecutionPriorityAttributeMetadataName = "global::NextUnit.ExecutionPriorityAttribute";
 
     public static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
@@ -599,6 +600,41 @@ internal static class AttributeHelper
             if (attribute.ConstructorArguments[0].Value is int timeout)
             {
                 return timeout;
+            }
+        }
+
+        return null;
+    }
+
+    public static int GetExecutionPriority(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        var methodPriority = GetExecutionPriorityFromSymbol(methodSymbol);
+        if (methodPriority.HasValue)
+        {
+            return methodPriority.Value;
+        }
+
+        var classPriority = GetExecutionPriorityFromSymbol(typeSymbol);
+        return classPriority ?? 0;
+    }
+
+    private static int? GetExecutionPriorityFromSymbol(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, ExecutionPriorityAttributeMetadataName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments[0].Value is int priority)
+            {
+                return priority;
             }
         }
 

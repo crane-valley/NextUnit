@@ -95,7 +95,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? AttributeHelper.ToLiteral(test.FlakyReason) : "null")}");
         builder.AppendLine("                },");
         builder.AppendLine($"                CustomDisplayNameTemplate = {(test.CustomDisplayName is not null ? AttributeHelper.ToLiteral(test.CustomDisplayName) : "null")},");
-        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
+        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")},");
+        builder.AppendLine($"                Priority = {test.Priority.ToString(CultureInfo.InvariantCulture)}");
 
         builder.AppendLine("            },");
     }
@@ -157,7 +158,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? AttributeHelper.ToLiteral(test.FlakyReason) : "null")}");
         builder.AppendLine("                },");
         builder.AppendLine($"                CustomDisplayNameTemplate = {(test.CustomDisplayName is not null ? AttributeHelper.ToLiteral(test.CustomDisplayName) : "null")},");
-        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
+        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")},");
+        builder.AppendLine($"                Priority = {test.Priority.ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine("            },");
     }
 
@@ -208,7 +210,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? AttributeHelper.ToLiteral(test.FlakyReason) : "null")}");
         builder.AppendLine("                },");
         builder.AppendLine($"                CustomDisplayNameTemplate = {(test.CustomDisplayName is not null ? AttributeHelper.ToLiteral(test.CustomDisplayName) : "null")},");
-        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
+        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")},");
+        builder.AppendLine($"                Priority = {test.Priority.ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine("            },");
     }
 
@@ -274,7 +277,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? AttributeHelper.ToLiteral(test.FlakyReason) : "null")}");
         builder.AppendLine("                },");
         builder.AppendLine($"                CustomDisplayNameTemplate = {(test.CustomDisplayName is not null ? AttributeHelper.ToLiteral(test.CustomDisplayName) : "null")},");
-        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
+        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")},");
+        builder.AppendLine($"                Priority = {test.Priority.ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine("            },");
     }
 
@@ -321,7 +325,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? AttributeHelper.ToLiteral(test.FlakyReason) : "null")}");
         builder.AppendLine("                },");
         builder.AppendLine($"                CustomDisplayNameTemplate = {(test.CustomDisplayName is not null ? AttributeHelper.ToLiteral(test.CustomDisplayName) : "null")},");
-        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
+        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")},");
+        builder.AppendLine($"                Priority = {test.Priority.ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine("            },");
     }
 
