@@ -76,7 +76,7 @@ jobs:
         dotnet publish samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj \
           --configuration Release \
           --runtime linux-x64 \
-          /p:PublishAot=true \
+          -p:PublishAotSampleTests=true \
           --output ./aot-publish
 
     - name: Verify AOT binary exists
