@@ -34,6 +34,62 @@ public static class CSharpAnalyzerVerifier<TAnalyzer>
                 public TimeoutAttribute(int milliseconds) { Milliseconds = milliseconds; }
                 public int Milliseconds { get; }
             }
+
+            [System.AttributeUsage(System.AttributeTargets.Parameter)]
+            public sealed class MatrixAttribute : System.Attribute
+            {
+                public MatrixAttribute(params object?[] values) { Values = values; }
+                public object?[] Values { get; }
+            }
+
+            [System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = true)]
+            public sealed class MatrixExclusionAttribute : System.Attribute
+            {
+                public MatrixExclusionAttribute(params object?[] values) { Values = values; }
+                public object?[] Values { get; }
+            }
+
+            [System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = true)]
+            public sealed class DependsOnAttribute : System.Attribute
+            {
+                public DependsOnAttribute(params string[] dependencies) { Dependencies = dependencies; }
+                public string[] Dependencies { get; }
+                public bool ProceedOnFailure { get; set; }
+            }
+
+            [System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = true)]
+            public sealed class TestDataAttribute : System.Attribute
+            {
+                public TestDataAttribute(string memberName) { MemberName = memberName; }
+                public TestDataAttribute(string memberName, System.Type memberType) { MemberName = memberName; MemberType = memberType; }
+                public string MemberName { get; }
+                public System.Type? MemberType { get; }
+            }
+
+            [System.AttributeUsage(System.AttributeTargets.Parameter)]
+            public sealed class ValuesFromMemberAttribute : System.Attribute
+            {
+                public ValuesFromMemberAttribute(string memberName) { MemberName = memberName; }
+                public ValuesFromMemberAttribute(string memberName, System.Type memberType) { MemberName = memberName; MemberType = memberType; }
+                public string MemberName { get; }
+                public System.Type? MemberType { get; }
+            }
+
+            public enum LifecycleScope { Test, Class, Assembly, Session }
+
+            [System.AttributeUsage(System.AttributeTargets.Method)]
+            public sealed class BeforeAttribute : System.Attribute
+            {
+                public BeforeAttribute(LifecycleScope scope) { Scope = scope; }
+                public LifecycleScope Scope { get; }
+            }
+
+            [System.AttributeUsage(System.AttributeTargets.Method)]
+            public sealed class AfterAttribute : System.Attribute
+            {
+                public AfterAttribute(LifecycleScope scope) { Scope = scope; }
+                public LifecycleScope Scope { get; }
+            }
         }
         """;
 
