@@ -519,14 +519,26 @@ public static class CombinedDataSourceExpander
         }
     }
 
+    /// <summary>
+    /// Disposes an instance if it implements IDisposable or IAsyncDisposable.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Warning:</b> This method blocks on async disposal using GetAwaiter().GetResult().
+    /// In synchronization contexts that don't allow blocking (e.g., UI threads),
+    /// this could potentially cause deadlocks. In test frameworks, this is typically safe
+    /// as tests run on thread pool threads without special synchronization contexts.
+    /// </para>
+    /// <para>
+    /// If deadlocks occur in production use, consider implementing a fully async cleanup path.
+    /// </para>
+    /// </remarks>
     private static void DisposeIfNeeded(object instance)
     {
         try
         {
             if (instance is IAsyncDisposable asyncDisposable)
             {
-                // Note: Blocking on async disposal is necessary here as this is called during cleanup.
-                // In production, consider implementing async cleanup patterns if deadlocks occur.
                 asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
             }
             else if (instance is IDisposable disposable)
@@ -537,6 +549,10 @@ public static class CombinedDataSourceExpander
         catch (OutOfMemoryException)
         {
             throw; // Fatal exception - do not swallow
+        }
+        catch (OperationCanceledException)
+        {
+            throw; // Cancellation should propagate
         }
         catch (Exception ex)
         {

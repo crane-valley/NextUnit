@@ -693,49 +693,45 @@ internal static class AttributeHelper
         foreach (var attribute in parameter.GetAttributes())
         {
             // Check for [Values]
-            if (IsAttribute(attribute, ValuesAttributeMetadataName))
+            if (IsAttribute(attribute, ValuesAttributeMetadataName) &&
+                attribute.ConstructorArguments.Length > 0 &&
+                attribute.ConstructorArguments[0].Kind == TypedConstantKind.Array)
             {
-                if (attribute.ConstructorArguments.Length > 0 &&
-                    attribute.ConstructorArguments[0].Kind == TypedConstantKind.Array)
-                {
-                    return new ParameterDataSourceDescriptor(
-                        parameterIndex: index,
-                        parameterName: parameter.Name,
-                        kind: ParameterDataSourceKind.Inline,
-                        inlineValues: attribute.ConstructorArguments[0].Values,
-                        memberName: null,
-                        memberTypeName: null,
-                        classTypeName: null,
-                        sharedType: 0,
-                        sharedKey: null);
-                }
+                return new ParameterDataSourceDescriptor(
+                    parameterIndex: index,
+                    parameterName: parameter.Name,
+                    kind: ParameterDataSourceKind.Inline,
+                    inlineValues: attribute.ConstructorArguments[0].Values,
+                    memberName: null,
+                    memberTypeName: null,
+                    classTypeName: null,
+                    sharedType: 0,
+                    sharedKey: null);
             }
 
             // Check for [ValuesFromMember]
-            if (IsAttribute(attribute, ValuesFromMemberAttributeMetadataName))
+            if (IsAttribute(attribute, ValuesFromMemberAttributeMetadataName) &&
+                attribute.ConstructorArguments.Length > 0 &&
+                attribute.ConstructorArguments[0].Value is string memberName &&
+                !string.IsNullOrEmpty(memberName))
             {
-                if (attribute.ConstructorArguments.Length > 0 &&
-                    attribute.ConstructorArguments[0].Value is string memberName &&
-                    !string.IsNullOrEmpty(memberName))
-                {
-                    var memberTypeArg = attribute.NamedArguments
-                        .Where(arg => arg.Key == "MemberType" && arg.Value.Value is INamedTypeSymbol)
-                        .Select(arg => (INamedTypeSymbol)arg.Value.Value!)
-                        .FirstOrDefault();
+                var memberTypeArg = attribute.NamedArguments
+                    .Where(arg => arg.Key == "MemberType" && arg.Value.Value is INamedTypeSymbol)
+                    .Select(arg => (INamedTypeSymbol)arg.Value.Value!)
+                    .FirstOrDefault();
 
-                    string? memberTypeName = memberTypeArg?.ToDisplayString(TypeofCompatibleFormat);
+                string? memberTypeName = memberTypeArg?.ToDisplayString(TypeofCompatibleFormat);
 
-                    return new ParameterDataSourceDescriptor(
-                        parameterIndex: index,
-                        parameterName: parameter.Name,
-                        kind: ParameterDataSourceKind.Member,
-                        inlineValues: ImmutableArray<TypedConstant>.Empty,
-                        memberName: memberName,
-                        memberTypeName: memberTypeName,
-                        classTypeName: null,
-                        sharedType: 0,
-                        sharedKey: null);
-                }
+                return new ParameterDataSourceDescriptor(
+                    parameterIndex: index,
+                    parameterName: parameter.Name,
+                    kind: ParameterDataSourceKind.Member,
+                    inlineValues: ImmutableArray<TypedConstant>.Empty,
+                    memberName: memberName,
+                    memberTypeName: memberTypeName,
+                    classTypeName: null,
+                    sharedType: 0,
+                    sharedKey: null);
             }
 
             // Check for [ValuesFrom<T>]

@@ -404,42 +404,47 @@ internal static class Program
                         test.Id));
                 }
 
-                // All parameters must have a data source if any do
-                if (test.CombinedParameterSources.Length != test.Parameters.Length)
+                // All parameters must have a data source if any do (except trailing CancellationToken)
+                var expectedSourceCount = test.Parameters.Length;
+                if (test.Parameters.Length > 0 &&
+                    test.Parameters[test.Parameters.Length - 1].Type.ToDisplayString() == "System.Threading.CancellationToken")
+                {
+                    expectedSourceCount = test.Parameters.Length - 1;
+                }
+
+                if (test.CombinedParameterSources.Length != expectedSourceCount)
                 {
                     context.ReportDiagnostic(Diagnostic.Create(
                         new DiagnosticDescriptor(
                             "NEXTUNIT011",
                             "Incomplete parameter data sources",
-                            "Test '{0}' has {1} parameters but only {2} have data source attributes ([Values], [ValuesFromMember], or [ValuesFrom]). All parameters must have a data source when using combined data sources.",
+                            "Test '{0}' has {1} parameters but only {2} have data source attributes ([Values], [ValuesFromMember], or [ValuesFrom]). All parameters must have a data source when using combined data sources (CancellationToken excluded).",
                             "NextUnit",
                             DiagnosticSeverity.Error,
                             isEnabledByDefault: true),
                         Location.None,
                         test.Id,
-                        test.Parameters.Length,
+                        expectedSourceCount,
                         test.CombinedParameterSources.Length));
                 }
 
-                // Validate Keyed sharing requires Key
-                foreach (var source in test.CombinedParameterSources)
+                // Validate Keyed sharing requires Key (using LINQ Where for clarity)
+                foreach (var source in test.CombinedParameterSources.Where(s =>
+                    s.Kind == ParameterDataSourceKind.Class &&
+                    s.SharedType == SharedTypeConstants.Keyed &&
+                    string.IsNullOrEmpty(s.SharedKey)))
                 {
-                    if (source.Kind == ParameterDataSourceKind.Class &&
-                        source.SharedType == SharedTypeConstants.Keyed &&
-                        string.IsNullOrEmpty(source.SharedKey))
-                    {
-                        context.ReportDiagnostic(Diagnostic.Create(
-                            new DiagnosticDescriptor(
-                                "NEXTUNIT012",
-                                "Missing Key for Keyed ValuesFrom",
-                                "Test '{0}' uses [ValuesFrom] with SharedType.Keyed on parameter '{1}' but no Key is specified.",
-                                "NextUnit",
-                                DiagnosticSeverity.Error,
-                                isEnabledByDefault: true),
-                            Location.None,
-                            test.Id,
-                            source.ParameterName));
-                    }
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        new DiagnosticDescriptor(
+                            "NEXTUNIT012",
+                            "Missing Key for Keyed ValuesFrom",
+                            "Test '{0}' uses [ValuesFrom] with SharedType.Keyed on parameter '{1}' but no Key is specified.",
+                            "NextUnit",
+                            DiagnosticSeverity.Error,
+                            isEnabledByDefault: true),
+                        Location.None,
+                        test.Id,
+                        source.ParameterName));
                 }
             }
         }
@@ -520,11 +525,13 @@ internal static class Program
         builder.AppendLine();
 
         // Separate tests by type: regular, matrix, TestData, ClassDataSource, and CombinedDataSource
-        var regularTests = new List<TestMethodDescriptor>();
-        var matrixTests = new List<TestMethodDescriptor>();
-        var testDataTests = new List<TestMethodDescriptor>();
-        var classDataSourceTests = new List<TestMethodDescriptor>();
-        var combinedDataSourceTests = new List<TestMethodDescriptor>();
+        // Pre-allocate with reasonable capacity to reduce allocations for large test suites
+        var capacity = tests.Count;
+        var regularTests = new List<TestMethodDescriptor>(capacity);
+        var matrixTests = new List<TestMethodDescriptor>(capacity);
+        var testDataTests = new List<TestMethodDescriptor>(capacity);
+        var classDataSourceTests = new List<TestMethodDescriptor>(capacity);
+        var combinedDataSourceTests = new List<TestMethodDescriptor>(capacity);
 
         foreach (var test in tests)
         {

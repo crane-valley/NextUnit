@@ -376,11 +376,11 @@ internal static class TestCaseEmitter
                 sb.Append($"ClassDataSourceType = typeof({source.ClassTypeName}), ");
                 var sharedTypeLiteral = source.SharedType switch
                 {
-                    0 => "global::NextUnit.SharedType.None",
-                    1 => "global::NextUnit.SharedType.Keyed",
-                    2 => "global::NextUnit.SharedType.PerClass",
-                    3 => "global::NextUnit.SharedType.PerAssembly",
-                    4 => "global::NextUnit.SharedType.PerSession",
+                    SharedTypeConstants.None => "global::NextUnit.SharedType.None",
+                    SharedTypeConstants.Keyed => "global::NextUnit.SharedType.Keyed",
+                    SharedTypeConstants.PerClass => "global::NextUnit.SharedType.PerClass",
+                    SharedTypeConstants.PerAssembly => "global::NextUnit.SharedType.PerAssembly",
+                    SharedTypeConstants.PerSession => "global::NextUnit.SharedType.PerSession",
                     _ => "global::NextUnit.SharedType.None"
                 };
                 sb.Append($"SharedType = {sharedTypeLiteral}, ");
