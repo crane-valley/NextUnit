@@ -91,16 +91,14 @@ jobs:
         chmod +x ./aot-publish/NextUnit.SampleTests
         ./aot-publish/NextUnit.SampleTests --minimum-expected-tests 20
 
-    - name: Compare binary sizes
+    - name: Report AOT binary size
       run: |
-        echo "=== Binary Size Comparison ==="
-        echo "AOT binary size:"
+        echo "=== Native AOT Binary Info ==="
+        echo "Binary size:"
         ls -lh ./aot-publish/NextUnit.SampleTests
         echo ""
-        echo "For reference, building standard Release..."
-        dotnet build samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --configuration Release --no-restore
-        echo "Standard DLL size:"
-        ls -lh samples/NextUnit.SampleTests/bin/Release/net10.0/NextUnit.SampleTests.dll
+        echo "File type:"
+        file ./aot-publish/NextUnit.SampleTests
 
   # Performance benchmark
   performance-benchmark:
