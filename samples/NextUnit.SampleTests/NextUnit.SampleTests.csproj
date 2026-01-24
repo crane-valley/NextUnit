@@ -6,6 +6,9 @@
     <NoWarn>$(NoWarn);IDE0052;CS1591</NoWarn>
     <!-- Enable Visual Studio Test Explorer integration -->
     <IsTestProject>true</IsTestProject>
+    <!-- Native AOT support - set via PublishAotSampleTests property to avoid affecting analyzer projects -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <PublishAot Condition="'$(PublishAotSampleTests)' == 'true'">true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>

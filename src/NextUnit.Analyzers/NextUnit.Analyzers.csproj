@@ -10,6 +10,8 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <DevelopmentDependency>true</DevelopmentDependency>
     <NoWarn>RS2008;RS1038;CS1591</NoWarn>
+    <!-- Disable AOT for netstandard2.0 analyzer project -->
+    <PublishAot>false</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>

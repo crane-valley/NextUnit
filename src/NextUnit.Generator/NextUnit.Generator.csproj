@@ -18,6 +18,8 @@
     <DevelopmentDependency>true</DevelopmentDependency>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!-- Disable AOT for netstandard2.0 analyzer project -->
+    <PublishAot>false</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>
