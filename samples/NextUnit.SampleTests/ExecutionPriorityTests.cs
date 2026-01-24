@@ -7,7 +7,7 @@ namespace NextUnit.SampleTests;
 [NotInParallel("execution-priority")]
 public class ExecutionPriorityTests
 {
-    private static readonly List<string> ExecutionOrder = new();
+    private static readonly List<string> _executionOrder = new();
 
     /// <summary>
     /// Runs first (highest priority in this class).
@@ -16,7 +16,7 @@ public class ExecutionPriorityTests
     [ExecutionPriority(100)]
     public void HighPriorityTest()
     {
-        ExecutionOrder.Add(nameof(HighPriorityTest));
+        _executionOrder.Add(nameof(HighPriorityTest));
     }
 
     /// <summary>
@@ -26,7 +26,7 @@ public class ExecutionPriorityTests
     [ExecutionPriority(50)]
     public void MediumPriorityTest()
     {
-        ExecutionOrder.Add(nameof(MediumPriorityTest));
+        _executionOrder.Add(nameof(MediumPriorityTest));
     }
 
     /// <summary>
@@ -35,7 +35,7 @@ public class ExecutionPriorityTests
     [Test]
     public void DefaultPriorityTest()
     {
-        ExecutionOrder.Add(nameof(DefaultPriorityTest));
+        _executionOrder.Add(nameof(DefaultPriorityTest));
     }
 
     /// <summary>
@@ -45,7 +45,7 @@ public class ExecutionPriorityTests
     [ExecutionPriority(-100)]
     public void LowPriorityTest()
     {
-        ExecutionOrder.Add(nameof(LowPriorityTest));
+        _executionOrder.Add(nameof(LowPriorityTest));
     }
 
     /// <summary>
@@ -58,14 +58,14 @@ public class ExecutionPriorityTests
         nameof(MediumPriorityTest),
         nameof(DefaultPriorityTest),
         nameof(LowPriorityTest))]
-    public void ValidateExecutionOrder()
+    public void Validate_executionOrder()
     {
         // Higher priority runs first: 100 > 50 > 0 > -100
-        Assert.Equal(4, ExecutionOrder.Count);
-        Assert.Equal(nameof(HighPriorityTest), ExecutionOrder[0]);
-        Assert.Equal(nameof(MediumPriorityTest), ExecutionOrder[1]);
-        Assert.Equal(nameof(DefaultPriorityTest), ExecutionOrder[2]);
-        Assert.Equal(nameof(LowPriorityTest), ExecutionOrder[3]);
+        Assert.Equal(4, _executionOrder.Count);
+        Assert.Equal(nameof(HighPriorityTest), _executionOrder[0]);
+        Assert.Equal(nameof(MediumPriorityTest), _executionOrder[1]);
+        Assert.Equal(nameof(DefaultPriorityTest), _executionOrder[2]);
+        Assert.Equal(nameof(LowPriorityTest), _executionOrder[3]);
     }
 }
 
