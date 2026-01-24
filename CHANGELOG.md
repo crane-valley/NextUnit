@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-01-24
+
+### Added - Class Data Source
+
+- **`[ClassDataSource<T>]` attribute** - Class-based test data source
+  - Data source class implements `IEnumerable<object?[]>`
+  - Type-safe alternative to `[TestData]` with member name strings
+  - AOT-compatible implementation via source generators
+
+- **Multi-type variants** - Combine data from multiple classes
+  - `[ClassDataSource<T1, T2>]` through `[ClassDataSource<T1, T2, T3, T4>]`
+  - Data from all source types is concatenated
+
+- **`SharedType` enum** - Instance sharing control
+  - `SharedType.None` (default) - New instance per test method
+  - `SharedType.Keyed` - Shared by key value across tests with same key
+  - `SharedType.PerClass` - Single instance within test class
+  - `SharedType.PerAssembly` - Single instance across assembly
+  - `SharedType.PerSession` - Single instance across entire test session
+
+- **Shared instance management**
+  - `Key` property for keyed sharing: `[ClassDataSource<T>(Shared = SharedType.Keyed, Key = "db")]`
+  - Proper disposal of `IDisposable`/`IAsyncDisposable` instances at cleanup
+
+### Technical Notes
+
+- `ClassDataSourceDescriptor` for runtime test case expansion
+- `ClassDataSourceExpander` with `ConcurrentDictionary`-based instance caching
+- Generator diagnostics: NEXTUNIT008 (conflicting data sources), NEXTUNIT009 (missing key for Keyed)
+- `TypeofCompatibleFormat` added to avoid nullable type annotations in `typeof()` expressions
+
 ## [1.9.0] - 2026-01-22
 
 ### Added - Matrix Data Source & Roslyn Analyzers
