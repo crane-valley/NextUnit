@@ -269,4 +269,126 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
         builder.AppendLine("            },");
     }
+
+    /// <summary>
+    /// Emits a combined data source descriptor for tests using parameter-level data source attributes.
+    /// </summary>
+    public static void EmitCombinedDataSourceDescriptor(
+        StringBuilder builder,
+        TestMethodDescriptor test,
+        List<LifecycleMethodDescriptor> lifecycleMethods)
+    {
+        builder.AppendLine("            new global::NextUnit.Internal.CombinedDataSourceDescriptor");
+        builder.AppendLine("            {");
+        builder.AppendLine($"                BaseId = {AttributeHelper.ToLiteral(test.Id)},");
+        builder.AppendLine($"                DisplayName = {AttributeHelper.ToLiteral(test.DisplayName)},");
+        builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
+        builder.AppendLine($"                MethodName = {AttributeHelper.ToLiteral(test.MethodName)},");
+        builder.AppendLine($"                ParameterSources = {BuildParameterSourcesLiteral(test)},");
+        builder.AppendLine($"                ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
+        builder.AppendLine($"                Lifecycle = {CodeBuilder.BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
+        builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
+        builder.AppendLine("                {");
+        builder.AppendLine($"                    NotInParallel = {test.NotInParallel.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    ConstraintKeys = {CodeBuilder.BuildStringArrayLiteral(test.ConstraintKeys)},");
+        builder.AppendLine($"                    ParallelGroup = {(test.ParallelGroup is not null ? AttributeHelper.ToLiteral(test.ParallelGroup) : "null")},");
+        builder.AppendLine($"                    ParallelLimit = {(test.ParallelLimit is int limit ? limit.ToString(CultureInfo.InvariantCulture) : "null")}");
+        builder.AppendLine("                },");
+        builder.AppendLine($"                Dependencies = {CodeBuilder.BuildDependenciesLiteral(test.Dependencies)},");
+        builder.AppendLine($"                DependencyInfos = {CodeBuilder.BuildDependencyInfosLiteral(test.DependencyInfos)},");
+        builder.AppendLine($"                IsSkipped = {test.IsSkipped.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                SkipReason = {(test.SkipReason is not null ? AttributeHelper.ToLiteral(test.SkipReason) : "null")},");
+        builder.AppendLine($"                Categories = {CodeBuilder.BuildStringArrayLiteral(test.Categories)},");
+        builder.AppendLine($"                Tags = {CodeBuilder.BuildStringArrayLiteral(test.Tags)},");
+        builder.AppendLine($"                RequiresTestOutput = {test.RequiresTestOutput.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                RequiresTestContext = {test.RequiresTestContext.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                TimeoutMs = {(test.TimeoutMs is int timeout ? timeout.ToString(CultureInfo.InvariantCulture) : "null")},");
+        builder.AppendLine("                Retry = new global::NextUnit.Internal.RetryInfo");
+        builder.AppendLine("                {");
+        builder.AppendLine($"                    Count = {(test.RetryCount is int retryCount ? retryCount.ToString(CultureInfo.InvariantCulture) : "null")},");
+        builder.AppendLine($"                    DelayMs = {test.RetryDelayMs.ToString(CultureInfo.InvariantCulture)},");
+        builder.AppendLine($"                    IsFlaky = {test.IsFlaky.ToString().ToLowerInvariant()},");
+        builder.AppendLine($"                    FlakyReason = {(test.FlakyReason is not null ? AttributeHelper.ToLiteral(test.FlakyReason) : "null")}");
+        builder.AppendLine("                },");
+        builder.AppendLine($"                CustomDisplayNameTemplate = {(test.CustomDisplayName is not null ? AttributeHelper.ToLiteral(test.CustomDisplayName) : "null")},");
+        builder.AppendLine($"                DisplayNameFormatterType = {(test.DisplayNameFormatterType is not null ? $"typeof({test.DisplayNameFormatterType})" : "null")}");
+        builder.AppendLine("            },");
+    }
+
+    private static string BuildParameterSourcesLiteral(TestMethodDescriptor test)
+    {
+        if (test.CombinedParameterSources.IsDefaultOrEmpty)
+        {
+            return "global::System.Array.Empty<global::NextUnit.Internal.ParameterDataSource>()";
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("new global::NextUnit.Internal.ParameterDataSource[] { ");
+
+        for (var i = 0; i < test.CombinedParameterSources.Length; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            var source = test.CombinedParameterSources[i];
+            sb.Append(BuildParameterSourceLiteral(source, test.FullyQualifiedTypeName));
+        }
+
+        sb.Append(" }");
+        return sb.ToString();
+    }
+
+    private static string BuildParameterSourceLiteral(ParameterDataSourceDescriptor source, string testClassName)
+    {
+        var sb = new StringBuilder();
+        sb.Append("new global::NextUnit.Internal.ParameterDataSource { ");
+        sb.Append($"ParameterIndex = {source.ParameterIndex.ToString(CultureInfo.InvariantCulture)}, ");
+        sb.Append($"ParameterName = {AttributeHelper.ToLiteral(source.ParameterName)}, ");
+        sb.Append($"Kind = global::NextUnit.Internal.ParameterDataSourceKind.{source.Kind}, ");
+
+        switch (source.Kind)
+        {
+            case ParameterDataSourceKind.Inline:
+                sb.Append($"InlineValues = {ArgumentFormatter.BuildArgumentsLiteral(source.InlineValues)}, ");
+                sb.Append("MemberName = null, ");
+                sb.Append("MemberType = null, ");
+                sb.Append("ClassDataSourceType = null, ");
+                sb.Append("SharedType = global::NextUnit.SharedType.None, ");
+                sb.Append("SharedKey = null");
+                break;
+
+            case ParameterDataSourceKind.Member:
+                sb.Append("InlineValues = null, ");
+                sb.Append($"MemberName = {AttributeHelper.ToLiteral(source.MemberName!)}, ");
+                var memberType = source.MemberTypeName ?? testClassName;
+                sb.Append($"MemberType = typeof({memberType}), ");
+                sb.Append("ClassDataSourceType = null, ");
+                sb.Append("SharedType = global::NextUnit.SharedType.None, ");
+                sb.Append("SharedKey = null");
+                break;
+
+            case ParameterDataSourceKind.Class:
+                sb.Append("InlineValues = null, ");
+                sb.Append("MemberName = null, ");
+                sb.Append("MemberType = null, ");
+                sb.Append($"ClassDataSourceType = typeof({source.ClassTypeName}), ");
+                var sharedTypeLiteral = source.SharedType switch
+                {
+                    0 => "global::NextUnit.SharedType.None",
+                    1 => "global::NextUnit.SharedType.Keyed",
+                    2 => "global::NextUnit.SharedType.PerClass",
+                    3 => "global::NextUnit.SharedType.PerAssembly",
+                    4 => "global::NextUnit.SharedType.PerSession",
+                    _ => "global::NextUnit.SharedType.None"
+                };
+                sb.Append($"SharedType = {sharedTypeLiteral}, ");
+                sb.Append($"SharedKey = {(source.SharedKey is not null ? AttributeHelper.ToLiteral(source.SharedKey) : "null")}");
+                break;
+        }
+
+        sb.Append(" }");
+        return sb.ToString();
+    }
 }

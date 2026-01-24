@@ -104,6 +104,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var repeatCount = AttributeHelper.GetRepeatCount(methodSymbol);
         var matrixParameters = AttributeHelper.GetMatrixParameters(methodSymbol);
         var matrixExclusions = AttributeHelper.GetMatrixExclusions(methodSymbol);
+        var combinedParameterSources = AttributeHelper.GetCombinedParameterSources(methodSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -136,7 +137,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             displayNameFormatterType,
             repeatCount,
             matrixParameters,
-            matrixExclusions);
+            matrixExclusions,
+            combinedParameterSources);
     }
 
     private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
@@ -382,6 +384,64 @@ internal static class Program
                     }
                 }
             }
+
+            // CombinedParameterSources validation
+            if (!test.CombinedParameterSources.IsDefaultOrEmpty)
+            {
+                // Conflicts with other data source attributes
+                if (!test.ArgumentSets.IsDefaultOrEmpty || !test.TestDataSources.IsDefaultOrEmpty ||
+                    !test.MatrixParameters.IsDefaultOrEmpty || !test.ClassDataSources.IsDefaultOrEmpty)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        new DiagnosticDescriptor(
+                            "NEXTUNIT010",
+                            "Conflicting test data attributes",
+                            "Test '{0}' uses parameter-level data sources ([Values], [ValuesFromMember], [ValuesFrom]) with other data source attributes. Only parameter-level sources will be processed.",
+                            "NextUnit",
+                            DiagnosticSeverity.Warning,
+                            isEnabledByDefault: true),
+                        Location.None,
+                        test.Id));
+                }
+
+                // All parameters must have a data source if any do
+                if (test.CombinedParameterSources.Length != test.Parameters.Length)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        new DiagnosticDescriptor(
+                            "NEXTUNIT011",
+                            "Incomplete parameter data sources",
+                            "Test '{0}' has {1} parameters but only {2} have data source attributes ([Values], [ValuesFromMember], or [ValuesFrom]). All parameters must have a data source when using combined data sources.",
+                            "NextUnit",
+                            DiagnosticSeverity.Error,
+                            isEnabledByDefault: true),
+                        Location.None,
+                        test.Id,
+                        test.Parameters.Length,
+                        test.CombinedParameterSources.Length));
+                }
+
+                // Validate Keyed sharing requires Key
+                foreach (var source in test.CombinedParameterSources)
+                {
+                    if (source.Kind == ParameterDataSourceKind.Class &&
+                        source.SharedType == SharedTypeConstants.Keyed &&
+                        string.IsNullOrEmpty(source.SharedKey))
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(
+                            new DiagnosticDescriptor(
+                                "NEXTUNIT012",
+                                "Missing Key for Keyed ValuesFrom",
+                                "Test '{0}' uses [ValuesFrom] with SharedType.Keyed on parameter '{1}' but no Key is specified.",
+                                "NextUnit",
+                                DiagnosticSeverity.Error,
+                                isEnabledByDefault: true),
+                            Location.None,
+                            test.Id,
+                            source.ParameterName));
+                    }
+                }
+            }
         }
     }
 
@@ -459,15 +519,20 @@ internal static class Program
         builder.AppendLine("    }");
         builder.AppendLine();
 
-        // Separate tests by type: regular, matrix, TestData, and ClassDataSource
+        // Separate tests by type: regular, matrix, TestData, ClassDataSource, and CombinedDataSource
         var regularTests = new List<TestMethodDescriptor>();
         var matrixTests = new List<TestMethodDescriptor>();
         var testDataTests = new List<TestMethodDescriptor>();
         var classDataSourceTests = new List<TestMethodDescriptor>();
+        var combinedDataSourceTests = new List<TestMethodDescriptor>();
 
         foreach (var test in tests)
         {
-            if (!test.ClassDataSources.IsDefaultOrEmpty)
+            if (!test.CombinedParameterSources.IsDefaultOrEmpty)
+            {
+                combinedDataSourceTests.Add(test);
+            }
+            else if (!test.ClassDataSources.IsDefaultOrEmpty)
             {
                 classDataSourceTests.Add(test);
             }
@@ -582,6 +647,23 @@ internal static class Program
                 : new List<LifecycleMethodDescriptor>();
 
             TestCaseEmitter.EmitClassDataSourceDescriptor(builder, test, lifecycleMethods, test.ClassDataSources);
+        }
+
+        builder.AppendLine("        };");
+        builder.AppendLine();
+
+        // Generate CombinedDataSourceDescriptors for tests using parameter-level data sources
+        builder.AppendLine("    public static global::System.Collections.Generic.IReadOnlyList<global::NextUnit.Internal.CombinedDataSourceDescriptor> CombinedDataSourceDescriptors { get; } =");
+        builder.AppendLine("        new global::NextUnit.Internal.CombinedDataSourceDescriptor[]");
+        builder.AppendLine("        {");
+
+        foreach (var test in combinedDataSourceTests)
+        {
+            var lifecycleMethods = lifecycleByType.TryGetValue(test.FullyQualifiedTypeName, out var methods)
+                ? methods
+                : new List<LifecycleMethodDescriptor>();
+
+            TestCaseEmitter.EmitCombinedDataSourceDescriptor(builder, test, lifecycleMethods);
         }
 
         builder.AppendLine("        };");

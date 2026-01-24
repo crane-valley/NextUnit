@@ -31,6 +31,9 @@ internal static class AttributeHelper
     public const string MatrixAttributeMetadataName = "global::NextUnit.MatrixAttribute";
     public const string MatrixExclusionAttributeMetadataName = "global::NextUnit.MatrixExclusionAttribute";
     public const string ClassDataSourceAttributePrefix = "ClassDataSourceAttribute`";
+    public const string ValuesAttributeMetadataName = "global::NextUnit.ValuesAttribute";
+    public const string ValuesFromMemberAttributeMetadataName = "global::NextUnit.ValuesFromMemberAttribute";
+    public const string ValuesFromAttributePrefix = "ValuesFromAttribute`";
     public const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
     public const string ITestContextMetadataName = "global::NextUnit.Core.ITestContext";
 
@@ -658,6 +661,127 @@ internal static class AttributeHelper
         }
 
         return builder.ToImmutable();
+    }
+
+    /// <summary>
+    /// Extracts combined parameter sources from method parameters.
+    /// Returns non-empty array only if at least one parameter has [Values], [ValuesFromMember], or [ValuesFrom&lt;T&gt;].
+    /// </summary>
+    public static ImmutableArray<ParameterDataSourceDescriptor> GetCombinedParameterSources(IMethodSymbol methodSymbol)
+    {
+        var builder = ImmutableArray.CreateBuilder<ParameterDataSourceDescriptor>();
+        var hasAnySource = false;
+
+        for (var i = 0; i < methodSymbol.Parameters.Length; i++)
+        {
+            var parameter = methodSymbol.Parameters[i];
+            var descriptor = TryGetParameterDataSource(parameter, i);
+
+            if (descriptor is not null)
+            {
+                hasAnySource = true;
+                builder.Add(descriptor);
+            }
+        }
+
+        // Only return sources if at least one parameter has a data source attribute
+        return hasAnySource ? builder.ToImmutable() : ImmutableArray<ParameterDataSourceDescriptor>.Empty;
+    }
+
+    private static ParameterDataSourceDescriptor? TryGetParameterDataSource(IParameterSymbol parameter, int index)
+    {
+        foreach (var attribute in parameter.GetAttributes())
+        {
+            // Check for [Values]
+            if (IsAttribute(attribute, ValuesAttributeMetadataName))
+            {
+                if (attribute.ConstructorArguments.Length > 0 &&
+                    attribute.ConstructorArguments[0].Kind == TypedConstantKind.Array)
+                {
+                    return new ParameterDataSourceDescriptor(
+                        parameterIndex: index,
+                        parameterName: parameter.Name,
+                        kind: ParameterDataSourceKind.Inline,
+                        inlineValues: attribute.ConstructorArguments[0].Values,
+                        memberName: null,
+                        memberTypeName: null,
+                        classTypeName: null,
+                        sharedType: 0,
+                        sharedKey: null);
+                }
+            }
+
+            // Check for [ValuesFromMember]
+            if (IsAttribute(attribute, ValuesFromMemberAttributeMetadataName))
+            {
+                if (attribute.ConstructorArguments.Length > 0 &&
+                    attribute.ConstructorArguments[0].Value is string memberName &&
+                    !string.IsNullOrEmpty(memberName))
+                {
+                    var memberTypeArg = attribute.NamedArguments
+                        .Where(arg => arg.Key == "MemberType" && arg.Value.Value is INamedTypeSymbol)
+                        .Select(arg => (INamedTypeSymbol)arg.Value.Value!)
+                        .FirstOrDefault();
+
+                    string? memberTypeName = memberTypeArg?.ToDisplayString(TypeofCompatibleFormat);
+
+                    return new ParameterDataSourceDescriptor(
+                        parameterIndex: index,
+                        parameterName: parameter.Name,
+                        kind: ParameterDataSourceKind.Member,
+                        inlineValues: ImmutableArray<TypedConstant>.Empty,
+                        memberName: memberName,
+                        memberTypeName: memberTypeName,
+                        classTypeName: null,
+                        sharedType: 0,
+                        sharedKey: null);
+                }
+            }
+
+            // Check for [ValuesFrom<T>]
+            var attrClass = attribute.AttributeClass;
+            if (attrClass is { IsGenericType: true })
+            {
+                var constructedFrom = attrClass.ConstructedFrom;
+                var metadataName = constructedFrom.MetadataName;
+
+                if (metadataName.StartsWith(ValuesFromAttributePrefix, StringComparison.Ordinal) &&
+                    constructedFrom.ContainingNamespace.ToDisplayString() == "NextUnit")
+                {
+                    var typeArg = attrClass.TypeArguments[0];
+                    var classTypeName = typeArg.ToDisplayString(TypeofCompatibleFormat);
+
+                    // Extract Shared and Key named arguments
+                    var sharedType = 0; // SharedType.None
+                    var key = (string?)null;
+
+                    foreach (var namedArg in attribute.NamedArguments)
+                    {
+                        if (namedArg.Key == "Shared" && namedArg.Value.Value is int sharedValue)
+                        {
+                            sharedType = sharedValue;
+                        }
+                        else if (namedArg.Key == "Key" && namedArg.Value.Value is string keyValue)
+                        {
+                            key = keyValue;
+                        }
+                    }
+
+                    return new ParameterDataSourceDescriptor(
+                        parameterIndex: index,
+                        parameterName: parameter.Name,
+                        kind: ParameterDataSourceKind.Class,
+                        inlineValues: ImmutableArray<TypedConstant>.Empty,
+                        memberName: null,
+                        memberTypeName: null,
+                        classTypeName: classTypeName,
+                        sharedType: sharedType,
+                        sharedKey: key);
+                }
+            }
+        }
+
+        return null;
     }
 
     private static (int? count, int delayMs) GetRetryFromSymbol(ISymbol symbol)

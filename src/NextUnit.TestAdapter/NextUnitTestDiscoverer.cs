@@ -116,5 +116,19 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
                 discoverySink.SendTestCase(vsTestCase);
             }
         }
+
+        // Get CombinedDataSourceDescriptors property for combined parameter-level data sources
+        var combinedDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<CombinedDataSourceDescriptor>>(registryType, "CombinedDataSourceDescriptors");
+        if (combinedDataSourceDescriptors is not null && combinedDataSourceDescriptors.Count > 0)
+        {
+            logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {combinedDataSourceDescriptors.Count} combined data source descriptors");
+
+            // Expand CombinedDataSourceDescriptors into TestCaseDescriptors
+            var expandedTests = CombinedDataSourceExpander.Expand(combinedDataSourceDescriptors);
+            foreach (var vsTestCase in expandedTests.Select(tc => VSTestCaseFactory.Create(tc, source)))
+            {
+                discoverySink.SendTestCase(vsTestCase);
+            }
+        }
     }
 }

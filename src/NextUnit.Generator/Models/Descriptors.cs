@@ -39,7 +39,8 @@ internal sealed class TestMethodDescriptor
         string? displayNameFormatterType,
         int? repeatCount,
         ImmutableArray<MatrixParameterDescriptor> matrixParameters,
-        ImmutableArray<MatrixExclusionDescriptor> matrixExclusions)
+        ImmutableArray<MatrixExclusionDescriptor> matrixExclusions,
+        ImmutableArray<ParameterDataSourceDescriptor> combinedParameterSources)
     {
         Id = id;
         DisplayName = displayName;
@@ -72,6 +73,7 @@ internal sealed class TestMethodDescriptor
         RepeatCount = repeatCount;
         MatrixParameters = matrixParameters;
         MatrixExclusions = matrixExclusions;
+        CombinedParameterSources = combinedParameterSources;
     }
 
     public string Id { get; }
@@ -105,6 +107,7 @@ internal sealed class TestMethodDescriptor
     public int? RepeatCount { get; }
     public ImmutableArray<MatrixParameterDescriptor> MatrixParameters { get; }
     public ImmutableArray<MatrixExclusionDescriptor> MatrixExclusions { get; }
+    public ImmutableArray<ParameterDataSourceDescriptor> CombinedParameterSources { get; }
 }
 
 /// <summary>
@@ -219,4 +222,104 @@ internal sealed class ClassDataSource
     /// Gets the key for keyed sharing (null if not applicable).
     /// </summary>
     public string? Key { get; }
+}
+
+/// <summary>
+/// Specifies the kind of data source for a parameter.
+/// </summary>
+internal enum ParameterDataSourceKind
+{
+    /// <summary>
+    /// Inline values from [Values] attribute.
+    /// </summary>
+    Inline,
+
+    /// <summary>
+    /// Values from a static member via [ValuesFromMember] attribute.
+    /// </summary>
+    Member,
+
+    /// <summary>
+    /// Values from a class data source via [ValuesFrom&lt;T&gt;] attribute.
+    /// </summary>
+    Class
+}
+
+/// <summary>
+/// Describes a data source for a single parameter in a combined data source test.
+/// </summary>
+internal sealed class ParameterDataSourceDescriptor
+{
+    public ParameterDataSourceDescriptor(
+        int parameterIndex,
+        string parameterName,
+        ParameterDataSourceKind kind,
+        ImmutableArray<TypedConstant> inlineValues,
+        string? memberName,
+        string? memberTypeName,
+        string? classTypeName,
+        int sharedType,
+        string? sharedKey)
+    {
+        ParameterIndex = parameterIndex;
+        ParameterName = parameterName;
+        Kind = kind;
+        InlineValues = inlineValues;
+        MemberName = memberName;
+        MemberTypeName = memberTypeName;
+        ClassTypeName = classTypeName;
+        SharedType = sharedType;
+        SharedKey = sharedKey;
+    }
+
+    /// <summary>
+    /// Gets the zero-based index of the parameter.
+    /// </summary>
+    public int ParameterIndex { get; }
+
+    /// <summary>
+    /// Gets the name of the parameter.
+    /// </summary>
+    public string ParameterName { get; }
+
+    /// <summary>
+    /// Gets the kind of data source.
+    /// </summary>
+    public ParameterDataSourceKind Kind { get; }
+
+    /// <summary>
+    /// Gets the inline values for [Values] attribute.
+    /// Empty for other kinds.
+    /// </summary>
+    public ImmutableArray<TypedConstant> InlineValues { get; }
+
+    /// <summary>
+    /// Gets the member name for [ValuesFromMember] attribute.
+    /// Null for other kinds.
+    /// </summary>
+    public string? MemberName { get; }
+
+    /// <summary>
+    /// Gets the fully qualified type name containing the member.
+    /// Null if the test class should be used.
+    /// </summary>
+    public string? MemberTypeName { get; }
+
+    /// <summary>
+    /// Gets the fully qualified type name of the class data source.
+    /// Null for non-class kinds.
+    /// </summary>
+    public string? ClassTypeName { get; }
+
+    /// <summary>
+    /// Gets the sharing scope as an integer (maps to NextUnit.SharedType enum).
+    /// Only applicable for class data sources.
+    /// </summary>
+    public int SharedType { get; }
+
+    /// <summary>
+    /// Gets the key for keyed sharing.
+    /// Only applicable when SharedType is Keyed.
+    /// </summary>
+    public string? SharedKey { get; }
 }

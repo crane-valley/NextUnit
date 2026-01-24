@@ -193,6 +193,22 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             allTestCases.AddRange(expandedTests);
         }
 
+        // Get CombinedDataSourceDescriptors and expand them
+        var combinedDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<CombinedDataSourceDescriptor>>(registryType, "CombinedDataSourceDescriptors");
+        if (combinedDataSourceDescriptors is not null)
+        {
+            // Filter descriptors before expansion to avoid resolving expensive data sources for unrelated tests
+            IEnumerable<CombinedDataSourceDescriptor> descriptorsToExpand = combinedDataSourceDescriptors;
+            if (testIdsToRun is not null)
+            {
+                descriptorsToExpand = combinedDataSourceDescriptors.Where(d =>
+                    testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
+            }
+
+            var expandedTests = CombinedDataSourceExpander.Expand(descriptorsToExpand.ToList());
+            allTestCases.AddRange(expandedTests);
+        }
+
         // Filter tests if specific tests were requested
         if (testIdsToRun != null)
         {

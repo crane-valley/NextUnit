@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.10.0 (Stable)
+## Current Version: 1.11.0 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -10,6 +10,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 | Version | Key Features |
 | ------- | ------------ |
+| 1.11.x | Combined data sources: `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product |
 | 1.10.x | Class data sources: `[ClassDataSource<T>]` with shared instance support |
 | 1.8.x | Enhanced parallel control: constraint keys, `[ParallelGroup]`, `ProceedOnFailure` |
 | 1.7.x | `[DisplayName]` attribute, `[DisplayNameFormatter<T>]`, custom display name formatting |
@@ -155,12 +156,14 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 2.3 Combined Data Sources
 
-**Status**: Not Started
+**Status**: Completed (v1.11.0)
 **Goal**: Mix different data sources per parameter
 
-- [ ] `[CombinedDataSources]` to enable mixing
-- [ ] Automatic Cartesian product of different sources
-- [ ] Nested data source support
+- [x] `[Values]` attribute for inline values per parameter
+- [x] `[ValuesFromMember]` for values from static member
+- [x] `[ValuesFrom<T>]` for values from class data source
+- [x] Automatic Cartesian product of all parameter values
+- [x] Shared instance support for class data sources
 
 ### Priority 3: Developer Experience
 
@@ -365,7 +368,7 @@ Phase 2 (Future):
 ### Q3 2026
 
 1. ~~Class data sources~~ - **Completed** (v1.10.0)
-2. Combined data sources
+2. ~~Combined data sources~~ - **Completed** (v1.11.0)
 3. Test artifacts
 4. ASP.NET Core integration package
 
@@ -438,4 +441,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-24
-**Next Focus**: Priority 2.3 - Combined Data Sources, Priority 3.1 Phase 2 - Additional Analyzers
+**Next Focus**: Priority 3.5 - Test Artifacts, Priority 3.1 Phase 2 - Additional Analyzers

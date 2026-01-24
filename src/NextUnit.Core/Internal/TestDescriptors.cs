@@ -459,6 +459,196 @@ public sealed class TestDataDescriptor
 }
 
 /// <summary>
+/// Specifies the kind of data source for a parameter.
+/// </summary>
+public enum ParameterDataSourceKind
+{
+    /// <summary>
+    /// Inline values from [Values] attribute.
+    /// </summary>
+    Inline,
+
+    /// <summary>
+    /// Values from a static member via [ValuesFromMember] attribute.
+    /// </summary>
+    Member,
+
+    /// <summary>
+    /// Values from a class data source via [ValuesFrom&lt;T&gt;] attribute.
+    /// </summary>
+    Class
+}
+
+/// <summary>
+/// Describes a data source for a single parameter in a combined data source test.
+/// </summary>
+public sealed class ParameterDataSource
+{
+    /// <summary>
+    /// Gets or initializes the zero-based index of the parameter.
+    /// </summary>
+    public int ParameterIndex { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the name of the parameter.
+    /// </summary>
+    public string ParameterName { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the kind of data source.
+    /// </summary>
+    public ParameterDataSourceKind Kind { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the inline values for [Values] attribute.
+    /// Null for other kinds.
+    /// </summary>
+    public object?[]? InlineValues { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the member name for [ValuesFromMember] attribute.
+    /// Null for other kinds.
+    /// </summary>
+    public string? MemberName { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the type containing the member.
+    /// Null if the test class should be used.
+    /// </summary>
+    public Type? MemberType { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the type of the class data source.
+    /// Null for non-class kinds.
+    /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+    public Type? ClassDataSourceType { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the sharing scope for class data sources.
+    /// </summary>
+    public SharedType SharedType { get; init; } = SharedType.None;
+
+    /// <summary>
+    /// Gets or initializes the key for keyed sharing.
+    /// Only applicable when SharedType is Keyed.
+    /// </summary>
+    public string? SharedKey { get; init; }
+}
+
+/// <summary>
+/// Describes a test that uses combined data sources for its parameters.
+/// </summary>
+/// <remarks>
+/// This descriptor is generated for tests using parameter-level data source attributes
+/// such as [Values], [ValuesFromMember], and [ValuesFrom&lt;T&gt;].
+/// At runtime, the Cartesian product of all parameter values is computed.
+/// </remarks>
+public sealed class CombinedDataSourceDescriptor
+{
+    /// <summary>
+    /// Gets or initializes the base test case ID (without data index).
+    /// </summary>
+    public string BaseId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the display name template for the test.
+    /// </summary>
+    public string DisplayName { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the type of the test class containing the test method.
+    /// </summary>
+    public Type TestClass { get; init; } = typeof(object);
+
+    /// <summary>
+    /// Gets or initializes the name of the test method.
+    /// </summary>
+    public string MethodName { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the data sources for each parameter.
+    /// </summary>
+    public ParameterDataSource[] ParameterSources { get; init; } = [];
+
+    /// <summary>
+    /// Gets or initializes the parameter types for the test method.
+    /// Used to resolve the correct method overload when invoking via reflection.
+    /// </summary>
+    public Type[] ParameterTypes { get; init; } = [];
+
+    /// <summary>
+    /// Gets or initializes the lifecycle hooks configuration for the test.
+    /// </summary>
+    public LifecycleInfo Lifecycle { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the parallel execution configuration for the test.
+    /// </summary>
+    public ParallelInfo Parallel { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the collection of test case identifiers that this test depends on.
+    /// </summary>
+    public IReadOnlyList<TestCaseId> Dependencies { get; init; } = Array.Empty<TestCaseId>();
+
+    /// <summary>
+    /// Gets or initializes the detailed dependency information including proceed-on-failure settings.
+    /// </summary>
+    public IReadOnlyList<DependencyInfo> DependencyInfos { get; init; } = Array.Empty<DependencyInfo>();
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test should be skipped.
+    /// </summary>
+    public bool IsSkipped { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the reason why the test is skipped, or <c>null</c> if not skipped.
+    /// </summary>
+    public string? SkipReason { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the categories assigned to the test.
+    /// </summary>
+    public IReadOnlyList<string> Categories { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or initializes the tags assigned to the test.
+    /// </summary>
+    public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test class constructor requires an ITestOutput parameter.
+    /// </summary>
+    public bool RequiresTestOutput { get; init; }
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test class constructor requires an ITestContext parameter.
+    /// </summary>
+    public bool RequiresTestContext { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the timeout for the test in milliseconds, or <c>null</c> if no timeout is specified.
+    /// </summary>
+    public int? TimeoutMs { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the retry configuration for the test.
+    /// </summary>
+    public RetryInfo Retry { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the custom display name template with optional placeholders ({0}, {1}, etc.).
+    /// </summary>
+    public string? CustomDisplayNameTemplate { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
+    /// </summary>
+    public Type? DisplayNameFormatterType { get; init; }
+}
+
+/// <summary>
 /// Describes a class-based data source that provides test cases at runtime.
 /// </summary>
 /// <remarks>

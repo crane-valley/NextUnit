@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-01-24
+
+### Added - Combined Data Sources
+
+- **`[Values]` attribute** - Inline values per parameter
+  - `[Values(1, 2, 3)]` on test parameters
+  - Multiple parameters create Cartesian product
+  - Example: 3 values × 2 values = 6 test cases automatically
+
+- **`[ValuesFromMember]` attribute** - Values from static member
+  - `[ValuesFromMember(nameof(GetValues))]` references static method, property, or field
+  - `MemberType` property to specify different type: `[ValuesFromMember("Values", MemberType = typeof(DataProvider))]`
+  - Member must return `IEnumerable`
+
+- **`[ValuesFrom<T>]` attribute** - Values from class data source
+  - `[ValuesFrom<MyDataSource>]` references enumerable class
+  - `Shared` property for instance sharing: `[ValuesFrom<T>(Shared = SharedType.PerClass)]`
+  - `Key` property for keyed sharing
+
+- **Cartesian product support** - Mix data sources per parameter
+  - Combine inline values, member values, and class data sources
+  - Automatic Cartesian product at runtime
+  - Example: `[Values(1, 2)]` + `[ValuesFrom<Browsers>]` = 2 × N test cases
+
+### Technical Notes
+
+- `CombinedDataSourceDescriptor` for runtime test case expansion
+- `CombinedDataSourceExpander` with Cartesian product computation
+- `ParameterDataSource` and `ParameterDataSourceKind` for parameter-level data sources
+- Generator diagnostics: NEXTUNIT010 (conflicting data sources), NEXTUNIT011 (incomplete parameter sources), NEXTUNIT012 (missing key)
+- Shared instance caching similar to `ClassDataSourceExpander`
+
 ## [1.10.0] - 2026-01-24
 
 ### Added - Class Data Source
