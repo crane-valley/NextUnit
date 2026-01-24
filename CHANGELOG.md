@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-01-25
+
+### Added - Test Execution Priority
+
+- **`[ExecutionPriority(int)]` attribute** - Control test execution order
+  - Higher values run first (e.g., `[ExecutionPriority(100)]` runs before `[ExecutionPriority(10)]`)
+  - Default priority is 0 when not specified
+  - Works within the same dependency level (does not override `[DependsOn]`)
+  - Can be applied at method or class level (class level sets default for all tests)
+
+### Added - Roslyn Analyzers Phase 2
+
+- **`NU0003`**: TestData/ValuesFromMember references non-existent member (Error)
+- **`NU0005`**: Lifecycle methods ([Before]/[After]) with unhandled throws (Info)
+- **`NU0007`**: DependsOn references non-existent test method (Warning)
+- **`NU0008`**: MatrixExclusion value count doesn't match Matrix parameter count (Error)
+
+### Changed - CI/CD Infrastructure
+
+- **Native AOT verification** - Nightly workflow now compiles and runs AOT binary
+- **CI optimization** - Reduced workflow jobs, added NuGet caching, build artifact sharing
+
+### Technical Notes
+
+- `ExecutionPriorityAttribute` with `AttributeTargets.Method | AttributeTargets.Class`
+- `Priority` property added to `TestCaseDescriptor` and generator models
+- `ParallelScheduler.GroupIntoBatches` sorts by priority within dependency levels
+- Analyzer diagnostics follow existing patterns with proper severity levels
+
 ## [1.13.0] - 2026-01-24
 
 ### Added - Explicit Tests
