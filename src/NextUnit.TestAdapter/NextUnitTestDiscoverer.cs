@@ -102,5 +102,19 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
                 discoverySink.SendTestCase(vsTestCase);
             }
         }
+
+        // Get ClassDataSourceDescriptors property for class-based data sources
+        var classDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<ClassDataSourceDescriptor>>(registryType, "ClassDataSourceDescriptors");
+        if (classDataSourceDescriptors is not null && classDataSourceDescriptors.Count > 0)
+        {
+            logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {classDataSourceDescriptors.Count} class data source descriptors");
+
+            // Expand ClassDataSourceDescriptors into TestCaseDescriptors
+            var expandedTests = ClassDataSourceExpander.Expand(classDataSourceDescriptors);
+            foreach (var vsTestCase in expandedTests.Select(tc => VSTestCaseFactory.Create(tc, source)))
+            {
+                discoverySink.SendTestCase(vsTestCase);
+            }
+        }
     }
 }

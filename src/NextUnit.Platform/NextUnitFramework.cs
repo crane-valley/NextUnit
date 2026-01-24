@@ -215,6 +215,20 @@ internal sealed class NextUnitFramework :
             allTestCases.AddRange(expandedTests);
         }
 
+        // Get dynamic test cases from ClassDataSourceDescriptors property
+        var classDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<ClassDataSourceDescriptor>>(generatedRegistryType, "ClassDataSourceDescriptors");
+        if (classDataSourceDescriptors is not null)
+        {
+            // Filter ClassDataSourceDescriptors BEFORE expansion to avoid instantiating data sources for excluded tests
+            var filteredDescriptors = classDataSourceDescriptors
+                .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName))
+                .ToList();
+
+            // Expand only the filtered ClassDataSourceDescriptors into TestCaseDescriptors at runtime
+            var expandedTests = ClassDataSourceExpander.Expand(filteredDescriptors);
+            allTestCases.AddRange(expandedTests);
+        }
+
         // Apply category and tag filtering to static test cases
         var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags, tc.DisplayName)).ToList();
 

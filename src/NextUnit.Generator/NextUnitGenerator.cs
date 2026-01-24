@@ -93,6 +93,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var (isSkipped, skipReason) = AttributeHelper.GetSkipInfo(methodSymbol);
         var argumentSets = AttributeHelper.GetArgumentSets(methodSymbol);
         var testDataSources = AttributeHelper.GetTestDataSources(methodSymbol);
+        var classDataSources = AttributeHelper.GetClassDataSources(methodSymbol);
         var parameters = methodSymbol.Parameters;
         var categories = AttributeHelper.GetCategories(methodSymbol, typeSymbol);
         var tags = AttributeHelper.GetTags(methodSymbol, typeSymbol);
@@ -119,6 +120,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             skipReason,
             argumentSets,
             testDataSources,
+            classDataSources,
             parameters,
             categories,
             tags,
@@ -344,6 +346,42 @@ internal static class Program
                         test.MatrixParameters.Length));
                 }
             }
+
+            // ClassDataSource validation: conflicts with other data source attributes
+            if (!test.ClassDataSources.IsDefaultOrEmpty)
+            {
+                if (!test.ArgumentSets.IsDefaultOrEmpty || !test.TestDataSources.IsDefaultOrEmpty || !test.MatrixParameters.IsDefaultOrEmpty)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        new DiagnosticDescriptor(
+                            "NEXTUNIT008",
+                            "Conflicting test data attributes",
+                            "Test '{0}' has [ClassDataSource] with other data source attributes. Only [ClassDataSource] will be processed.",
+                            "NextUnit",
+                            DiagnosticSeverity.Warning,
+                            isEnabledByDefault: true),
+                        Location.None,
+                        test.Id));
+                }
+
+                // Validate Keyed sharing requires Key
+                foreach (var source in test.ClassDataSources)
+                {
+                    if (source.SharedType == 1 && string.IsNullOrEmpty(source.Key)) // 1 = SharedType.Keyed
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(
+                            new DiagnosticDescriptor(
+                                "NEXTUNIT009",
+                                "Missing Key for Keyed ClassDataSource",
+                                "Test '{0}' uses ClassDataSource with SharedType.Keyed but no Key is specified.",
+                                "NextUnit",
+                                DiagnosticSeverity.Error,
+                                isEnabledByDefault: true),
+                            Location.None,
+                            test.Id));
+                    }
+                }
+            }
         }
     }
 
@@ -421,14 +459,19 @@ internal static class Program
         builder.AppendLine("    }");
         builder.AppendLine();
 
-        // Separate tests by type: regular, matrix, and TestData
+        // Separate tests by type: regular, matrix, TestData, and ClassDataSource
         var regularTests = new List<TestMethodDescriptor>();
         var matrixTests = new List<TestMethodDescriptor>();
         var testDataTests = new List<TestMethodDescriptor>();
+        var classDataSourceTests = new List<TestMethodDescriptor>();
 
         foreach (var test in tests)
         {
-            if (!test.TestDataSources.IsDefaultOrEmpty)
+            if (!test.ClassDataSources.IsDefaultOrEmpty)
+            {
+                classDataSourceTests.Add(test);
+            }
+            else if (!test.TestDataSources.IsDefaultOrEmpty)
             {
                 testDataTests.Add(test);
             }
@@ -522,6 +565,23 @@ internal static class Program
             {
                 TestCaseEmitter.EmitTestDataDescriptor(builder, test, lifecycleMethods, dataSource);
             }
+        }
+
+        builder.AppendLine("        };");
+        builder.AppendLine();
+
+        // Generate ClassDataSourceDescriptors for tests using [ClassDataSource<T>]
+        builder.AppendLine("    public static global::System.Collections.Generic.IReadOnlyList<global::NextUnit.Internal.ClassDataSourceDescriptor> ClassDataSourceDescriptors { get; } =");
+        builder.AppendLine("        new global::NextUnit.Internal.ClassDataSourceDescriptor[]");
+        builder.AppendLine("        {");
+
+        foreach (var test in classDataSourceTests)
+        {
+            var lifecycleMethods = lifecycleByType.TryGetValue(test.FullyQualifiedTypeName, out var methods)
+                ? methods
+                : new List<LifecycleMethodDescriptor>();
+
+            TestCaseEmitter.EmitClassDataSourceDescriptor(builder, test, lifecycleMethods, test.ClassDataSources);
         }
 
         builder.AppendLine("        };");

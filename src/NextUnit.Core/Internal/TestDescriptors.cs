@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace NextUnit.Internal;
 
 /// <summary>
@@ -392,6 +394,130 @@ public sealed class TestDataDescriptor
     /// This is a simplified view of dependencies. Use <see cref="DependencyInfos"/> for
     /// full dependency information including <see cref="DependencyInfo.ProceedOnFailure"/>.
     /// </remarks>
+    public IReadOnlyList<TestCaseId> Dependencies { get; init; } = Array.Empty<TestCaseId>();
+
+    /// <summary>
+    /// Gets or initializes the detailed dependency information including proceed-on-failure settings.
+    /// </summary>
+    public IReadOnlyList<DependencyInfo> DependencyInfos { get; init; } = Array.Empty<DependencyInfo>();
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test should be skipped.
+    /// </summary>
+    public bool IsSkipped { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the reason why the test is skipped, or <c>null</c> if not skipped.
+    /// </summary>
+    public string? SkipReason { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the categories assigned to the test.
+    /// </summary>
+    public IReadOnlyList<string> Categories { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or initializes the tags assigned to the test.
+    /// </summary>
+    public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or initializes the parameter types for the test method.
+    /// Used to resolve the correct method overload when invoking via reflection.
+    /// </summary>
+    public Type[] ParameterTypes { get; init; } = [];
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test class constructor requires an ITestOutput parameter.
+    /// </summary>
+    public bool RequiresTestOutput { get; init; }
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the test class constructor requires an ITestContext parameter.
+    /// </summary>
+    public bool RequiresTestContext { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the timeout for the test in milliseconds, or <c>null</c> if no timeout is specified.
+    /// </summary>
+    public int? TimeoutMs { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the retry configuration for the test.
+    /// </summary>
+    public RetryInfo Retry { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the custom display name template with optional placeholders ({0}, {1}, etc.).
+    /// </summary>
+    public string? CustomDisplayNameTemplate { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
+    /// </summary>
+    public Type? DisplayNameFormatterType { get; init; }
+}
+
+/// <summary>
+/// Describes a class-based data source that provides test cases at runtime.
+/// </summary>
+/// <remarks>
+/// This descriptor is generated for tests using [ClassDataSource&lt;T&gt;] attribute.
+/// At runtime, the data source class is instantiated to produce the actual test cases.
+/// </remarks>
+public sealed class ClassDataSourceDescriptor
+{
+    /// <summary>
+    /// Gets or initializes the base test case ID (without data index).
+    /// </summary>
+    public string BaseId { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the display name template for the test.
+    /// </summary>
+    public string DisplayName { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the type of the test class containing the test method.
+    /// </summary>
+    public Type TestClass { get; init; } = typeof(object);
+
+    /// <summary>
+    /// Gets or initializes the name of the test method.
+    /// </summary>
+    public string MethodName { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the types that provide the test data.
+    /// Each type must implement <see cref="System.Collections.Generic.IEnumerable{T}"/> where T is object?[].
+    /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+    public Type[] DataSourceTypes { get; init; } = [];
+
+    /// <summary>
+    /// Gets or initializes the sharing scope for data source instances.
+    /// </summary>
+    public SharedType SharedType { get; init; } = SharedType.None;
+
+    /// <summary>
+    /// Gets or initializes the key for keyed sharing.
+    /// Required when <see cref="SharedType"/> is <see cref="NextUnit.SharedType.Keyed"/>.
+    /// </summary>
+    public string? SharedKey { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the lifecycle hooks configuration for the test.
+    /// </summary>
+    public LifecycleInfo Lifecycle { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the parallel execution configuration for the test.
+    /// </summary>
+    public ParallelInfo Parallel { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the collection of test case identifiers that this test depends on.
+    /// </summary>
     public IReadOnlyList<TestCaseId> Dependencies { get; init; } = Array.Empty<TestCaseId>();
 
     /// <summary>

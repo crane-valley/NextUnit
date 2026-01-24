@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.8.0 (Stable)
+## Current Version: 1.9.0 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -10,6 +10,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 | Version | Key Features |
 | ------- | ------------ |
+| 1.9.x | Class data sources: `[ClassDataSource<T>]` with shared instance support |
 | 1.8.x | Enhanced parallel control: constraint keys, `[ParallelGroup]`, `ProceedOnFailure` |
 | 1.7.x | `[DisplayName]` attribute, `[DisplayNameFormatter<T>]`, custom display name formatting |
 | 1.6.x | VSTest adapter, Visual Studio Test Explorer, rich failure messages, advanced CLI filtering, `[Timeout]` attribute |
@@ -144,13 +145,13 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 #### 2.2 Class Data Source
 
-**Status**: Not Started
+**Status**: Completed (v1.9.0)
 **Goal**: Type-safe class-based test data
 
-- [ ] `[ClassDataSource<T>]` for single type
-- [ ] `[ClassDataSource<T1, T2>]` through `[ClassDataSource<T1, T2, T3, T4>]`
-- [ ] Shared/keyed instance support
-- [ ] AOT-compatible implementation
+- [x] `[ClassDataSource<T>]` for single type
+- [x] `[ClassDataSource<T1, T2>]` through `[ClassDataSource<T1, T2, T3, T4>]`
+- [x] Shared/keyed instance support (SharedType: None, Keyed, PerClass, PerAssembly, PerSession)
+- [x] AOT-compatible implementation
 
 #### 2.3 Combined Data Sources
 
@@ -363,7 +364,7 @@ Phase 2 (Future):
 
 ### Q3 2026
 
-1. Class data sources
+1. ~~Class data sources~~ - **Completed** (v1.9.0)
 2. Combined data sources
 3. Test artifacts
 4. ASP.NET Core integration package
@@ -436,5 +437,5 @@ We welcome contributions! Priority areas:
 
 ---
 
-**Last Updated**: 2026-01-22
-**Next Focus**: Priority 2.2 - Class Data Sources, Priority 3.1 Phase 2 - Additional Analyzers
+**Last Updated**: 2026-01-24
+**Next Focus**: Priority 2.3 - Combined Data Sources, Priority 3.1 Phase 2 - Additional Analyzers
