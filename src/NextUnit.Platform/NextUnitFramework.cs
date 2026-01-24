@@ -333,21 +333,15 @@ internal sealed class NextUnitFramework :
             config.TestNameRegexPatterns = regexList;
         }
 
-        // Load --explicit flag
-        if (commandLineOptions is not null && commandLineOptions.IsOptionSet(NextUnitCommandLineOptionsProvider.ExplicitOption))
-        {
-            config.IncludeExplicitTests = true;
-        }
-        else
-        {
-            // Fall back to environment variable
-            var explicitEnv = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_EXPLICIT");
-            if (string.Equals(explicitEnv, "true", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(explicitEnv, "1", StringComparison.OrdinalIgnoreCase))
-            {
-                config.IncludeExplicitTests = true;
-            }
-        }
+        // Load --explicit flag (CLI takes priority over environment variable)
+        var cliOptionSet = commandLineOptions is not null &&
+            commandLineOptions.IsOptionSet(NextUnitCommandLineOptionsProvider.ExplicitOption);
+
+        var explicitEnv = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_EXPLICIT");
+        var envVarSet = string.Equals(explicitEnv, "true", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(explicitEnv, "1", StringComparison.OrdinalIgnoreCase);
+
+        config.IncludeExplicitTests = cliOptionSet || envVarSet;
 
         return config;
     }

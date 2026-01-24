@@ -224,28 +224,21 @@ internal static class AttributeHelper
 
     private static (bool isExplicit, string? explicitReason) GetExplicitFromSymbol(ISymbol symbol)
     {
-        foreach (var attribute in symbol.GetAttributes())
+        var explicitAttribute = symbol.GetAttributes()
+            .FirstOrDefault(attr => IsAttribute(attr, ExplicitAttributeMetadataName));
+
+        if (explicitAttribute is null)
         {
-            if (!IsAttribute(attribute, ExplicitAttributeMetadataName))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length == 0)
-            {
-                return (true, null);
-            }
-
-            var reasonArg = attribute.ConstructorArguments[0];
-            if (reasonArg.Value is string reason)
-            {
-                return (true, reason);
-            }
-
-            return (true, null);
+            return (false, null);
         }
 
-        return (false, null);
+        if (explicitAttribute.ConstructorArguments.Length > 0 &&
+            explicitAttribute.ConstructorArguments[0].Value is string reason)
+        {
+            return (true, reason);
+        }
+
+        return (true, null);
     }
 
     public static ImmutableArray<ImmutableArray<TypedConstant>> GetArgumentSets(IMethodSymbol methodSymbol)
