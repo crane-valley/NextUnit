@@ -17,6 +17,7 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 - **Class data source** - `[ClassDataSource<T>]` with shared instance support
 - **Category/Tag filtering** - `[Category]`, `[Tag]` with CLI and environment variable support
 - **Test dependencies** - `[DependsOn]` for ordered execution with `ProceedOnFailure` option
+- **Explicit tests** - `[Explicit]` to exclude from default runs
 - **Roslyn analyzers** - Compile-time test validation
 - **VSTest integration** - Works with Visual Studio Test Explorer and `dotnet test`
 - **Native AOT compatible**
@@ -37,7 +38,7 @@ dotnet add package NextUnit
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.12.0" />
+    <PackageReference Include="NextUnit" Version="1.13.0" />
   </ItemGroup>
 </Project>
 ```
