@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Reflection;
 
 namespace NextUnit.Internal;
@@ -90,10 +89,10 @@ public static class ClassDataSourceExpander
     /// </summary>
     public static void ClearSharedInstances()
     {
-        DisposeAllIn(_keyedInstances.Values);
-        DisposeAllIn(_perClassInstances.Values);
-        DisposeAllIn(_perAssemblyInstances.Values);
-        DisposeAllIn(_perSessionInstances.Values);
+        DisposeHelper.DisposeAllIn(_keyedInstances.Values);
+        DisposeHelper.DisposeAllIn(_perClassInstances.Values);
+        DisposeHelper.DisposeAllIn(_perAssemblyInstances.Values);
+        DisposeHelper.DisposeAllIn(_perSessionInstances.Values);
 
         _keyedInstances.Clear();
         _perClassInstances.Clear();
@@ -116,7 +115,7 @@ public static class ClassDataSourceExpander
         {
             if (_perClassInstances.TryRemove(key, out var instance))
             {
-                DisposeIfNeeded(instance);
+                DisposeHelper.DisposeIfNeeded(instance);
             }
         }
     }
@@ -277,37 +276,4 @@ public static class ClassDataSourceExpander
         };
     }
 
-    private static void DisposeAllIn(IEnumerable<object> instances)
-    {
-        foreach (var instance in instances)
-        {
-            DisposeIfNeeded(instance);
-        }
-    }
-
-    private static void DisposeIfNeeded(object instance)
-    {
-        try
-        {
-            if (instance is IAsyncDisposable asyncDisposable)
-            {
-                // Note: Blocking on async disposal is necessary here as this is called during cleanup.
-                // In production, consider implementing async cleanup patterns if deadlocks occur.
-                asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            }
-            else if (instance is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-        }
-        catch (OutOfMemoryException)
-        {
-            throw; // Fatal exception - do not swallow
-        }
-        catch (Exception ex)
-        {
-            // Best-effort disposal: log and continue to avoid failing test cleanup
-            Debug.WriteLine($"[NextUnit] Failed to dispose shared instance '{instance.GetType().FullName}': {ex.Message}");
-        }
-    }
 }

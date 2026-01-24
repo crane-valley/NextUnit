@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Reflection;
 
 namespace NextUnit.Internal;
@@ -79,10 +78,10 @@ public static class CombinedDataSourceExpander
     /// </summary>
     public static void ClearSharedInstances()
     {
-        DisposeAllIn(_keyedInstances.Values);
-        DisposeAllIn(_perClassInstances.Values);
-        DisposeAllIn(_perAssemblyInstances.Values);
-        DisposeAllIn(_perSessionInstances.Values);
+        DisposeHelper.DisposeAllIn(_keyedInstances.Values);
+        DisposeHelper.DisposeAllIn(_perClassInstances.Values);
+        DisposeHelper.DisposeAllIn(_perAssemblyInstances.Values);
+        DisposeHelper.DisposeAllIn(_perSessionInstances.Values);
 
         _keyedInstances.Clear();
         _perClassInstances.Clear();
@@ -105,7 +104,7 @@ public static class CombinedDataSourceExpander
         {
             if (_perClassInstances.TryRemove(key, out var instance))
             {
-                DisposeIfNeeded(instance);
+                DisposeHelper.DisposeIfNeeded(instance);
             }
         }
     }
@@ -400,53 +399,4 @@ public static class CombinedDataSourceExpander
         };
     }
 
-    private static void DisposeAllIn(IEnumerable<object> instances)
-    {
-        foreach (var instance in instances)
-        {
-            DisposeIfNeeded(instance);
-        }
-    }
-
-    /// <summary>
-    /// Disposes an instance if it implements IDisposable or IAsyncDisposable.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Warning:</b> This method blocks on async disposal using GetAwaiter().GetResult().
-    /// In synchronization contexts that don't allow blocking (e.g., UI threads),
-    /// this could potentially cause deadlocks. In test frameworks, this is typically safe
-    /// as tests run on thread pool threads without special synchronization contexts.
-    /// </para>
-    /// <para>
-    /// If deadlocks occur in production use, consider implementing a fully async cleanup path.
-    /// </para>
-    /// </remarks>
-    private static void DisposeIfNeeded(object instance)
-    {
-        try
-        {
-            if (instance is IAsyncDisposable asyncDisposable)
-            {
-                asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            }
-            else if (instance is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-        }
-        catch (OutOfMemoryException)
-        {
-            throw; // Fatal exception - do not swallow
-        }
-        catch (OperationCanceledException)
-        {
-            throw; // Cancellation should propagate
-        }
-        catch (Exception ex) when (ex is not StackOverflowException)
-        {
-            // Best-effort disposal: log full exception and continue to avoid failing test cleanup
-            Debug.WriteLine($"[NextUnit] Failed to dispose shared instance '{instance.GetType().FullName}': {ex}");
-        }
-    }
 }
