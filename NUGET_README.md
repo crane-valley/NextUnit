@@ -34,7 +34,7 @@ This meta-package includes everything you need:
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.12.0" />
+    <PackageReference Include="NextUnit" Version="1.13.0" />
   </ItemGroup>
 </Project>
 ```
@@ -79,6 +79,7 @@ dotnet test
 - **Combined data sources** - `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product
 - **Matrix data source** - `[Matrix]` for Cartesian product test generation
 - **Class data source** - `[ClassDataSource<T>]` with shared instance support
+- **Explicit tests** - `[Explicit]` to exclude from default runs
 - **Roslyn analyzers** - Compile-time validation of test code
 - **Multi-scope lifecycle** - Test, Class, Assembly scopes
 - **Parallel control** - `[ParallelLimit]`, `[NotInParallel("key")]`, `[ParallelGroup("name")]`
