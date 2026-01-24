@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-01-24
+
+### Added - Explicit Tests
+
+- **`[Explicit]` attribute** - Mark tests to exclude from default runs
+  - Tests marked `[Explicit]` are skipped during normal test execution
+  - `[Explicit("reason")]` with optional explanation
+  - Run with `--explicit` CLI flag to include explicit tests
+  - Environment variable `NEXTUNIT_INCLUDE_EXPLICIT=true` also supported
+
+- **Class-level `[Explicit]`** - Mark entire test class as explicit
+  - All tests in the class inherit the explicit status
+  - Method-level `[Explicit]` takes precedence over class-level
+
+- **VSTest adapter integration**
+  - Explicit tests filtered by default when running all tests
+  - Explicit tests can be run by selecting them specifically in Test Explorer
+  - `Explicit` and `ExplicitReason` traits visible in Test Explorer
+
+### Technical Notes
+
+- `ExplicitAttribute` with `AttributeTargets.Method | AttributeTargets.Class`
+- `IsExplicit` and `ExplicitReason` properties added to all descriptor classes
+- Pre-expansion filtering for explicit tests in VSTest adapter (avoids data provider side effects)
+- `TestFilterConfiguration.IncludeExplicitTests` property for platform-level control
+
 ## [1.12.0] - 2026-01-24
 
 ### Added - Test Artifacts
