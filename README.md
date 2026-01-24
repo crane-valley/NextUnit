@@ -11,10 +11,13 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 - **Zero-reflection execution** - Source generators produce delegate-based test registry
 - **Familiar assertions** - `Assert.Equal`, `Assert.True`, `Assert.Throws`, etc.
 - **Multi-scope lifecycle** - `[Before]`/`[After]` at Test, Class, Assembly, or Session level
-- **Fine-grained parallelism** - `[ParallelLimit(N)]`, `[NotInParallel]`
-- **Parameterized tests** - `[Arguments]` and `[TestData]` attributes
+- **Fine-grained parallelism** - `[ParallelLimit(N)]`, `[NotInParallel("key")]`, `[ParallelGroup]`
+- **Parameterized tests** - `[Arguments]`, `[TestData]`, `[Matrix]` attributes
+- **Combined data sources** - `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product
+- **Class data source** - `[ClassDataSource<T>]` with shared instance support
 - **Category/Tag filtering** - `[Category]`, `[Tag]` with CLI and environment variable support
-- **Test dependencies** - `[DependsOn]` for ordered execution
+- **Test dependencies** - `[DependsOn]` for ordered execution with `ProceedOnFailure` option
+- **Roslyn analyzers** - Compile-time test validation
 - **VSTest integration** - Works with Visual Studio Test Explorer and `dotnet test`
 - **Native AOT compatible**
 
@@ -34,7 +37,7 @@ dotnet add package NextUnit
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.6.6" />
+    <PackageReference Include="NextUnit" Version="1.11.0" />
   </ItemGroup>
 </Project>
 ```
