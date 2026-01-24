@@ -10,6 +10,8 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 | Version | Key Features |
 | ------- | ------------ |
+| 1.13.x | `[Explicit]` attribute: exclude tests from default runs, `--explicit` CLI flag |
+| 1.12.x | Test artifacts: `TestContext.AttachArtifact()`, internal refactoring (DisplayNameBuilder, TestMethodValidator) |
 | 1.11.x | Combined data sources: `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product |
 | 1.10.x | Class data sources: `[ClassDataSource<T>]` with shared instance support |
 | 1.8.x | Enhanced parallel control: constraint keys, `[ParallelGroup]`, `ProceedOnFailure` |
@@ -377,8 +379,9 @@ Phase 2 (Future):
 
 1. ~~Class data sources~~ - **Completed** (v1.10.0)
 2. ~~Combined data sources~~ - **Completed** (v1.11.0)
-3. Test artifacts
-4. ASP.NET Core integration package
+3. ~~Test artifacts~~ - **Completed** (v1.12.0)
+4. ~~Explicit tests~~ - **Completed** (v1.13.0)
+5. ASP.NET Core integration package
 
 ### Q4 2026
 
@@ -423,9 +426,9 @@ We welcome contributions! Priority areas:
 
 ### Medium Complexity
 
-- `[Explicit]` attribute
-- Basic analyzers
+- Basic analyzers (Phase 2)
 - Test execution priority
+- Watch mode
 
 ### Advanced
 
