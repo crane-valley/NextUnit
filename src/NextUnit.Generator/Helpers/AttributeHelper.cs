@@ -716,9 +716,9 @@ internal static class AttributeHelper
                 !string.IsNullOrEmpty(memberName))
             {
                 var memberTypeArg = attribute.NamedArguments
-                    .Where(arg => arg.Key == "MemberType" && arg.Value.Value is INamedTypeSymbol)
-                    .Select(arg => (INamedTypeSymbol)arg.Value.Value!)
-                    .FirstOrDefault();
+                    .Where(arg => arg.Key == "MemberType")
+                    .Select(arg => arg.Value.Value as INamedTypeSymbol)
+                    .FirstOrDefault(t => t is not null);
 
                 string? memberTypeName = memberTypeArg?.ToDisplayString(TypeofCompatibleFormat);
 

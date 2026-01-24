@@ -462,7 +462,7 @@ public static class CombinedDataSourceExpander
     {
         var items = enumerable.Cast<object?>().Take(4).ToList();
 
-        // Use at most three items from the already materialized list
+        // Take 4 items to detect if there are more than 3, then display at most 3
         var displayCount = Math.Min(3, items.Count);
         var formatted = string.Join(", ", items.GetRange(0, displayCount).Select(FormatArgument));
 
@@ -554,10 +554,10 @@ public static class CombinedDataSourceExpander
         {
             throw; // Cancellation should propagate
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not StackOverflowException and not ThreadAbortException and not ThreadInterruptedException)
         {
-            // Best-effort disposal: log and continue to avoid failing test cleanup
-            Debug.WriteLine($"[NextUnit] Failed to dispose shared instance '{instance.GetType().FullName}': {ex.Message}");
+            // Best-effort disposal: log full exception and continue to avoid failing test cleanup
+            Debug.WriteLine($"[NextUnit] Failed to dispose shared instance '{instance.GetType().FullName}': {ex}");
         }
     }
 }

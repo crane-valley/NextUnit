@@ -525,13 +525,12 @@ internal static class Program
         builder.AppendLine();
 
         // Separate tests by type: regular, matrix, TestData, ClassDataSource, and CombinedDataSource
-        // Pre-allocate with reasonable capacity to reduce allocations for large test suites
-        var capacity = tests.Count;
-        var regularTests = new List<TestMethodDescriptor>(capacity);
-        var matrixTests = new List<TestMethodDescriptor>(capacity);
-        var testDataTests = new List<TestMethodDescriptor>(capacity);
-        var classDataSourceTests = new List<TestMethodDescriptor>(capacity);
-        var combinedDataSourceTests = new List<TestMethodDescriptor>(capacity);
+        // Let List<T> grow dynamically to avoid over-allocating when tests are unevenly distributed
+        var regularTests = new List<TestMethodDescriptor>();
+        var matrixTests = new List<TestMethodDescriptor>();
+        var testDataTests = new List<TestMethodDescriptor>();
+        var classDataSourceTests = new List<TestMethodDescriptor>();
+        var combinedDataSourceTests = new List<TestMethodDescriptor>();
 
         foreach (var test in tests)
         {
