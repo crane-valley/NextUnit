@@ -193,9 +193,17 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             .ToDictionary(g => g.Key, g => g.ToList());
 
         // Collect global lifecycle methods (Assembly and Session scopes) from all classes
+        // Only static methods are included - instance methods with Assembly/Session scope
+        // don't make semantic sense as they would require creating an arbitrary instance
         var globalLifecycle = new GlobalLifecycleMethods();
         foreach (var method in lifecycleGroups.SelectMany(g => g))
         {
+            // Only collect static methods for global lifecycle
+            if (!method.IsStatic)
+            {
+                continue;
+            }
+
             if (method.BeforeScopes.Contains(LifecycleScopeConstants.Assembly))
             {
                 globalLifecycle.BeforeAssembly.Add(method);

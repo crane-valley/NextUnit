@@ -11,10 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Assembly/Session lifecycle methods not applied globally** - `[Before(LifecycleScope.Assembly)]` and `[Before(LifecycleScope.Session)]` methods were only applied to tests in the same class that defined them. Now they are correctly applied to all tests in the assembly.
-  - Generator now collects Assembly/Session lifecycle methods globally
-  - Execution engine receives global lifecycle methods directly instead of from first test
-  - VSTest adapter and Platform CLI updated to pass global lifecycle to engine
+- **Fixed:** Static Assembly/Session lifecycle methods now correctly apply globally to all tests in the assembly.
 
 ## [1.14.0] - 2026-01-25
 
