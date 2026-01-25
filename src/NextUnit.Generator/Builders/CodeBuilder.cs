@@ -194,7 +194,7 @@ internal static class CodeBuilder
     {
         if (parameters.IsDefaultOrEmpty)
         {
-            return "global::System.Array.Empty<global::System.Type>()";
+            return "EmptyTypes";
         }
 
         var builder = new StringBuilder();

@@ -285,6 +285,7 @@ internal static class Program
         builder.AppendLine("    private static readonly string[] EmptyStrings = [];");
         builder.AppendLine("    private static readonly global::NextUnit.Internal.TestCaseId[] EmptyTestCaseIds = [];");
         builder.AppendLine("    private static readonly global::NextUnit.Internal.DependencyInfo[] EmptyDependencyInfos = [];");
+        builder.AppendLine("    private static readonly global::System.Type[] EmptyTypes = [];");
         builder.AppendLine();
 
         // Separate tests by type: regular, matrix, TestData, ClassDataSource, and CombinedDataSource
