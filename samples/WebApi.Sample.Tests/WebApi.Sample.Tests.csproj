@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>WebApi.Sample.Tests</RootNamespace>
+    <!-- Suppress warnings for sample/test code -->
+    <NoWarn>$(NoWarn);IDE0052;CS1591</NoWarn>
+    <!-- Enable Visual Studio Test Explorer integration -->
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Web API project under test -->
+    <ProjectReference Include="..\WebApi.Sample\WebApi.Sample.csproj" />
+    <!-- NextUnit meta-package provides all dependencies -->
+    <ProjectReference Include="..\..\src\NextUnit\NextUnit.csproj" />
+    <!-- NextUnit.AspNetCore for integration testing -->
+    <ProjectReference Include="..\..\src\NextUnit.AspNetCore\NextUnit.AspNetCore.csproj" />
+    <!-- Generator must be explicitly referenced as Analyzer for source generation -->
+    <ProjectReference Include="..\..\src\NextUnit.Generator\NextUnit.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>
