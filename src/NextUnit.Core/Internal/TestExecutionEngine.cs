@@ -60,6 +60,28 @@ public sealed class TestExecutionEngine
     private readonly List<LifecycleMethodDelegate> _assemblyAfterMethods = new();
 
     /// <summary>
+    /// Sets global lifecycle methods for Assembly scope.
+    /// These methods are collected globally across all test classes and should be called
+    /// before RunAsync to ensure proper Assembly lifecycle execution.
+    /// </summary>
+    /// <param name="beforeMethods">Methods to run before any test in the assembly.</param>
+    /// <param name="afterMethods">Methods to run after all tests in the assembly.</param>
+    public void SetGlobalAssemblyLifecycle(
+        IReadOnlyList<LifecycleMethodDelegate>? beforeMethods,
+        IReadOnlyList<LifecycleMethodDelegate>? afterMethods)
+    {
+        if (beforeMethods is not null)
+        {
+            _assemblyBeforeMethods.AddRange(beforeMethods);
+        }
+
+        if (afterMethods is not null)
+        {
+            _assemblyAfterMethods.AddRange(afterMethods);
+        }
+    }
+
+    /// <summary>
     /// Runs a collection of test cases asynchronously.
     /// </summary>
     /// <param name="testCases">The test cases to execute.</param>
@@ -73,13 +95,8 @@ public sealed class TestExecutionEngine
     {
         var testCasesList = testCases.ToList();
 
-        // Collect assembly-level lifecycle methods from the first test
-        if (testCasesList.Count > 0)
-        {
-            var firstTest = testCasesList[0];
-            _assemblyBeforeMethods.AddRange(firstTest.Lifecycle.BeforeAssemblyMethods);
-            _assemblyAfterMethods.AddRange(firstTest.Lifecycle.AfterAssemblyMethods);
-        }
+        // Note: Assembly lifecycle methods should be set via SetGlobalAssemblyLifecycle before calling RunAsync.
+        // This ensures global lifecycle methods from all test classes are properly collected.
 
         var graph = DependencyGraph.Build(testCasesList);
         var scheduler = new ParallelScheduler(graph);
@@ -161,7 +178,7 @@ public sealed class TestExecutionEngine
     /// </summary>
     private async Task ExecuteAssemblySetupAsync(List<TestCaseDescriptor> testCases, CancellationToken cancellationToken)
     {
-        if (testCases.Count == 0)
+        if (testCases.Count == 0 || _assemblyBeforeMethods.Count == 0)
         {
             return;
         }
@@ -175,15 +192,13 @@ public sealed class TestExecutionEngine
                 return;
             }
 
-            // Use the first test class for assembly-level lifecycle
-            var firstTestClass = testCases[0].TestClass;
-            var assemblyInstance = CreateTestInstance(firstTestClass, NullTestOutput.Instance, NullTestContext.Instance);
-
             try
             {
+                // Assembly lifecycle methods are always static (enforced by generator),
+                // so the instance parameter is unused. We pass null for efficiency.
                 foreach (var beforeMethod in _assemblyBeforeMethods)
                 {
-                    await beforeMethod(assemblyInstance, cancellationToken).ConfigureAwait(false);
+                    await beforeMethod(null!, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (TestSkippedException ex)
@@ -191,9 +206,6 @@ public sealed class TestExecutionEngine
                 // Assembly setup requested skip - all tests will be skipped
                 _assemblySkipReason = ex.Message;
             }
-
-            // Dispose the temporary instance
-            await DisposeHelper.DisposeAsync(assemblyInstance).ConfigureAwait(false);
 
             _assemblySetupExecuted = true;
         }
@@ -213,21 +225,11 @@ public sealed class TestExecutionEngine
             return;
         }
 
-        // Use the first test class for assembly-level lifecycle
-        var firstTestClass = testCases[0].TestClass;
-        var assemblyInstance = CreateTestInstance(firstTestClass, NullTestOutput.Instance, NullTestContext.Instance);
-
-        try
+        // Assembly lifecycle methods are always static (enforced by generator),
+        // so the instance parameter is unused. We pass null for efficiency.
+        foreach (var afterMethod in _assemblyAfterMethods)
         {
-            foreach (var afterMethod in _assemblyAfterMethods)
-            {
-                await afterMethod(assemblyInstance, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            // Dispose the temporary instance
-            await DisposeHelper.DisposeAsync(assemblyInstance).ConfigureAwait(false);
+            await afterMethod(null!, cancellationToken).ConfigureAwait(false);
         }
     }
 

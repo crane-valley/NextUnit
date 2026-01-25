@@ -241,6 +241,13 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         var engine = new TestExecutionEngine();
         var sink = new VSTestResultSink(frameworkHandle, source);
 
+        // Get global assembly lifecycle methods from the registry
+        var globalBeforeAssembly = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
+            registryType, "GlobalBeforeAssemblyMethods");
+        var globalAfterAssembly = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
+            registryType, "GlobalAfterAssemblyMethods");
+        engine.SetGlobalAssemblyLifecycle(globalBeforeAssembly, globalAfterAssembly);
+
         // Run tests synchronously (VSTest expects this)
         engine.RunAsync(allTestCases, sink, cancellationToken).GetAwaiter().GetResult();
     }
