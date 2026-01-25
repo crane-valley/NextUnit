@@ -21,6 +21,7 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 - **Explicit tests** - `[Explicit]` to exclude from default runs
 - **Roslyn analyzers** - Compile-time test validation
 - **VSTest integration** - Works with Visual Studio Test Explorer and `dotnet test`
+- **ASP.NET Core integration** - `NextUnit.AspNetCore` package for web API testing
 - **Native AOT compatible**
 
 ## Quick Start
@@ -150,6 +151,7 @@ See [benchmark results](tools/speed-comparison/results/BENCHMARK_RESULTS.md) for
 
 - [Getting Started](docs/GETTING_STARTED.md)
 - [Migration from xUnit](docs/MIGRATION_FROM_XUNIT.md)
+- [ASP.NET Core Testing](docs/ASPNETCORE_TESTING.md)
 - [Best Practices](docs/BEST_PRACTICES.md)
 - [Performance Analysis](docs/PERFORMANCE.md)
 - [CI/CD Integration](docs/CI_CD_INTEGRATION.md)
