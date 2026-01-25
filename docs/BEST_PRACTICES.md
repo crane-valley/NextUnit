@@ -481,7 +481,7 @@ public class StartupTests
 public class LowPriorityTests
 {
     [Test]
-    public void Test1() { }  // This test inherits priority 10 from the class
+    public void Test1() { }  // This test inherits priority 10 from the class (note: higher than the default of 0)
 }
 ```
 
