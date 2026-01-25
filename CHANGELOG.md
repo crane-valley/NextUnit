@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-01-25
+
+### Added - ASP.NET Core Integration Package
+
+- **`NextUnit.AspNetCore` NuGet package** - First-class ASP.NET Core integration testing support
+  - Lightweight package with `Microsoft.AspNetCore.Mvc.Testing` dependency
+  - Separate from meta-package (users explicitly opt-in)
+
+- **`WebApplicationTest<TEntryPoint>` base class** - Simplified test fixture for web apps
+  - Lazy initialization of `Factory` and `Client` properties
+  - Virtual methods for customization:
+    - `ConfigureWebHost(IWebHostBuilder)` - Configure web host
+    - `ConfigureTestServices(IServiceCollection)` - Replace services with mocks
+    - `ConfigureClient(HttpClient)` - Set default headers, base address
+  - Service resolution helpers: `GetRequiredService<T>()`, `GetService<T>()`, `CreateScope()`
+  - Proper `IDisposable`/`IAsyncDisposable` implementation
+
+- **`TestWebApplicationFactory<TEntryPoint>`** - Enhanced factory with fluent API
+  - `WithWebHostBuilder(Action<IWebHostBuilder>)` - Configure web host
+  - `WithTestServices(Action<IServiceCollection>)` - Configure test services
+  - Helper methods: `GetRequiredService<T>()`, `GetService<T>()`, `CreateScope()`, `CreateAsyncScope()`
+
+- **`ServiceCollectionExtensions`** - Helper extensions for service mocking
+  - `RemoveAll<TService>()` - Remove all registrations of a service
+  - `Replace<TService, TImplementation>()` - Replace with implementation type
+  - `Replace<TService>(instance)` - Replace with singleton instance
+  - `Replace<TService>(factory, lifetime)` - Replace with factory function
+
+- **Sample project** - `samples/WebApi.Sample.Tests` demonstrating:
+  - Basic API testing with `HttpClient`
+  - Service mocking with `ConfigureTestServices`
+  - Service resolution from test fixture
+
+### Technical Notes
+
+- `[NotInParallel("WebApplicationFactory")]` must be applied to concrete test classes (source generator does not traverse base types)
+- Lazy initialization pattern used because NextUnit's lifecycle attributes are not inherited from base classes
+- Disposal pattern: `Dispose()` calls `DisposeAsyncCore().AsTask().GetAwaiter().GetResult()`
+
 ## [1.14.1] - 2026-01-25
 
 ### Fixed
@@ -1023,6 +1062,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.15.0 | 2026-01-25 | 395+ | ASP.NET Core Integration | Released |
 | 1.14.0 | 2026-01-25 | 380+ | ExecutionPriority, Roslyn Analyzers Phase 2 | Released |
 | 1.13.0 | 2026-01-24 | 375+ | Explicit Tests | Released |
 | 1.12.0 | 2026-01-24 | 365+ | Test Artifacts | Released |
