@@ -84,38 +84,4 @@ public static class ServiceCollectionExtensions
         services.Add(new ServiceDescriptor(typeof(TService), implementationFactory, lifetime));
         return services;
     }
-
-    /// <summary>
-    /// Adds or replaces a service registration with a new implementation type.
-    /// If the service is not registered, it will be added. If it is registered, all existing
-    /// registrations will be replaced.
-    /// </summary>
-    /// <typeparam name="TService">The type of service to add or replace.</typeparam>
-    /// <typeparam name="TImplementation">The implementation type.</typeparam>
-    /// <param name="services">The <see cref="IServiceCollection"/> to modify.</param>
-    /// <param name="lifetime">The service lifetime. Defaults to <see cref="ServiceLifetime.Scoped"/>.</param>
-    /// <returns>The <see cref="IServiceCollection"/> for chaining.</returns>
-    public static IServiceCollection AddOrReplace<TService, TImplementation>(
-        this IServiceCollection services,
-        ServiceLifetime lifetime = ServiceLifetime.Scoped)
-        where TService : class
-        where TImplementation : class, TService
-    {
-        return services.Replace<TService, TImplementation>(lifetime);
-    }
-
-    /// <summary>
-    /// Adds or replaces a service registration with a singleton instance.
-    /// </summary>
-    /// <typeparam name="TService">The type of service to add or replace.</typeparam>
-    /// <param name="services">The <see cref="IServiceCollection"/> to modify.</param>
-    /// <param name="instance">The singleton instance to use.</param>
-    /// <returns>The <see cref="IServiceCollection"/> for chaining.</returns>
-    public static IServiceCollection AddOrReplace<TService>(
-        this IServiceCollection services,
-        TService instance)
-        where TService : class
-    {
-        return services.Replace(instance);
-    }
 }

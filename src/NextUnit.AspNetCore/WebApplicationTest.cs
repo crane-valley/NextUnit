@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace NextUnit.AspNetCore;
@@ -15,12 +14,13 @@ namespace NextUnit.AspNetCore;
 /// lazily initialized on first access.
 /// </para>
 /// <para>
-/// By default, tests derived from this class run serially (not in parallel) because
-/// <see cref="WebApplicationFactory{TEntryPoint}"/> can have issues when multiple
-/// factories share resources. Override with <see cref="ParallelGroupAttribute"/> if needed.
+/// <strong>Important:</strong> Derived test classes should add <c>[NotInParallel("WebApplicationFactory")]</c>
+/// to prevent concurrent execution issues. The NextUnit source generator does not traverse base classes
+/// for attributes, so the attribute must be applied to the concrete test class.
 /// </para>
 /// <example>
 /// <code>
+/// [NotInParallel("WebApplicationFactory")]
 /// public class MyApiTests : WebApplicationTest&lt;Program&gt;
 /// {
 ///     [Test]
@@ -33,14 +33,13 @@ namespace NextUnit.AspNetCore;
 /// </code>
 /// </example>
 /// </remarks>
-[NotInParallel("WebApplicationFactory")]
 public abstract class WebApplicationTest<TEntryPoint> : IDisposable, IAsyncDisposable
     where TEntryPoint : class
 {
     private TestWebApplicationFactory<TEntryPoint>? _factory;
     private HttpClient? _client;
     private bool _disposed;
-    private readonly object _lock = new();
+    private readonly object _initializationLock = new();
 
     /// <summary>
     /// Gets the <see cref="TestWebApplicationFactory{TEntryPoint}"/> used by this test class.
@@ -52,7 +51,7 @@ public abstract class WebApplicationTest<TEntryPoint> : IDisposable, IAsyncDispo
         {
             if (_factory is null)
             {
-                lock (_lock)
+                lock (_initializationLock)
                 {
                     _factory ??= CreateFactory();
                 }
@@ -71,7 +70,7 @@ public abstract class WebApplicationTest<TEntryPoint> : IDisposable, IAsyncDispo
         {
             if (_client is null)
             {
-                lock (_lock)
+                lock (_initializationLock)
                 {
                     _client ??= CreateClient();
                 }
@@ -181,34 +180,28 @@ public abstract class WebApplicationTest<TEntryPoint> : IDisposable, IAsyncDispo
     /// <inheritdoc />
     public void Dispose()
     {
-        Dispose(disposing: true);
+        if (_disposed)
+        {
+            return;
+        }
+
+        // Call DisposeAsync synchronously to avoid blocking issues with WebApplicationFactory
+        DisposeAsyncCore().AsTask().GetAwaiter().GetResult();
+        _disposed = true;
         GC.SuppressFinalize(this);
     }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        await DisposeAsyncCore();
-        Dispose(disposing: false);
-        GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Releases the unmanaged resources used by the test class and optionally releases managed resources.
-    /// </summary>
-    /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
-    protected virtual void Dispose(bool disposing)
-    {
-        if (!_disposed)
+        if (_disposed)
         {
-            if (disposing)
-            {
-                _client?.Dispose();
-                _factory?.Dispose();
-            }
-
-            _disposed = true;
+            return;
         }
+
+        await DisposeAsyncCore();
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>
@@ -219,8 +212,13 @@ public abstract class WebApplicationTest<TEntryPoint> : IDisposable, IAsyncDispo
         if (_factory is not null)
         {
             await _factory.DisposeAsync();
+            _factory = null;
         }
 
-        _client?.Dispose();
+        if (_client is not null)
+        {
+            _client.Dispose();
+            _client = null;
+        }
     }
 }

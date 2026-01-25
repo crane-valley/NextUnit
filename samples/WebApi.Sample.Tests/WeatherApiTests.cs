@@ -8,6 +8,7 @@ namespace WebApi.Sample.Tests;
 /// <summary>
 /// Basic integration tests for the Weather API.
 /// </summary>
+[NotInParallel("WebApplicationFactory")]
 public class WeatherApiTests : WebApplicationTest<Program>
 {
     [Test]

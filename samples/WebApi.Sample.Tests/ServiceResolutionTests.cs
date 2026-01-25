@@ -6,6 +6,7 @@ namespace WebApi.Sample.Tests;
 /// <summary>
 /// Tests demonstrating service resolution from the test fixture.
 /// </summary>
+[NotInParallel("WebApplicationFactory")]
 public class ServiceResolutionTests : WebApplicationTest<Program>
 {
     [Test]

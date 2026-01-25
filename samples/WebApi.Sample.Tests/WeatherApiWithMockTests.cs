@@ -9,6 +9,7 @@ namespace WebApi.Sample.Tests;
 /// <summary>
 /// Integration tests demonstrating service mocking with NextUnit.AspNetCore.
 /// </summary>
+[NotInParallel("WebApplicationFactory")]
 public class WeatherApiWithMockTests : WebApplicationTest<Program>
 {
     protected override void ConfigureTestServices(IServiceCollection services)
@@ -51,11 +52,13 @@ public class WeatherApiWithMockTests : WebApplicationTest<Program>
 /// </summary>
 public class MockWeatherService : IWeatherService
 {
+    private static readonly DateOnly FixedDate = new(2026, 1, 25);
+
     public IEnumerable<WeatherForecast> GetForecast()
     {
         return
         [
-            new WeatherForecast("MockCity", DateOnly.FromDateTime(DateTime.Now), 25, "Sunny")
+            new WeatherForecast("MockCity", FixedDate, 25, "Sunny")
         ];
     }
 
@@ -63,7 +66,7 @@ public class MockWeatherService : IWeatherService
     {
         if (city.Equals("MockCity", StringComparison.OrdinalIgnoreCase))
         {
-            return new WeatherForecast("MockCity", DateOnly.FromDateTime(DateTime.Now), 25, "Sunny");
+            return new WeatherForecast("MockCity", FixedDate, 25, "Sunny");
         }
         return null;
     }

@@ -73,7 +73,7 @@ public class WeatherService : IWeatherService
 
 public record WeatherForecast(string City, DateOnly Date, int TemperatureC, string? Summary)
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    public int TemperatureF => (int)(TemperatureC * 9.0 / 5.0 + 32);
 }
 
 // Make Program partial for integration testing
