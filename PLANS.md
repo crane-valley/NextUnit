@@ -249,14 +249,16 @@ Phase 2 (Completed - v1.14.0):
 
 #### 4.1 ASP.NET Core Integration Package
 
-**Status**: Not Started
+**Status**: Completed (v1.15.0)
 **Goal**: First-class web application testing
 
-- [ ] `NextUnit.AspNetCore` NuGet package
-- [ ] `WebApplicationTest<TEntryPoint>` base class
-- [ ] Auto-configured `HttpClient`
-- [ ] Dependency injection in tests
-- [ ] `TestWebApplicationFactory` utilities
+- [x] `NextUnit.AspNetCore` NuGet package
+- [x] `WebApplicationTest<TEntryPoint>` base class with lazy initialization
+- [x] Auto-configured `HttpClient` via `Client` property
+- [x] Service resolution via `GetRequiredService<T>()`, `GetService<T>()`, `CreateScope()`
+- [x] `TestWebApplicationFactory<TEntryPoint>` with fluent configuration
+- [x] `ServiceCollectionExtensions` for easy service mocking (`RemoveAll<T>`, `Replace<T>`)
+- [x] Sample project: `samples/WebApi.Sample.Tests`
 
 #### 4.2 Playwright Integration Package
 
@@ -308,7 +310,7 @@ Phase 2 (Completed - v1.14.0):
 
 - [x] Class library testing
 - [x] Console app testing
-- [ ] ASP.NET Core API testing
+- [x] ASP.NET Core API testing (`samples/WebApi.Sample.Tests`)
 - [ ] Blazor component testing
 - [ ] Minimal API testing
 - [ ] gRPC service testing
@@ -382,7 +384,7 @@ Phase 2 (Completed - v1.14.0):
 2. ~~Combined data sources~~ - **Completed** (v1.11.0)
 3. ~~Test artifacts~~ - **Completed** (v1.12.0)
 4. ~~Explicit tests~~ - **Completed** (v1.13.0)
-5. ASP.NET Core integration package
+5. ~~ASP.NET Core integration package~~ - **Completed** (v1.15.0)
 
 ### Q4 2026
 
@@ -453,4 +455,4 @@ We welcome contributions! Priority areas:
 ---
 
 **Last Updated**: 2026-01-25
-**Next Focus**: Priority 4.1 - ASP.NET Core Integration
+**Next Focus**: Priority 4.2 - Playwright Integration

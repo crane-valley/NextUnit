@@ -10,6 +10,7 @@
     <PackageVersion Include="NextUnit.Generator" Version="$(NextUnitVersion)" />
     <PackageVersion Include="NextUnit.Platform" Version="$(NextUnitVersion)" />
     <PackageVersion Include="NextUnit.TestAdapter" Version="$(NextUnitVersion)" />
+    <PackageVersion Include="NextUnit.AspNetCore" Version="$(NextUnitVersion)" />
     <PackageVersion Include="Microsoft.TestPlatform.ObjectModel" Version="18.0.1" />
     
     <!-- External Dependencies -->
