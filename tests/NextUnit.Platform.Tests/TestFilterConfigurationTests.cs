@@ -5,7 +5,7 @@ namespace NextUnit.Platform.Tests;
 /// </summary>
 public class TestFilterConfigurationTests
 {
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_NoFilters_ReturnsTrue()
     {
         // Arrange
@@ -20,7 +20,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_EmptyCollections_NoFilters_ReturnsTrue()
     {
         // Arrange
@@ -35,7 +35,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_IncludeCategory_MatchingCategory_ReturnsTrue()
     {
         // Arrange
@@ -53,7 +53,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_IncludeCategory_NonMatchingCategory_ReturnsFalse()
     {
         // Arrange
@@ -71,7 +71,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_IncludeCategory_CaseInsensitive_ReturnsTrue()
     {
         // Arrange
@@ -89,7 +89,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_IncludeTag_MatchingTag_ReturnsTrue()
     {
         // Arrange
@@ -107,7 +107,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_IncludeTag_NonMatchingTag_ReturnsFalse()
     {
         // Arrange
@@ -125,7 +125,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_IncludeTag_CaseInsensitive_ReturnsTrue()
     {
         // Arrange
@@ -143,7 +143,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ExcludeCategory_MatchingCategory_ReturnsFalse()
     {
         // Arrange
@@ -161,7 +161,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ExcludeCategory_NonMatchingCategory_ReturnsTrue()
     {
         // Arrange
@@ -179,7 +179,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ExcludeCategory_CaseInsensitive_ReturnsFalse()
     {
         // Arrange
@@ -197,7 +197,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ExcludeTag_MatchingTag_ReturnsFalse()
     {
         // Arrange
@@ -215,7 +215,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ExcludeTag_NonMatchingTag_ReturnsTrue()
     {
         // Arrange
@@ -233,7 +233,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ExcludeTag_CaseInsensitive_ReturnsFalse()
     {
         // Arrange
@@ -251,7 +251,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ExcludePrecedence_ExcludeWins()
     {
         // Arrange
@@ -270,7 +270,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ExcludePrecedence_TagExcludeWins()
     {
         // Arrange
@@ -289,7 +289,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_OrLogic_MatchesCategory_ReturnsTrue()
     {
         // Arrange
@@ -308,7 +308,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_OrLogic_MatchesTag_ReturnsTrue()
     {
         // Arrange
@@ -327,7 +327,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_OrLogic_MatchesBoth_ReturnsTrue()
     {
         // Arrange
@@ -346,7 +346,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_OrLogic_MatchesNeither_ReturnsFalse()
     {
         // Arrange
@@ -365,7 +365,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestWithNoCategories_IncludeCategoryFilter_ReturnsFalse()
     {
         // Arrange
@@ -383,7 +383,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestWithNoTags_IncludeTagFilter_ReturnsFalse()
     {
         // Arrange
@@ -401,7 +401,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestWithNoCategories_ExcludeCategoryFilter_ReturnsTrue()
     {
         // Arrange
@@ -419,7 +419,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestWithNoTags_ExcludeTagFilter_ReturnsTrue()
     {
         // Arrange
@@ -437,7 +437,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_MultipleIncludeCategories_MatchesAny_ReturnsTrue()
     {
         // Arrange
@@ -455,7 +455,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_MultipleIncludeTags_MatchesAny_ReturnsTrue()
     {
         // Arrange
@@ -473,7 +473,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_MultipleExcludeCategories_MatchesAny_ReturnsFalse()
     {
         // Arrange
@@ -491,7 +491,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_MultipleExcludeTags_MatchesAny_ReturnsFalse()
     {
         // Arrange
@@ -509,7 +509,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestWithMultipleCategories_IncludeFilter_MatchesOne_ReturnsTrue()
     {
         // Arrange
@@ -527,7 +527,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestWithMultipleTags_IncludeFilter_MatchesOne_ReturnsTrue()
     {
         // Arrange
@@ -545,7 +545,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ComplexScenario_IncludeAndExclude_ExcludeWins()
     {
         // Arrange
@@ -566,7 +566,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ComplexScenario_TagExcludeWins()
     {
         // Arrange
@@ -586,7 +586,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_ComplexScenario_PassesAllFilters()
     {
         // Arrange
@@ -607,7 +607,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestNamePattern_ExactMatch_ReturnsTrue()
     {
         // Arrange
@@ -625,7 +625,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestNamePattern_WildcardMatch_ReturnsTrue()
     {
         // Arrange
@@ -643,7 +643,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestNamePattern_QuestionMarkWildcard_ReturnsTrue()
     {
         // Arrange
@@ -661,7 +661,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestNamePattern_NoMatch_ReturnsFalse()
     {
         // Arrange
@@ -679,7 +679,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestNameRegex_SimpleMatch_ReturnsTrue()
     {
         // Arrange
@@ -697,7 +697,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestNameRegex_ComplexPattern_ReturnsTrue()
     {
         // Arrange
@@ -715,7 +715,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestNameRegex_NoMatch_ReturnsFalse()
     {
         // Arrange
@@ -733,7 +733,7 @@ public class TestFilterConfigurationTests
         Assert.False(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_MultipleTestNamePatterns_MatchesOne_ReturnsTrue()
     {
         // Arrange
@@ -751,7 +751,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_TestNamePattern_CaseInsensitive_ReturnsTrue()
     {
         // Arrange
@@ -769,7 +769,7 @@ public class TestFilterConfigurationTests
         Assert.True(result);
     }
 
-    [Fact]
+    [Test]
     public void ShouldIncludeTest_CombinedFilters_TestNameAndCategory_BothRequired_ReturnsTrue()
     {
         // Arrange
