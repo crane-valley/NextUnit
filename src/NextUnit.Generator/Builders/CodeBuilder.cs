@@ -119,7 +119,7 @@ internal static class CodeBuilder
     {
         if (methods.Count == 0)
         {
-            builder.Append("global::System.Array.Empty<global::NextUnit.Internal.LifecycleMethodDelegate>()");
+            builder.Append("EmptyLifecycleMethods");
         }
         else
         {
@@ -140,7 +140,7 @@ internal static class CodeBuilder
     {
         if (dependencies.IsDefaultOrEmpty)
         {
-            return "global::System.Array.Empty<global::NextUnit.Internal.TestCaseId>()";
+            return "EmptyTestCaseIds";
         }
 
         var builder = new StringBuilder();
@@ -167,7 +167,7 @@ internal static class CodeBuilder
     {
         if (strings.IsDefaultOrEmpty)
         {
-            return "global::System.Array.Empty<string>()";
+            return "EmptyStrings";
         }
 
         var builder = new StringBuilder();
@@ -221,7 +221,7 @@ internal static class CodeBuilder
     {
         if (dependencyInfos.IsDefaultOrEmpty)
         {
-            return "global::System.Array.Empty<global::NextUnit.Internal.DependencyInfo>()";
+            return "EmptyDependencyInfos";
         }
 
         var builder = new StringBuilder();
