@@ -1,8 +1,8 @@
-# NextUnit v1.14.0 Performance Benchmarks
+# NextUnit v1.15.0 Performance Benchmarks
 
 ## Overview
 
-This document provides performance benchmarks for NextUnit v1.12.0, demonstrating the framework's
+This document provides performance benchmarks for NextUnit v1.15.0, demonstrating the framework's
 excellent performance characteristics for test discovery and execution.
 
 ## Benchmark Environment
@@ -11,7 +11,7 @@ excellent performance characteristics for test discovery and execution.
 - **OS**: Linux (Ubuntu)
 - **Hardware**: x64 architecture
 - **Test Date**: January 2026
-- **NextUnit Version**: v1.14.0
+- **NextUnit Version**: v1.15.0
 
 ## Test Suite Characteristics
 
