@@ -10,21 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="coverlet.collector">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-  </ItemGroup>
-
-  <ItemGroup>
+    <!-- Test target -->
     <ProjectReference Include="..\..\src\NextUnit.Platform\NextUnit.Platform.csproj" />
+    <!-- NextUnit components (explicit references for clarity) -->
     <ProjectReference Include="..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
+    <ProjectReference Include="..\..\src\NextUnit.TestAdapter\NextUnit.TestAdapter.csproj" />
+    <ProjectReference Include="..\..\src\NextUnit.Generator\NextUnit.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
   </ItemGroup>
 
 </Project>
