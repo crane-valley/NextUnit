@@ -465,14 +465,14 @@ public class CheckoutWorkflowTests
 public class StartupTests
 {
     [Test]
-    [ExecutionPriority(100)]  // Runs first
+    [ExecutionPriority(100)]  // Runs first in this class
     public void CriticalSystemCheck() { }
 
     [Test]
-    [ExecutionPriority(50)]   // Runs second
+    [ExecutionPriority(50)]   // Runs second in this class
     public void ImportantValidation() { }
 
-    [Test]  // Runs last (default priority is 0)
+    [Test]  // Default priority is 0, runs last in this class
     public void NormalTest() { }
 }
 
@@ -481,7 +481,7 @@ public class StartupTests
 public class LowPriorityTests
 {
     [Test]
-    public void Test1() { }  // All tests in this class run after higher priority tests
+    public void Test1() { }  // This test inherits priority 10 from the class (note: higher than the default of 0)
 }
 ```
 
