@@ -154,7 +154,7 @@ public class MockWeatherService : IWeatherService
 {
     public IEnumerable<WeatherForecast> GetForecast()
     {
-        return [new WeatherForecast("MockCity", DateOnly.FromDateTime(DateTime.Now), 25, "Sunny")];
+        return [new WeatherForecast("MockCity", new DateOnly(2026, 1, 25), 25, "Sunny")];
     }
 }
 ```
