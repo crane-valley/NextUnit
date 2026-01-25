@@ -10,10 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\NextUnit\NextUnit.csproj" />
+    <!-- Test target -->
     <ProjectReference Include="..\..\src\NextUnit.Platform\NextUnit.Platform.csproj" />
-    <!-- Generator must be explicitly referenced as Analyzer for source generation -->
+    <!-- NextUnit components (explicit references for clarity) -->
+    <ProjectReference Include="..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
+    <ProjectReference Include="..\..\src\NextUnit.TestAdapter\NextUnit.TestAdapter.csproj" />
     <ProjectReference Include="..\..\src\NextUnit.Generator\NextUnit.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
   </ItemGroup>
 
 </Project>
