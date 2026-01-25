@@ -45,7 +45,7 @@ jobs:
         run: dotnet --info
       
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore tools/speed-comparison/Tests.Benchmark/Tests.Benchmark.csproj
       
       - name: Build speed comparison projects
         run: |

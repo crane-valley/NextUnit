@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.13.0 (Stable)
+## Current Version: 1.14.0 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -10,7 +10,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 | Version | Key Features |
 | ------- | ------------ |
-| 1.14.x | Roslyn Analyzers Phase 2: NU0003, NU0005, NU0007, NU0008 |
+| 1.14.x | `[ExecutionPriority]` attribute, Roslyn Analyzers Phase 2 (NU0003, NU0005, NU0007, NU0008) |
 | 1.13.x | `[Explicit]` attribute: exclude tests from default runs, `--explicit` CLI flag |
 | 1.12.x | Test artifacts: `TestContext.AttachArtifact()`, internal refactoring (DisplayNameBuilder, TestMethodValidator) |
 | 1.11.x | Combined data sources: `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product |
@@ -208,12 +208,12 @@ Phase 2 (Completed - v1.14.0):
 
 #### 3.3 Test Execution Priority
 
-**Status**: Not Started
+**Status**: Completed (v1.14.0)
 **Goal**: Control test execution order
 
-- [ ] `[ExecutionPriority(int)]` attribute
-- [ ] Higher priority runs first
-- [ ] Combine with `[DependsOn]` for complex ordering
+- [x] `[ExecutionPriority(int)]` attribute
+- [x] Higher priority runs first
+- [x] Combine with `[DependsOn]` for complex ordering
 
 #### 3.4 Explicit Tests
 
@@ -452,5 +452,5 @@ We welcome contributions! Priority areas:
 
 ---
 
-**Last Updated**: 2026-01-24
+**Last Updated**: 2026-01-25
 **Next Focus**: Priority 4.1 - ASP.NET Core Integration
