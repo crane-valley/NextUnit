@@ -29,6 +29,7 @@ internal sealed class NextUnitFramework :
     private IReadOnlyList<TestCaseDescriptor>? _testCases;
     private readonly TestFilterConfiguration _filterConfig;
     private bool _sessionSetupExecuted;
+    private bool _assemblyLifecycleInitialized;
     private readonly List<LifecycleMethodDelegate> _sessionBeforeMethods = new();
     private readonly List<LifecycleMethodDelegate> _sessionAfterMethods = new();
 
@@ -87,44 +88,11 @@ internal sealed class NextUnitFramework :
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the test session creation.</returns>
     public async Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
     {
-        // Collect session-level lifecycle methods from all test cases
+        // Ensure test cases and global lifecycle methods are loaded
         var testCases = GetTestCases();
         if (testCases.Count > 0 && !_sessionSetupExecuted)
         {
-            // Collect unique session methods from all test cases
-            // Use a HashSet to avoid duplicates if same methods appear in multiple test classes
-            // Use method identity (declaring type + method name) for deduplication
-            var beforeMethods = new List<LifecycleMethodDelegate>();
-            var afterMethods = new List<LifecycleMethodDelegate>();
-            var seenBefore = new HashSet<string>();
-            var seenAfter = new HashSet<string>();
-
-            foreach (var testCase in testCases)
-            {
-                foreach (var method in testCase.Lifecycle.BeforeSessionMethods)
-                {
-                    var methodInfo = method.Method;
-                    // Use fully qualified name as deduplication key
-                    var key = methodInfo.DeclaringType?.FullName + "." + methodInfo.Name;
-                    if (seenBefore.Add(key))
-                    {
-                        beforeMethods.Add(method);
-                    }
-                }
-                foreach (var method in testCase.Lifecycle.AfterSessionMethods)
-                {
-                    var methodInfo = method.Method;
-                    var key = methodInfo.DeclaringType?.FullName + "." + methodInfo.Name;
-                    if (seenAfter.Add(key))
-                    {
-                        afterMethods.Add(method);
-                    }
-                }
-            }
-
-            _sessionBeforeMethods.AddRange(beforeMethods);
-            _sessionAfterMethods.AddRange(afterMethods);
-
+            // Session lifecycle methods are now collected globally via GetTestCases
             // Execute session setup methods
             await ExecuteSessionSetupAsync(context.CancellationToken).ConfigureAwait(false);
             _sessionSetupExecuted = true;
@@ -245,6 +213,32 @@ internal sealed class NextUnitFramework :
 
         // Apply category and tag filtering to static test cases
         var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags, tc.DisplayName, tc.IsExplicit)).ToList();
+
+        // Get global lifecycle methods from the registry and set on engine (one-time)
+        if (!_assemblyLifecycleInitialized)
+        {
+            var globalBeforeAssembly = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
+                generatedRegistryType, "GlobalBeforeAssemblyMethods");
+            var globalAfterAssembly = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
+                generatedRegistryType, "GlobalAfterAssemblyMethods");
+            _engine.SetGlobalAssemblyLifecycle(globalBeforeAssembly, globalAfterAssembly);
+
+            var globalBeforeSession = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
+                generatedRegistryType, "GlobalBeforeSessionMethods");
+            var globalAfterSession = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
+                generatedRegistryType, "GlobalAfterSessionMethods");
+            if (globalBeforeSession is not null)
+            {
+                _sessionBeforeMethods.AddRange(globalBeforeSession);
+            }
+
+            if (globalAfterSession is not null)
+            {
+                _sessionAfterMethods.AddRange(globalAfterSession);
+            }
+
+            _assemblyLifecycleInitialized = true;
+        }
 
         _testCases = filteredTestCases;
         return _testCases;

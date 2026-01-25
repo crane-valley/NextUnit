@@ -63,17 +63,16 @@ internal static class CodeBuilder
 
     /// <summary>
     /// Builds a lifecycle info literal.
+    /// Note: Assembly and Session scoped methods are handled globally via GeneratedTestRegistry
+    /// static properties, so they are always emitted as empty arrays here.
     /// </summary>
     public static string BuildLifecycleInfoLiteral(string typeName, List<LifecycleMethodDescriptor> lifecycleMethods)
     {
+        // Only emit Test and Class scopes - Assembly and Session are handled globally
         var beforeTest = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Test)).ToList();
         var afterTest = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Test)).ToList();
         var beforeClass = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Class)).ToList();
         var afterClass = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Class)).ToList();
-        var beforeAssembly = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Assembly)).ToList();
-        var afterAssembly = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Assembly)).ToList();
-        var beforeSession = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Session)).ToList();
-        var afterSession = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Session)).ToList();
 
         var builder = new StringBuilder();
         builder.AppendLine("new global::NextUnit.Internal.LifecycleInfo");
@@ -95,20 +94,11 @@ internal static class CodeBuilder
         AppendLifecycleMethodArray(builder, typeName, afterClass);
         builder.AppendLine(",");
 
-        builder.Append("                    BeforeAssemblyMethods = ");
-        AppendLifecycleMethodArray(builder, typeName, beforeAssembly);
-        builder.AppendLine(",");
-
-        builder.Append("                    AfterAssemblyMethods = ");
-        AppendLifecycleMethodArray(builder, typeName, afterAssembly);
-        builder.AppendLine(",");
-
-        builder.Append("                    BeforeSessionMethods = ");
-        AppendLifecycleMethodArray(builder, typeName, beforeSession);
-        builder.AppendLine(",");
-
-        builder.Append("                    AfterSessionMethods = ");
-        AppendLifecycleMethodArray(builder, typeName, afterSession);
+        // Assembly and Session scopes are handled globally - always emit empty arrays
+        builder.AppendLine("                    BeforeAssemblyMethods = EmptyLifecycleMethods,");
+        builder.AppendLine("                    AfterAssemblyMethods = EmptyLifecycleMethods,");
+        builder.AppendLine("                    BeforeSessionMethods = EmptyLifecycleMethods,");
+        builder.Append("                    AfterSessionMethods = EmptyLifecycleMethods");
         builder.AppendLine();
 
         builder.Append("                }");

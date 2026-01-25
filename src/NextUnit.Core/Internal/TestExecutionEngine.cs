@@ -60,6 +60,28 @@ public sealed class TestExecutionEngine
     private readonly List<LifecycleMethodDelegate> _assemblyAfterMethods = new();
 
     /// <summary>
+    /// Sets global lifecycle methods for Assembly scope.
+    /// These methods are collected globally across all test classes and should be called
+    /// before RunAsync to ensure proper Assembly lifecycle execution.
+    /// </summary>
+    /// <param name="beforeMethods">Methods to run before any test in the assembly.</param>
+    /// <param name="afterMethods">Methods to run after all tests in the assembly.</param>
+    public void SetGlobalAssemblyLifecycle(
+        IReadOnlyList<LifecycleMethodDelegate>? beforeMethods,
+        IReadOnlyList<LifecycleMethodDelegate>? afterMethods)
+    {
+        if (beforeMethods is not null)
+        {
+            _assemblyBeforeMethods.AddRange(beforeMethods);
+        }
+
+        if (afterMethods is not null)
+        {
+            _assemblyAfterMethods.AddRange(afterMethods);
+        }
+    }
+
+    /// <summary>
     /// Runs a collection of test cases asynchronously.
     /// </summary>
     /// <param name="testCases">The test cases to execute.</param>
@@ -73,13 +95,8 @@ public sealed class TestExecutionEngine
     {
         var testCasesList = testCases.ToList();
 
-        // Collect assembly-level lifecycle methods from the first test
-        if (testCasesList.Count > 0)
-        {
-            var firstTest = testCasesList[0];
-            _assemblyBeforeMethods.AddRange(firstTest.Lifecycle.BeforeAssemblyMethods);
-            _assemblyAfterMethods.AddRange(firstTest.Lifecycle.AfterAssemblyMethods);
-        }
+        // Note: Assembly lifecycle methods should be set via SetGlobalAssemblyLifecycle before calling RunAsync.
+        // This ensures global lifecycle methods from all test classes are properly collected.
 
         var graph = DependencyGraph.Build(testCasesList);
         var scheduler = new ParallelScheduler(graph);

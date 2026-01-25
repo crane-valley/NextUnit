@@ -1,6 +1,6 @@
 # NextUnit Development Roadmap
 
-## Current Version: 1.14.0 (Stable)
+## Current Version: 1.14.1 (Stable)
 
 NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
 
@@ -10,7 +10,7 @@ NextUnit is a production-ready test framework for .NET 10+ with zero-reflection 
 
 | Version | Key Features |
 | ------- | ------------ |
-| 1.14.x | `[ExecutionPriority]` attribute, Roslyn Analyzers Phase 2 (NU0003, NU0005, NU0007, NU0008) |
+| 1.14.x | `[ExecutionPriority]` attribute, Roslyn Analyzers Phase 2 (NU0003, NU0005, NU0007, NU0008), Assembly/Session lifecycle bug fix |
 | 1.13.x | `[Explicit]` attribute: exclude tests from default runs, `--explicit` CLI flag |
 | 1.12.x | Test artifacts: `TestContext.AttachArtifact()`, internal refactoring (DisplayNameBuilder, TestMethodValidator) |
 | 1.11.x | Combined data sources: `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product |
