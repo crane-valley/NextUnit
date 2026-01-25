@@ -432,6 +432,22 @@ public class OrderedTests
     [DependsOn(nameof(Test2))]
     public void Test3() { }
 }
+
+// Or use ExecutionPriority for tests without dependencies
+public class PriorityOrderedTests
+{
+    [Test]
+    [ExecutionPriority(3)]  // Runs first (higher = first)
+    public void Test1() { }
+
+    [Test]
+    [ExecutionPriority(2)]  // Runs second
+    public void Test2() { }
+
+    [Test]
+    [ExecutionPriority(1)]  // Runs third
+    public void Test3() { }
+}
 ```
 
 ## Common Patterns
@@ -531,7 +547,7 @@ public class AsyncTests
 | Class Setup | `IClassFixture<T>` | `[Before(LifecycleScope.Class)]` |
 | Collection Fixture | `ICollectionFixture<T>` | `[Before(LifecycleScope.Assembly)]` |
 | Parallelization | JSON config | `[ParallelLimit]`, `[NotInParallel]` |
-| Test Ordering | Third-party | `[DependsOn]` (built-in) |
+| Test Ordering | Third-party | `[DependsOn]`, `[ExecutionPriority]` (built-in) |
 | Assertions | `Assert.*` | `Assert.*` (same!) |
 | Test Discovery | Runtime reflection | Source generator (faster) |
 | Native AOT | Limited | Full support |

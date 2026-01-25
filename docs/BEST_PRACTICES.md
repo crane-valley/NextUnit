@@ -458,6 +458,33 @@ public class CheckoutWorkflowTests
 }
 ```
 
+### Use Execution Priority for Test Ordering
+
+```csharp
+// ✅ Higher priority tests run first within the same dependency level
+public class StartupTests
+{
+    [Test]
+    [ExecutionPriority(100)]  // Runs first
+    public void CriticalSystemCheck() { }
+
+    [Test]
+    [ExecutionPriority(50)]   // Runs second
+    public void ImportantValidation() { }
+
+    [Test]  // Runs last (default priority is 0)
+    public void NormalTest() { }
+}
+
+// ✅ Class-level priority for all tests in a class
+[ExecutionPriority(10)]
+public class LowPriorityTests
+{
+    [Test]
+    public void Test1() { }  // All tests in this class run after higher priority tests
+}
+```
+
 ## Performance
 
 ### Minimize Setup/Teardown Work

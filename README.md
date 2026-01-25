@@ -12,6 +12,7 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 - **Familiar assertions** - `Assert.Equal`, `Assert.True`, `Assert.Throws`, etc.
 - **Multi-scope lifecycle** - `[Before]`/`[After]` at Test, Class, Assembly, or Session level
 - **Fine-grained parallelism** - `[ParallelLimit(N)]`, `[NotInParallel("key")]`, `[ParallelGroup]`
+- **Execution priority** - `[ExecutionPriority(N)]` for controlling test execution order
 - **Parameterized tests** - `[Arguments]`, `[TestData]`, `[Matrix]` attributes
 - **Combined data sources** - `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product
 - **Class data source** - `[ClassDataSource<T>]` with shared instance support
