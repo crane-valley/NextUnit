@@ -83,6 +83,7 @@ dotnet test
 - **Roslyn analyzers** - Compile-time validation of test code
 - **Multi-scope lifecycle** - Test, Class, Assembly scopes
 - **Parallel control** - `[ParallelLimit]`, `[NotInParallel("key")]`, `[ParallelGroup("name")]`
+- **Execution priority** - `[ExecutionPriority(N)]` for controlling test order
 - **Test dependencies** - `[DependsOn]` with `ProceedOnFailure` option
 - **Native AOT compatible** - Full trim and AOT support
 

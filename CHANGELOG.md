@@ -1017,6 +1017,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.14.0 | 2026-01-25 | 380+ | ExecutionPriority, Roslyn Analyzers Phase 2 | Released |
+| 1.13.0 | 2026-01-24 | 375+ | Explicit Tests | Released |
 | 1.12.0 | 2026-01-24 | 365+ | Test Artifacts | Released |
 | 1.11.0 | 2026-01-24 | 350+ | Combined Data Sources | Released |
 | 1.10.0 | 2026-01-24 | 310+ | Class Data Source | Released |

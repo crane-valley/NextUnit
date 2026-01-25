@@ -313,6 +313,41 @@ public class IntegrationTests
 }
 ```
 
+## Execution Priority
+
+Control test execution order within the same dependency level:
+
+```csharp
+public class PriorityTests
+{
+    // Higher priority values run first
+    [Test]
+    [ExecutionPriority(100)]
+    public void HighPriorityTest() { }
+
+    [Test]
+    [ExecutionPriority(10)]
+    public void LowPriorityTest() { }
+
+    [Test]  // Default priority is 0
+    public void DefaultPriorityTest() { }
+}
+
+// Class-level priority sets default for all tests in the class
+[ExecutionPriority(50)]
+public class ModeratelyImportantTests
+{
+    [Test]
+    public void Test1() { }  // Priority 50
+
+    [Test]
+    [ExecutionPriority(100)]  // Override class level
+    public void ImportantTest() { }  // Priority 100
+}
+```
+
+**Note**: Execution priority only affects tests at the same dependency level. Tests with `[DependsOn]` still wait for their dependencies regardless of priority.
+
 ## Skipping Tests
 
 ```csharp
