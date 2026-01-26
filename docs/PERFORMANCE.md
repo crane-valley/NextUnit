@@ -138,7 +138,7 @@ See [tools/speed-comparison/BENCHMARKS.md](../tools/speed-comparison/BENCHMARKS.
 
 ## Conclusions
 
-NextUnit v1.14.0 demonstrates excellent performance characteristics:
+NextUnit v1.15.0 demonstrates excellent performance characteristics:
 
 1. **High Throughput**: 1,800+ tests/second for simple tests
 2. **Low Overhead**: < 1ms per test for simple scenarios
@@ -151,5 +151,5 @@ The framework is **production-ready** for large test suites with excellent perfo
 ---
 
 **Last Updated**: 2026-01-25
-**NextUnit Version**: v1.14.0
+**NextUnit Version**: v1.15.0
 **Benchmark Suite**: benchmarks/NextUnit.Benchmarks
