@@ -448,6 +448,7 @@ We welcome contributions! Priority areas:
 
 - [Getting Started](docs/GETTING_STARTED.md)
 - [Migration from xUnit](docs/MIGRATION_FROM_XUNIT.md)
+- [ASP.NET Core Testing](docs/ASPNETCORE_TESTING.md)
 - [Best Practices](docs/BEST_PRACTICES.md)
 - [Performance Analysis](docs/PERFORMANCE.md)
 - [CI/CD Integration](docs/CI_CD_INTEGRATION.md)
