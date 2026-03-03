@@ -11,7 +11,7 @@
     <PackageVersion Include="NextUnit.Platform" Version="$(NextUnitVersion)" />
     <PackageVersion Include="NextUnit.TestAdapter" Version="$(NextUnitVersion)" />
     <PackageVersion Include="NextUnit.AspNetCore" Version="$(NextUnitVersion)" />
-    <PackageVersion Include="Microsoft.TestPlatform.ObjectModel" Version="18.0.1" />
+    <PackageVersion Include="Microsoft.TestPlatform.ObjectModel" Version="18.3.0" />
     
     <!-- External Dependencies -->
     <PackageVersion Include="Microsoft.Testing.Platform" Version="2.1.0" />
