@@ -4,6 +4,7 @@
     <NextUnitVersion>1.15.0</NextUnitVersion>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
     <!-- NextUnit Packages -->
     <PackageVersion Include="NextUnit" Version="$(NextUnitVersion)" />
     <PackageVersion Include="NextUnit.Core" Version="$(NextUnitVersion)" />
