@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
+    <OutputType>Exe</OutputType>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <UseTestingPlatformProtocol>true</UseTestingPlatformProtocol>
+    <IsTestingPlatformEnabled>true</IsTestingPlatformEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <TestingPlatformBuilderHook Include="EC4B718B-4D5D-4200-8DA0-34A102B3AFB2">
+      <DisplayName>NextUnit</DisplayName>
+      <TypeFullName>NextUnit.Platform.TestingPlatformBuilderHook</TypeFullName>
+    </TestingPlatformBuilderHook>
+  </ItemGroup>
+</Project>

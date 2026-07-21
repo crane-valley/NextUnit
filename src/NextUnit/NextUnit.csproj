@@ -33,6 +33,8 @@
 
   <ItemGroup>
     <None Include="..\..\NUGET_README.md" Pack="true" PackagePath="\README.md" />
+    <None Include="build\NextUnit.props" Pack="true" PackagePath="build" />
+    <None Include="buildMultiTargeting\NextUnit.props" Pack="true" PackagePath="buildMultiTargeting" />
     <None Include="buildTransitive\NextUnit.props" Pack="true" PackagePath="buildTransitive" />
   </ItemGroup>
 
