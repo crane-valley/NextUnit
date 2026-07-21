@@ -214,10 +214,12 @@ jobs:
     - name: Verify one-package integration
       run: |
         dotnet restore tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
-          --configfile tests/NextUnit.PackageSmoke/NuGet.Config
+          --configfile .github/NextUnit.PackageSmoke.NuGet.Config \
+          -p:UseLocalNextUnitPackage=true
         dotnet run --project tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
           --configuration Release \
           --no-restore \
+          -p:UseLocalNextUnitPackage=true \
           -- --minimum-expected-tests 1
 
   # Summary job
