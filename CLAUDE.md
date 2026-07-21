@@ -9,7 +9,7 @@
 ```bash
 dotnet build                          # Build
 dotnet format --verify-no-changes     # Format check
-dotnet test samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj  # Test
+dotnet test --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj  # Test
 markdownlint --config .markdownlint.json <file>.md  # Markdown lint
 ```
 

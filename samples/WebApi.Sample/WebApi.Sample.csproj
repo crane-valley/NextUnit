@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- Pin the patched 2.x line until Microsoft.AspNetCore.OpenApi updates its dependency floor. -->
+    <PackageReference Include="Microsoft.OpenApi" />
   </ItemGroup>
 
 </Project>

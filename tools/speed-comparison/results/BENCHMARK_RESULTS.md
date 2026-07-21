@@ -1,152 +1,35 @@
 # Speed Comparison Results
 
-**Last Updated**: 2025-12-10 05:31:27 UTC
-**Environment**: Ubuntu 24.04.3 LTS (X64)
-**.NET Version**: 10.0.1
-**Processor Count**: 4
+**Last Updated**: 2026-07-21
+**Environment**: Windows 11 Pro 10.0.26200 (X64)
+**.NET SDK / Runtime**: 10.0.302 / 10.0.10
+**Processor**: Intel Core i5-13500, 20 logical processors
 
-## Summary
+## NextUnit vs TUnit
 
-| Framework | Version | Total Time | Per-Test Time | Peak Memory | Tests/Sec | Relative Performance |
-| --------- | ------- | ---------- | ------------- | ----------- | --------- | -------------------- |
-| NextUnit  | 1.4.0   | 554ms      | 2.77ms        | 0.0MB       | 361       | Baseline             |
-| MSTest    | 3.7.0   | 1209ms     | 6.04ms        | 0.0MB       | 165       | 2.2x                 |
-| NUnit     | 4.3.1   | 1256ms     | 6.28ms        | 0.0MB       | 159       | 2.3x                 |
-| xUnit     | 2.9.3   | 1329ms     | 6.64ms        | 0.0MB       | 150       | 2.4x                 |
+The unified suite compiled the same source into 127 tests for each framework. Both executables
+reported 127 passed tests before timing. The table excludes one warm-up process and summarizes
+10 subsequent process launches.
 
-## Detailed Results
-
-### NextUnit v1.4.0
-
-- **Test Count**: 200
-- **Passed**: 200
-- **Failed**: 0
-- **Skipped**: 0
-
-**Timing:**
-
-- Median: 553ms
-- Average: 554ms
-- Per-test: 2.77ms
-- Throughput: 361 tests/second
-
-**Memory:**
-
-- Median peak: 0.0MB
-- Average peak: 0.0MB
-
-**Raw Data (all iterations):**
-
-- Execution times: 552ms, 558ms, 546ms, 553ms, 564ms
-- Peak memory: 0MB, 0MB, 0MB, 0MB, 0MB
-
-### MSTest v3.7.0
-
-- **Test Count**: 200
-- **Passed**: 200
-- **Failed**: 0
-- **Skipped**: 0
-
-**Timing:**
-
-- Median: 1212ms
-- Average: 1209ms
-- Per-test: 6.04ms
-- Throughput: 165 tests/second
-
-**Memory:**
-
-- Median peak: 0.0MB
-- Average peak: 0.0MB
-
-**Raw Data (all iterations):**
-
-- Execution times: 1214ms, 1212ms, 1201ms, 1217ms, 1205ms
-- Peak memory: 0MB, 0MB, 0MB, 0MB, 0MB
-
-### NUnit v4.3.1
-
-- **Test Count**: 200
-- **Passed**: 200
-- **Failed**: 0
-- **Skipped**: 0
-
-**Timing:**
-
-- Median: 1259ms
-- Average: 1256ms
-- Per-test: 6.28ms
-- Throughput: 159 tests/second
-
-**Memory:**
-
-- Median peak: 0.0MB
-- Average peak: 0.0MB
-
-**Raw Data (all iterations):**
-
-- Execution times: 1265ms, 1271ms, 1259ms, 1246ms, 1243ms
-- Peak memory: 0MB, 0MB, 0MB, 0MB, 0MB
-
-### xUnit v2.9.3
-
-- **Test Count**: 200
-- **Passed**: 200
-- **Failed**: 0
-- **Skipped**: 0
-
-**Timing:**
-
-- Median: 1324ms
-- Average: 1329ms
-- Per-test: 6.64ms
-- Throughput: 150 tests/second
-
-**Memory:**
-
-- Median peak: 0.0MB
-- Average peak: 0.0MB
-
-**Raw Data (all iterations):**
-
-- Execution times: 1324ms, 1335ms, 1323ms, 1324ms, 1339ms
-- Peak memory: 0MB, 0MB, 0MB, 0MB, 0MB
+| Framework | Version | Mean | Median | Min | Max | Relative |
+| --------- | ------- | ---: | -----: | --: | --: | -------: |
+| NextUnit | current checkout (1.15.0) | 424.62ms | 423.60ms | 409.71ms | 446.05ms | 1.00x |
+| TUnit | 1.61.15 | 1,085.71ms | 1,086.44ms | 1,058.03ms | 1,118.98ms | 2.57x slower |
 
 ## Methodology
 
-### Test Suite
+- `UnifiedTests` uses one source tree and framework-specific attribute aliases.
+- NextUnit is built from the current checkout; TUnit is pinned in `UnifiedTests.csproj`.
+- Both use Release, JIT, .NET 10, and Microsoft.Testing.Platform executables.
+- Wall-clock time includes process startup, discovery, execution, result reporting, and default
+  package behavior.
+- Standard output and error were redirected during timing.
+- Results are machine-specific. Use BenchmarkDotNet for statistically rigorous comparisons:
 
-Each framework runs an identical test suite containing **200 tests**:
+```bash
+cd tools/speed-comparison
+dotnet run -c Release --project Tests.Benchmark -- --filter "*RuntimeBenchmarks*"
+```
 
-- **50 Simple Tests**: Basic assertions (Equal, True, False)
-- **50 Parameterized Tests**: Data-driven tests (5 methods × 10 parameters each)
-- **25 Lifecycle Tests**: Tests with setup/teardown hooks
-- **25 Async Tests**: Async/await test methods
-- **25 Complex Assertion Tests**: Collection, string, and numeric assertions
-- **25 Parallel Tests**: Tests designed to run concurrently
-
-### Execution
-
-- Each framework is run **5 times** in separate processes
-- Median and average times are calculated from all iterations
-- All projects built in **Release mode** with optimizations enabled
-- Tests run using each framework's native test runner:
-  - **NextUnit**: `dotnet run` (Microsoft.Testing.Platform)
-  - **xUnit, NUnit, MSTest**: `dotnet test` (VSTest Platform)
-
-### Metrics
-
-- **Total Time**: Wall-clock time from process start to completion
-- **Per-Test Time**: Total time ÷ test count
-- **Peak Memory**: Maximum working set size during execution
-- **Tests/Sec**: Test count ÷ (total time in seconds)
-- **Relative**: Compared to NextUnit baseline (1.0 = same speed)
-
-### Fairness
-
-All test implementations:
-
-- Use identical test logic from `SpeedComparison.Shared`
-- Follow framework best practices (native attributes and assertions)
-- Include the same lifecycle hooks and async patterns
-- Run with parallel execution enabled (where supported)
+The comparison suite also supports xUnit, NUnit, MSTest, and Native AOT NextUnit. Those results are
+generated by the benchmark workflow and are not mixed into this local head-to-head measurement.

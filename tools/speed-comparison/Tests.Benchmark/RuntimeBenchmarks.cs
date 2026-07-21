@@ -20,6 +20,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     private static readonly string? _className = SanitizeClassName(Environment.GetEnvironmentVariable("CLASS_NAME"));
     private string? _aotPath;
     private string? _nextUnitPath;
+    private string? _tUnitPath;
     private string? _nunitPath;
     private string? _msTestPath;
     private string? _xUnitPath;
@@ -50,6 +51,7 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         // Regular builds
         _nextUnitPath = GetExecutablePath("NEXTUNIT", exeName);
+        _tUnitPath = GetExecutablePath("TUNIT", exeName);
         _nunitPath = GetExecutablePath("NUNIT", exeName);
         _msTestPath = GetExecutablePath("MSTEST", exeName);
         _xUnitPath = GetExecutablePath("XUNIT", exeName);
@@ -62,6 +64,7 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         // Build missing executables automatically
         await BuildIfMissingAsync("NEXTUNIT", _nextUnitPath);
+        await BuildIfMissingAsync("TUNIT", _tUnitPath);
         await BuildIfMissingAsync("NUNIT", _nunitPath);
         await BuildIfMissingAsync("MSTEST", _msTestPath);
         await BuildIfMissingAsync("XUNIT", _xUnitPath);
@@ -150,29 +153,15 @@ public class RuntimeBenchmarks : BenchmarkBase
         {
             Console.WriteLine($"Building {framework} executable at {executablePath}...");
 
-            var command = $"dotnet build -c Release -p:TestFramework={framework} --framework {Framework} --verbosity quiet";
-            var (process, stdOut, stdErr) = ProcessX.GetDualAsyncEnumerable(command, workingDirectory: UnifiedPath);
-
-            // Process both stdout and stderr concurrently to avoid deadlocks.
-            var stdOutTask = Task.Run(async () =>
-            {
-                await foreach (var line in stdOut)
-                {
-                    Console.WriteLine(line);
-                }
-            });
-
-            var stdErrTask = Task.Run(async () =>
-            {
-                await foreach (var line in stdErr)
-                {
-                    Console.Error.WriteLine(line);
-                }
-            });
-
-            await Task.WhenAll(stdOutTask, stdErrTask);
-            await process.WaitForExitAsync();
-            var exitCode = process.ExitCode;
+            var exitCode = await RunDotNetAsync(
+                "build",
+                "-c",
+                "Release",
+                $"-p:TestFramework={framework}",
+                "--framework",
+                Framework,
+                "--verbosity",
+                "quiet");
             if (exitCode != 0)
             {
                 throw new InvalidOperationException($"{framework} build failed with exit code {exitCode}.");
@@ -198,28 +187,18 @@ public class RuntimeBenchmarks : BenchmarkBase
         Console.WriteLine("AOT executable not found. Building AOT version (this may take several minutes)...");
         Console.WriteLine($"To build manually instead, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid}");
 
-        var command = $"dotnet publish -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid} --framework {Framework} --verbosity quiet";
-        var (process, stdOut, stdErr) = ProcessX.GetDualAsyncEnumerable(command, workingDirectory: UnifiedPath);
-
-        // Process both stdout and stderr concurrently to avoid deadlocks.
-        var stdOutTask = Task.Run(async () =>
-        {
-            await foreach (var line in stdOut)
-            {
-                Console.WriteLine(line);
-            }
-        });
-        var stdErrTask = Task.Run(async () =>
-        {
-            await foreach (var line in stdErr)
-            {
-                Console.Error.WriteLine(line);
-            }
-        });
-        await Task.WhenAll(stdOutTask, stdErrTask);
-
-        await process.WaitForExitAsync();
-        var exitCode = process.ExitCode;
+        var exitCode = await RunDotNetAsync(
+            "publish",
+            "-c",
+            "Release",
+            "-p:TestFramework=NEXTUNIT",
+            "-p:PublishAot=true",
+            "-r",
+            rid,
+            "--framework",
+            Framework,
+            "--verbosity",
+            "quiet");
         if (exitCode != 0)
         {
             Console.WriteLine($"Warning: AOT publish failed with exit code {exitCode}.");
@@ -236,6 +215,35 @@ public class RuntimeBenchmarks : BenchmarkBase
         }
     }
 
+    private static async Task<int> RunDotNetAsync(params string[] arguments)
+    {
+        var startInfo = new System.Diagnostics.ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = UnifiedPath,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = System.Diagnostics.Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Failed to start dotnet.");
+        var standardOutput = process.StandardOutput.ReadToEndAsync();
+        var standardError = process.StandardError.ReadToEndAsync();
+
+        await process.WaitForExitAsync();
+        Console.Write(await standardOutput);
+        Console.Error.Write(await standardError);
+        return process.ExitCode;
+    }
+
+    private static string QuoteExecutablePath(string path) => $"\"{path}\"";
+
     [Benchmark]
     [BenchmarkCategory("Runtime", "AOT")]
     public async Task NextUnitAOTAsync()
@@ -249,7 +257,7 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
         // Run all tests since filtering by class name is not directly supported
-        await foreach (var output in ProcessX.StartAsync(_aotPath))
+        await foreach (var output in ProcessX.StartAsync(QuoteExecutablePath(_aotPath)))
         {
             Console.WriteLine(output);
         }
@@ -258,9 +266,18 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task NextUnitAsync()
     {
-        // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
-        // Run all tests since filtering by class name is not directly supported
-        await foreach (var output in ProcessX.StartAsync(_nextUnitPath!))
+        var command = QuoteExecutablePath(_nextUnitPath!) + " --no-progress";
+        await foreach (var output in ProcessX.StartAsync(command))
+        {
+            Console.WriteLine(output);
+        }
+    }
+
+    [Benchmark(Baseline = true)]
+    public async Task TUnitAsync()
+    {
+        var command = QuoteExecutablePath(_tUnitPath!) + " --progress off";
+        await foreach (var output in ProcessX.StartAsync(command))
         {
             Console.WriteLine(output);
         }
@@ -269,7 +286,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task NUnitAsync()
     {
-        var command = _nunitPath!;
+        var command = QuoteExecutablePath(_nunitPath!);
 
         // Only apply filter if CLASS_NAME environment variable is set
         if (!string.IsNullOrEmpty(_className))
@@ -286,7 +303,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task MSTestAsync()
     {
-        var command = _msTestPath!;
+        var command = QuoteExecutablePath(_msTestPath!);
 
         // Only apply filter if CLASS_NAME environment variable is set
         if (!string.IsNullOrEmpty(_className))
@@ -303,7 +320,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task XUnitAsync()
     {
-        var command = _xUnitPath!;
+        var command = QuoteExecutablePath(_xUnitPath!);
 
         // Only apply filter if CLASS_NAME environment variable is set
         if (!string.IsNullOrEmpty(_className))

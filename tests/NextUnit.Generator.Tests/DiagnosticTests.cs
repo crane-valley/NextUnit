@@ -45,7 +45,7 @@ public class TestClass
             new DiagnosticResult("NEXTUNIT001", DiagnosticSeverity.Error)
         );
 
-        await test.RunAsync();
+        await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class TestClass
             new DiagnosticResult("NEXTUNIT002", DiagnosticSeverity.Warning)
         );
 
-        await test.RunAsync();
+        await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class TestClass
         };
 
         // No diagnostics expected
-        await test.RunAsync();
+        await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -139,6 +139,6 @@ public class TestClass
             new DiagnosticResult("NEXTUNIT001", DiagnosticSeverity.Error)
         );
 
-        await test.RunAsync();
+        await test.RunAsync(TestContext.Current.CancellationToken);
     }
 }

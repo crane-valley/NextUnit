@@ -404,14 +404,13 @@ Phase 2 (Completed - v1.14.0):
 
 ## Performance Benchmarks
 
-| Framework | Per-Test Time | Tests/Sec | vs NextUnit  |
-| --------- | ------------- | --------- | ------------ |
-| NextUnit  | 2.77ms        | 361       | **Baseline** |
-| MSTest    | 6.04ms        | 165       | 2.2x slower  |
-| NUnit     | 6.28ms        | 159       | 2.3x slower  |
-| xUnit     | 6.64ms        | 150       | 2.4x slower  |
+The current unified suite runs 127 equivalent tests through each framework's default JIT package
+integration. On Windows 11 and .NET 10.0.10, 10 timed process runs after one warm-up measured:
 
-**Note**: NextUnit's source-generator architecture significantly outperforms reflection-based frameworks.
+| Framework | Version | Median | vs NextUnit |
+| --------- | ------- | -----: | ----------: |
+| NextUnit | current checkout (1.15.0) | 423.60ms | **Baseline** |
+| TUnit | 1.61.15 | 1,086.44ms | 2.57x slower |
 
 **See**: [tools/speed-comparison/results/BENCHMARK_RESULTS.md](tools/speed-comparison/results/BENCHMARK_RESULTS.md)
 

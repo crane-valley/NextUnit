@@ -41,7 +41,7 @@ public class TestClass
         });
 
         // The test passing means the generated entry point compiled successfully
-        await test.RunAsync();
+        await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public static class Program
 
         // If Program.g.cs is incorrectly generated, we'll get a CS0017 error (multiple entry points).
         // We don't expect that error, so test should pass if generator correctly skips generation.
-        await test.RunAsync();
+        await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     // Removed redundant test: GeneratedEntryPoint_CompilesSuccessfullyAsync

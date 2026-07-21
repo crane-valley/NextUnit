@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using NextUnit;
-using NextUnit.AspNetCore;
 
 namespace WebApi.Sample.Tests;
 
@@ -9,7 +8,7 @@ namespace WebApi.Sample.Tests;
 /// Basic integration tests for the Weather API.
 /// </summary>
 [NotInParallel("WebApplicationFactory")]
-public class WeatherApiTests : WebApplicationTest<Program>
+public class WeatherApiTests : WebApiTestBase
 {
     [Test]
     public async Task GetWeatherForecast_ReturnsOk()

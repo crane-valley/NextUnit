@@ -41,10 +41,11 @@ public class FrameworkVersionColumn : IColumn
 
         var version = methodName switch
         {
-            "NextUnit" or "NextUnit_AOT" or "Build_NextUnit" => GetNextUnitVersion(),
-            "xUnit" or "Build_xUnit" => GetXUnitVersion(),
-            "NUnit" or "Build_NUnit" => GetNUnitVersion(),
-            "MSTest" or "Build_MSTest" => GetMSTestVersion(),
+            "NextUnitAsync" or "NextUnitAOTAsync" or "BuildNextUnitAsync" => GetNextUnitVersion(),
+            "TUnitAsync" or "BuildTUnitAsync" => GetUnifiedProjectVersion("TUnitVersion"),
+            "XUnitAsync" or "BuildXUnitAsync" => GetPackageVersion("xunit"),
+            "NUnitAsync" or "BuildNUnitAsync" => GetPackageVersion("NUnit"),
+            "MSTestAsync" or "BuildMSTestAsync" => GetPackageVersion("MSTest"),
             _ => "Unknown"
         };
 
@@ -56,21 +57,14 @@ public class FrameworkVersionColumn : IColumn
     {
         try
         {
-            // Try to get the version from the current codebase's Directory.Packages.props
-            var directory = new DirectoryInfo(Environment.CurrentDirectory);
-            while (directory != null && directory.Name != "NextUnit")
+            var repositoryRoot = FindRepositoryRoot();
+            if (repositoryRoot is not null)
             {
-                directory = directory.Parent;
-            }
-
-            if (directory != null)
-            {
-                var packagesPropsPath = Path.Combine(directory.FullName, "Directory.Packages.props");
-                if (File.Exists(packagesPropsPath))
+                var buildPropsPath = Path.Join(repositoryRoot.FullName, "Directory.Build.props");
+                if (File.Exists(buildPropsPath))
                 {
-                    var content = File.ReadAllText(packagesPropsPath);
-                    var match = Regex.Match(content,
-                        @"<PackageVersion\s+Include=""NextUnit""\s+Version=""([^""]+)""");
+                    var content = File.ReadAllText(buildPropsPath);
+                    var match = Regex.Match(content, @"<Version>([^<]+)</Version>");
                     if (match.Success)
                     {
                         return match.Groups[1].Value;
@@ -87,24 +81,18 @@ public class FrameworkVersionColumn : IColumn
         }
     }
 
-    private static string GetXUnitVersion()
+    private static string GetUnifiedProjectVersion(string propertyName)
     {
         try
         {
-            var directory = new DirectoryInfo(Environment.CurrentDirectory);
-            while (directory != null && directory.Name != "NextUnit")
+            var repositoryRoot = FindRepositoryRoot();
+            if (repositoryRoot is not null)
             {
-                directory = directory.Parent;
-            }
-
-            if (directory != null)
-            {
-                var packagesPropsPath = Path.Combine(directory.FullName, "Directory.Packages.props");
-                if (File.Exists(packagesPropsPath))
+                var projectPath = Path.Join(repositoryRoot.FullName, "tools", "speed-comparison", "UnifiedTests", "UnifiedTests.csproj");
+                if (File.Exists(projectPath))
                 {
-                    var content = File.ReadAllText(packagesPropsPath);
-                    var match = Regex.Match(content,
-                        @"<PackageVersion\s+Include=""xunit""\s+Version=""([^""]+)""");
+                    var content = File.ReadAllText(projectPath);
+                    var match = Regex.Match(content, $@"<{Regex.Escape(propertyName)}>([^<]+)</{Regex.Escape(propertyName)}>");
                     if (match.Success)
                     {
                         return match.Groups[1].Value;
@@ -121,24 +109,19 @@ public class FrameworkVersionColumn : IColumn
         }
     }
 
-    private static string GetNUnitVersion()
+    private static string GetPackageVersion(string packageName)
     {
         try
         {
-            var directory = new DirectoryInfo(Environment.CurrentDirectory);
-            while (directory != null && directory.Name != "NextUnit")
+            var repositoryRoot = FindRepositoryRoot();
+            if (repositoryRoot is not null)
             {
-                directory = directory.Parent;
-            }
-
-            if (directory != null)
-            {
-                var packagesPropsPath = Path.Combine(directory.FullName, "Directory.Packages.props");
+                var packagesPropsPath = Path.Join(repositoryRoot.FullName, "Directory.Packages.props");
                 if (File.Exists(packagesPropsPath))
                 {
                     var content = File.ReadAllText(packagesPropsPath);
                     var match = Regex.Match(content,
-                        @"<PackageVersion\s+Include=""NUnit""\s+Version=""([^""]+)""");
+                        $@"<PackageVersion\s+Include=""{Regex.Escape(packageName)}""\s+Version=""([^""]+)""");
                     if (match.Success)
                     {
                         return match.Groups[1].Value;
@@ -155,37 +138,19 @@ public class FrameworkVersionColumn : IColumn
         }
     }
 
-    private static string GetMSTestVersion()
+    private static DirectoryInfo? FindRepositoryRoot()
     {
-        try
+        var directory = new DirectoryInfo(Environment.CurrentDirectory);
+        while (directory is not null)
         {
-            var directory = new DirectoryInfo(Environment.CurrentDirectory);
-            while (directory != null && directory.Name != "NextUnit")
+            if (File.Exists(Path.Join(directory.FullName, "NextUnit.slnx")))
             {
-                directory = directory.Parent;
+                return directory;
             }
 
-            if (directory != null)
-            {
-                var packagesPropsPath = Path.Combine(directory.FullName, "Directory.Packages.props");
-                if (File.Exists(packagesPropsPath))
-                {
-                    var content = File.ReadAllText(packagesPropsPath);
-                    var match = Regex.Match(content,
-                        @"<PackageVersion\s+Include=""MSTest""\s+Version=""([^""]+)""");
-                    if (match.Success)
-                    {
-                        return match.Groups[1].Value;
-                    }
-                }
-            }
+            directory = directory.Parent;
+        }
 
-            return "";
-        }
-        catch (Exception)
-        {
-            // Version detection is not critical - return empty string on any error
-            return "";
-        }
+        return null;
     }
 }

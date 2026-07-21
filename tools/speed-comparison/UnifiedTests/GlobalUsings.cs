@@ -2,6 +2,9 @@
 #if NEXTUNIT
 global using NextUnit;
 global using NextUnit.Core;
+#elif TUNIT
+global using TUnit.Core;
+global using static TUnit.Core.HookType;
 #elif XUNIT
 global using Xunit;
 #elif NUNIT
@@ -16,6 +19,11 @@ global using TestAttribute = NextUnit.TestAttribute;
 global using DataDrivenTestAttribute = NextUnit.TestAttribute;
 global using TestDataAttribute = NextUnit.ArgumentsAttribute;
 global using TestDataSourceAttribute = NextUnit.TestDataAttribute;
+#elif TUNIT
+global using TestAttribute = TUnit.Core.TestAttribute;
+global using DataDrivenTestAttribute = TUnit.Core.TestAttribute;
+global using TestDataAttribute = TUnit.Core.ArgumentsAttribute;
+global using TestDataSourceAttribute = TUnit.Core.MethodDataSourceAttribute;
 #elif XUNIT
 // xUnit uses Fact for simple tests, Theory for parameterized tests
 global using TestAttribute = Xunit.FactAttribute;
@@ -37,7 +45,7 @@ global using TestClassAttribute = Microsoft.VisualStudio.TestTools.UnitTesting.T
 #endif
 
 // Empty attribute for frameworks that don't require class-level attributes
-#if NEXTUNIT || XUNIT
+#if NEXTUNIT || TUNIT || XUNIT
 [System.AttributeUsage(System.AttributeTargets.Class)]
 internal class TestClassAttribute : System.Attribute { }
 #endif

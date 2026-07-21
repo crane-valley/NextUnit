@@ -32,7 +32,7 @@ cd MyProject.Tests
 ### Add NextUnit Packages
 
 ```bash
-# Add NextUnit (includes Core, Generator, TestAdapter, and Microsoft.NET.Test.Sdk)
+# Add the complete NextUnit package
 dotnet add package NextUnit
 ```
 
@@ -55,8 +55,8 @@ Update your `.csproj` file:
 ```
 
 **Note**: The `NextUnit` meta-package automatically includes all required dependencies
-(NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, and Microsoft.NET.Test.Sdk).
-No `OutputType=Exe` or `Program.cs` is needed.
+(runtime, platform integration, source generator, analyzers, and TRX reporting).
+No `OutputType=Exe`, `Program.cs`, or separate analyzer reference is needed.
 
 ## Writing Your First Test
 
@@ -97,15 +97,28 @@ public class CalculatorTests
 ### Command Line
 
 ```bash
-# Run all tests
-dotnet test
+# Run this test project without repository-level configuration
+dotnet run
 
 # Run with no build
-dotnet test --no-build
+dotnet run --no-build
 
-# Run specific tests (using VSTest filter)
-dotnet test --filter "FullyQualifiedName~Calculator"
+# Run specific tests
+dotnet run -- --test-name "*Calculator*"
 ```
+
+To use `dotnet test` across a repository with the .NET 10 SDK, add this `global.json` at the
+repository root:
+
+```json
+{
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
+```
+
+Then run `dotnet test`, or `dotnet test --project MyProject.Tests.csproj` for one project.
 
 ### Visual Studio
 
@@ -346,7 +359,8 @@ public class ModeratelyImportantTests
 }
 ```
 
-**Note**: Execution priority only affects tests at the same dependency level. Tests with `[DependsOn]` still wait for their dependencies regardless of priority.
+**Note**: Execution priority only affects tests at the same dependency level. Tests with
+`[DependsOn]` still wait for their dependencies regardless of priority.
 
 ## Skipping Tests
 

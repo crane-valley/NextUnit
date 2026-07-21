@@ -1,6 +1,7 @@
 # NextUnit Speed Comparison Benchmarks
 
-This directory contains realistic benchmarks comparing NextUnit, xUnit, NUnit, and MSTest frameworks using BenchmarkDotNet.
+This directory contains realistic benchmarks comparing the current NextUnit checkout with TUnit,
+xUnit, NUnit, and MSTest using BenchmarkDotNet.
 
 ## Test Categories
 
@@ -75,7 +76,7 @@ dotnet run -c Release --project Tests.Benchmark
 ## Benchmark Details
 
 - NextUnit runs in both AOT (Ahead-of-Time) and regular JIT modes
-- xUnit, NUnit, and MSTest use their native test runners
+- TUnit, xUnit, NUnit, and MSTest use their native test runners
 - All frameworks implement equivalent test logic
 - Tests use realistic patterns without external dependencies
 - In-memory operations simulate I/O without file system artifacts
@@ -87,7 +88,7 @@ The UnifiedTests project uses conditional compilation to support all frameworks 
 - **Single source files**: All test code shared across frameworks
 - **Framework-specific attributes**: Using preprocessor directives
 - **GlobalUsings.cs**: Framework-specific namespace imports and attribute aliases
-- **Build-time framework selection**: Via `-p:TestFramework=NEXTUNIT|XUNIT|NUNIT|MSTEST`
+- **Build-time framework selection**: Via `-p:TestFramework=NEXTUNIT|TUNIT|XUNIT|NUNIT|MSTEST`
 
 This ensures:
 ✅ **100% identical test logic** across all frameworks  
@@ -143,5 +144,5 @@ Both can coexist and serve different purposes:
 
 ---
 
-**Last Updated**: 2026-01-25
+**Last Updated**: 2026-07-21
 **NextUnit Version**: 1.15.0

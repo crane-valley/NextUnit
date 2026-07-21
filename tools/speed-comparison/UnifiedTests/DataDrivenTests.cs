@@ -52,6 +52,15 @@ public class DataDrivenTests
         yield return new TestData { Id = 4, Value = 40, Name = "Test4" };
         yield return new TestData { Id = 5, Value = 50, Name = "Test5" };
     }
+#elif TUNIT
+    public static IEnumerable<Func<TestData>> ComplexTestData()
+    {
+        yield return () => new TestData { Id = 1, Value = 10, Name = "Test1" };
+        yield return () => new TestData { Id = 2, Value = 20, Name = "Test2" };
+        yield return () => new TestData { Id = 3, Value = 30, Name = "Test3" };
+        yield return () => new TestData { Id = 4, Value = 40, Name = "Test4" };
+        yield return () => new TestData { Id = 5, Value = 50, Name = "Test5" };
+    }
 #elif XUNIT
     public static IEnumerable<object[]> ComplexTestData()
     {

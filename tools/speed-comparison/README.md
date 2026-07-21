@@ -1,7 +1,7 @@
 # NextUnit Speed Comparison Tool
 
-This tool benchmarks NextUnit against other popular .NET test frameworks (xUnit, NUnit,
-MSTest) using identical test cases via conditional compilation to provide fair
+This tool benchmarks the current NextUnit checkout against TUnit, xUnit, NUnit,
+and MSTest using identical test cases via conditional compilation to provide fair
 performance comparisons.
 
 ## BenchmarkDotNet-based Benchmarking ⭐
@@ -15,7 +15,7 @@ dotnet run -c Release --project Tests.Benchmark
 
 Features:
 
-- ✅ **Build benchmarks** - Measures compilation time
+- ✅ **Build benchmarks** - Measures compilation time, including source generation
 - ✅ **Runtime benchmarks** - Measures execution time
 - ✅ **AOT support** - Tests Native AOT compilation
 - ✅ **Statistical analysis** - Mean, median, standard deviation
@@ -31,7 +31,7 @@ The UnifiedTests project uses conditional compilation to support all frameworks 
 - **Single source files**: All test code shared across frameworks
 - **Framework-specific attributes**: Using preprocessor directives
 - **GlobalUsings.cs**: Framework-specific namespace imports
-- **Build-time framework selection**: Via `-p:TestFramework=NEXTUNIT|XUNIT|NUNIT|MSTEST`
+- **Build-time framework selection**: Via `-p:TestFramework=NEXTUNIT|TUNIT|XUNIT|NUNIT|MSTEST`
 
 This ensures 100% identical test logic across all frameworks.
 
@@ -129,7 +129,8 @@ tools/speed-comparison/
 
 Each framework is benchmarked using its native patterns:
 
-- **NextUnit**: Direct execution with Microsoft.Testing.Platform
+- **NextUnit**: Current checkout, direct execution with Microsoft.Testing.Platform
+- **TUnit**: Current pinned NuGet release, direct execution with Microsoft.Testing.Platform
 - **xUnit**: VSTest Platform runner
 - **NUnit**: VSTest Platform runner  
 - **MSTest**: VSTest Platform runner
@@ -214,5 +215,5 @@ configurations.
 
 ---
 
-**Last Updated**: 2026-01-25
+**Last Updated**: 2026-07-21
 **NextUnit Version**: 1.15.0

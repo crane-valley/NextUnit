@@ -21,9 +21,11 @@ dotnet add package NextUnit
 This meta-package includes everything you need:
 
 - NextUnit.Core - Attributes, assertions, execution engine
+- NextUnit.Platform - Microsoft.Testing.Platform integration
 - NextUnit.Generator - Source generator for zero-reflection discovery
-- NextUnit.TestAdapter - VSTest adapter for Visual Studio Test Explorer
-- Microsoft.NET.Test.Sdk - Test platform SDK
+- NextUnit.Analyzers - Compile-time validation
+- Microsoft.Testing.Platform.MSBuild - `dotnet test`, `dotnet run`, and IDE entry point generation
+- Microsoft.Testing.Extensions.TrxReport - CI-friendly TRX result files
 
 ### Configure Your Test Project
 
@@ -39,7 +41,8 @@ This meta-package includes everything you need:
 </Project>
 ```
 
-**Note**: No `OutputType=Exe` or `Program.cs` needed - NextUnit works as a class library with VSTest adapter.
+**Note**: No `OutputType=Exe`, `Program.cs`, or separate analyzer reference is needed. The package
+configures Microsoft.Testing.Platform and registers NextUnit automatically.
 
 ### Write Your First Test
 
@@ -68,7 +71,18 @@ public class CalculatorTests
 ### Run Tests
 
 ```bash
-dotnet test
+dotnet run --project MyProject.Tests
+```
+
+To run an entire repository with `dotnet test` on the .NET 10 SDK, select
+Microsoft.Testing.Platform in the repository's `global.json`:
+
+```json
+{
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
 ```
 
 ## Key Features
@@ -89,14 +103,13 @@ dotnet test
 
 ## Packages
 
-| Package | Description | Size |
-| ------- | ----------- | ---- |
-| **NextUnit** | Meta-package with all components (recommended) | 4.2 KB |
-| **NextUnit.Core** | Core attributes, assertions, execution engine | 32.1 KB |
-| **NextUnit.Generator** | Source generator for test discovery | 20.7 KB |
-| **NextUnit.TestAdapter** | VSTest adapter for Visual Studio Test Explorer | 15.4 KB |
-
-**Total Size**: 72.4 KB (ultra-lightweight!)
+| Package | Description |
+| ------- | ----------- |
+| **NextUnit** | Single-package setup with runtime, generator, analyzers, and platform integration |
+| **NextUnit.Core** | Core attributes, assertions, and execution engine |
+| **NextUnit.Platform** | Microsoft.Testing.Platform integration |
+| **NextUnit.Generator** | Source generator for test discovery |
+| **NextUnit.TestAdapter** | Optional legacy VSTest adapter |
 
 ## Documentation
 

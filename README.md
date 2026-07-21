@@ -20,7 +20,7 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 - **Test dependencies** - `[DependsOn]` for ordered execution with `ProceedOnFailure` option
 - **Explicit tests** - `[Explicit]` to exclude from default runs
 - **Roslyn analyzers** - Compile-time test validation
-- **VSTest integration** - Works with Visual Studio Test Explorer and `dotnet test`
+- **Microsoft.Testing.Platform integration** - Works with `dotnet run`, `dotnet test`, and IDE test explorers
 - **ASP.NET Core integration** - `NextUnit.AspNetCore` package for web API testing
 - **Native AOT compatible**
 
@@ -77,9 +77,22 @@ public class CalculatorTests
 ### Running Tests
 
 ```bash
-dotnet test                                    # Run all tests
-dotnet test --filter "FullyQualifiedName~Calc" # Filter by name
+dotnet run --project MyProject.Tests          # Run one test project
+dotnet test                                   # Run all tests when MTP is selected in global.json
 ```
+
+With the .NET 10 SDK, `dotnet test` selects Microsoft.Testing.Platform at repository scope:
+
+```json
+{
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
+```
+
+NextUnit repositories can copy the checked-in `global.json`; `dotnet run` needs no repository-level
+configuration.
 
 ## Assertions
 
@@ -133,19 +146,24 @@ public class MyTests { }
 
 ```bash
 # Environment variables
-NEXTUNIT_INCLUDE_CATEGORIES=Integration dotnet test
-NEXTUNIT_EXCLUDE_TAGS=Slow dotnet test
+NEXTUNIT_INCLUDE_CATEGORIES=Integration dotnet run --project MyProject.Tests
+NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run --project MyProject.Tests
 ```
 
 ## Performance
 
-| Metric | Result |
-| ------ | ------ |
-| Discovery (1,000 tests) | ~2ms |
-| Per-test overhead | ~0.7ms |
-| Throughput | 1,852 tests/sec |
+The checked-in comparison suite runs 127 equivalent tests through each framework's default JIT
+package integration. On Windows 11, .NET 10.0.10, and an Intel Core i5-13500, 10 timed process runs
+after one warm-up produced these end-to-end results:
 
-See [benchmark results](tools/speed-comparison/results/BENCHMARK_RESULTS.md) for comparison with xUnit, NUnit, and MSTest.
+| Framework | Version | Mean | Median | Relative to NextUnit |
+| --------- | ------- | ---: | -----: | -------------------: |
+| NextUnit | current checkout (1.15.0) | 424.62ms | 423.60ms | 1.00x |
+| TUnit | 1.61.15 | 1,085.71ms | 1,086.44ms | 2.57x slower |
+
+The measurement includes process startup, discovery, execution, result reporting, and each package's
+default runner behavior. See the [benchmark results](tools/speed-comparison/results/BENCHMARK_RESULTS.md)
+and [reproduction instructions](tools/speed-comparison/BENCHMARKS.md).
 
 ## Documentation
 
@@ -174,7 +192,7 @@ See [benchmark results](tools/speed-comparison/results/BENCHMARK_RESULTS.md) for
 
 ```bash
 dotnet build --configuration Release
-dotnet test samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
+dotnet test --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj
 ```
 
 ## License
