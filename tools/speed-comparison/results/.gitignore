@@ -6,6 +6,8 @@
 
 # Track the main benchmark results file (auto-updated by CI)
 !BENCHMARK_RESULTS.md
+!RUNTIME_COMPARISON.md
+!runtime-comparison.json
 
 # Track historical JSON results
 !history/

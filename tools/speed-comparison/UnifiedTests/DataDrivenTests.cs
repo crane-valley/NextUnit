@@ -31,11 +31,7 @@ public class DataDrivenTests
     }
 
     [DataDrivenTest]
-#if MSTEST
-    [TestDataSource(nameof(ComplexTestData), DynamicDataSourceType.Method)]
-#else
     [TestDataSource(nameof(ComplexTestData))]
-#endif
     public void DataSourceTest(TestData data)
     {
         var result = ProcessTestData(data);

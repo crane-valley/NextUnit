@@ -1,219 +1,71 @@
 # NextUnit Speed Comparison Tool
 
-This tool benchmarks the current NextUnit checkout against TUnit, xUnit, NUnit,
-and MSTest using identical test cases via conditional compilation to provide fair
-performance comparisons.
+This tool compares the current NextUnit checkout with TUnit, MSTest, xUnit, and NUnit. One source
+tree supplies shared test bodies while conditional aliases map attributes, data sources, and lifecycle
+hooks to each framework's native API.
 
-## BenchmarkDotNet-based Benchmarking ⭐
-
-For detailed performance analysis using industry-standard BenchmarkDotNet:
+## Published cross-framework comparison
 
 ```bash
 cd tools/speed-comparison
-dotnet run -c Release --project Tests.Benchmark
+dotnet run -c Release --project Tests.Benchmark -- --round-robin 20
 ```
 
-Features:
+Round-robin mode is the source of the table in `docs/PERFORMANCE.md`. It:
 
-- ✅ **Build benchmarks** - Measures compilation time, including source generation
-- ✅ **Runtime benchmarks** - Measures execution time
-- ✅ **AOT support** - Tests Native AOT compilation
-- ✅ **Statistical analysis** - Mean, median, standard deviation
-- ✅ **Framework version detection** - Automatic version tracking
-- ✅ **Professional output** - Markdown tables with detailed metrics
+1. Builds Release executables for all five frameworks.
+2. Verifies that every executable passes all 127 tests.
+3. Runs one excluded warm-up per framework.
+4. Rotates the execution order for 20 measured rounds, so every framework occupies every position
+   four times.
+5. Writes a Markdown summary and raw per-round JSON data under `results/`.
 
-See [BENCHMARKS.md](BENCHMARKS.md) for detailed documentation.
+The round count must be a positive multiple of five. The default is 20.
 
-## UnifiedTests Architecture
+## BenchmarkDotNet diagnostics
 
-The UnifiedTests project uses conditional compilation to support all frameworks from a single codebase:
-
-- **Single source files**: All test code shared across frameworks
-- **Framework-specific attributes**: Using preprocessor directives
-- **GlobalUsings.cs**: Framework-specific namespace imports
-- **Build-time framework selection**: Via `-p:TestFramework=NEXTUNIT|TUNIT|XUNIT|NUNIT|MSTEST`
-
-This ensures 100% identical test logic across all frameworks.
-
-## Quick Start
-
-### Running Benchmarks Locally
+BenchmarkDotNet is retained for build measurements, Native AOT experiments, and detailed
+within-framework distributions:
 
 ```bash
-cd tools/speed-comparison
-dotnet run -c Release --project Tests.Benchmark
+# Runtime distributions
+dotnet run -c Release --project Tests.Benchmark -- --filter "*RuntimeBenchmarks*"
+
+# Build benchmarks
+dotnet run -c Release --project Tests.Benchmark -- --filter "*BuildBenchmarks*"
 ```
 
-The tool will:
+The checked-in MediumRun job uses two launches, ten warm-ups per launch, and fifteen measured
+iterations per launch. Frameworks are benchmarked sequentially in this mode, so use round-robin mode
+for the published cross-framework ranking.
 
-1. **Automatically build** missing test executables for all frameworks
-2. Run benchmarks for build time and runtime performance
-3. Collect detailed statistical metrics
-4. Generate professional BenchmarkDotNet reports
+Set `AUTOBUILD_AOT=true` to include the NextUnit Native AOT benchmark. AOT publication may take
+several minutes and is not included in the JIT comparison table.
 
-**Note**: The NextUnit_AOT benchmark requires a published AOT build. If not found, it will
-be skipped unless you:
+## Unified suite
 
-- Run `dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT
-  -p:PublishAot=true` manually, OR
-- Set environment variable `AUTOBUILD_AOT=true` to build it automatically
-  (takes 5-10 minutes)
-
-### Viewing Results
-
-Results are displayed in the console with markdown tables and saved to the BenchmarkDotNet
-artifacts directory.
-
-## Test Suite
-
-The UnifiedTests project contains **127 tests per framework**:
+The suite produces 127 tests per framework:
 
 | Category | Count | Description |
-| -------- | ----- | ----------- |
-| Async Tests | 3 | Async/await patterns performance |
-| Data-Driven Tests | 4 | Parameterized test overhead |
-| Scale Tests | 18 | Varying computational complexity |
-| Massive Parallel Tests | 50 | High-parallelism execution efficiency |
-| Matrix Tests | 32 | Multi-dimensional parameterized tests |
-| Setup/Teardown Tests | 20 | Lifecycle hook overhead |
+| -------- | ----: | ----------- |
+| Async tests | 3 | Async/await patterns |
+| Data-driven tests | 4 | Parameterization overhead |
+| Scale tests | 18 | Varying computational work |
+| Massive parallel tests | 50 | Default scheduling behavior |
+| Matrix tests | 32 | Multi-dimensional parameterization |
+| Setup/teardown operations | 20 | Per-test lifecycle hooks |
 
-All tests use conditional compilation to ensure identical logic across frameworks.
+The test bodies are shared, but framework integration code cannot be byte-for-byte identical. Each
+framework uses its own supported attributes, data representation, lifecycle model, discovery, and
+scheduler. Those differences are part of the measured default integration.
 
-## Metrics Collected
+## Runner normalization
 
-### Build Time Metrics
+- All frameworks target .NET 10 and build as standalone Microsoft.Testing.Platform executables.
+- xUnit uses `xunit.v3.mtp-v2`; no compared framework uses the VSTest runner.
+- Every measured process receives `--no-progress --no-ansi` with stdout and stderr redirected.
+- Telemetry is disabled for all processes.
+- TUnit HTML report generation is disabled so TUnit alone does not perform extra artifact I/O.
 
-- **Compilation time** for each framework configuration
-- **Comparison across frameworks** showing relative build performance
-
-### Runtime Metrics
-
-- **Test execution time** with statistical analysis
-- **Mean, median, standard deviation** across multiple iterations
-- **Baseline comparisons** showing relative performance
-
-### Native AOT
-
-- **NextUnit-specific benchmarks** for Native AOT compilation
-- **Startup time and memory** comparisons
-
-## Architecture
-
-### Projects
-
-```text
-tools/speed-comparison/
-├── UnifiedTests/                     # Single codebase for all frameworks
-│   ├── *.cs                          # Test files with conditional compilation
-│   ├── GlobalUsings.cs               # Framework-specific imports
-│   └── UnifiedTests.csproj           # Conditional package references
-├── Tests.Benchmark/                  # BenchmarkDotNet orchestrator
-│   ├── BuildBenchmarks.cs            # Compilation time benchmarks
-│   ├── RuntimeBenchmarks.cs          # Execution time benchmarks
-│   └── Tests.Benchmark.csproj
-└── results/
-    └── BenchmarkDotNet.Artifacts/    # Generated benchmark results
-```
-
-### How It Works
-
-1. **Build Phase**: UnifiedTests is built with different TestFramework properties
-2. **Execution Phase**: BenchmarkDotNet runs each configuration multiple times
-3. **Measurement**:
-   - Build time using MSBuild API
-   - Runtime using BenchmarkDotNet's precise timing
-4. **Analysis**: Statistical analysis with mean, median, std dev
-5. **Reporting**: Professional markdown tables and charts
-
-## Test Framework Execution
-
-Each framework is benchmarked using its native patterns:
-
-- **NextUnit**: Current checkout, direct execution with Microsoft.Testing.Platform
-- **TUnit**: Current pinned NuGet release, direct execution with Microsoft.Testing.Platform
-- **xUnit**: VSTest Platform runner
-- **NUnit**: VSTest Platform runner  
-- **MSTest**: VSTest Platform runner
-
-This reflects real-world usage patterns for each framework.
-
-## Fairness Guarantees
-
-✅ **Identical test logic** - All frameworks use conditional compilation from UnifiedTests  
-✅ **Same test count** - 127 tests per framework  
-✅ **Release builds** - Optimizations enabled for all  
-✅ **Statistical rigor** - BenchmarkDotNet's professional analysis  
-✅ **Multiple iterations** - Automated by BenchmarkDotNet  
-✅ **Framework-native patterns** - Using each framework's best practices  
-
-## Limitations
-
-⚠️ **Not measured**:
-
-- IDE integration performance
-- Test authoring ergonomics
-- Ecosystem maturity
-
-⚠️ **Context-dependent**:
-
-- Results vary by hardware and system load
-- Build time affected by cache state
-- AOT support differs by framework
-
-**Performance is one factor among many.** Consider features, ecosystem, team familiarity,
-and project requirements when choosing a test framework.
-
-## GitHub Actions Integration
-
-The benchmarks run automatically on:
-
-- **Manual trigger** (workflow_dispatch)
-- **Weekly schedule** (Sunday at midnight UTC)
-- **Pull requests** affecting source code
-
-Results are displayed in workflow outputs and can be committed to the repository.
-
-## Development
-
-### Adding New Test Cases
-
-Edit the test files in `UnifiedTests/` and use conditional compilation:
-
-```csharp
-#if NEXTUNIT
-[Test]
-#elif XUNIT
-[Fact]
-#elif NUNIT
-[Test]
-#elif MSTEST
-[TestMethod]
-#endif
-public void MyTest()
-{
-    // Shared test logic
-}
-```
-
-### Customizing Benchmarks
-
-Edit `Tests.Benchmark/BuildBenchmarks.cs` or `RuntimeBenchmarks.cs` to add new benchmark
-configurations.
-
-## Troubleshooting
-
-**Build failures**: Ensure .NET 10 SDK is installed  
-**Missing results**: Check that UnifiedTests builds for all framework configurations  
-**Inconsistent results**: BenchmarkDotNet handles warmup and multiple iterations automatically  
-
-## References
-
-- Inspired by [TUnit Speed Comparison Tool](https://github.com/thomhurst/TUnit/tree/main/tools/speed-comparison)
-- Uses [BenchmarkDotNet](https://benchmarkdotnet.org/) for professional benchmarking
-- Built on
-  [Microsoft.Testing.Platform](https://learn.microsoft.com/en-us/dotnet/core/testing/microsoft-testing-platform)
-
----
-
-**Last Updated**: 2026-07-21
-**NextUnit Version**: 1.15.0
+See [BENCHMARKS.md](BENCHMARKS.md) and [the performance methodology](../../docs/PERFORMANCE.md) for
+the controls and limitations.

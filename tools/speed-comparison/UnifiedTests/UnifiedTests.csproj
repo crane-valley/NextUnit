@@ -6,6 +6,10 @@
 
     <PropertyGroup>
         <TUnitVersion>1.61.15</TUnitVersion>
+        <XUnitVersion>3.2.2</XUnitVersion>
+        <NUnitVersion>4.6.1</NUnitVersion>
+        <NUnitAdapterVersion>6.2.0</NUnitAdapterVersion>
+        <MSTestVersion>4.3.2</MSTestVersion>
     </PropertyGroup>
 
     <!-- Define constants based on TestFramework property -->
@@ -72,25 +76,18 @@
 
     <!-- xUnit packages -->
     <ItemGroup Condition="'$(TestFramework)' == 'XUNIT'">
-        <PackageReference Include="xunit" Version="2.9.3" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+        <PackageReference Include="xunit.v3.mtp-v2" Version="$(XUnitVersion)" />
     </ItemGroup>
 
     <!-- NUnit packages -->
     <ItemGroup Condition="'$(TestFramework)' == 'NUNIT'">
-        <PackageReference Include="NUnit" Version="4.3.1" />
-        <PackageReference Include="NUnit3TestAdapter" Version="6.0.0" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+        <PackageReference Include="NUnit" Version="$(NUnitVersion)" />
+        <PackageReference Include="NUnit3TestAdapter" Version="$(NUnitAdapterVersion)" />
     </ItemGroup>
 
     <!-- MSTest packages -->
     <ItemGroup Condition="'$(TestFramework)' == 'MSTEST'">
-        <PackageReference Include="MSTest" Version="3.7.0" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+        <PackageReference Include="MSTest" Version="$(MSTestVersion)" />
     </ItemGroup>
 
     <!-- AOT and SingleFile configurations for NextUnit -->

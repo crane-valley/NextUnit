@@ -26,7 +26,7 @@ A single codebase that compiles to different frameworks using conditional compil
   - Single source files with conditional compilation
   - Framework-specific attributes via preprocessor directives
   - GlobalUsings.cs for framework-specific imports
-  - Ensures 100% identical test logic
+  - Shares test bodies while retaining framework-native metadata
 
 ### 2. Tests.Benchmark Project
 
@@ -82,8 +82,8 @@ analysis compared to the new BenchmarkDotNet-based approach with UnifiedTests.
 
 ### Why Conditional Compilation?
 
-Single codebase ensures 100% identical test logic across all frameworks while eliminating
-maintenance burden.
+Single-source test bodies reduce drift across frameworks while conditional metadata preserves each
+framework's supported integration model.
 
 ### Why BenchmarkDotNet?
 

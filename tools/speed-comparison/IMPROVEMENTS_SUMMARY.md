@@ -24,10 +24,10 @@ Implemented a single-codebase approach for all test frameworks using conditional
 
 **Benefits:**
 
-- ✅ 100% identical test logic across all frameworks
+- ✅ Shared test bodies with framework-native integration metadata
 - ✅ No code duplication (single source files)
 - ✅ Easy to maintain and extend
-- ✅ Framework selection at build time via `-p:TestFramework=NEXTUNIT|XUNIT|NUNIT|MSTEST`
+- ✅ Framework selection at build time via `-p:TestFramework=NEXTUNIT|TUNIT|XUNIT|NUNIT|MSTEST`
 
 **Key Files:**
 
@@ -157,11 +157,10 @@ dotnet run -c Release --project Tests.Benchmark
 dotnet run -c Release --project Tests.Benchmark -- --filter "*BuildBenchmarks*"
 ```
 
-### Runtime benchmarks for specific test class
+### Published cross-framework comparison
 
 ```bash
-export CLASS_NAME=AsyncTests
-dotnet run -c Release --project Tests.Benchmark -- --filter "*RuntimeBenchmarks*"
+dotnet run -c Release --project Tests.Benchmark -- --round-robin 20
 ```
 
 ### AOT benchmarks

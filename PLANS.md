@@ -404,13 +404,16 @@ Phase 2 (Completed - v1.14.0):
 
 ## Performance Benchmarks
 
-The current unified suite runs 127 equivalent tests through each framework's default JIT package
-integration. On Windows 11 and .NET 10.0.10, 10 timed process runs after one warm-up measured:
+The current unified suite runs 127 tests with shared bodies through native MTP executables. A
+20-round cyclic comparison balances execution position across all five frameworks:
 
 | Framework | Version | Median | vs NextUnit |
 | --------- | ------- | -----: | ----------: |
-| NextUnit | current checkout (1.15.0) | 423.60ms | **Baseline** |
-| TUnit | 1.61.15 | 1,086.44ms | 2.57x slower |
+| NextUnit | current checkout (1.15.0) | 528.65ms | **Baseline** |
+| MSTest | 4.3.2 | 606.17ms | 1.15x |
+| xUnit | 3.2.2 | 671.18ms | 1.27x |
+| NUnit | 4.6.1 | 714.77ms | 1.35x |
+| TUnit | 1.61.15 | 739.66ms | 1.40x |
 
 **See**: [tools/speed-comparison/results/BENCHMARK_RESULTS.md](tools/speed-comparison/results/BENCHMARK_RESULTS.md)
 

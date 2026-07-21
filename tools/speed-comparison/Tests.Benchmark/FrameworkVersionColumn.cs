@@ -43,9 +43,9 @@ public class FrameworkVersionColumn : IColumn
         {
             "NextUnitAsync" or "NextUnitAOTAsync" or "BuildNextUnitAsync" => GetNextUnitVersion(),
             "TUnitAsync" or "BuildTUnitAsync" => GetUnifiedProjectVersion("TUnitVersion"),
-            "XUnitAsync" or "BuildXUnitAsync" => GetPackageVersion("xunit"),
-            "NUnitAsync" or "BuildNUnitAsync" => GetPackageVersion("NUnit"),
-            "MSTestAsync" or "BuildMSTestAsync" => GetPackageVersion("MSTest"),
+            "XUnitAsync" or "BuildXUnitAsync" => GetUnifiedProjectVersion("XUnitVersion"),
+            "NUnitAsync" or "BuildNUnitAsync" => GetUnifiedProjectVersion("NUnitVersion"),
+            "MSTestAsync" or "BuildMSTestAsync" => GetUnifiedProjectVersion("MSTestVersion"),
             _ => "Unknown"
         };
 
@@ -93,35 +93,6 @@ public class FrameworkVersionColumn : IColumn
                 {
                     var content = File.ReadAllText(projectPath);
                     var match = Regex.Match(content, $@"<{Regex.Escape(propertyName)}>([^<]+)</{Regex.Escape(propertyName)}>");
-                    if (match.Success)
-                    {
-                        return match.Groups[1].Value;
-                    }
-                }
-            }
-
-            return "";
-        }
-        catch (Exception)
-        {
-            // Version detection is not critical - return empty string on any error
-            return "";
-        }
-    }
-
-    private static string GetPackageVersion(string packageName)
-    {
-        try
-        {
-            var repositoryRoot = FindRepositoryRoot();
-            if (repositoryRoot is not null)
-            {
-                var packagesPropsPath = Path.Join(repositoryRoot.FullName, "Directory.Packages.props");
-                if (File.Exists(packagesPropsPath))
-                {
-                    var content = File.ReadAllText(packagesPropsPath);
-                    var match = Regex.Match(content,
-                        $@"<PackageVersion\s+Include=""{Regex.Escape(packageName)}""\s+Version=""([^""]+)""");
                     if (match.Success)
                     {
                         return match.Groups[1].Value;
