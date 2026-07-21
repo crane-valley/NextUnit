@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="..\..\src\NextUnit\buildTransitive\NextUnit.props" />
+
   <PropertyGroup>
     <RootNamespace>WebApi.Sample.Tests</RootNamespace>
     <!-- Suppress warnings for sample/test code -->

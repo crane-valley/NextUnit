@@ -34,7 +34,7 @@ dotnet remove package Microsoft.NET.Test.Sdk
 ### Add NextUnit Packages
 
 ```bash
-# Add NextUnit (includes Core, Generator, TestAdapter, and Microsoft.NET.Test.Sdk)
+# Add the complete NextUnit package
 dotnet add package NextUnit
 ```
 
@@ -72,8 +72,19 @@ dotnet add package NextUnit
 ```
 
 **Note**: The `NextUnit` meta-package automatically includes all required dependencies
-(NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, and Microsoft.NET.Test.Sdk).
-No `OutputType=Exe` or `Program.cs` is needed - NextUnit uses a VSTest adapter.
+(runtime, Microsoft.Testing.Platform integration, source generator, analyzers, and TRX reporting).
+No `OutputType=Exe`, `Program.cs`, or separate analyzer reference is needed.
+
+For repository-wide `dotnet test` on the .NET 10 SDK, select Microsoft.Testing.Platform in
+`global.json`:
+
+```json
+{
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
+```
 
 ## Step 2: Update Test Attributes
 

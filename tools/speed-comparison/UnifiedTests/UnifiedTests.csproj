@@ -4,9 +4,14 @@
         <TestFramework>NEXTUNIT</TestFramework>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <TUnitVersion>1.61.15</TUnitVersion>
+    </PropertyGroup>
+
     <!-- Define constants based on TestFramework property -->
     <PropertyGroup>
         <DefineConstants Condition="'$(TestFramework)' == 'NEXTUNIT'">$(DefineConstants);NEXTUNIT</DefineConstants>
+        <DefineConstants Condition="'$(TestFramework)' == 'TUNIT'">$(DefineConstants);TUNIT</DefineConstants>
         <DefineConstants Condition="'$(TestFramework)' == 'XUNIT'">$(DefineConstants);XUNIT</DefineConstants>
         <DefineConstants Condition="'$(TestFramework)' == 'NUNIT'">$(DefineConstants);NUNIT</DefineConstants>
         <DefineConstants Condition="'$(TestFramework)' == 'MSTEST'">$(DefineConstants);MSTEST</DefineConstants>
@@ -38,9 +43,31 @@
         <IntermediateOutputPath>obj\$(Configuration)-$(TestFramework)\$(TargetFramework)\</IntermediateOutputPath>
     </PropertyGroup>
 
-    <!-- NextUnit packages -->
+    <PropertyGroup Condition="'$(TestFramework)' == 'NEXTUNIT'">
+        <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
+        <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
+        <GenerateProgramFile>false</GenerateProgramFile>
+        <UseTestingPlatformProtocol>true</UseTestingPlatformProtocol>
+        <IsTestingPlatformEnabled>true</IsTestingPlatformEnabled>
+    </PropertyGroup>
+
+    <!-- Benchmark the current checkout instead of a stale published package. -->
     <ItemGroup Condition="'$(TestFramework)' == 'NEXTUNIT'">
-        <PackageReference Include="NextUnit" Version="1.13.0" />
+        <ProjectReference Include="..\..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
+        <ProjectReference Include="..\..\..\src\NextUnit.Platform\NextUnit.Platform.csproj" />
+        <ProjectReference Include="..\..\..\src\NextUnit.Generator\NextUnit.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <PackageReference Include="Microsoft.Testing.Platform.MSBuild" Version="2.0.2" />
+        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.0.2" />
+        <TestingPlatformBuilderHook Include="EC4B718B-4D5D-4200-8DA0-34A102B3AFB2">
+            <DisplayName>NextUnit</DisplayName>
+            <TypeFullName>NextUnit.Platform.TestingPlatformBuilderHook</TypeFullName>
+        </TestingPlatformBuilderHook>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TestFramework)' == 'TUNIT'">
+        <PackageReference Include="TUnit" Version="$(TUnitVersion)" />
     </ItemGroup>
 
     <!-- xUnit packages -->

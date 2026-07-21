@@ -1,514 +1,141 @@
-# CI/CD Integration Guide
+# CI/CD Integration
 
-This guide explains how to integrate NextUnit tests into various CI/CD systems and generate test reports in different formats.
+NextUnit test projects are Microsoft.Testing.Platform applications. The `NextUnit` package supplies
+the generated entry point, framework registration, analyzers, and TRX reporter.
 
-## Table of Contents
+## Repository setup
 
-- [TRX Report Format (Visual Studio)](#trx-report-format-visual-studio)
-- [GitHub Actions Integration](#github-actions-integration)
-- [Azure DevOps Integration](#azure-devops-integration)
-- [Jenkins Integration](#jenkins-integration)
-- [GitLab CI Integration](#gitlab-ci-integration)
-- [General CI/CD Best Practices](#general-cicd-best-practices)
+The .NET 10 SDK selects a test runner at repository scope. Add `global.json` next to the solution:
 
----
+```json
+{
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
+```
 
-## TRX Report Format (Visual Studio)
-
-TRX (Test Results XML) is the native format used by Visual Studio and Azure DevOps.
-
-### Usage
-
-NextUnit uses the VSTest adapter for test execution, which provides native TRX support:
+This repository includes that file. With it, use the MTP form of the .NET 10 CLI:
 
 ```bash
-# Generate TRX report with default name
-dotnet test YourTests.csproj --logger trx --results-directory ./TestResults
-
-# Generate TRX report with custom filename
-dotnet test YourTests.csproj --logger "trx;LogFileName=custom-results.trx" --results-directory ./TestResults
+dotnet test
+dotnet test --solution MySolution.slnx
+dotnet test --project tests/MyProject.Tests/MyProject.Tests.csproj
 ```
 
-The TRX file will be created in the specified results directory and can be:
+Without `global.json`, a single project can always run directly:
 
-- Viewed in Visual Studio (Test Explorer → Open Test Results)
-- Published to Azure DevOps test runs
-- Analyzed by various test reporting tools
-
----
-
-## GitHub Actions Integration
-
-### Basic Workflow
-
-Create `.github/workflows/test.yml`:
-
-```yaml
-name: Tests
-
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
-
-    - name: Restore dependencies
-      run: dotnet restore
-
-    - name: Run tests
-      run: dotnet test tests/YourTests/YourTests.csproj
+```bash
+dotnet run --project tests/MyProject.Tests/MyProject.Tests.csproj
 ```
 
-### With TRX Report Publishing
+## TRX reports
 
-```yaml
-name: Tests
+The main package includes `Microsoft.Testing.Extensions.TrxReport`:
 
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
-
-    - name: Restore dependencies
-      run: dotnet restore
-
-    - name: Run tests with TRX report
-      run: dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory ./TestResults
-
-    - name: Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      if: always()
-      with:
-        files: |
-          TestResults/**/*.trx
+```bash
+dotnet test --project tests/MyProject.Tests/MyProject.Tests.csproj \
+  --results-directory TestResults \
+  --report-trx \
+  --report-trx-filename results.trx
 ```
 
-### Advanced: Matrix Testing
+For `dotnet run`, put test-application arguments after `--`:
 
-Test across multiple platforms and .NET versions:
+```bash
+dotnet run --project tests/MyProject.Tests/MyProject.Tests.csproj -- \
+  --results-directory TestResults \
+  --report-trx \
+  --report-trx-filename results.trx
+```
+
+## GitHub Actions
 
 ```yaml
 name: Tests
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   test:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        dotnet: ['10.0.x']
-    
-    runs-on: ${{ matrix.os }}
-    
+    runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: ${{ matrix.dotnet }}
-    
+        dotnet-version: '10.0.x'
+
+    - run: dotnet restore MySolution.slnx
+
     - name: Run tests
-      run: dotnet test tests/YourTests/YourTests.csproj
+      run: |
+        dotnet test --solution MySolution.slnx \
+          --configuration Release \
+          --no-restore \
+          --results-directory TestResults \
+          --report-trx
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: test-results
+        path: TestResults/**/*.trx
 ```
 
----
-
-## Azure DevOps Integration
-
-### Basic Pipeline
-
-Create `azure-pipelines.yml`:
-
-```yaml
-trigger:
-- main
-- develop
-
-pool:
-  vmImage: 'ubuntu-latest'
-
-variables:
-  buildConfiguration: 'Release'
-
-steps:
-- task: UseDotNet@2
-  displayName: 'Use .NET 10'
-  inputs:
-    version: '10.0.x'
-    
-- task: DotNetCoreCLI@2
-  displayName: 'Restore packages'
-  inputs:
-    command: 'restore'
-    projects: '**/*.csproj'
-
-- script: dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory $(Agent.TempDirectory)/TestResults
-  displayName: 'Run tests'
-
-- task: PublishTestResults@2
-  condition: succeededOrFailed()
-  inputs:
-    testResultsFormat: 'VSTest'
-    testResultsFiles: '$(Agent.TempDirectory)/TestResults/**/*.trx'
-    mergeTestResults: true
-    failTaskOnFailedTests: true
-```
-
-### With Code Coverage
+## Azure Pipelines
 
 ```yaml
 steps:
 - task: UseDotNet@2
-  displayName: 'Use .NET 10'
   inputs:
+    packageType: sdk
     version: '10.0.x'
 
-- task: DotNetCoreCLI@2
-  displayName: 'Restore packages'
-  inputs:
-    command: 'restore'
+- script: dotnet restore MySolution.slnx
+  displayName: Restore
 
-- script: dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory $(Agent.TempDirectory)/TestResults --collect:"XPlat Code Coverage"
-  displayName: 'Run tests with coverage'
+- script: >
+    dotnet test --solution MySolution.slnx
+    --configuration Release
+    --no-restore
+    --results-directory $(Agent.TempDirectory)/TestResults
+    --report-trx
+  displayName: Test
 
 - task: PublishTestResults@2
-  condition: succeededOrFailed()
+  condition: always()
   inputs:
-    testResultsFormat: 'VSTest'
+    testResultsFormat: VSTest
     testResultsFiles: '$(Agent.TempDirectory)/TestResults/**/*.trx'
-    
-- task: PublishCodeCoverageResults@1
-  inputs:
-    codeCoverageTool: 'Cobertura'
-    summaryFileLocation: '$(Agent.TempDirectory)/Coverage/**/*.cobertura.xml'
 ```
 
----
+## Filtering
 
-## Jenkins Integration
-
-### Jenkinsfile
-
-```groovy
-pipeline {
-    agent any
-    
-    stages {
-        stage('Restore') {
-            steps {
-                sh 'dotnet restore'
-            }
-        }
-        
-        stage('Test') {
-            steps {
-                sh 'dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory ./TestResults'
-            }
-        }
-    }
-    
-    post {
-        always {
-            // Publish test results using xUnit plugin
-            xunit (
-                thresholds: [ skipped(failureThreshold: '0'), failed(failureThreshold: '0') ],
-                tools: [ MSTest(pattern: 'TestResults/**/*.trx') ]
-            )
-        }
-    }
-}
-```
-
-### Declarative Pipeline with Parallel Stages
-
-```groovy
-pipeline {
-    agent any
-    
-    stages {
-        stage('Test') {
-            parallel {
-                stage('Unit Tests') {
-                    steps {
-                        sh 'dotnet test tests/UnitTests/UnitTests.csproj --logger trx --results-directory ./TestResults/Unit'
-                    }
-                }
-
-                stage('Integration Tests') {
-                    steps {
-                        sh 'dotnet test tests/IntegrationTests/IntegrationTests.csproj --logger trx --results-directory ./TestResults/Integration'
-                    }
-                }
-            }
-        }
-    }
-    
-    post {
-        always {
-            xunit (
-                tools: [ MSTest(pattern: 'TestResults/**/*.trx') ]
-            )
-        }
-    }
-}
-```
-
----
-
-## GitLab CI Integration
-
-### `.gitlab-ci.yml`
-
-```yaml
-image: mcr.microsoft.com/dotnet/sdk:10.0
-
-stages:
-  - test
-
-test:
-  stage: test
-  script:
-    - dotnet restore
-    - dotnet test tests/YourTests/YourTests.csproj --logger trx --results-directory ./TestResults
-  artifacts:
-    when: always
-    reports:
-      junit: TestResults/**/*.trx
-    paths:
-      - TestResults/
-    expire_in: 1 week
-```
-
-### With Coverage and Multiple Test Projects
-
-```yaml
-image: mcr.microsoft.com/dotnet/sdk:10.0
-
-stages:
-  - test
-  - report
-
-variables:
-  TEST_RESULTS_DIR: "TestResults"
-
-test:unit:
-  stage: test
-  script:
-    - dotnet restore
-    - dotnet test tests/UnitTests/UnitTests.csproj --logger trx --results-directory ./${TEST_RESULTS_DIR}/Unit
-  artifacts:
-    when: always
-    paths:
-      - ${TEST_RESULTS_DIR}/Unit/
-    expire_in: 1 week
-
-test:integration:
-  stage: test
-  script:
-    - dotnet restore
-    - dotnet test tests/IntegrationTests/IntegrationTests.csproj --logger trx --results-directory ./${TEST_RESULTS_DIR}/Integration
-  artifacts:
-    when: always
-    paths:
-      - ${TEST_RESULTS_DIR}/Integration/
-    expire_in: 1 week
-
-pages:
-  stage: report
-  dependencies:
-    - test:unit
-    - test:integration
-  script:
-    - echo "Test results available in artifacts"
-  artifacts:
-    paths:
-      - ${TEST_RESULTS_DIR}/
-```
-
----
-
-## General CI/CD Best Practices
-
-### 1. Fail Fast with Exit Codes
-
-NextUnit automatically returns a non-zero exit code when tests fail, which CI systems detect:
+NextUnit supports command-line filters for direct project execution:
 
 ```bash
-dotnet test tests/YourTests.csproj
-# Returns 0 if all tests pass, non-zero if any test fails
+dotnet run --project tests/MyProject.Tests -- --test-name "*Calculator*"
+dotnet run --project tests/MyProject.Tests -- --category Integration
+dotnet run --project tests/MyProject.Tests -- --exclude-category Slow
 ```
 
-### 2. Filtering Tests for Different Stages
-
-Use environment variables for category/tag filtering:
+Environment variables work in local shells and CI systems:
 
 ```bash
-# Run only unit tests
-NEXTUNIT_INCLUDE_CATEGORIES=Unit dotnet test tests/YourTests.csproj
-
-# Run only integration tests
-NEXTUNIT_INCLUDE_CATEGORIES=Integration dotnet test tests/YourTests.csproj
-
-# Exclude slow tests in PR builds
-NEXTUNIT_EXCLUDE_TAGS=Slow dotnet test tests/YourTests.csproj
+NEXTUNIT_INCLUDE_CATEGORIES=Unit dotnet run --project tests/MyProject.Tests
+NEXTUNIT_EXCLUDE_TAGS=Flaky dotnet run --project tests/MyProject.Tests
 ```
 
-### 3. Parallel Execution Control
+## CI guardrails
 
-NextUnit respects `[ParallelLimit]` and `[NotInParallel]` attributes automatically. No special CI configuration needed.
-
-### 4. Test Output for Debugging
-
-Capture detailed output for failed tests:
-
-```bash
-dotnet test tests/YourTests.csproj --logger "console;verbosity=detailed"
-```
-
-### 5. Results Directory Organization
-
-```bash
-# Organize results by build number
-dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults/Build-${BUILD_NUMBER}
-```
-
-### 6. Code Coverage
-
-Collect code coverage during test runs:
-
-```bash
-dotnet test tests/YourTests.csproj --collect:"XPlat Code Coverage" --results-directory ./TestResults
-```
-
----
-
-## Environment Variables
-
-NextUnit supports environment variables for filtering, useful in CI:
-
-```bash
-# Set in CI environment
-export NEXTUNIT_INCLUDE_CATEGORIES=Unit,Integration
-export NEXTUNIT_EXCLUDE_TAGS=Slow,Manual
-
-# Run tests (filters applied automatically)
-dotnet test tests/YourTests.csproj
-```
-
-Available environment variables:
-
-- `NEXTUNIT_INCLUDE_CATEGORIES` - Comma-separated list of categories to include
-- `NEXTUNIT_EXCLUDE_CATEGORIES` - Comma-separated list of categories to exclude
-- `NEXTUNIT_INCLUDE_TAGS` - Comma-separated list of tags to include
-- `NEXTUNIT_EXCLUDE_TAGS` - Comma-separated list of tags to exclude
-- `NEXTUNIT_TEST_NAME` - Wildcard pattern for test names (supports `*` and `?`)
-- `NEXTUNIT_TEST_NAME_REGEX` - Regular expression pattern for test names
-
----
-
-## Troubleshooting
-
-### Tests Not Discovered in CI
-
-1. Ensure test project is built:
-
-   ```bash
-   dotnet build tests/YourTests.csproj
-   ```
-
-2. Check that source generator ran:
-
-   ```bash
-   ls tests/YourTests/obj/Debug/net10.0/generated/
-   ```
-
-3. Verify test adapter can discover tests:
-
-   ```bash
-   dotnet test tests/YourTests.csproj --list-tests
-   ```
-
-### TRX File Not Generated
-
-1. Ensure you're using the `--logger trx` option:
-
-   ```bash
-   dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults
-   ```
-
-2. Ensure results directory exists or can be created:
-
-   ```bash
-   mkdir -p TestResults
-   dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults
-   ```
-
-### Permissions Issues in CI
-
-Ensure the CI user has write access to the results directory:
-
-```bash
-# In CI script
-mkdir -p TestResults
-chmod 777 TestResults
-dotnet test tests/YourTests.csproj --logger trx --results-directory ./TestResults
-```
-
----
-
-## Future Enhancements
-
-The NextUnit team is working on additional CI/CD features:
-
-- **JUnit XML Format** - Native support for Jenkins/GitLab CI
-- **GitHub Actions Annotations** - Direct integration with GitHub Actions UI
-- **TeamCity Service Messages** - Real-time test reporting in TeamCity
-- **Code Coverage Integration** - Built-in coverage reporting
-- **Test Retry** - Automatic retry for flaky tests
-
-See [PLANS.md](../PLANS.md) for the complete roadmap.
-
----
-
-## Examples Repository
-
-Complete CI/CD examples are available in the NextUnit repository:
-
-- GitHub Actions workflows: `.github/workflows/`
-- Sample projects: `samples/`
-
----
-
-## Additional Resources
-
-- [Microsoft.Testing.Platform Documentation](https://learn.microsoft.com/en-us/dotnet/core/testing/microsoft-testing-platform)
-- [NextUnit Getting Started Guide](GETTING_STARTED.md)
-- [NextUnit Best Practices](BEST_PRACTICES.md)
-- [NextUnit Performance Guide](PERFORMANCE.md)
+- Restore once, then use `--no-restore` for deterministic test jobs.
+- Keep `global.json` at the solution root so local and CI runner selection match.
+- Use `--minimum-expected-tests N` when an empty discovery result must fail the job.
+- Upload TRX files under `if: always()` so failures retain diagnostics.
+- Run Release builds for performance-sensitive suites.

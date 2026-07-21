@@ -3,7 +3,6 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
-    <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
 
     <!-- Package Information -->
@@ -15,23 +14,31 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- All NextUnit packages as project references for local build -->
     <ProjectReference Include="..\NextUnit.Core\NextUnit.Core.csproj" PrivateAssets="none" />
-    <ProjectReference Include="..\NextUnit.Generator\NextUnit.Generator.csproj" PrivateAssets="none" />
-    <ProjectReference Include="..\NextUnit.TestAdapter\NextUnit.TestAdapter.csproj" PrivateAssets="none" />
+    <ProjectReference Include="..\NextUnit.Platform\NextUnit.Platform.csproj" PrivateAssets="none" />
 
-    <!-- VSTest integration for Visual Studio Test Explorer -->
-    <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="none" />
+    <ProjectReference Include="..\NextUnit.Generator\NextUnit.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <ProjectReference Include="..\NextUnit.Analyzers\NextUnit.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+
+    <PackageReference Include="Microsoft.Testing.Platform.MSBuild" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" PrivateAssets="none" />
   </ItemGroup>
-
-
 
   <ItemGroup>
     <None Include="..\..\NUGET_README.md" Pack="true" PackagePath="\README.md" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="build\NextUnit.targets" Pack="true" PackagePath="build" />
+    <None Include="buildTransitive\NextUnit.props" Pack="true" PackagePath="buildTransitive" />
+    <None Include="..\NextUnit.Generator\bin\$(Configuration)\netstandard2.0\NextUnit.Generator.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs" />
+    <None Include="..\NextUnit.Analyzers\bin\$(Configuration)\netstandard2.0\NextUnit.Analyzers.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs" />
   </ItemGroup>
 
 </Project>

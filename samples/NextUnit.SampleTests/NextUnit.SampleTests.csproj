@@ -1,4 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\src\NextUnit\buildTransitive\NextUnit.props" />
+
   <PropertyGroup>
     <RootNamespace>NextUnit.SampleTests</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

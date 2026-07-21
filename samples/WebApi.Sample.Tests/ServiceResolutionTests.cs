@@ -1,5 +1,4 @@
 using NextUnit;
-using NextUnit.AspNetCore;
 
 namespace WebApi.Sample.Tests;
 
@@ -7,7 +6,7 @@ namespace WebApi.Sample.Tests;
 /// Tests demonstrating service resolution from the test fixture.
 /// </summary>
 [NotInParallel("WebApplicationFactory")]
-public class ServiceResolutionTests : WebApplicationTest<Program>
+public class ServiceResolutionTests : WebApiTestBase
 {
     [Test]
     public void GetRequiredService_ReturnsWeatherService()

@@ -21,6 +21,18 @@ public class SetupTeardownTests
         // Cleanup operations
         CleanupTestData();
     }
+#elif TUNIT
+    [Before(Test)]
+    public void Setup()
+    {
+        _ = InitializeTestData();
+    }
+
+    [After(Test)]
+    public void Teardown()
+    {
+        CleanupTestData();
+    }
 #elif XUNIT
     public SetupTeardownTests()
     {

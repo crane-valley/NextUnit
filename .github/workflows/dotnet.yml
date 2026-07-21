@@ -190,11 +190,41 @@ jobs:
           echo "⚠️ No generated files found"
         fi
 
+  package-smoke:
+    name: Package Integration
+    runs-on: ubuntu-latest
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}/artifacts/package-smoke/packages-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Pack local packages
+      run: |
+        dotnet pack src/NextUnit.Core/NextUnit.Core.csproj --configuration Release --output artifacts/packages
+        dotnet pack src/NextUnit.Platform/NextUnit.Platform.csproj --configuration Release --output artifacts/packages
+        dotnet pack src/NextUnit/NextUnit.csproj --configuration Release --output artifacts/packages
+
+    - name: Verify one-package integration
+      run: |
+        dotnet restore tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+          --configfile tests/NextUnit.PackageSmoke/NuGet.Config
+        dotnet run --project tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+          --configuration Release \
+          --no-restore \
+          -- --minimum-expected-tests 1
+
   # Summary job
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [build, test, code-quality, security, generator]
+    needs: [build, test, code-quality, security, generator, package-smoke]
     if: always()
 
     steps:
@@ -206,7 +236,9 @@ jobs:
         echo "Code Quality: ${{ needs.code-quality.result }}"
         echo "Security: ${{ needs.security.result }}"
         echo "Generator: ${{ needs.generator.result }}"
+        echo "Package Integration: ${{ needs.package-smoke.result }}"
 
         [[ "${{ needs.build.result }}" == "success" ]] || exit 1
         [[ "${{ needs.test.result }}" == "success" ]] || exit 1
+        [[ "${{ needs.package-smoke.result }}" == "success" ]] || exit 1
         echo "✅ All critical checks passed"

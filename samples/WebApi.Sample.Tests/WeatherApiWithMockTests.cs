@@ -10,7 +10,7 @@ namespace WebApi.Sample.Tests;
 /// Integration tests demonstrating service mocking with NextUnit.AspNetCore.
 /// </summary>
 [NotInParallel("WebApplicationFactory")]
-public class WeatherApiWithMockTests : WebApplicationTest<Program>
+public class WeatherApiWithMockTests : WebApiTestBase
 {
     protected override void ConfigureTestServices(IServiceCollection services)
     {
