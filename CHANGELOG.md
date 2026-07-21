@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Package the Microsoft Testing Platform builder hook through the canonical
+  `buildMultiTargeting` layout, with `build` and `buildTransitive` imports.
+- Keep `NextUnit.Platform` as a normal runtime dependency instead of marking it
+  as development-only.
+
 ## [1.15.0] - 2026-01-25
 
 ### Added - ASP.NET Core Integration Package
@@ -42,7 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Technical Notes
 
-- `[NotInParallel("WebApplicationFactory")]` must be applied to concrete test classes (source generator does not traverse base types)
+- `[NotInParallel("WebApplicationFactory")]` must be applied to concrete test
+  classes (source generator does not traverse base types)
 - Lazy initialization pattern used because NextUnit's lifecycle attributes are not inherited from base classes
 - Disposal pattern: `Dispose()` calls `DisposeAsyncCore().AsTask().GetAwaiter().GetResult()`
 
@@ -165,7 +173,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CombinedDataSourceDescriptor` for runtime test case expansion
 - `CombinedDataSourceExpander` with Cartesian product computation
 - `ParameterDataSource` and `ParameterDataSourceKind` for parameter-level data sources
-- Generator diagnostics: NEXTUNIT010 (conflicting data sources), NEXTUNIT011 (incomplete parameter sources), NEXTUNIT012 (missing key)
+- Generator diagnostics: NEXTUNIT010 (conflicting data sources), NEXTUNIT011
+  (incomplete parameter sources), NEXTUNIT012 (missing key)
 - Shared instance caching similar to `ClassDataSourceExpander`
 
 ## [1.10.0] - 2026-01-24

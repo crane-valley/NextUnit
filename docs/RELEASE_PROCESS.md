@@ -226,19 +226,14 @@ Examples:
 
 ## Package Configuration Notes
 
-All NextUnit packages have `DevelopmentDependency=true` set:
+Only the analyzer and source-generator packages use
+`DevelopmentDependency=true`:
 
-- This prevents transitive dependency propagation
-- Consuming projects won't expose NextUnit to their consumers
-- Appropriate for test frameworks that are build-time only
-
-This setting is in the individual `.csproj` files:
-
-- `/src/NextUnit/NextUnit.csproj`
-- `/src/NextUnit.Core/NextUnit.Core.csproj`
+- `/src/NextUnit.Analyzers/NextUnit.Analyzers.csproj`
 - `/src/NextUnit.Generator/NextUnit.Generator.csproj`
-- `/src/NextUnit.TestAdapter/NextUnit.TestAdapter.csproj`
-- `/src/NextUnit.Platform/NextUnit.Platform.csproj`
+
+Runtime packages, including `NextUnit.Platform`, must remain normal package
+dependencies so their compile and runtime assets reach consuming test projects.
 
 ## Troubleshooting
 
