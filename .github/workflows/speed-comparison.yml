@@ -74,7 +74,7 @@ jobs:
         if: always()
       
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: speed-comparison-results
           path: |
@@ -85,7 +85,7 @@ jobs:
       
       - name: Comment PR with results (on pull requests)
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -134,7 +134,7 @@ jobs:
     
     steps:
       - name: Download results
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: speed-comparison-results
           path: results
