@@ -9,7 +9,7 @@ namespace WebApi.Sample.Tests;
 public abstract class WebApiTestBase : WebApplicationTest<Program>
 {
     private static readonly string _contentRoot = Path.GetFullPath(
-        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "WebApi.Sample"));
+        Path.Join(AppContext.BaseDirectory, "..", "..", "..", "..", "WebApi.Sample"));
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

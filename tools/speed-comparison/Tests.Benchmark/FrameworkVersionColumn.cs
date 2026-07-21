@@ -60,7 +60,7 @@ public class FrameworkVersionColumn : IColumn
             var repositoryRoot = FindRepositoryRoot();
             if (repositoryRoot is not null)
             {
-                var buildPropsPath = Path.Combine(repositoryRoot.FullName, "Directory.Build.props");
+                var buildPropsPath = Path.Join(repositoryRoot.FullName, "Directory.Build.props");
                 if (File.Exists(buildPropsPath))
                 {
                     var content = File.ReadAllText(buildPropsPath);
@@ -88,7 +88,7 @@ public class FrameworkVersionColumn : IColumn
             var repositoryRoot = FindRepositoryRoot();
             if (repositoryRoot is not null)
             {
-                var projectPath = Path.Combine(repositoryRoot.FullName, "tools", "speed-comparison", "UnifiedTests", "UnifiedTests.csproj");
+                var projectPath = Path.Join(repositoryRoot.FullName, "tools", "speed-comparison", "UnifiedTests", "UnifiedTests.csproj");
                 if (File.Exists(projectPath))
                 {
                     var content = File.ReadAllText(projectPath);
@@ -116,7 +116,7 @@ public class FrameworkVersionColumn : IColumn
             var repositoryRoot = FindRepositoryRoot();
             if (repositoryRoot is not null)
             {
-                var packagesPropsPath = Path.Combine(repositoryRoot.FullName, "Directory.Packages.props");
+                var packagesPropsPath = Path.Join(repositoryRoot.FullName, "Directory.Packages.props");
                 if (File.Exists(packagesPropsPath))
                 {
                     var content = File.ReadAllText(packagesPropsPath);
@@ -143,7 +143,7 @@ public class FrameworkVersionColumn : IColumn
         var directory = new DirectoryInfo(Environment.CurrentDirectory);
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "NextUnit.slnx")))
+            if (File.Exists(Path.Join(directory.FullName, "NextUnit.slnx")))
             {
                 return directory;
             }

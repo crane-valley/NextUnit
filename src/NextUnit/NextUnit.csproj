@@ -10,6 +10,7 @@
     <PackageId>NextUnit</PackageId>
     <Description>NextUnit - A modern, high-performance test framework for .NET 10+ that combines TUnit's architecture with xUnit's familiar assertions. This meta-package includes all required components for getting started with NextUnit.</Description>
     <PackageTags>$(PackageTags);metapackage</PackageTags>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);CollectNextUnitAnalyzersForPackage</TargetsForTfmSpecificContentInPackage>
 
   </PropertyGroup>
 
@@ -33,12 +34,24 @@
   <ItemGroup>
     <None Include="..\..\NUGET_README.md" Pack="true" PackagePath="\README.md" />
     <None Include="buildTransitive\NextUnit.props" Pack="true" PackagePath="buildTransitive" />
-    <None Include="..\NextUnit.Generator\bin\$(Configuration)\netstandard2.0\NextUnit.Generator.dll"
-          Pack="true"
-          PackagePath="analyzers/dotnet/cs" />
-    <None Include="..\NextUnit.Analyzers\bin\$(Configuration)\netstandard2.0\NextUnit.Analyzers.dll"
-          Pack="true"
-          PackagePath="analyzers/dotnet/cs" />
   </ItemGroup>
+
+  <Target Name="CollectNextUnitAnalyzersForPackage">
+    <ItemGroup>
+      <_NextUnitAnalyzerProject Include="@(ProjectReference)"
+                                Condition="'%(ProjectReference.OutputItemType)' == 'Analyzer'" />
+    </ItemGroup>
+    <MSBuild Projects="@(_NextUnitAnalyzerProject)"
+             Targets="GetTargetPath"
+             BuildInParallel="$(BuildInParallel)"
+             RemoveProperties="TargetFramework"
+             Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_NextUnitAnalyzerOutput" />
+    </MSBuild>
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="@(_NextUnitAnalyzerOutput)"
+                              PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
 
 </Project>

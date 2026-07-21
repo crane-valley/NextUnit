@@ -242,6 +242,8 @@ public class RuntimeBenchmarks : BenchmarkBase
         return process.ExitCode;
     }
 
+    private static string QuoteExecutablePath(string path) => $"\"{path}\"";
+
     [Benchmark]
     [BenchmarkCategory("Runtime", "AOT")]
     public async Task NextUnitAOTAsync()
@@ -255,7 +257,7 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
         // Run all tests since filtering by class name is not directly supported
-        await foreach (var output in ProcessX.StartAsync(_aotPath))
+        await foreach (var output in ProcessX.StartAsync(QuoteExecutablePath(_aotPath)))
         {
             Console.WriteLine(output);
         }
@@ -264,7 +266,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task NextUnitAsync()
     {
-        var command = _nextUnitPath + " --no-progress";
+        var command = QuoteExecutablePath(_nextUnitPath!) + " --no-progress";
         await foreach (var output in ProcessX.StartAsync(command))
         {
             Console.WriteLine(output);
@@ -274,7 +276,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark(Baseline = true)]
     public async Task TUnitAsync()
     {
-        var command = _tUnitPath + " --progress off";
+        var command = QuoteExecutablePath(_tUnitPath!) + " --progress off";
         await foreach (var output in ProcessX.StartAsync(command))
         {
             Console.WriteLine(output);
@@ -284,7 +286,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task NUnitAsync()
     {
-        var command = _nunitPath!;
+        var command = QuoteExecutablePath(_nunitPath!);
 
         // Only apply filter if CLASS_NAME environment variable is set
         if (!string.IsNullOrEmpty(_className))
@@ -301,7 +303,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task MSTestAsync()
     {
-        var command = _msTestPath!;
+        var command = QuoteExecutablePath(_msTestPath!);
 
         // Only apply filter if CLASS_NAME environment variable is set
         if (!string.IsNullOrEmpty(_className))
@@ -318,7 +320,7 @@ public class RuntimeBenchmarks : BenchmarkBase
     [Benchmark]
     public async Task XUnitAsync()
     {
-        var command = _xUnitPath!;
+        var command = QuoteExecutablePath(_xUnitPath!);
 
         // Only apply filter if CLASS_NAME environment variable is set
         if (!string.IsNullOrEmpty(_className))
