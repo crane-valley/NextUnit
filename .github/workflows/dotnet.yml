@@ -80,19 +80,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-nuget-
 
-    - name: Download build artifacts
-      uses: actions/download-artifact@v8
-      with:
-        name: build-output
-        path: .
-
     - name: Restore dependencies
-      run: dotnet restore NextUnit.CI.slnx
+      run: dotnet restore NextUnit.slnx
 
-    - name: Run NextUnit sample tests
-      run: |
-        dotnet samples/NextUnit.SampleTests/bin/Release/net10.0/NextUnit.SampleTests.dll \
-          --minimum-expected-tests 20
+    - name: Run full solution tests
+      run: dotnet test --solution NextUnit.slnx --configuration Release --no-restore
 
   # Job 3: Code quality checks (lightweight, no build needed)
   code-quality:
