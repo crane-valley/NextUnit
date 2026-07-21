@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       iterations:
-        description: 'Number of iterations per framework (default: 5)'
+        description: 'Measured rounds per framework; must be divisible by 5'
         required: false
-        default: '5'
+        default: '20'
   schedule:
     # Run every Sunday at midnight UTC
     - cron: '0 0 * * 0'
@@ -17,8 +17,8 @@ on:
       - '.github/workflows/speed-comparison.yml'
 
 permissions:
-  contents: write  # Required to commit results back to repository
-  pull-requests: write  # Required to comment on pull requests
+  contents: read
+  pull-requests: write
 
 env:
   DOTNET_VERSION: '10.0.x'
@@ -53,35 +53,33 @@ jobs:
           cd tools/speed-comparison
           dotnet build Tests.Benchmark/Tests.Benchmark.csproj --configuration Release --no-restore
       
-      - name: Run speed comparison benchmarks
-        run: |
-          echo "=== Running Speed Comparison Benchmarks with BenchmarkDotNet ==="
-          cd tools/speed-comparison/Tests.Benchmark
-          dotnet run -c Release --no-build
+      - name: Run round-robin speed comparison
+        env:
+          ROUNDS: ${{ inputs.iterations || '20' }}
+        run: dotnet run -c Release --no-build --project tools/speed-comparison/Tests.Benchmark -- --round-robin "$ROUNDS"
         continue-on-error: false
       
       - name: Display benchmark results
         run: |
           echo "=== Benchmark Results ==="
-          # BenchmarkDotNet outputs to BenchmarkDotNet.Artifacts/results/
-          LATEST_RESULT=$(find tools/speed-comparison/Tests.Benchmark/BenchmarkDotNet.Artifacts/results -name "*.md" -type f 2>/dev/null | head -1)
-          if [ -n "$LATEST_RESULT" ] && [ -f "$LATEST_RESULT" ]; then
-            cat "$LATEST_RESULT"
+          RESULT=tools/speed-comparison/results/RUNTIME_COMPARISON.md
+          if [ -f "$RESULT" ]; then
+            cat "$RESULT"
           else
             echo "No benchmark results found"
-            ls -R tools/speed-comparison/Tests.Benchmark/BenchmarkDotNet.Artifacts/ || echo "BenchmarkDotNet.Artifacts directory not found"
+            exit 1
           fi
-        if: always()
+        if: success()
       
       - name: Upload benchmark results
         uses: actions/upload-artifact@v7
         with:
           name: speed-comparison-results
           path: |
-            tools/speed-comparison/Tests.Benchmark/BenchmarkDotNet.Artifacts/results/*.md
-            tools/speed-comparison/Tests.Benchmark/BenchmarkDotNet.Artifacts/results/*.html
+            tools/speed-comparison/results/RUNTIME_COMPARISON.md
+            tools/speed-comparison/results/runtime-comparison.json
           retention-days: 90
-        if: always()
+        if: success()
       
       - name: Comment PR with results (on pull requests)
         if: github.event_name == 'pull_request'
@@ -89,34 +87,13 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = require('path');
-            
-            // Find the latest benchmark result markdown file
-            const artifactsDir = 'tools/speed-comparison/Tests.Benchmark/BenchmarkDotNet.Artifacts/results';
-            
-            if (!fs.existsSync(artifactsDir)) {
-              console.log('BenchmarkDotNet artifacts directory not found');
+            const resultPath = 'tools/speed-comparison/results/RUNTIME_COMPARISON.md';
+            if (!fs.existsSync(resultPath)) {
+              console.log('Round-robin result file not found');
               return;
             }
-            
-            const mdFiles = fs.readdirSync(artifactsDir)
-              .filter(f => f.endsWith('.md'))
-              .map(f => ({
-                name: f,
-                path: path.join(artifactsDir, f),
-                mtime: fs.statSync(path.join(artifactsDir, f)).mtime
-              }))
-              .sort((a, b) => b.mtime - a.mtime);
-            
-            if (mdFiles.length === 0) {
-              console.log('No benchmark result files found');
-              return;
-            }
-            
-            const results = fs.readFileSync(mdFiles[0].path, 'utf8');
-            
-            // BenchmarkDotNet generates comprehensive markdown - use it as-is
-            const comment = `## 🚀 Speed Comparison Results (BenchmarkDotNet)\n\n${results}\n\n---\n*Benchmarks run on ${new Date().toISOString()}*`;
+            const results = fs.readFileSync(resultPath, 'utf8');
+            const comment = `## Speed Comparison Results (round-robin)\n\n${results}\n\n---\n*Benchmarks run on ${new Date().toISOString()}*`;
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -145,8 +122,7 @@ jobs:
           echo "# Speed Comparison Benchmark Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Find the latest markdown file from BenchmarkDotNet results
-          LATEST_MD=$(find results -name "*.md" -type f 2>/dev/null | head -1)
+          LATEST_MD=$(find results -name "RUNTIME_COMPARISON.md" -type f 2>/dev/null | head -1)
           
           if [ -n "$LATEST_MD" ] && [ -f "$LATEST_MD" ]; then
             cat "$LATEST_MD" >> $GITHUB_STEP_SUMMARY

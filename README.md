@@ -152,18 +152,20 @@ NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run --project MyProject.Tests
 
 ## Performance
 
-The checked-in comparison suite runs 127 equivalent tests through each framework's default JIT
-package integration. On Windows 11, .NET 10.0.10, and an Intel Core i5-13500, 10 timed process runs
-after one warm-up produced these end-to-end results:
+The checked-in comparison suite runs 127 tests with shared bodies through native MTP executables.
+A 20-round cyclic comparison balances execution order across all five frameworks:
 
-| Framework | Version | Mean | Median | Relative to NextUnit |
-| --------- | ------- | ---: | -----: | -------------------: |
-| NextUnit | current checkout (1.15.0) | 424.62ms | 423.60ms | 1.00x |
-| TUnit | 1.61.15 | 1,085.71ms | 1,086.44ms | 2.57x slower |
+| Framework | Version | Median | Median / NextUnit |
+| --------- | ------- | -----: | ----------------: |
+| NextUnit | current checkout (1.15.0) | 528.65ms | 1.00x |
+| MSTest | 4.3.2 | 606.17ms | 1.15x |
+| xUnit | 3.2.2 | 671.18ms | 1.27x |
+| NUnit | 4.6.1 | 714.77ms | 1.35x |
+| TUnit | 1.61.15 | 739.66ms | 1.40x |
 
-The measurement includes process startup, discovery, execution, result reporting, and each package's
-default runner behavior. See the [benchmark results](tools/speed-comparison/results/BENCHMARK_RESULTS.md)
-and [reproduction instructions](tools/speed-comparison/BENCHMARKS.md).
+The workload is startup-heavy and machine-specific, so these ratios are not universal performance
+claims. See the [methodology and limitations](docs/PERFORMANCE.md), [generated results](tools/speed-comparison/results/RUNTIME_COMPARISON.md),
+and [raw timings](tools/speed-comparison/results/runtime-comparison.json).
 
 ## Documentation
 

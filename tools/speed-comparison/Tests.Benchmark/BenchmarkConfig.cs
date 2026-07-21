@@ -10,7 +10,7 @@ public class BenchmarkConfig : ManualConfig
 {
     public BenchmarkConfig()
     {
-        var job = Job.Default;
+        var job = Job.MediumRun;
 
         AddJob(job);
         AddLogger(ConsoleLogger.Default);

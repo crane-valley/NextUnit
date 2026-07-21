@@ -6,7 +6,7 @@ namespace Tests.Benchmark;
 [BenchmarkCategory("Build")]
 public class BuildBenchmarks : BenchmarkBase
 {
-    [Benchmark]
+    [Benchmark(Baseline = true)]
     public async Task BuildNextUnitAsync()
     {
         var command = $"dotnet build --no-incremental -c Release -p:TestFramework=NEXTUNIT --framework {Framework}";
@@ -16,7 +16,7 @@ public class BuildBenchmarks : BenchmarkBase
         }
     }
 
-    [Benchmark(Baseline = true)]
+    [Benchmark]
     public async Task BuildTUnitAsync()
     {
         var command = $"dotnet build --no-incremental -c Release -p:TestFramework=TUNIT --framework {Framework}";

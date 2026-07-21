@@ -1,15 +1,11 @@
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using BenchmarkDotNet.Attributes;
-using Cysharp.Diagnostics;
-using Microsoft.Diagnostics.Utilities;
 
 namespace Tests.Benchmark;
 
 [BenchmarkCategory("Runtime")]
 public class RuntimeBenchmarks : BenchmarkBase
 {
-    private static readonly Regex _classNameValidationRegex = new Regex(@"^[a-zA-Z0-9._]+$", RegexOptions.Compiled);
     private static readonly HashSet<string> _validRuntimeIdentifiers = new HashSet<string>
     {
         "win-x64", "win-x86", "win-arm64",
@@ -17,7 +13,6 @@ public class RuntimeBenchmarks : BenchmarkBase
         "osx-x64", "osx-arm64"
     };
 
-    private static readonly string? _className = SanitizeClassName(Environment.GetEnvironmentVariable("CLASS_NAME"));
     private string? _aotPath;
     private string? _nextUnitPath;
     private string? _tUnitPath;
@@ -25,23 +20,6 @@ public class RuntimeBenchmarks : BenchmarkBase
     private string? _msTestPath;
     private string? _xUnitPath;
     private bool _aotBuildAttempted;
-
-    private static string? SanitizeClassName(string? className)
-    {
-        if (string.IsNullOrEmpty(className))
-        {
-            return null;
-        }
-
-        // Only allow alphanumeric characters, dots, and underscores
-        // This prevents command injection while allowing typical class name patterns
-        if (!_classNameValidationRegex.IsMatch(className))
-        {
-            throw new ArgumentException($"Invalid CLASS_NAME value: '{className}'. Only alphanumeric characters, dots, and underscores are allowed.");
-        }
-
-        return className;
-    }
 
     [GlobalSetup]
     public async Task SetupAsync()
@@ -62,12 +40,18 @@ public class RuntimeBenchmarks : BenchmarkBase
         var aotPath = Path.Combine(UnifiedPath, "bin", "Release-NEXTUNIT", Framework, rid, "publish");
         _aotPath = Path.Combine(aotPath, aotExeName);
 
-        // Build missing executables automatically
-        await BuildIfMissingAsync("NEXTUNIT", _nextUnitPath);
-        await BuildIfMissingAsync("TUNIT", _tUnitPath);
-        await BuildIfMissingAsync("NUNIT", _nunitPath);
-        await BuildIfMissingAsync("MSTEST", _msTestPath);
-        await BuildIfMissingAsync("XUNIT", _xUnitPath);
+        // Incremental builds prevent stale binaries from being measured after package or source changes.
+        await BuildExecutableAsync("NEXTUNIT", _nextUnitPath);
+        await BuildExecutableAsync("TUNIT", _tUnitPath);
+        await BuildExecutableAsync("NUNIT", _nunitPath);
+        await BuildExecutableAsync("MSTEST", _msTestPath);
+        await BuildExecutableAsync("XUNIT", _xUnitPath);
+
+        await VerifyTestCountAsync("NextUnit", _nextUnitPath);
+        await VerifyTestCountAsync("TUnit", _tUnitPath);
+        await VerifyTestCountAsync("NUnit", _nunitPath);
+        await VerifyTestCountAsync("MSTest", _msTestPath);
+        await VerifyTestCountAsync("xUnit", _xUnitPath);
 
         // For AOT, only try to build it if AUTOBUILD_AOT environment variable is set
         // This is because AOT builds can take 5-10 minutes
@@ -147,30 +131,27 @@ public class RuntimeBenchmarks : BenchmarkBase
         return Path.Combine(binPath, exeName);
     }
 
-    private async Task BuildIfMissingAsync(string framework, string executablePath)
+    private async Task BuildExecutableAsync(string framework, string executablePath)
     {
+        Console.WriteLine($"Building {framework} executable at {executablePath}...");
+
+        var exitCode = await RunDotNetAsync(
+            "build",
+            "-c",
+            "Release",
+            $"-p:TestFramework={framework}",
+            "--framework",
+            Framework,
+            "--verbosity",
+            "quiet");
+        if (exitCode != 0)
+        {
+            throw new InvalidOperationException($"{framework} build failed with exit code {exitCode}.");
+        }
+
         if (!File.Exists(executablePath))
         {
-            Console.WriteLine($"Building {framework} executable at {executablePath}...");
-
-            var exitCode = await RunDotNetAsync(
-                "build",
-                "-c",
-                "Release",
-                $"-p:TestFramework={framework}",
-                "--framework",
-                Framework,
-                "--verbosity",
-                "quiet");
-            if (exitCode != 0)
-            {
-                throw new InvalidOperationException($"{framework} build failed with exit code {exitCode}.");
-            }
-
-            if (!File.Exists(executablePath))
-            {
-                throw new InvalidOperationException($"{framework} executable not found at {executablePath} after build.");
-            }
+            throw new InvalidOperationException($"{framework} executable not found at {executablePath} after build.");
         }
     }
 
@@ -242,7 +223,49 @@ public class RuntimeBenchmarks : BenchmarkBase
         return process.ExitCode;
     }
 
-    private static string QuoteExecutablePath(string path) => $"\"{path}\"";
+    private static async Task VerifyTestCountAsync(string framework, string executablePath)
+    {
+        var result = await RunTestProcessAsync(executablePath, captureOutput: true);
+        if (!result.Output.Contains("total: 127", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"{framework} did not report the expected 127 tests. Output:{Environment.NewLine}{result.Output}");
+        }
+    }
+
+    private static async Task<(int ExitCode, string Output)> RunTestProcessAsync(
+        string executablePath,
+        bool captureOutput = false)
+    {
+        var startInfo = new System.Diagnostics.ProcessStartInfo(executablePath)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        startInfo.ArgumentList.Add("--no-progress");
+        startInfo.ArgumentList.Add("--no-ansi");
+        startInfo.Environment["DOTNET_CLI_UI_LANGUAGE"] = "en-US";
+        startInfo.Environment["TESTINGPLATFORM_UI_LANGUAGE"] = "en-us";
+        startInfo.Environment["TESTINGPLATFORM_TELEMETRY_OPTOUT"] = "1";
+        startInfo.Environment["TUNIT_DISABLE_HTML_REPORTER"] = "true";
+
+        using var process = System.Diagnostics.Process.Start(startInfo)
+            ?? throw new InvalidOperationException($"Failed to start {executablePath}.");
+        var standardOutput = process.StandardOutput.ReadToEndAsync();
+        var standardError = process.StandardError.ReadToEndAsync();
+
+        await process.WaitForExitAsync();
+        var output = (await standardOutput) + (await standardError);
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Test process exited with code {process.ExitCode}: {executablePath}{Environment.NewLine}{output}");
+        }
+
+        return (process.ExitCode, captureOutput ? output : string.Empty);
+    }
 
     [Benchmark]
     [BenchmarkCategory("Runtime", "AOT")]
@@ -257,80 +280,36 @@ public class RuntimeBenchmarks : BenchmarkBase
 
         // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
         // Run all tests since filtering by class name is not directly supported
-        await foreach (var output in ProcessX.StartAsync(QuoteExecutablePath(_aotPath)))
-        {
-            Console.WriteLine(output);
-        }
-    }
-
-    [Benchmark]
-    public async Task NextUnitAsync()
-    {
-        var command = QuoteExecutablePath(_nextUnitPath!) + " --no-progress";
-        await foreach (var output in ProcessX.StartAsync(command))
-        {
-            Console.WriteLine(output);
-        }
+        await RunTestProcessAsync(_aotPath);
     }
 
     [Benchmark(Baseline = true)]
+    public async Task NextUnitAsync()
+    {
+        await RunTestProcessAsync(_nextUnitPath!);
+    }
+
+    [Benchmark]
     public async Task TUnitAsync()
     {
-        var command = QuoteExecutablePath(_tUnitPath!) + " --progress off";
-        await foreach (var output in ProcessX.StartAsync(command))
-        {
-            Console.WriteLine(output);
-        }
+        await RunTestProcessAsync(_tUnitPath!);
     }
 
     [Benchmark]
     public async Task NUnitAsync()
     {
-        var command = QuoteExecutablePath(_nunitPath!);
-
-        // Only apply filter if CLASS_NAME environment variable is set
-        if (!string.IsNullOrEmpty(_className))
-        {
-            command = command + $" --filter FullyQualifiedName~{_className}";
-        }
-
-        await foreach (var output in ProcessX.StartAsync(command))
-        {
-            Console.WriteLine(output);
-        }
+        await RunTestProcessAsync(_nunitPath!);
     }
 
     [Benchmark]
     public async Task MSTestAsync()
     {
-        var command = QuoteExecutablePath(_msTestPath!);
-
-        // Only apply filter if CLASS_NAME environment variable is set
-        if (!string.IsNullOrEmpty(_className))
-        {
-            command = command + $" --filter FullyQualifiedName~{_className}";
-        }
-
-        await foreach (var output in ProcessX.StartAsync(command))
-        {
-            Console.WriteLine(output);
-        }
+        await RunTestProcessAsync(_msTestPath!);
     }
 
     [Benchmark]
     public async Task XUnitAsync()
     {
-        var command = QuoteExecutablePath(_xUnitPath!);
-
-        // Only apply filter if CLASS_NAME environment variable is set
-        if (!string.IsNullOrEmpty(_className))
-        {
-            command = command + $" --filter FullyQualifiedName~{_className}";
-        }
-
-        await foreach (var output in ProcessX.StartAsync(command))
-        {
-            Console.WriteLine(output);
-        }
+        await RunTestProcessAsync(_xUnitPath!);
     }
 }

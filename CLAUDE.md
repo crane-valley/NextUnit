@@ -1,16 +1,12 @@
 # CLAUDE.md
 
-- Source code, comments, logs, error messages: English
-- PR titles, summaries, and comments: English
-- Create feature branch → commit → push → PR (merge is done by humans)
-
-## Commands
+## Validation
 
 ```bash
-dotnet build                          # Build
-dotnet format --verify-no-changes     # Format check
-dotnet test --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj  # Test
-markdownlint --config .markdownlint.json <file>.md  # Markdown lint
+dotnet build NextUnit.slnx --configuration Release
+dotnet format NextUnit.slnx --verify-no-changes
+dotnet test --solution NextUnit.slnx --configuration Release --no-restore
+markdownlint --config .markdownlint.json <file>.md
 ```
 
 ## Release (src/*.cs changes only)
