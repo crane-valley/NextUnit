@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace NextUnit.Internal;
@@ -298,6 +299,11 @@ internal static class AssertionMessageFormatter
         if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal))
         {
             return obj.ToString() ?? "<null>";
+        }
+
+        if (!RuntimeFeature.IsDynamicCodeSupported)
+        {
+            return $"{type.Name} {{ {obj} }}";
         }
 
         // For complex objects, show type and properties

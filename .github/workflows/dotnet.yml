@@ -199,6 +199,7 @@ jobs:
       run: |
         dotnet pack src/NextUnit.Core/NextUnit.Core.csproj --configuration Release --output artifacts/packages
         dotnet pack src/NextUnit.Platform/NextUnit.Platform.csproj --configuration Release --output artifacts/packages
+        dotnet pack src/NextUnit.AspNetCore/NextUnit.AspNetCore.csproj --configuration Release --output artifacts/packages
         dotnet pack src/NextUnit/NextUnit.csproj --configuration Release --output artifacts/packages
 
     - name: Verify one-package integration
@@ -207,6 +208,14 @@ jobs:
           --configfile .github/NextUnit.PackageSmoke.NuGet.Config \
           -p:UseLocalNextUnitPackage=true
         dotnet run --project tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+          --configuration Release \
+          --no-restore \
+          -p:UseLocalNextUnitPackage=true \
+          -- --minimum-expected-tests 1
+        dotnet restore tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj \
+          --configfile .github/NextUnit.PackageSmoke.NuGet.Config \
+          -p:UseLocalNextUnitPackage=true
+        dotnet run --project tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj \
           --configuration Release \
           --no-restore \
           -p:UseLocalNextUnitPackage=true \

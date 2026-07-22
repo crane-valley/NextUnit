@@ -49,6 +49,7 @@
     <Project Path="tools/speed-comparison/UnifiedTests/UnifiedTests.csproj" />
   </Folder>
   <Project Path="src/NextUnit.Analyzers/NextUnit.Analyzers.csproj" />
+  <Project Path="src/NextUnit.AspNetCore/NextUnit.AspNetCore.csproj" />
   <Project Path="src/NextUnit.Core/NextUnit.Core.csproj" />
   <Project Path="src/NextUnit.Generator/NextUnit.Generator.csproj" />
   <Project Path="src/NextUnit.Platform/NextUnit.Platform.csproj" />

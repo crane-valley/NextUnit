@@ -5,13 +5,14 @@ This guide is designed to be read by both humans and Copilot agents to ensure co
 
 ## Overview
 
-NextUnit consists of five NuGet packages:
+NextUnit consists of six NuGet packages:
 
 - **NextUnit** (meta-package) - Aggregates all components
 - **NextUnit.Core** - Core attributes, assertions, execution engine
 - **NextUnit.Generator** - Source generator for test discovery
 - **NextUnit.TestAdapter** - VSTest adapter for Visual Studio Test Explorer
 - **NextUnit.Platform** - Microsoft.Testing.Platform integration (legacy)
+- **NextUnit.AspNetCore** - ASP.NET Core integration testing support
 
 All packages share the same version number and are released together.
 
@@ -37,12 +38,13 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 2. **Directory.Packages.props**
    - Location: `/Directory.Packages.props`
-   - Update: All five NextUnit package versions
+   - Update: All six NextUnit package versions
      - `<PackageVersion Include="NextUnit" Version="X.Y.Z" />`
      - `<PackageVersion Include="NextUnit.Core" Version="X.Y.Z" />`
      - `<PackageVersion Include="NextUnit.Generator" Version="X.Y.Z" />`
      - `<PackageVersion Include="NextUnit.TestAdapter" Version="X.Y.Z" />`
      - `<PackageVersion Include="NextUnit.Platform" Version="X.Y.Z" />`
+     - `<PackageVersion Include="NextUnit.AspNetCore" Version="X.Y.Z" />`
 
 ### Documentation Files
 
@@ -146,15 +148,18 @@ git diff | grep -E "^\+.*1\.[0-9]+\.[0-9]+" # Should show all new version refere
 
 ```bash
 # Build all projects
-dotnet build -c Release
+dotnet build NextUnit.slnx --configuration Release
 
 # Run tests
-dotnet test tests/NextUnit.Platform.Tests
-dotnet test tests/NextUnit.Generator.Tests
-dotnet test samples/NextUnit.SampleTests
+dotnet test --solution NextUnit.slnx --configuration Release --no-restore
 
 # Verify package builds
-dotnet pack -c Release -o ./artifacts
+dotnet pack src/NextUnit.Core/NextUnit.Core.csproj -c Release -o ./artifacts
+dotnet pack src/NextUnit.Generator/NextUnit.Generator.csproj -c Release -o ./artifacts
+dotnet pack src/NextUnit.Platform/NextUnit.Platform.csproj -c Release -o ./artifacts
+dotnet pack src/NextUnit.TestAdapter/NextUnit.TestAdapter.csproj -c Release -o ./artifacts
+dotnet pack src/NextUnit.AspNetCore/NextUnit.AspNetCore.csproj -c Release -o ./artifacts
+dotnet pack src/NextUnit/NextUnit.csproj -c Release -o ./artifacts
 ```
 
 ### 6. Commit and Create PR
@@ -187,7 +192,8 @@ Creating a release on GitHub automatically triggers the NuGet package publishing
 
 - GitHub Actions workflow (`.github/workflows/release.yml`) is triggered
 - Packages are built and packed
-- All five packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter, NextUnit.Platform)
+- All six packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter,
+  NextUnit.Platform, NextUnit.AspNetCore)
   are published to NuGet.org using GitHub OIDC authentication
 - No manual API key or `dotnet nuget push` commands needed
 
@@ -239,7 +245,7 @@ dependencies so their compile and runtime assets reach consuming test projects.
 
 ### Issue: Version mismatch warnings during build
 
-**Solution**: Ensure all 4 package versions in `Directory.Packages.props` are identical and match `Directory.Build.props`.
+**Solution**: Ensure all six package versions in `Directory.Packages.props` are identical and match `Directory.Build.props`.
 
 ### Issue: NuGet push fails with "package already exists"
 

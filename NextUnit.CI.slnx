@@ -5,6 +5,7 @@
   <Project Path="src/NextUnit.Platform/NextUnit.Platform.csproj" />
   <Project Path="src/NextUnit.TestAdapter/NextUnit.TestAdapter.csproj" />
   <Project Path="src/NextUnit.Analyzers/NextUnit.Analyzers.csproj" />
+  <Project Path="src/NextUnit.AspNetCore/NextUnit.AspNetCore.csproj" />
   <Project Path="src/NextUnit/NextUnit.csproj" />
 
   <!-- Sample tests for validation -->

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <NextUnitPackageSmokeVersion>$(NextUnitVersion)</NextUnitPackageSmokeVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NextUnit" VersionOverride="$(NextUnitPackageSmokeVersion)" />
+    <PackageReference Include="NextUnit.AspNetCore" VersionOverride="$(NextUnitPackageSmokeVersion)" />
+  </ItemGroup>
+</Project>
