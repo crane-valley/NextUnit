@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -207,6 +208,7 @@ public abstract class WebApplicationTest<TEntryPoint> : IDisposable, IAsyncDispo
     /// <summary>
     /// Asynchronously releases the managed resources used by the test class.
     /// </summary>
+    [SuppressMessage("Naming", "IDE1006:Naming Styles", Justification = "Matches the standard async dispose pattern.")]
     protected virtual async ValueTask DisposeAsyncCore()
     {
         if (_factory is not null)

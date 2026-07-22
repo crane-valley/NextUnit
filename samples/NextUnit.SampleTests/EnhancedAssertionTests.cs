@@ -78,6 +78,17 @@ public class EnhancedAssertionTests
         Assert.Throws<ArgumentOutOfRangeException>(() => Assert.NotEqual(1.0m, 2.0m, precision: -1));
     }
 
+    [Test]
+    public void Equal_WithComplexObjects_FormatsTheFailure()
+    {
+        var exception = Assert.Throws<AssertionFailedException>(
+            () => Assert.Equal(new AssertionValue(1), new AssertionValue(2)));
+
+        Assert.Contains(nameof(AssertionValue), exception.Message);
+        Assert.Contains("Expected:", exception.Message);
+        Assert.Contains("Actual:", exception.Message);
+    }
+
     // Custom Comparer Support
 
     [Test]
@@ -118,6 +129,8 @@ public class EnhancedAssertionTests
             return obj.GetHashCode();
         }
     }
+
+    private sealed record AssertionValue(int Value);
 
     // Enhanced Exception Assertions with Message Matching
 
