@@ -52,12 +52,12 @@ Added comprehensive test categories covering different performance aspects:
 
 ### 4. AOT Support ✅
 
-Added Native AOT compilation support for NextUnit:
+Added matching Native AOT compilation support for NextUnit and TUnit:
 
 - AOT configuration in UnifiedTests.csproj
 - `prepare-aot.ps1` (PowerShell/Linux)
 - `prepare-aot.bat` (Windows batch)
-- RuntimeBenchmarks includes NextUnit_AOT benchmark method
+- RuntimeBenchmarks includes NextUnit and TUnit AOT benchmark methods
 
 ### 5. Documentation ✅
 
@@ -98,7 +98,7 @@ SpeedComparison.Runner/ (orchestrator) - REMOVED
 ### New Approach (Unified + BenchmarkDotNet)
 
 ```text
-UnifiedTests/ (127 tests × 4 frameworks via conditional compilation)
+UnifiedTests/ (127 tests × 5 frameworks via conditional compilation)
 Tests.Benchmark/ (BenchmarkDotNet-based professional benchmarking)
 ```
 
@@ -121,7 +121,7 @@ Tests.Benchmark/ (BenchmarkDotNet-based professional benchmarking)
 4. ✅ **Runtime benchmarks** - Execution time with statistical analysis
 5. ✅ **GlobalUsings.cs** - Framework-specific aliases for attribute compatibility
 6. ✅ **Framework version detection** - Automatic version tracking
-7. ✅ **AOT support** - Native AOT compilation for NextUnit
+7. ✅ **AOT support** - Native AOT compilation for NextUnit and TUnit
 8. ✅ **Comprehensive test categories** - Multiple test patterns
 
 ### NextUnit-Specific Adaptations
@@ -160,7 +160,7 @@ dotnet run -c Release --project Tests.Benchmark -- --filter "*BuildBenchmarks*"
 ### Published cross-framework comparison
 
 ```bash
-dotnet run -c Release --project Tests.Benchmark -- --round-robin 20
+dotnet run -c Release --project Tests.Benchmark -- --round-robin 21
 ```
 
 ### AOT benchmarks
@@ -170,7 +170,7 @@ dotnet run -c Release --project Tests.Benchmark -- --round-robin 20
 ./prepare-aot.ps1
 
 # Then run benchmarks
-dotnet run -c Release --project Tests.Benchmark -- --filter "*NextUnit_AOT*"
+dotnet run -c Release --project Tests.Benchmark -- --filter "*AOT*"
 ```
 
 ### Professional benchmarks
@@ -229,4 +229,4 @@ All requirements from the problem statement have been met:
 
 **Implementation Date**: 2025-12-10  
 **Status**: ✅ Complete and ready for use  
-**Test Results**: All 4 frameworks × 127 tests = 508 total test executions ✅
+**Test Results**: All 5 frameworks × 127 tests = 635 total test executions ✅

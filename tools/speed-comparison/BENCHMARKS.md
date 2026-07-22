@@ -7,7 +7,7 @@ framework-native integration metadata.
 
 ```bash
 cd tools/speed-comparison
-dotnet run -c Release --project Tests.Benchmark -- --round-robin 20
+dotnet run -c Release --project Tests.Benchmark -- --round-robin 21
 ```
 
 Outputs:
@@ -16,8 +16,8 @@ Outputs:
 - `results/runtime-comparison.json`: every accepted measurement with round and execution position
 
 The runner rejects a framework if its process fails or does not report exactly 127 tests. It also
-requires a round count divisible by five, which gives each framework the same number of runs in every
-execution position.
+requires a round count divisible by seven, which gives each participant the same number of runs in
+every execution position.
 
 ## Measurement boundary
 
@@ -35,10 +35,10 @@ printed during measurement.
 
 ## Common controls
 
-- Release, JIT, .NET 10
+- Release, .NET 10; five framework-dependent builds and two same-RID Native AOT publishes
 - Native Microsoft.Testing.Platform executables for every framework
-- One excluded warm-up process per framework
-- Cyclic run order across NextUnit, TUnit, NUnit, MSTest, and xUnit
+- One excluded warm-up process per participant
+- Cyclic run order across NextUnit, TUnit, NUnit, MSTest, xUnit, NextUnit (AOT), and TUnit (AOT)
 - `--no-progress --no-ansi` for every executable
 - `TESTINGPLATFORM_TELEMETRY_OPTOUT=1`
 - `TUNIT_DISABLE_HTML_REPORTER=true`
@@ -65,8 +65,8 @@ not balanced as directly as in round-robin mode.
 
 ## Native AOT
 
-Native AOT is NextUnit-specific and excluded from the cross-framework JIT table. To include it in a
-BenchmarkDotNet experiment:
+Round-robin mode always publishes and measures Native AOT for both NextUnit and TUnit. To include the
+same two AOT participants in a BenchmarkDotNet experiment:
 
 ```bash
 export AUTOBUILD_AOT=true

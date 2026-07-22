@@ -153,15 +153,18 @@ NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run --project MyProject.Tests
 ## Performance
 
 The checked-in comparison suite runs 127 tests with shared bodies through native MTP executables.
-A 20-round cyclic comparison balances execution order across all five frameworks:
+A 21-round cyclic comparison balances execution order across five major frameworks and Native AOT
+variants of NextUnit and TUnit:
 
 | Framework | Version | Median | Median / NextUnit |
 | --------- | ------- | -----: | ----------------: |
-| NextUnit | current checkout (1.15.0) | 528.65ms | 1.00x |
-| MSTest | 4.3.2 | 606.17ms | 1.15x |
-| xUnit | 3.2.2 | 671.18ms | 1.27x |
-| NUnit | 4.6.1 | 714.77ms | 1.35x |
-| TUnit | 1.61.15 | 739.66ms | 1.40x |
+| NextUnit (AOT) | current checkout (1.15.0) | 223.38ms | 0.51x |
+| TUnit (AOT) | 1.61.15 | 226.20ms | 0.51x |
+| NextUnit | current checkout (1.15.0) | 442.31ms | 1.00x |
+| MSTest | 4.3.2 | 528.43ms | 1.19x |
+| TUnit | 1.61.15 | 580.56ms | 1.31x |
+| xUnit | 3.2.2 | 593.86ms | 1.34x |
+| NUnit | 4.6.1 | 604.33ms | 1.37x |
 
 The workload is startup-heavy and machine-specific, so these ratios are not universal performance
 claims. See the [methodology and limitations](docs/PERFORMANCE.md), [generated results](tools/speed-comparison/results/RUNTIME_COMPARISON.md),

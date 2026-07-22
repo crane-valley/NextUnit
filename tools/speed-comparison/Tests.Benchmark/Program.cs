@@ -3,7 +3,7 @@ using Tests.Benchmark;
 
 if (args.Length > 0 && args[0] == "--round-robin")
 {
-    var rounds = args.Length > 1 ? int.Parse(args[1]) : 20;
+    var rounds = args.Length > 1 ? int.Parse(args[1]) : 21;
     await RoundRobinComparison.RunAsync(rounds);
     return;
 }

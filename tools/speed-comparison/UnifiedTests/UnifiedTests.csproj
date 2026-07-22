@@ -90,8 +90,8 @@
         <PackageReference Include="MSTest" Version="$(MSTestVersion)" />
     </ItemGroup>
 
-    <!-- AOT and SingleFile configurations for NextUnit -->
-    <PropertyGroup Condition="'$(TestFramework)' == 'NEXTUNIT' AND '$(Aot)' == 'true'">
+    <!-- AOT configurations use the same project-local flag so it does not propagate to project references. -->
+    <PropertyGroup Condition="('$(TestFramework)' == 'NEXTUNIT' OR '$(TestFramework)' == 'TUNIT') AND '$(Aot)' == 'true'">
         <PublishAot>true</PublishAot>
         <PublishTrimmed>true</PublishTrimmed>
     </PropertyGroup>

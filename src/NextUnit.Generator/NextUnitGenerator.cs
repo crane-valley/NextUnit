@@ -491,6 +491,41 @@ internal static class Program
         EmitGlobalLifecycleProperty(builder, "GlobalBeforeSessionMethods", globalLifecycle.BeforeSession);
         EmitGlobalLifecycleProperty(builder, "GlobalAfterSessionMethods", globalLifecycle.AfterSession);
 
+        var reflectionRootTypes = tests
+            .SelectMany(test => new[]
+            {
+                test.FullyQualifiedTypeName,
+                test.DisplayNameFormatterType
+            }
+            .Concat(test.TestDataSources.Select(source => source.MemberTypeName))
+            .Concat(test.ClassDataSources.Select(source => source.TypeName))
+            .Concat(test.CombinedParameterSources.SelectMany(source => new[] { source.MemberTypeName, source.ClassTypeName })))
+            .Where(typeName => !string.IsNullOrWhiteSpace(typeName))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(typeName => typeName, StringComparer.Ordinal);
+        foreach (var typeName in reflectionRootTypes)
+        {
+            builder.AppendLine($"    [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof({typeName}))]");
+        }
+
+        builder.AppendLine("    [global::System.Runtime.CompilerServices.ModuleInitializer]");
+        builder.AppendLine("    internal static void RegisterWithTestHost()");
+        builder.AppendLine("    {");
+        builder.AppendLine("        global::NextUnit.Internal.GeneratedTestRegistryStore.Register(new RegistryProvider());");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine("    private sealed class RegistryProvider : global::NextUnit.Internal.IGeneratedTestRegistry");
+        builder.AppendLine("    {");
+        builder.AppendLine("        public global::System.Collections.Generic.IReadOnlyList<global::NextUnit.Internal.TestCaseDescriptor> TestCases => GeneratedTestRegistry.TestCases;");
+        builder.AppendLine("        public global::System.Collections.Generic.IReadOnlyList<global::NextUnit.Internal.TestDataDescriptor> TestDataDescriptors => GeneratedTestRegistry.TestDataDescriptors;");
+        builder.AppendLine("        public global::System.Collections.Generic.IReadOnlyList<global::NextUnit.Internal.ClassDataSourceDescriptor> ClassDataSourceDescriptors => GeneratedTestRegistry.ClassDataSourceDescriptors;");
+        builder.AppendLine("        public global::System.Collections.Generic.IReadOnlyList<global::NextUnit.Internal.CombinedDataSourceDescriptor> CombinedDataSourceDescriptors => GeneratedTestRegistry.CombinedDataSourceDescriptors;");
+        builder.AppendLine("        public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalBeforeAssemblyMethods => GeneratedTestRegistry.GlobalBeforeAssemblyMethods;");
+        builder.AppendLine("        public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalAfterAssemblyMethods => GeneratedTestRegistry.GlobalAfterAssemblyMethods;");
+        builder.AppendLine("        public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalBeforeSessionMethods => GeneratedTestRegistry.GlobalBeforeSessionMethods;");
+        builder.AppendLine("        public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalAfterSessionMethods => GeneratedTestRegistry.GlobalAfterSessionMethods;");
+        builder.AppendLine("    }");
+
         builder.AppendLine("}");
         return builder.ToString();
     }
