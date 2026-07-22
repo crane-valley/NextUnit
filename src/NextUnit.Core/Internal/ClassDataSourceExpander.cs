@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace NextUnit.Internal;
@@ -150,6 +151,10 @@ public static class ClassDataSourceExpander
         };
     }
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2067",
+        Justification = "The source generator roots class data source constructors with DynamicDependency.")]
     private static object CreateInstance(Type sourceType)
     {
         try

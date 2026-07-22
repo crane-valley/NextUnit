@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace NextUnit.Internal;
@@ -109,7 +110,9 @@ public static class CombinedDataSourceExpander
         }
     }
 
-    private static object?[] ResolveParameterValues(ParameterDataSource source, Type testClass)
+    private static object?[] ResolveParameterValues(
+        ParameterDataSource source,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)] Type testClass)
     {
         return source.Kind switch
         {
@@ -120,7 +123,9 @@ public static class CombinedDataSourceExpander
         };
     }
 
-    private static object?[] ResolveMemberValues(ParameterDataSource source, Type testClass)
+    private static object?[] ResolveMemberValues(
+        ParameterDataSource source,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)] Type testClass)
     {
         var memberType = source.MemberType ?? testClass;
         var memberName = source.MemberName
@@ -213,6 +218,10 @@ public static class CombinedDataSourceExpander
         };
     }
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2067",
+        Justification = "The source generator roots class data source constructors with DynamicDependency.")]
     private static object CreateInstance(Type sourceType)
     {
         try

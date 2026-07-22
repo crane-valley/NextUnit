@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
 
@@ -30,7 +31,7 @@ internal static class DisplayNameBuilder
     public static string Build(
         string methodName,
         string? customDisplayNameTemplate,
-        Type? formatterType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type? formatterType,
         Type testClass,
         object?[] arguments,
         int argumentSetIndex)
@@ -133,20 +134,24 @@ internal static class DisplayNameBuilder
     /// <exception cref="InvalidOperationException">
     /// Thrown when the type cannot be instantiated or does not implement IDisplayNameFormatter.
     /// </exception>
-    public static IDisplayNameFormatter GetFormatter(Type formatterType)
+    public static IDisplayNameFormatter GetFormatter(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type formatterType)
     {
-        return _formatterCache.GetOrAdd(formatterType, t =>
+        if (_formatterCache.TryGetValue(formatterType, out var cached))
         {
-            var instance = Activator.CreateInstance(t)
-                ?? throw new InvalidOperationException(
-                    $"Failed to create display name formatter of type '{t.FullName}'. " +
-                    "Ensure the type has a public parameterless constructor.");
+            return cached;
+        }
 
-            return instance as IDisplayNameFormatter
-                ?? throw new InvalidOperationException(
-                    $"Type '{t.FullName}' must implement IDisplayNameFormatter " +
-                    "to be used as a display name formatter.");
-        });
+        var instance = Activator.CreateInstance(formatterType)
+            ?? throw new InvalidOperationException(
+                $"Failed to create display name formatter of type '{formatterType.FullName}'. " +
+                "Ensure the type has a public parameterless constructor.");
+
+        var formatter = instance as IDisplayNameFormatter
+            ?? throw new InvalidOperationException(
+                $"Type '{formatterType.FullName}' must implement IDisplayNameFormatter " +
+                "to be used as a display name formatter.");
+        return _formatterCache.GetOrAdd(formatterType, formatter);
     }
 
     private static string FormatEnumerable(IEnumerable enumerable)

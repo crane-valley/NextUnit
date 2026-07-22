@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       iterations:
-        description: 'Measured rounds per framework; must be divisible by 5'
+        description: 'Measured rounds per participant; must be divisible by 7'
         required: false
-        default: '20'
+        default: '21'
   schedule:
     # Run every Sunday at midnight UTC
     - cron: '0 0 * * 0'
@@ -55,7 +55,7 @@ jobs:
       
       - name: Run round-robin speed comparison
         env:
-          ROUNDS: ${{ inputs.iterations || '20' }}
+          ROUNDS: ${{ inputs.iterations || '21' }}
         run: dotnet run -c Release --no-build --project tools/speed-comparison/Tests.Benchmark -- --round-robin "$ROUNDS"
         continue-on-error: false
       

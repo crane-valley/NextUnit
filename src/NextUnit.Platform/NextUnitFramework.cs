@@ -142,19 +142,8 @@ internal sealed class NextUnitFramework :
             return _testCases;
         }
 
-        // Try to find generated test registry using reflection
-        // This is a one-time operation during test discovery, not during test execution
-        var testAssemblyPath = Environment.GetCommandLineArgs()[0];
-        var loadResult = AssemblyLoader.TryLoadAssembly(testAssemblyPath);
-        if (!loadResult.Success)
-        {
-            _testCases = Array.Empty<TestCaseDescriptor>();
-            return _testCases;
-        }
-
-        // Look for NextUnit.Generated.GeneratedTestRegistry
-        var generatedRegistryType = AssemblyLoader.GetTestRegistryType(loadResult.Assembly!);
-        if (generatedRegistryType is null)
+        var generatedRegistry = GeneratedTestRegistryStore.Current;
+        if (generatedRegistry is null)
         {
             _testCases = Array.Empty<TestCaseDescriptor>();
             return _testCases;
@@ -162,19 +151,12 @@ internal sealed class NextUnitFramework :
 
         var allTestCases = new List<TestCaseDescriptor>();
 
-        // Get static test cases from TestCases property
-        var staticTestCases = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestCaseDescriptor>>(generatedRegistryType, "TestCases");
-        if (staticTestCases is not null)
-        {
-            allTestCases.AddRange(staticTestCases);
-        }
+        allTestCases.AddRange(generatedRegistry.TestCases);
 
-        // Get dynamic test cases from TestDataDescriptors property
-        var testDataDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestDataDescriptor>>(generatedRegistryType, "TestDataDescriptors");
-        if (testDataDescriptors is not null)
+        if (generatedRegistry.TestDataDescriptors.Count > 0)
         {
             // Filter TestDataDescriptors BEFORE expansion to avoid executing data providers for excluded tests
-            var filteredDescriptors = testDataDescriptors
+            var filteredDescriptors = generatedRegistry.TestDataDescriptors
                 .Where(td => _filterConfig.ShouldIncludeTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit))
                 .ToList();
 
@@ -183,12 +165,10 @@ internal sealed class NextUnitFramework :
             allTestCases.AddRange(expandedTests);
         }
 
-        // Get dynamic test cases from ClassDataSourceDescriptors property
-        var classDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<ClassDataSourceDescriptor>>(generatedRegistryType, "ClassDataSourceDescriptors");
-        if (classDataSourceDescriptors is not null)
+        if (generatedRegistry.ClassDataSourceDescriptors.Count > 0)
         {
             // Filter ClassDataSourceDescriptors BEFORE expansion to avoid instantiating data sources for excluded tests
-            var filteredDescriptors = classDataSourceDescriptors
+            var filteredDescriptors = generatedRegistry.ClassDataSourceDescriptors
                 .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
                 .ToList();
 
@@ -197,12 +177,10 @@ internal sealed class NextUnitFramework :
             allTestCases.AddRange(expandedTests);
         }
 
-        // Get dynamic test cases from CombinedDataSourceDescriptors property
-        var combinedDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<CombinedDataSourceDescriptor>>(generatedRegistryType, "CombinedDataSourceDescriptors");
-        if (combinedDataSourceDescriptors is not null)
+        if (generatedRegistry.CombinedDataSourceDescriptors.Count > 0)
         {
             // Filter CombinedDataSourceDescriptors BEFORE expansion to avoid resolving data sources for excluded tests
-            var filteredDescriptors = combinedDataSourceDescriptors
+            var filteredDescriptors = generatedRegistry.CombinedDataSourceDescriptors
                 .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
                 .ToList();
 
@@ -217,25 +195,11 @@ internal sealed class NextUnitFramework :
         // Get global lifecycle methods from the registry and set on engine (one-time)
         if (!_assemblyLifecycleInitialized)
         {
-            var globalBeforeAssembly = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
-                generatedRegistryType, "GlobalBeforeAssemblyMethods");
-            var globalAfterAssembly = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
-                generatedRegistryType, "GlobalAfterAssemblyMethods");
-            _engine.SetGlobalAssemblyLifecycle(globalBeforeAssembly, globalAfterAssembly);
-
-            var globalBeforeSession = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
-                generatedRegistryType, "GlobalBeforeSessionMethods");
-            var globalAfterSession = AssemblyLoader.GetStaticPropertyValue<LifecycleMethodDelegate[]>(
-                generatedRegistryType, "GlobalAfterSessionMethods");
-            if (globalBeforeSession is not null)
-            {
-                _sessionBeforeMethods.AddRange(globalBeforeSession);
-            }
-
-            if (globalAfterSession is not null)
-            {
-                _sessionAfterMethods.AddRange(globalAfterSession);
-            }
+            _engine.SetGlobalAssemblyLifecycle(
+                generatedRegistry.GlobalBeforeAssemblyMethods,
+                generatedRegistry.GlobalAfterAssemblyMethods);
+            _sessionBeforeMethods.AddRange(generatedRegistry.GlobalBeforeSessionMethods);
+            _sessionAfterMethods.AddRange(generatedRegistry.GlobalAfterSessionMethods);
 
             _assemblyLifecycleInitialized = true;
         }

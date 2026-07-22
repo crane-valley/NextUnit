@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace NextUnit.Internal;
@@ -52,7 +53,9 @@ public static class TestDataExpander
         }
     }
 
-    private static IEnumerable? GetTestData(Type sourceType, string memberName)
+    private static IEnumerable? GetTestData(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)] Type sourceType,
+        string memberName)
     {
         try
         {

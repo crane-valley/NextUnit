@@ -1,68 +1,90 @@
 {
-  "GeneratedAtUtc": "2026-07-21T13:21:16.3418007+00:00",
+  "GeneratedAtUtc": "2026-07-22T01:30:04.6902313+00:00",
   "OperatingSystem": "Microsoft Windows 10.0.26200",
   "Architecture": "X64",
   "Runtime": ".NET 10.0.10",
   "DotNetSdkVersion": "10.0.302",
   "Processor": "Intel64 Family 6 Model 191 Stepping 2, GenuineIntel",
-  "Rounds": 20,
+  "Rounds": 21,
   "ExpectedTestCount": 127,
-  "Methodology": "Cyclic round-robin; one untimed warm-up per framework; standalone MTP executables; stdout/stderr redirected; --no-progress --no-ansi; telemetry disabled; TUnit HTML report disabled.",
+  "Methodology": "Cyclic round-robin across five framework-dependent and two Native AOT executables; publish/build time excluded; one untimed warm-up per participant; stdout/stderr redirected; --no-progress --no-ansi; telemetry disabled; TUnit HTML report disabled.",
   "Summaries": [
+    {
+      "Framework": "NextUnit (AOT)",
+      "Version": "1.15.0",
+      "Runs": 21,
+      "MeanMilliseconds": 239.5420857142857,
+      "MedianMilliseconds": 223.3778,
+      "StandardDeviationMilliseconds": 51.193827257720095,
+      "MinimumMilliseconds": 199.2545,
+      "MaximumMilliseconds": 419.7718,
+      "RelativeToNextUnit": 0.5050225801893458
+    },
+    {
+      "Framework": "TUnit (AOT)",
+      "Version": "1.61.15",
+      "Runs": 21,
+      "MeanMilliseconds": 243.1783857142857,
+      "MedianMilliseconds": 226.2016,
+      "StandardDeviationMilliseconds": 46.14899973225082,
+      "MinimumMilliseconds": 194.8452,
+      "MaximumMilliseconds": 380.588,
+      "RelativeToNextUnit": 0.5114067542744101
+    },
     {
       "Framework": "NextUnit",
       "Version": "1.15.0",
-      "Runs": 20,
-      "MeanMilliseconds": 540.6734600000001,
-      "MedianMilliseconds": 528.6505500000001,
-      "StandardDeviationMilliseconds": 48.09856274484059,
-      "MinimumMilliseconds": 480.3969,
-      "MaximumMilliseconds": 661.6577,
+      "Runs": 21,
+      "MeanMilliseconds": 467.0271,
+      "MedianMilliseconds": 442.3125,
+      "StandardDeviationMilliseconds": 85.78520731193113,
+      "MinimumMilliseconds": 404.1081,
+      "MaximumMilliseconds": 750.6543,
       "RelativeToNextUnit": 1
     },
     {
       "Framework": "MSTest",
       "Version": "4.3.2",
-      "Runs": 20,
-      "MeanMilliseconds": 620.700755,
-      "MedianMilliseconds": 606.171,
-      "StandardDeviationMilliseconds": 48.139015102540334,
-      "MinimumMilliseconds": 577.5493,
-      "MaximumMilliseconds": 795.7168,
-      "RelativeToNextUnit": 1.1466383606335036
-    },
-    {
-      "Framework": "xUnit",
-      "Version": "3.2.2",
-      "Runs": 20,
-      "MeanMilliseconds": 687.2071050000001,
-      "MedianMilliseconds": 671.1831,
-      "StandardDeviationMilliseconds": 40.505083967356555,
-      "MinimumMilliseconds": 646.3454,
-      "MaximumMilliseconds": 788.5391,
-      "RelativeToNextUnit": 1.2696158171026208
-    },
-    {
-      "Framework": "NUnit",
-      "Version": "4.6.1",
-      "Runs": 20,
-      "MeanMilliseconds": 723.5544299999999,
-      "MedianMilliseconds": 714.76885,
-      "StandardDeviationMilliseconds": 52.42707891958225,
-      "MinimumMilliseconds": 665.9308,
-      "MaximumMilliseconds": 900.4615,
-      "RelativeToNextUnit": 1.3520630026772884
+      "Runs": 21,
+      "MeanMilliseconds": 555.5040142857143,
+      "MedianMilliseconds": 528.4273,
+      "StandardDeviationMilliseconds": 78.75799118929002,
+      "MinimumMilliseconds": 503.8341,
+      "MaximumMilliseconds": 802.5692,
+      "RelativeToNextUnit": 1.1946922142150627
     },
     {
       "Framework": "TUnit",
       "Version": "1.61.15",
-      "Runs": 20,
-      "MeanMilliseconds": 745.02593,
-      "MedianMilliseconds": 739.65755,
-      "StandardDeviationMilliseconds": 38.03227469073713,
-      "MinimumMilliseconds": 682.9909,
-      "MaximumMilliseconds": 814.1271,
-      "RelativeToNextUnit": 1.3991426850875308
+      "Runs": 21,
+      "MeanMilliseconds": 623.1968619047618,
+      "MedianMilliseconds": 580.5568,
+      "StandardDeviationMilliseconds": 125.70909295588557,
+      "MinimumMilliseconds": 525.5827,
+      "MaximumMilliseconds": 1035.131,
+      "RelativeToNextUnit": 1.3125489331637699
+    },
+    {
+      "Framework": "xUnit",
+      "Version": "3.2.2",
+      "Runs": 21,
+      "MeanMilliseconds": 635.5181476190476,
+      "MedianMilliseconds": 593.8598,
+      "StandardDeviationMilliseconds": 119.92306917305619,
+      "MinimumMilliseconds": 532.9016,
+      "MaximumMilliseconds": 1034.9444,
+      "RelativeToNextUnit": 1.342624954076586
+    },
+    {
+      "Framework": "NUnit",
+      "Version": "4.6.1",
+      "Runs": 21,
+      "MeanMilliseconds": 630.842442857143,
+      "MedianMilliseconds": 604.3309,
+      "StandardDeviationMilliseconds": 74.43956078599987,
+      "MinimumMilliseconds": 553.1128,
+      "MaximumMilliseconds": 856.4924,
+      "RelativeToNextUnit": 1.3662984880599125
     }
   ],
   "Measurements": [
@@ -70,601 +92,883 @@
       "Round": 1,
       "Position": 1,
       "Framework": "NextUnit",
-      "ElapsedMilliseconds": 609.3407
+      "ElapsedMilliseconds": 412.9154
     },
     {
       "Round": 1,
       "Position": 2,
       "Framework": "TUnit",
-      "ElapsedMilliseconds": 799.1218
+      "ElapsedMilliseconds": 546.6963
     },
     {
       "Round": 1,
       "Position": 3,
       "Framework": "NUnit",
-      "ElapsedMilliseconds": 676.86
+      "ElapsedMilliseconds": 580.9145
     },
     {
       "Round": 1,
       "Position": 4,
       "Framework": "MSTest",
-      "ElapsedMilliseconds": 591.0055
+      "ElapsedMilliseconds": 503.8341
     },
     {
       "Round": 1,
       "Position": 5,
       "Framework": "xUnit",
-      "ElapsedMilliseconds": 671.7767
+      "ElapsedMilliseconds": 566.5276
+    },
+    {
+      "Round": 1,
+      "Position": 6,
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 223.3778
+    },
+    {
+      "Round": 1,
+      "Position": 7,
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 198.1109
     },
     {
       "Round": 2,
       "Position": 1,
       "Framework": "TUnit",
-      "ElapsedMilliseconds": 722.3699
+      "ElapsedMilliseconds": 538.5108
     },
     {
       "Round": 2,
       "Position": 2,
       "Framework": "NUnit",
-      "ElapsedMilliseconds": 680.439
+      "ElapsedMilliseconds": 553.1128
     },
     {
       "Round": 2,
       "Position": 3,
       "Framework": "MSTest",
-      "ElapsedMilliseconds": 608.3872
+      "ElapsedMilliseconds": 504.9497
     },
     {
       "Round": 2,
       "Position": 4,
       "Framework": "xUnit",
-      "ElapsedMilliseconds": 721.6739
+      "ElapsedMilliseconds": 576.386
     },
     {
       "Round": 2,
       "Position": 5,
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 217.8177
+    },
+    {
+      "Round": 2,
+      "Position": 6,
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 224.4627
+    },
+    {
+      "Round": 2,
+      "Position": 7,
       "Framework": "NextUnit",
-      "ElapsedMilliseconds": 554.024
+      "ElapsedMilliseconds": 420.3235
     },
     {
       "Round": 3,
       "Position": 1,
       "Framework": "NUnit",
-      "ElapsedMilliseconds": 718.1421
+      "ElapsedMilliseconds": 581.7015
     },
     {
       "Round": 3,
       "Position": 2,
       "Framework": "MSTest",
-      "ElapsedMilliseconds": 577.5493
+      "ElapsedMilliseconds": 524.7336
     },
     {
       "Round": 3,
       "Position": 3,
       "Framework": "xUnit",
-      "ElapsedMilliseconds": 670.5895
+      "ElapsedMilliseconds": 563.1122
     },
     {
       "Round": 3,
       "Position": 4,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 507.9176
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 220.6332
     },
     {
       "Round": 3,
       "Position": 5,
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 202.7978
+    },
+    {
+      "Round": 3,
+      "Position": 6,
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 415.445
+    },
+    {
+      "Round": 3,
+      "Position": 7,
       "Framework": "TUnit",
-      "ElapsedMilliseconds": 811.2949
+      "ElapsedMilliseconds": 564.475
     },
     {
       "Round": 4,
       "Position": 1,
       "Framework": "MSTest",
-      "ElapsedMilliseconds": 795.7168
+      "ElapsedMilliseconds": 512.1746
     },
     {
       "Round": 4,
       "Position": 2,
       "Framework": "xUnit",
-      "ElapsedMilliseconds": 665.653
+      "ElapsedMilliseconds": 595.4945
     },
     {
       "Round": 4,
       "Position": 3,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 495.5455
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 202.2964
     },
     {
       "Round": 4,
       "Position": 4,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 708.0353
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 204.726
     },
     {
       "Round": 4,
       "Position": 5,
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 414.9167
+    },
+    {
+      "Round": 4,
+      "Position": 6,
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 589.8016
+    },
+    {
+      "Round": 4,
+      "Position": 7,
       "Framework": "NUnit",
-      "ElapsedMilliseconds": 673.7625
+      "ElapsedMilliseconds": 618.8721
     },
     {
       "Round": 5,
       "Position": 1,
       "Framework": "xUnit",
-      "ElapsedMilliseconds": 652.9548
+      "ElapsedMilliseconds": 590.1937
     },
     {
       "Round": 5,
       "Position": 2,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 550.7683
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 248.9386
     },
     {
       "Round": 5,
       "Position": 3,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 748.0133
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 213.2818
     },
     {
       "Round": 5,
       "Position": 4,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 665.9308
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 451.1203
     },
     {
       "Round": 5,
       "Position": 5,
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 565.9989
+    },
+    {
+      "Round": 5,
+      "Position": 6,
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 604.3309
+    },
+    {
+      "Round": 5,
+      "Position": 7,
       "Framework": "MSTest",
-      "ElapsedMilliseconds": 591.9155
+      "ElapsedMilliseconds": 523.3214
     },
     {
       "Round": 6,
       "Position": 1,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 489.7129
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 205.4115
     },
     {
       "Round": 6,
       "Position": 2,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 713.7894
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 224.7738
     },
     {
       "Round": 6,
       "Position": 3,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 706.0452
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 418.6547
     },
     {
       "Round": 6,
       "Position": 4,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 626.0776
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 616.9184
     },
     {
       "Round": 6,
       "Position": 5,
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 630.9145
+    },
+    {
+      "Round": 6,
+      "Position": 6,
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 555.1661
+    },
+    {
+      "Round": 6,
+      "Position": 7,
       "Framework": "xUnit",
-      "ElapsedMilliseconds": 649.312
+      "ElapsedMilliseconds": 726.9544
     },
     {
       "Round": 7,
       "Position": 1,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 745.7884
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 270.5158
     },
     {
       "Round": 7,
       "Position": 2,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 900.4615
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 461.3072
     },
     {
       "Round": 7,
       "Position": 3,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 632.6296
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 793.9889
     },
     {
       "Round": 7,
       "Position": 4,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 657.2554
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 759.8729
     },
     {
       "Round": 7,
       "Position": 5,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 532.4668
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 666.5842
+    },
+    {
+      "Round": 7,
+      "Position": 6,
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 797.4821
+    },
+    {
+      "Round": 7,
+      "Position": 7,
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 291.6901
     },
     {
       "Round": 8,
       "Position": 1,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 764.6207
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 615.571
     },
     {
       "Round": 8,
       "Position": 2,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 636.4542
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 868.3007
     },
     {
       "Round": 8,
       "Position": 3,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 722.8316
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 742.1272
     },
     {
       "Round": 8,
       "Position": 4,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 554.9037
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 537.3742
     },
     {
       "Round": 8,
       "Position": 5,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 726.9189
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 593.8598
+    },
+    {
+      "Round": 8,
+      "Position": 6,
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 286.7903
+    },
+    {
+      "Round": 8,
+      "Position": 7,
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 313.6524
     },
     {
       "Round": 9,
       "Position": 1,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 591.4978
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 625.5178
     },
     {
       "Round": 9,
       "Position": 2,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 705.9859
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 603.7532
     },
     {
       "Round": 9,
       "Position": 3,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 601.262
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 528.4273
     },
     {
       "Round": 9,
       "Position": 4,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 747.844
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 612.8965
     },
     {
       "Round": 9,
       "Position": 5,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 765.4652
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 225.13
+    },
+    {
+      "Round": 9,
+      "Position": 6,
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 256.7544
+    },
+    {
+      "Round": 9,
+      "Position": 7,
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 587.6238
     },
     {
       "Round": 10,
       "Position": 1,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 788.5391
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 856.4924
     },
     {
       "Round": 10,
       "Position": 2,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 602.5831
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 802.5692
     },
     {
       "Round": 10,
       "Position": 3,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 699.0046
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 1034.9444
     },
     {
       "Round": 10,
       "Position": 4,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 736.7395
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 419.7718
     },
     {
       "Round": 10,
       "Position": 5,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 580.1309
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 380.588
+    },
+    {
+      "Round": 10,
+      "Position": 6,
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 750.6543
+    },
+    {
+      "Round": 10,
+      "Position": 7,
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 1035.131
     },
     {
       "Round": 11,
       "Position": 1,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 505.3136
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 729.5681
     },
     {
       "Round": 11,
       "Position": 2,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 739.6352
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 607.9664
     },
     {
       "Round": 11,
       "Position": 3,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 720.7055
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 280.5016
     },
     {
       "Round": 11,
       "Position": 4,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 628.3493
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 321.8933
     },
     {
       "Round": 11,
       "Position": 5,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 684.9986
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 492.8193
+    },
+    {
+      "Round": 11,
+      "Position": 6,
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 653.3419
+    },
+    {
+      "Round": 11,
+      "Position": 7,
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 688.619
     },
     {
       "Round": 12,
       "Position": 1,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 739.6799
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 841.6462
     },
     {
       "Round": 12,
       "Position": 2,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 713.9708
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 280.8764
     },
     {
       "Round": 12,
       "Position": 3,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 627.1865
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 249.3127
     },
     {
       "Round": 12,
       "Position": 4,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 657.5917
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 479.4188
     },
     {
       "Round": 12,
       "Position": 5,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 513.9637
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 607.0812
+    },
+    {
+      "Round": 12,
+      "Position": 6,
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 633.8307
+    },
+    {
+      "Round": 12,
+      "Position": 7,
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 538.2616
     },
     {
       "Round": 13,
       "Position": 1,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 707.0944
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 232.5742
     },
     {
       "Round": 13,
       "Position": 2,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 584.8352
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 251.5239
     },
     {
       "Round": 13,
       "Position": 3,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 663.5481
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 467.1712
     },
     {
       "Round": 13,
       "Position": 4,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 513.2065
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 578.3808
     },
     {
       "Round": 13,
       "Position": 5,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 724.6368
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 596.9855
+    },
+    {
+      "Round": 13,
+      "Position": 6,
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 506.5408
+    },
+    {
+      "Round": 13,
+      "Position": 7,
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 578.9353
     },
     {
       "Round": 14,
       "Position": 1,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 639.0065
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 216.628
     },
     {
       "Round": 14,
       "Position": 2,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 646.3454
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 442.3125
     },
     {
       "Round": 14,
       "Position": 3,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 488.9838
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 585.2698
     },
     {
       "Round": 14,
       "Position": 4,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 705.7055
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 592.9166
     },
     {
       "Round": 14,
       "Position": 5,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 777.4193
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 530.8192
+    },
+    {
+      "Round": 14,
+      "Position": 6,
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 596.7455
+    },
+    {
+      "Round": 14,
+      "Position": 7,
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 208.746
     },
     {
       "Round": 15,
       "Position": 1,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 705.9413
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 411.4563
     },
     {
       "Round": 15,
       "Position": 2,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 661.6577
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 584.8344
     },
     {
       "Round": 15,
       "Position": 3,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 814.1271
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 606.3657
     },
     {
       "Round": 15,
       "Position": 4,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 704.6558
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 537.9876
     },
     {
       "Round": 15,
       "Position": 5,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 600.4786
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 613.8305
+    },
+    {
+      "Round": 15,
+      "Position": 6,
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 235.3068
+    },
+    {
+      "Round": 15,
+      "Position": 7,
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 231.9836
     },
     {
       "Round": 16,
       "Position": 1,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 534.7783
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 575.2568
     },
     {
       "Round": 16,
       "Position": 2,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 682.9909
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 566.2421
     },
     {
       "Round": 16,
       "Position": 3,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 672.9222
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 517.2136
     },
     {
       "Round": 16,
       "Position": 4,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 595.1276
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 580.8376
     },
     {
       "Round": 16,
       "Position": 5,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 779.8727
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 205.3322
+    },
+    {
+      "Round": 16,
+      "Position": 6,
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 247.0641
+    },
+    {
+      "Round": 16,
+      "Position": 7,
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 411.3126
     },
     {
       "Round": 17,
       "Position": 1,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 755.6078
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 647.317
     },
     {
       "Round": 17,
       "Position": 2,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 715.5669
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 556.5567
     },
     {
       "Round": 17,
       "Position": 3,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 589.0673
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 580.9573
     },
     {
       "Round": 17,
       "Position": 4,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 697.4218
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 233.78
     },
     {
       "Round": 17,
       "Position": 5,
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 241.958
+    },
+    {
+      "Round": 17,
+      "Position": 6,
       "Framework": "NextUnit",
-      "ElapsedMilliseconds": 480.3969
+      "ElapsedMilliseconds": 444.4467
+    },
+    {
+      "Round": 17,
+      "Position": 7,
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 580.5568
     },
     {
       "Round": 18,
       "Position": 1,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 703.5161
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 522.5807
     },
     {
       "Round": 18,
       "Position": 2,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 603.9548
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 613.5582
     },
     {
       "Round": 18,
       "Position": 3,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 678.4245
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 201.7738
     },
     {
       "Round": 18,
       "Position": 4,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 573.1055
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 221.8968
     },
     {
       "Round": 18,
       "Position": 5,
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 418.2226
+    },
+    {
+      "Round": 18,
+      "Position": 6,
       "Framework": "TUnit",
-      "ElapsedMilliseconds": 787.0868
+      "ElapsedMilliseconds": 543.8695
+    },
+    {
+      "Round": 18,
+      "Position": 7,
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 569.0787
     },
     {
       "Round": 19,
       "Position": 1,
-      "Framework": "MSTest",
-      "ElapsedMilliseconds": 659.4218
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 560.5329
     },
     {
       "Round": 19,
       "Position": 2,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 655.4329
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 201.4179
     },
     {
       "Round": 19,
       "Position": 3,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 524.8343
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 194.8452
     },
     {
       "Round": 19,
       "Position": 4,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 792.424
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 416.7359
     },
     {
       "Round": 19,
       "Position": 5,
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 525.5827
+    },
+    {
+      "Round": 19,
+      "Position": 6,
       "Framework": "NUnit",
-      "ElapsedMilliseconds": 721.4727
+      "ElapsedMilliseconds": 588.9341
+    },
+    {
+      "Round": 19,
+      "Position": 7,
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 504.5369
     },
     {
       "Round": 20,
       "Position": 1,
-      "Framework": "xUnit",
-      "ElapsedMilliseconds": 667.9932
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 208.963
     },
     {
       "Round": 20,
       "Position": 2,
-      "Framework": "NextUnit",
-      "ElapsedMilliseconds": 518.7043
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 226.2016
     },
     {
       "Round": 20,
       "Position": 3,
-      "Framework": "TUnit",
-      "ElapsedMilliseconds": 736.4441
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 471.0332
     },
     {
       "Round": 20,
       "Position": 4,
-      "Framework": "NUnit",
-      "ElapsedMilliseconds": 745.2984
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 537.0444
     },
     {
       "Round": 20,
       "Position": 5,
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 588.819
+    },
+    {
+      "Round": 20,
+      "Position": 6,
       "Framework": "MSTest",
-      "ElapsedMilliseconds": 655.2231
+      "ElapsedMilliseconds": 519.1752
+    },
+    {
+      "Round": 20,
+      "Position": 7,
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 532.9016
+    },
+    {
+      "Round": 21,
+      "Position": 1,
+      "Framework": "TUnit (AOT)",
+      "ElapsedMilliseconds": 213.7753
+    },
+    {
+      "Round": 21,
+      "Position": 2,
+      "Framework": "NextUnit",
+      "ElapsedMilliseconds": 404.1081
+    },
+    {
+      "Round": 21,
+      "Position": 3,
+      "Framework": "TUnit",
+      "ElapsedMilliseconds": 570.5764
+    },
+    {
+      "Round": 21,
+      "Position": 4,
+      "Framework": "NUnit",
+      "ElapsedMilliseconds": 636.4909
+    },
+    {
+      "Round": 21,
+      "Position": 5,
+      "Framework": "MSTest",
+      "ElapsedMilliseconds": 543.2095
+    },
+    {
+      "Round": 21,
+      "Position": 6,
+      "Framework": "xUnit",
+      "ElapsedMilliseconds": 580.1184
+    },
+    {
+      "Round": 21,
+      "Position": 7,
+      "Framework": "NextUnit (AOT)",
+      "ElapsedMilliseconds": 199.2545
     }
   ]
 }

@@ -405,15 +405,18 @@ Phase 2 (Completed - v1.14.0):
 ## Performance Benchmarks
 
 The current unified suite runs 127 tests with shared bodies through native MTP executables. A
-20-round cyclic comparison balances execution position across all five frameworks:
+21-round cyclic comparison balances execution position across five major frameworks and Native AOT
+variants of NextUnit and TUnit:
 
 | Framework | Version | Median | vs NextUnit |
 | --------- | ------- | -----: | ----------: |
-| NextUnit | current checkout (1.15.0) | 528.65ms | **Baseline** |
-| MSTest | 4.3.2 | 606.17ms | 1.15x |
-| xUnit | 3.2.2 | 671.18ms | 1.27x |
-| NUnit | 4.6.1 | 714.77ms | 1.35x |
-| TUnit | 1.61.15 | 739.66ms | 1.40x |
+| NextUnit (AOT) | current checkout (1.15.0) | 223.38ms | 0.51x |
+| TUnit (AOT) | 1.61.15 | 226.20ms | 0.51x |
+| NextUnit | current checkout (1.15.0) | 442.31ms | **Baseline** |
+| MSTest | 4.3.2 | 528.43ms | 1.19x |
+| TUnit | 1.61.15 | 580.56ms | 1.31x |
+| xUnit | 3.2.2 | 593.86ms | 1.34x |
+| NUnit | 4.6.1 | 604.33ms | 1.37x |
 
 **See**: [tools/speed-comparison/results/BENCHMARK_RESULTS.md](tools/speed-comparison/results/BENCHMARK_RESULTS.md)
 

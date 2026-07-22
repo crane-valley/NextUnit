@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `buildMultiTargeting` layout, with `build` and `buildTransitive` imports.
 - Keep `NextUnit.Platform` as a normal runtime dependency instead of marking it
   as development-only.
+- Register source-generated test metadata directly with the in-process host so
+  Native AOT test applications can discover and execute trimmed test suites.
 
 ## [1.15.0] - 2026-01-25
 

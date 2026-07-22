@@ -202,6 +202,7 @@ public sealed class TestCaseDescriptor
     /// <summary>
     /// Gets or initializes the type of the test class containing the test method.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)]
     public Type TestClass { get; init; } = typeof(object);
 
     /// <summary>
@@ -311,6 +312,7 @@ public sealed class TestCaseDescriptor
     /// <summary>
     /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
     public Type? DisplayNameFormatterType { get; init; }
 
     /// <summary>
@@ -379,6 +381,7 @@ public sealed class TestDataDescriptor
     /// <summary>
     /// Gets or initializes the type of the test class containing the test method.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)]
     public Type TestClass { get; init; } = typeof(object);
 
     /// <summary>
@@ -395,6 +398,7 @@ public sealed class TestDataDescriptor
     /// Gets or initializes the type that contains the data source member.
     /// If null, the test class itself is used.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)]
     public Type? DataSourceType { get; init; }
 
     /// <summary>
@@ -486,6 +490,7 @@ public sealed class TestDataDescriptor
     /// <summary>
     /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
     public Type? DisplayNameFormatterType { get; init; }
 
     /// <summary>
@@ -552,6 +557,7 @@ public sealed class ParameterDataSource
     /// Gets or initializes the type containing the member.
     /// Null if the test class should be used.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)]
     public Type? MemberType { get; init; }
 
     /// <summary>
@@ -596,6 +602,7 @@ public sealed class CombinedDataSourceDescriptor
     /// <summary>
     /// Gets or initializes the type of the test class containing the test method.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)]
     public Type TestClass { get; init; } = typeof(object);
 
     /// <summary>
@@ -693,6 +700,7 @@ public sealed class CombinedDataSourceDescriptor
     /// <summary>
     /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
     public Type? DisplayNameFormatterType { get; init; }
 
     /// <summary>
@@ -724,6 +732,7 @@ public sealed class ClassDataSourceDescriptor
     /// <summary>
     /// Gets or initializes the type of the test class containing the test method.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)]
     public Type TestClass { get; init; } = typeof(object);
 
     /// <summary>
@@ -735,7 +744,6 @@ public sealed class ClassDataSourceDescriptor
     /// Gets or initializes the types that provide the test data.
     /// Each type must implement <see cref="System.Collections.Generic.IEnumerable{T}"/> where T is object?[].
     /// </summary>
-    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
     public Type[] DataSourceTypes { get; init; } = [];
 
     /// <summary>
@@ -834,6 +842,7 @@ public sealed class ClassDataSourceDescriptor
     /// <summary>
     /// Gets or initializes the type that implements <see cref="IDisplayNameFormatter"/> for custom formatting.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
     public Type? DisplayNameFormatterType { get; init; }
 
     /// <summary>

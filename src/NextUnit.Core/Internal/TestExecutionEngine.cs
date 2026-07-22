@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using NextUnit.Core;
 
@@ -565,7 +566,10 @@ public sealed class TestExecutionEngine
     /// <param name="testOutput">The test output capture to inject into the constructor.</param>
     /// <param name="testContext">The test context capture to inject into the constructor.</param>
     /// <returns>A new instance of the test class.</returns>
-    private static object CreateTestInstance(Type testClass, ITestOutput testOutput, ITestContext testContext)
+    private static object CreateTestInstance(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type testClass,
+        ITestOutput testOutput,
+        ITestContext testContext)
     {
         // Find the best matching constructor in a single pass
         // Priority: 2-param > 1-param ITestContext > 1-param ITestOutput > parameterless

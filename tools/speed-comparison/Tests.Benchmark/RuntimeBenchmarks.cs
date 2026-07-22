@@ -13,13 +13,13 @@ public class RuntimeBenchmarks : BenchmarkBase
         "osx-x64", "osx-arm64"
     };
 
-    private string? _aotPath;
+    private string _nextUnitAotPath = "";
+    private string _tUnitAotPath = "";
     private string? _nextUnitPath;
     private string? _tUnitPath;
     private string? _nunitPath;
     private string? _msTestPath;
     private string? _xUnitPath;
-    private bool _aotBuildAttempted;
 
     [GlobalSetup]
     public async Task SetupAsync()
@@ -34,11 +34,10 @@ public class RuntimeBenchmarks : BenchmarkBase
         _msTestPath = GetExecutablePath("MSTEST", exeName);
         _xUnitPath = GetExecutablePath("XUNIT", exeName);
 
-        // AOT build (different path - in publish folder with RID)
         var aotExeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "UnifiedTests.exe" : "UnifiedTests";
         var rid = GetRuntimeIdentifier();
-        var aotPath = Path.Combine(UnifiedPath, "bin", "Release-NEXTUNIT", Framework, rid, "publish");
-        _aotPath = Path.Combine(aotPath, aotExeName);
+        _nextUnitAotPath = GetAotExecutablePath("NEXTUNIT", rid, aotExeName);
+        _tUnitAotPath = GetAotExecutablePath("TUNIT", rid, aotExeName);
 
         // Incremental builds prevent stale binaries from being measured after package or source changes.
         await BuildExecutableAsync("NEXTUNIT", _nextUnitPath);
@@ -53,23 +52,29 @@ public class RuntimeBenchmarks : BenchmarkBase
         await VerifyTestCountAsync("MSTest", _msTestPath);
         await VerifyTestCountAsync("xUnit", _xUnitPath);
 
-        // For AOT, only try to build it if AUTOBUILD_AOT environment variable is set
-        // This is because AOT builds can take 5-10 minutes
-        _aotBuildAttempted = false;
-        if (!File.Exists(_aotPath))
+        var autoBuildAot = string.Equals(
+            Environment.GetEnvironmentVariable("AUTOBUILD_AOT"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+        foreach (var (framework, displayName, executablePath) in new[]
         {
-            var autoBuildAot = Environment.GetEnvironmentVariable("AUTOBUILD_AOT");
-            if (!string.IsNullOrEmpty(autoBuildAot) && autoBuildAot.Equals("true", StringComparison.OrdinalIgnoreCase))
+            ("NEXTUNIT", "NextUnit (AOT)", _nextUnitAotPath),
+            ("TUNIT", "TUnit (AOT)", _tUnitAotPath)
+        })
+        {
+            if (!File.Exists(executablePath) && autoBuildAot)
             {
-                await TryBuildAotAsync();
+                await TryBuildAotAsync(framework, executablePath, rid);
             }
-            else
+
+            if (File.Exists(executablePath))
             {
-                Console.WriteLine($"AOT executable not found at {_aotPath}.");
-                Console.WriteLine("To build it automatically, set environment variable AUTOBUILD_AOT=true");
-                Console.WriteLine($"Or run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid}");
-                Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
+                await VerifyTestCountAsync(displayName, executablePath);
+                continue;
             }
+
+            Console.WriteLine($"{displayName} executable not found at {executablePath}.");
+            Console.WriteLine("Set AUTOBUILD_AOT=true or publish it with -p:Aot=true to include this benchmark.");
         }
     }
 
@@ -122,13 +127,26 @@ public class RuntimeBenchmarks : BenchmarkBase
 
     private string GetExecutablePath(string framework, string exeName)
     {
-        var binPath = Path.Combine(UnifiedPath, "bin", $"Release-{framework}", Framework);
-        // Validate exeName for safety: only allow base file names with alphanumeric, dot, underscore, and dash
-        if (exeName.IndexOfAny(Path.GetInvalidFileNameChars()) != -1 || exeName.Contains(Path.DirectorySeparatorChar) || exeName.Contains(Path.AltDirectorySeparatorChar))
+        ValidateExecutableName(exeName);
+        var binPath = Path.Join(UnifiedPath, "bin", $"Release-{framework}", Framework);
+        return Path.Join(binPath, exeName);
+    }
+
+    private static string GetAotExecutablePath(string framework, string rid, string exeName)
+    {
+        ValidateExecutableName(exeName);
+        var publishPath = Path.Join(UnifiedPath, "bin", $"Release-{framework}", Framework, rid, "publish");
+        return Path.Join(publishPath, exeName);
+    }
+
+    private static void ValidateExecutableName(string exeName)
+    {
+        if (exeName.IndexOfAny(Path.GetInvalidFileNameChars()) != -1 ||
+            exeName.Contains(Path.DirectorySeparatorChar) ||
+            exeName.Contains(Path.AltDirectorySeparatorChar))
         {
             throw new ArgumentException($"Invalid exeName value: '{exeName}'. Only a simple filename is allowed.");
         }
-        return Path.Combine(binPath, exeName);
     }
 
     private async Task BuildExecutableAsync(string framework, string executablePath)
@@ -155,25 +173,16 @@ public class RuntimeBenchmarks : BenchmarkBase
         }
     }
 
-    private async Task TryBuildAotAsync()
+    private static async Task TryBuildAotAsync(string framework, string executablePath, string rid)
     {
-        if (_aotBuildAttempted)
-        {
-            return;
-        }
-
-        _aotBuildAttempted = true;
-
-        var rid = GetRuntimeIdentifier();
-        Console.WriteLine("AOT executable not found. Building AOT version (this may take several minutes)...");
-        Console.WriteLine($"To build manually instead, run: dotnet publish UnifiedTests/UnifiedTests.csproj -c Release -p:TestFramework=NEXTUNIT -p:PublishAot=true -r {rid}");
+        Console.WriteLine($"Building {framework} Native AOT executable...");
 
         var exitCode = await RunDotNetAsync(
             "publish",
             "-c",
             "Release",
-            "-p:TestFramework=NEXTUNIT",
-            "-p:PublishAot=true",
+            $"-p:TestFramework={framework}",
+            "-p:Aot=true",
             "-r",
             rid,
             "--framework",
@@ -182,17 +191,11 @@ public class RuntimeBenchmarks : BenchmarkBase
             "quiet");
         if (exitCode != 0)
         {
-            Console.WriteLine($"Warning: AOT publish failed with exit code {exitCode}.");
-            Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
+            Console.WriteLine($"Warning: {framework} AOT publish failed with exit code {exitCode}.");
         }
-        else if (!File.Exists(_aotPath))
+        else if (!File.Exists(executablePath))
         {
-            Console.WriteLine($"Warning: AOT executable not found at {_aotPath} after publish.");
-            Console.WriteLine("NextUnit_AOT benchmark will be skipped.");
-        }
-        else
-        {
-            Console.WriteLine("AOT build completed successfully.");
+            Console.WriteLine($"Warning: {framework} AOT executable not found at {executablePath} after publish.");
         }
     }
 
@@ -271,16 +274,24 @@ public class RuntimeBenchmarks : BenchmarkBase
     [BenchmarkCategory("Runtime", "AOT")]
     public async Task NextUnitAOTAsync()
     {
-        if (!File.Exists(_aotPath))
+        if (!File.Exists(_nextUnitAotPath))
         {
-            // AOT executable doesn't exist - throw to exclude this benchmark from results
-            // This is better than returning early which would record an invalid (very fast) result
-            throw new InvalidOperationException($"AOT executable not found at {_aotPath}. Set AUTOBUILD_AOT=true or build manually to include this benchmark.");
+            throw new InvalidOperationException($"AOT executable not found at {_nextUnitAotPath}. Set AUTOBUILD_AOT=true or build manually to include this benchmark.");
         }
 
-        // NextUnit uses Microsoft.Testing.Platform which doesn't support --filter in the same way as Microsoft.NET.Test.Sdk
-        // Run all tests since filtering by class name is not directly supported
-        await RunTestProcessAsync(_aotPath);
+        await RunTestProcessAsync(_nextUnitAotPath);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory("Runtime", "AOT")]
+    public async Task TUnitAOTAsync()
+    {
+        if (!File.Exists(_tUnitAotPath))
+        {
+            throw new InvalidOperationException($"AOT executable not found at {_tUnitAotPath}. Set AUTOBUILD_AOT=true or build manually to include this benchmark.");
+        }
+
+        await RunTestProcessAsync(_tUnitAotPath);
     }
 
     [Benchmark(Baseline = true)]

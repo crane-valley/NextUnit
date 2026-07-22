@@ -8,19 +8,20 @@ hooks to each framework's native API.
 
 ```bash
 cd tools/speed-comparison
-dotnet run -c Release --project Tests.Benchmark -- --round-robin 20
+dotnet run -c Release --project Tests.Benchmark -- --round-robin 21
 ```
 
 Round-robin mode is the source of the table in `docs/PERFORMANCE.md`. It:
 
-1. Builds Release executables for all five frameworks.
-2. Verifies that every executable passes all 127 tests.
-3. Runs one excluded warm-up per framework.
-4. Rotates the execution order for 20 measured rounds, so every framework occupies every position
-   four times.
+1. Builds Release framework-dependent executables for all five frameworks and publishes matching
+   Native AOT executables for NextUnit and TUnit.
+2. Verifies that all seven executables pass all 127 tests.
+3. Runs one excluded warm-up per participant.
+4. Rotates the execution order for 21 measured rounds, so every participant occupies every position
+   three times.
 5. Writes a Markdown summary and raw per-round JSON data under `results/`.
 
-The round count must be a positive multiple of five. The default is 20.
+The round count must be a positive multiple of seven. The default is 21.
 
 ## BenchmarkDotNet diagnostics
 
@@ -39,8 +40,8 @@ The checked-in MediumRun job uses two launches, ten warm-ups per launch, and fif
 iterations per launch. Frameworks are benchmarked sequentially in this mode, so use round-robin mode
 for the published cross-framework ranking.
 
-Set `AUTOBUILD_AOT=true` to include the NextUnit Native AOT benchmark. AOT publication may take
-several minutes and is not included in the JIT comparison table.
+Set `AUTOBUILD_AOT=true` to include the NextUnit and TUnit Native AOT benchmarks in BenchmarkDotNet
+diagnostics. The published round-robin comparison always includes both AOT participants.
 
 ## Unified suite
 
@@ -61,7 +62,8 @@ scheduler. Those differences are part of the measured default integration.
 
 ## Runner normalization
 
-- All frameworks target .NET 10 and build as standalone Microsoft.Testing.Platform executables.
+- All participants target .NET 10 and run as standalone Microsoft.Testing.Platform executables.
+- NextUnit and TUnit are measured as both framework-dependent and same-RID Native AOT executables.
 - xUnit uses `xunit.v3.mtp-v2`; no compared framework uses the VSTest runner.
 - Every measured process receives `--no-progress --no-ansi` with stdout and stderr redirected.
 - Telemetry is disabled for all processes.

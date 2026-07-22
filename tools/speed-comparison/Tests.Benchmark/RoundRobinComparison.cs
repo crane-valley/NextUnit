@@ -9,24 +9,22 @@ namespace Tests.Benchmark;
 internal static class RoundRobinComparison
 {
     private const int ExpectedTestCount = 127;
-    private static readonly string[] _frameworkNames = ["NextUnit", "TUnit", "NUnit", "MSTest", "xUnit"];
 
     public static async Task RunAsync(int rounds)
     {
-        if (rounds <= 0 || rounds % _frameworkNames.Length != 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(rounds),
-                $"Rounds must be a positive multiple of {_frameworkNames.Length} so every framework occupies every run position equally.");
-        }
-
         var repositoryRoot = FindRepositoryRoot();
         var unifiedProject = Path.Join(repositoryRoot, "tools", "speed-comparison", "UnifiedTests", "UnifiedTests.csproj");
         var frameworks = LoadFrameworks(repositoryRoot, unifiedProject);
+        if (rounds <= 0 || rounds % frameworks.Count != 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(rounds),
+                $"Rounds must be a positive multiple of {frameworks.Count} so every participant occupies every run position equally.");
+        }
 
         foreach (var framework in frameworks)
         {
-            await BuildAsync(repositoryRoot, unifiedProject, framework.Id);
+            await BuildAsync(repositoryRoot, unifiedProject, framework);
         }
 
         foreach (var framework in frameworks)
@@ -65,7 +63,7 @@ internal static class RoundRobinComparison
             Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? RuntimeInformation.ProcessArchitecture.ToString(),
             rounds,
             ExpectedTestCount,
-            "Cyclic round-robin; one untimed warm-up per framework; standalone MTP executables; stdout/stderr redirected; --no-progress --no-ansi; telemetry disabled; TUnit HTML report disabled.",
+            "Cyclic round-robin across five framework-dependent and two Native AOT executables; publish/build time excluded; one untimed warm-up per participant; stdout/stderr redirected; --no-progress --no-ansi; telemetry disabled; TUnit HTML report disabled.",
             summaries,
             measurements);
 
@@ -85,14 +83,19 @@ internal static class RoundRobinComparison
         var projectContent = File.ReadAllText(unifiedProject);
         var nextUnitContent = File.ReadAllText(Path.Join(repositoryRoot, "Directory.Build.props"));
         var executableName = OperatingSystem.IsWindows() ? "UnifiedTests.exe" : "UnifiedTests";
+        var runtimeIdentifier = GetRuntimeIdentifier();
+        var nextUnitVersion = ReadProperty(nextUnitContent, "Version");
+        var tUnitVersion = ReadProperty(projectContent, "TUnitVersion");
 
         return
         [
-            CreateFramework("NEXTUNIT", "NextUnit", ReadProperty(nextUnitContent, "Version"), executableName, repositoryRoot),
-            CreateFramework("TUNIT", "TUnit", ReadProperty(projectContent, "TUnitVersion"), executableName, repositoryRoot),
+            CreateFramework("NEXTUNIT", "NextUnit", nextUnitVersion, executableName, repositoryRoot),
+            CreateFramework("TUNIT", "TUnit", tUnitVersion, executableName, repositoryRoot),
             CreateFramework("NUNIT", "NUnit", ReadProperty(projectContent, "NUnitVersion"), executableName, repositoryRoot),
             CreateFramework("MSTEST", "MSTest", ReadProperty(projectContent, "MSTestVersion"), executableName, repositoryRoot),
-            CreateFramework("XUNIT", "xUnit", ReadProperty(projectContent, "XUnitVersion"), executableName, repositoryRoot)
+            CreateFramework("XUNIT", "xUnit", ReadProperty(projectContent, "XUnitVersion"), executableName, repositoryRoot),
+            CreateFramework("NEXTUNIT", "NextUnit (AOT)", nextUnitVersion, executableName, repositoryRoot, runtimeIdentifier),
+            CreateFramework("TUNIT", "TUnit (AOT)", tUnitVersion, executableName, repositoryRoot, runtimeIdentifier)
         ];
     }
 
@@ -101,18 +104,42 @@ internal static class RoundRobinComparison
         string name,
         string version,
         string executableName,
-        string repositoryRoot)
+        string repositoryRoot,
+        string? runtimeIdentifier = null)
     {
-        var executablePath = Path.Join(
+        var outputDirectory = Path.Join(
             repositoryRoot,
             "tools",
             "speed-comparison",
             "UnifiedTests",
             "bin",
             $"Release-{id}",
-            "net10.0",
-            executableName);
-        return new Framework(id, name, version, executablePath);
+            "net10.0");
+        var executablePath = runtimeIdentifier is null
+            ? Path.Join(outputDirectory, executableName)
+            : Path.Join(outputDirectory, runtimeIdentifier, "publish", executableName);
+        return new Framework(id, name, version, executablePath, runtimeIdentifier);
+    }
+
+    private static string GetRuntimeIdentifier()
+    {
+        var os = OperatingSystem.IsWindows()
+            ? "win"
+            : OperatingSystem.IsLinux()
+                ? "linux"
+                : OperatingSystem.IsMacOS()
+                    ? "osx"
+                    : throw new PlatformNotSupportedException($"Native AOT is not configured for {RuntimeInformation.OSDescription}.");
+        var architecture = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => "x64",
+            Architecture.X86 when OperatingSystem.IsWindows() => "x86",
+            Architecture.Arm64 => "arm64",
+            Architecture.Arm when OperatingSystem.IsLinux() => "arm",
+            _ => throw new PlatformNotSupportedException(
+                $"Native AOT is not configured for {RuntimeInformation.ProcessArchitecture} on {RuntimeInformation.OSDescription}.")
+        };
+        return $"{os}-{architecture}";
     }
 
     private static string ReadProperty(string content, string propertyName)
@@ -123,20 +150,28 @@ internal static class RoundRobinComparison
             : throw new InvalidOperationException($"MSBuild property {propertyName} was not found.");
     }
 
-    private static async Task BuildAsync(string repositoryRoot, string projectPath, string framework)
+    private static async Task BuildAsync(string repositoryRoot, string projectPath, Framework framework)
     {
-        var output = await CaptureProcessOutputAsync(
-            repositoryRoot,
-            "dotnet",
-            "build",
+        var arguments = new List<string>
+        {
+            framework.IsAot ? "publish" : "build",
             projectPath,
             "--configuration",
             "Release",
-            $"-p:TestFramework={framework}",
+            $"-p:TestFramework={framework.Id}",
             "--framework",
             "net10.0",
             "--verbosity",
-            "quiet");
+            "quiet"
+        };
+        if (framework.RuntimeIdentifier is not null)
+        {
+            arguments.Add("-p:Aot=true");
+            arguments.Add("--runtime");
+            arguments.Add(framework.RuntimeIdentifier);
+        }
+
+        var output = await CaptureProcessOutputAsync(repositoryRoot, "dotnet", arguments.ToArray());
         Console.Write(output);
     }
 
@@ -232,7 +267,7 @@ internal static class RoundRobinComparison
         builder.AppendLine();
         builder.AppendLine($"Processor: {result.Processor}");
         builder.AppendLine();
-        builder.AppendLine($"Workload: {result.ExpectedTestCount} tests, {result.Rounds} measured runs per framework");
+        builder.AppendLine($"Workload: {result.ExpectedTestCount} tests, {result.Rounds} measured runs per participant");
         builder.AppendLine();
         builder.AppendLine("| Framework | Version | Runs | Mean | Median | StdDev | Min | Max | Median / NextUnit |");
         builder.AppendLine("| --------- | ------- | ---: | ---: | -----: | -----: | --: | --: | ----------------: |");
@@ -245,7 +280,8 @@ internal static class RoundRobinComparison
         builder.AppendLine();
         builder.AppendLine("Method:");
         builder.AppendLine();
-        builder.AppendLine("- Cyclic round-robin with one untimed warm-up per framework.");
+        builder.AppendLine("- Cyclic round-robin across five framework-dependent and two Native AOT executables, with one untimed warm-up per participant.");
+        builder.AppendLine("- Runtime samples exclude build and Native AOT publish time; both AOT executables target the host RID.");
         builder.AppendLine("- Standalone MTP executables with stdout and stderr redirected.");
         builder.AppendLine("- Common `--no-progress --no-ansi` arguments and telemetry disabled.");
         builder.AppendLine("- TUnit HTML report generation disabled.");
@@ -268,7 +304,15 @@ internal static class RoundRobinComparison
         throw new InvalidOperationException("Repository root was not found.");
     }
 
-    private sealed record Framework(string Id, string Name, string Version, string ExecutablePath);
+    private sealed record Framework(
+        string Id,
+        string Name,
+        string Version,
+        string ExecutablePath,
+        string? RuntimeIdentifier)
+    {
+        public bool IsAot => RuntimeIdentifier is not null;
+    }
     private sealed record Measurement(int Round, int Position, string Framework, double ElapsedMilliseconds);
     private sealed record FrameworkSummary(
         string Framework,
