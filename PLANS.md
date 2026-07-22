@@ -4,7 +4,7 @@
 
 **Current version**: 1.15.1 (stable)
 
-**Last audited**: 2026-07-23
+**Last audited**: 2026-07-23 (Asia/Tokyo, UTC+09:00)
 
 NextUnit is a .NET 10+ test framework built around compile-time discovery, generated delegates,
 Microsoft.Testing.Platform, Native AOT, classic assertions, and a one-package installation path.

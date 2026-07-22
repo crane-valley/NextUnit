@@ -1,6 +1,6 @@
 # NextUnit Development Plans Archive
 
-> Historical snapshot of the roadmap before the 2026-07-23 audit. Active work, current
+> Historical snapshot of the roadmap before the 2026-07-23 Asia/Tokyo audit. Active work, current
 > priorities, and surviving guardrails live in [PLANS.md](PLANS.md). This file is not an
 > implementation queue; unchecked boxes below record superseded or re-scoped candidates.
 
