@@ -128,14 +128,14 @@ public class RuntimeBenchmarks : BenchmarkBase
     private string GetExecutablePath(string framework, string exeName)
     {
         ValidateExecutableName(exeName);
-        var binPath = Path.Combine(UnifiedPath, "bin", $"Release-{framework}", Framework);
+        var binPath = Path.Join(UnifiedPath, "bin", $"Release-{framework}", Framework);
         return Path.Join(binPath, exeName);
     }
 
     private static string GetAotExecutablePath(string framework, string rid, string exeName)
     {
         ValidateExecutableName(exeName);
-        var publishPath = Path.Combine(UnifiedPath, "bin", $"Release-{framework}", Framework, rid, "publish");
+        var publishPath = Path.Join(UnifiedPath, "bin", $"Release-{framework}", Framework, rid, "publish");
         return Path.Join(publishPath, exeName);
     }
 
