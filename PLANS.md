@@ -1,465 +1,168 @@
-# NextUnit Development Roadmap
-
-## Current Version: 1.15.1 (Stable)
-
-NextUnit is a production-ready test framework for .NET 10+ with zero-reflection execution, rich assertions, and VSTest integration.
-
----
-
-## Completed Features
-
-| Version | Key Features |
-| ------- | ------------ |
-| 1.15.x | ASP.NET Core integration, Microsoft Testing Platform packaging fixes, Native AOT reliability |
-| 1.14.x | `[ExecutionPriority]` attribute, Roslyn Analyzers Phase 2 (NU0003, NU0005, NU0007, NU0008), Assembly/Session lifecycle bug fix |
-| 1.13.x | `[Explicit]` attribute: exclude tests from default runs, `--explicit` CLI flag |
-| 1.12.x | Test artifacts: `TestContext.AttachArtifact()`, internal refactoring (DisplayNameBuilder, TestMethodValidator) |
-| 1.11.x | Combined data sources: `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product |
-| 1.10.x | Class data sources: `[ClassDataSource<T>]` with shared instance support |
-| 1.8.x | Enhanced parallel control: constraint keys, `[ParallelGroup]`, `ProceedOnFailure` |
-| 1.7.x | `[DisplayName]` attribute, `[DisplayNameFormatter<T>]`, custom display name formatting |
-| 1.6.x | VSTest adapter, Visual Studio Test Explorer, rich failure messages, advanced CLI filtering, `[Timeout]` attribute |
-| 1.5.x | Predicate-based collection assertions, xUnit API compatibility |
-| 1.4.x | Performance benchmarks, BenchmarkDotNet integration |
-| 1.3.x | Test output capture (ITestOutput) |
-| 1.2.x | CLI arguments, session lifecycle |
-| 1.1.x | Category and tag filtering |
-| 1.0.x | Zero-reflection execution, multi-scope lifecycle, parallel control |
-
-**See**: [CHANGELOG.md](CHANGELOG.md) for complete version history.
-
----
+# NextUnit Development Plans
+
+## Current state
+
+**Current version**: 1.15.1 (stable)
+
+**Last audited**: 2026-07-23
+
+NextUnit is a .NET 10+ test framework built around compile-time discovery, generated delegates,
+Microsoft.Testing.Platform, Native AOT, classic assertions, and a one-package installation path.
+
+- Completed implementation history and retired candidates: [PLANS-archive.md](PLANS-archive.md)
+- Release history: [CHANGELOG.md](CHANGELOG.md)
+- Current benchmark methodology and competitor set: [docs/PERFORMANCE.md](docs/PERFORMANCE.md)
+
+## Product direction and guardrails
 
-## Upcoming Features
-
-### Priority 0: Internal Refactoring (v1.7.x - v1.12.x)
-
-**Status**: Completed
-**Goal**: Improve code quality, reduce duplication, and enhance maintainability
-
-#### 0.1 Critical: Code Duplication Elimination
-
-- [x] Extract `AssemblyLoader` utility (shared assembly loading with exception handling)
-  - Consolidated in: `NextUnit.Core/Internal/AssemblyLoader.cs`
-- [x] Extract `ExceptionHelper.IsCriticalException()` (shared exception classification)
-  - Consolidated in: `NextUnit.Core/Internal/ExceptionHelper.cs`
-- [x] Refactor `ExecuteSingleAsync` in TestExecutionEngine (reduce complexity)
-  - Already refactored into: `CheckSkipConditionsAsync`, `ExecuteWithRetryAsync`, `ExecuteSingleAttemptAsync`, `ReportFinalExceptionAsync`
-- [x] Extract `DisplayNameBuilder` (consolidate display name formatting) (v1.12.1)
-  - Removed ~300 lines of duplicate code from ClassDataSourceExpander, CombinedDataSourceExpander, TestDataExpander
-  - Unified `BuildDisplayName`, `FormatWithPlaceholders`, `FormatArgument`, `FormatBoolean` methods
-
-#### 0.2 High: Architecture Improvements
-
-- [x] Split `NextUnitGenerator.cs` into focused classes
-  - Models: `TestMethodDescriptor`, `LifecycleMethodDescriptor`, `TestDataSource`
-  - Helpers: `AttributeHelper` (attribute extraction)
-  - Formatters: `ArgumentFormatter`, `DisplayNameFormatter`
-  - Builders: `CodeBuilder` (delegates, literals)
-  - Emitters: `TestCaseEmitter` (test case/data descriptor emission)
-- [x] Extract `VSTestCaseFactory` (consolidate VSTest case creation)
-  - Consolidated from: TestDiscoverer, TestExecutor
-- [x] Centralize `TestFilter` logic
-  - `TestFilterConfiguration` already centralized in Platform for CLI filtering
-  - TestAdapter uses VSTest's built-in trait-based filtering (no duplication)
-- [x] Consolidate argument formatting methods in Generator (via `ArgumentFormatter`)
-- [x] Extract `TestMethodValidator` (split ValidateAndReportDiagnostics - 226 lines) (v1.12.1)
-  - ValidateDependencies, ValidateDataSourceConflicts, ValidateMatrixParameters
-  - ValidateClassDataSources, ValidateCombinedParameterSources
-
-#### 0.3 Medium: Code Quality
-
-- [x] Add Regex caching in `TestFilterConfiguration`
-  - Wildcard patterns compiled once on assignment, cached for reuse
-- [x] Extract `LifecycleScopeConstants` (replace magic numbers 0,1,2,3)
-  - Constants defined in Generator to mirror Core enum values
-- [x] Extract `DisposeHelper` for IDisposable/IAsyncDisposable pattern
-  - Consolidated 4 duplicated disposal patterns in `TestExecutionEngine`
-- [x] Extend `DisposeHelper` with `DisposeAllIn` and `DisposeIfNeeded` (v1.12.1)
-  - Removed duplicate implementations from ClassDataSourceExpander, CombinedDataSourceExpander
-- [x] Resolve TODO comments and unused fields
-  - M4 DI work left as planned future work
-  - Invalid regex warning comment updated
-
----
-
-### Priority 1: Core Enhancements
-
-#### 1.1 Runtime Test Skipping
-
-**Status**: Completed (v1.6.7)
-
-- [x] `Assert.Skip(reason)` - Skip test during execution with reason
-- [x] `Assert.SkipWhen(condition, reason)` - Conditional skip
-- [x] `Assert.SkipUnless(condition, reason)` - Inverse conditional skip
-- [x] Platform-specific skipping helpers
-- [x] `TestSkippedException` for runtime skip handling
-
-#### 1.2 Timeout Support
-
-**Status**: Completed (v1.6.8)
-
-- [x] `[Timeout(milliseconds)]` attribute per test
-- [x] Class-level timeout defaults (method-level overrides class-level)
-- [x] Graceful cancellation with cleanup via CancellationToken
-- [x] `TestTimeoutException` for clear timeout reporting
-
-#### 1.3 Test Context Injection
-
-**Status**: Completed (v1.6.9)
-
-- [x] `ITestContext` interface with test name, class, assembly info
-- [x] Static `TestContext.Current` for async-local access
-- [x] Inject via constructor alongside `ITestOutput`
-- [x] Access to test properties, categories, and tags at runtime
-- [x] Current test timeout and cancellation token
-- [x] `StateBag` for test-scoped data storage
-
-#### 1.4 Retry and Flaky Test Support
-
-**Status**: Completed (v1.6.9)
-
-- [x] `[Retry(count)]` attribute for automatic retry on failure
-- [x] `[Retry(count, delayMs)]` with configurable delay
-- [ ] Conditional retry via `ShouldRetry()` virtual method
-- [ ] Retry statistics in test reports
-- [x] `[Flaky]` attribute to mark known flaky tests
-
-#### 1.5 Display Name Customization
-
-**Status**: Completed (v1.7.0)
-
-- [x] `[DisplayName("Custom name")]` attribute
-- [x] `[DisplayNameFormatter<T>]` for custom formatting logic
-- [x] Support for parameterized test display names with `{0}`, `{1}` placeholders
-
-#### 1.6 Enhanced Parallel Control
-
-**Status**: Completed (v1.8.0)
-**Goal**: Fine-grained parallelism control
-
-- [x] `[NotInParallel("constraintKey")]` - Constraint-based resource locking
-- [x] Multiple constraint keys: `[NotInParallel("Database", "FileSystem")]`
-- [x] `[ParallelGroup("groupName")]` - Exclusive group execution
-- [x] `[DependsOn(..., ProceedOnFailure = true)]` - Continue despite failures
-
-### Priority 2: Advanced Data Sources
-
-#### 2.1 Matrix Data Source
-
-**Status**: Completed (v1.8.2)
-**Goal**: Cartesian product of test parameters
-
-- [x] `[Matrix(1, 2, 3)]` attribute for parameter values
-- [x] Automatic Cartesian product generation across parameters
-- [x] `[MatrixExclusion(1, "a")]` to skip specific combinations
-- [ ] `[MatrixSourceMethod(nameof(Method))]` for dynamic values
-- [ ] `[MatrixSourceRange(1, 10, step: 2)]` for numeric ranges
-
-#### 2.2 Class Data Source
-
-**Status**: Completed (v1.10.0)
-**Goal**: Type-safe class-based test data
-
-- [x] `[ClassDataSource<T>]` for single type
-- [x] `[ClassDataSource<T1, T2>]` through `[ClassDataSource<T1, T2, T3, T4>]`
-- [x] Shared/keyed instance support (SharedType: None, Keyed, PerClass, PerAssembly, PerSession)
-- [x] AOT-compatible implementation
-
-#### 2.3 Combined Data Sources
-
-**Status**: Completed (v1.11.0)
-**Goal**: Mix different data sources per parameter
-
-- [x] `[Values]` attribute for inline values per parameter
-- [x] `[ValuesFromMember]` for values from static member
-- [x] `[ValuesFrom<T>]` for values from class data source
-- [x] Automatic Cartesian product of all parameter values
-- [x] Shared instance support for class data sources
-
-### Priority 3: Developer Experience
-
-#### 3.1 Roslyn Analyzers
-
-**Status**: Phase 2 Completed (v1.14.0)
-**Goal**: Catch common mistakes at compile time
-
-Phase 1 (Completed - v1.8.2):
-
-- [x] `NU0001`: Async void test methods (Warning) + Code Fix
-- [x] `NU0002`: Test methods must be public (Error) + Code Fix
-- [x] `NU0004`: Arguments count mismatch with parameters (Error)
-- [x] `NU0006`: Timeout value must be positive (Error)
-
-Phase 2 (Completed - v1.14.0):
-
-- [x] `NU0003`: TestData/ValuesFromMember references non-existent member (Error)
-- [x] `NU0005`: Lifecycle methods ([Before]/[After]) with unhandled throws (Info)
-- [x] `NU0007`: DependsOn references non-existent test (Warning)
-- [x] `NU0008`: MatrixExclusion value count mismatch (Error)
-
-#### 3.2 Test Repeat Support
-
-**Status**: Completed (v1.8.1)
-**Goal**: Run tests multiple times
-
-- [x] `[Repeat(count)]` attribute
-- [x] Repeat index available via `TestContext`
-- [ ] Aggregate results across repeats
-
-#### 3.3 Test Execution Priority
-
-**Status**: Completed (v1.14.0)
-**Goal**: Control test execution order
-
-- [x] `[ExecutionPriority(int)]` attribute
-- [x] Higher priority runs first
-- [x] Combine with `[DependsOn]` for complex ordering
-
-#### 3.4 Explicit Tests
-
-**Status**: Completed (v1.13.0)
-**Goal**: Tests only run when explicitly selected
-
-- [x] `[Explicit]` attribute to exclude from default runs
-- [x] `[Explicit("reason")]` with explanation
-- [x] Run with `--explicit` CLI flag
-- [x] VSTest adapter: explicit tests filtered by default, selectable in Test Explorer
-
-#### 3.5 Test Artifacts
-
-**Status**: Completed (v1.12.0)
-**Goal**: Attach files to test results
-
-- [x] `TestContext.AttachArtifact(path)` method
-- [x] `TestContext.AttachArtifact(Artifact)` with metadata
-- [x] Support for screenshots, logs, videos
-- [x] Display in Test Explorer
-
-#### 3.6 Watch Mode
-
-**Status**: Not Started
-**Goal**: Automatically re-run tests on file changes
-
-- [ ] `--watch` CLI flag for continuous test execution
-- [ ] Smart test selection (run affected tests only)
-- [ ] File change debouncing
-- [ ] Interactive filter during watch mode
-
-### Priority 4: Ecosystem Integration
-
-#### 4.1 ASP.NET Core Integration Package
-
-**Status**: Completed (v1.15.0)
-**Goal**: First-class web application testing
-
-- [x] `NextUnit.AspNetCore` NuGet package
-- [x] `WebApplicationTest<TEntryPoint>` base class with lazy initialization
-- [x] Auto-configured `HttpClient` via `Client` property
-- [x] Service resolution via `GetRequiredService<T>()`, `GetService<T>()`, `CreateScope()`
-- [x] `TestWebApplicationFactory<TEntryPoint>` with fluent configuration
-- [x] `ServiceCollectionExtensions` for easy service mocking (`RemoveAll<T>`, `Replace<T>`)
-- [x] Sample project: `samples/WebApi.Sample.Tests`
-
-#### 4.2 Playwright Integration Package
-
-**Status**: Not Started
-**Goal**: Browser testing support
-
-- [ ] `NextUnit.Playwright` NuGet package
-- [ ] `BrowserTest`, `ContextTest`, `PageTest` base classes
-- [ ] Browser lifecycle management
-- [ ] Screenshot capture on failure
-- [ ] Trace recording
-
-#### 4.3 Project Templates
-
-**Status**: Not Started
-**Goal**: Quick project scaffolding
-
-- [ ] `NextUnit.Templates` NuGet package
-- [ ] `dotnet new nextunit` - Basic test project
-- [ ] `dotnet new nextunit-aspnet` - ASP.NET Core testing
-- [ ] `dotnet new nextunit-playwright` - Browser testing
-
-#### 4.4 .NET Aspire Testing Support
-
-**Status**: Not Started
-**Goal**: Distributed app testing
-
-- [ ] Aspire AppHost integration
-- [ ] Service dependency management
-- [ ] Distributed tracing in test results
-- [ ] Resource cleanup coordination
-
-### Priority 5: Documentation & Community
-
-#### 5.1 Migration Guides
-
-**Status**: Partial
-**Goal**: Easy migration from other frameworks
-
-- [x] Migration from xUnit
-- [ ] Migration from NUnit
-- [ ] Migration from MSTest
-- [ ] Automated migration tool (Roslyn-based)
-
-#### 5.2 Sample Projects
-
-**Status**: Partial
-**Goal**: Real-world usage examples
-
-- [x] Class library testing
-- [x] Console app testing
-- [x] ASP.NET Core API testing (`samples/WebApi.Sample.Tests`)
-- [ ] Blazor component testing
-- [ ] Minimal API testing
-- [ ] gRPC service testing
-
-#### 5.3 Documentation Site
-
-**Status**: Not Started
-**Goal**: Comprehensive documentation
-
-- [ ] Docusaurus or similar static site
-- [ ] API reference (auto-generated)
-- [ ] Interactive examples
-- [ ] Search functionality
-
-### Priority 6: CI/CD Infrastructure
-
-#### 6.1 Enhanced Benchmark Workflow
-
-**Status**: Partial
-**Goal**: Comprehensive performance tracking
-
-- [x] Weekly benchmark workflow
-- [ ] Daily benchmark execution
-- [ ] Historical trend tracking (`historical.json`)
-- [ ] AOT build benchmarks
-- [ ] Automatic documentation generation from results
-- [ ] Benchmark results in PR comments
-
-#### 6.2 Security Scanning
-
-**Status**: Not Started
-**Goal**: Automated security analysis
-
-- [ ] CodeQL workflow for security scanning
-- [ ] Dependency vulnerability scanning
-- [ ] SBOM generation
-
-#### 6.3 Multi-Locale Testing
-
-**Status**: Not Started
-**Goal**: Ensure locale-independent behavior
-
-- [ ] Test execution with different locales
-- [ ] `[Culture("ja-JP")]` attribute for locale-specific tests
-- [ ] `[InvariantCulture]` for locale-independent tests
-
----
-
-## Implementation Timeline
-
-### Q1 2026 (Current)
-
-1. ~~Runtime test skipping~~ - **Completed** (v1.6.7)
-2. ~~Timeout support~~ - **Completed** (v1.6.8)
-3. ~~Test Context Injection~~ - **Completed** (v1.6.9)
-4. ~~Retry support~~ - **Completed** (v1.6.9)
-5. ~~Display name customization~~ - **Completed** (v1.7.0)
-6. ~~Internal Refactoring~~ - **Completed** (v1.7.x - v1.12.x)
-   - DisplayNameBuilder, TestMethodValidator, DisposeHelper extensions
-
-### Q2 2026
-
-1. ~~Enhanced parallel control~~ - **Completed** (v1.8.0)
-2. ~~Test repeat support~~ - **Completed** (v1.8.1)
-3. ~~Matrix data sources~~ - **Completed** (v1.8.2)
-4. ~~Basic Roslyn analyzers~~ - **Phase 1 Completed** (v1.8.2)
-
-### Q3 2026
-
-1. ~~Class data sources~~ - **Completed** (v1.10.0)
-2. ~~Combined data sources~~ - **Completed** (v1.11.0)
-3. ~~Test artifacts~~ - **Completed** (v1.12.0)
-4. ~~Explicit tests~~ - **Completed** (v1.13.0)
-5. ~~ASP.NET Core integration package~~ - **Completed** (v1.15.0)
-
-### Q4 2026
-
-1. ~~Roslyn Analyzers Phase 2~~ - **Completed** (v1.14.0)
-2. Playwright integration
-3. Project templates
-4. Documentation site
-
-### 2027
-
-1. .NET Aspire integration
-2. Watch mode
-3. Property-based testing (FsCheck integration)
-4. Complete feature set
-
----
-
-## Performance Benchmarks
-
-The current unified suite runs 127 tests with shared bodies through native MTP executables. A
-21-round cyclic comparison balances execution position across five major frameworks and Native AOT
-variants of NextUnit and TUnit:
-
-| Framework | Version | Median | vs NextUnit |
-| --------- | ------- | -----: | ----------: |
-| NextUnit (AOT) | current checkout (1.15.0) | 223.38ms | 0.51x |
-| TUnit (AOT) | 1.61.15 | 226.20ms | 0.51x |
-| NextUnit | current checkout (1.15.0) | 442.31ms | **Baseline** |
-| MSTest | 4.3.2 | 528.43ms | 1.19x |
-| TUnit | 1.61.15 | 580.56ms | 1.31x |
-| xUnit | 3.2.2 | 593.86ms | 1.34x |
-| NUnit | 4.6.1 | 604.33ms | 1.37x |
-
-**See**: [tools/speed-comparison/results/BENCHMARK_RESULTS.md](tools/speed-comparison/results/BENCHMARK_RESULTS.md)
-
----
-
-## Contributing
-
-We welcome contributions! Priority areas:
-
-### Good First Issues
-
-- Documentation improvements
-- Sample projects
-- Migration guides (NUnit, MSTest)
-
-### Medium Complexity
-
-- Basic analyzers (Phase 2)
-- Test execution priority
-- Watch mode
-
-### Advanced
-
-- Matrix data sources
-- Roslyn analyzers with code fixers
-- ASP.NET Core integration
-- Playwright integration
-
-**See**: [README.md#contributing](README.md#contributing)
-
----
-
-## Resources
-
-- [ASP.NET Core Testing](docs/ASPNETCORE_TESTING.md)
-- [Best Practices](docs/BEST_PRACTICES.md)
-- [CI/CD Integration](docs/CI_CD_INTEGRATION.md)
-- [Getting Started](docs/GETTING_STARTED.md)
-- [Migration from xUnit](docs/MIGRATION_FROM_XUNIT.md)
-- [Performance Analysis](docs/PERFORMANCE.md)
-
----
-
-**Last Updated**: 2026-01-25
-**Next Focus**: Priority 4.2 - Playwright Integration
+- Prioritize reproducible runtime and Native AOT performance plus frictionless one-package adoption.
+  Competitor feature parity is not a goal.
+- Add a core feature only when it removes recurring test-code workarounds, improves deterministic
+  execution or diagnosis, or materially lowers adoption friction.
+- Preserve source-generated discovery, trimming and Native AOT compatibility. Every new public
+  feature needs generator/analyzer coverage and both framework-dependent and AOT validation.
+- Prefer interoperability with Microsoft.Testing.Platform and general-purpose .NET libraries over
+  framework-owned integrations. Add an integration package only after concrete demand proves that
+  lifecycle hooks, artifacts, and ordinary package composition are insufficient.
+- Keep benchmark numbers in `docs/PERFORMANCE.md` and generated benchmark artifacts, not here.
+
+## Active roadmap
+
+### Priority 0 — Data-driven test usability
+
+The compared frameworks expose richer dynamic data without requiring users to give up filtering,
+diagnostics, or AOT. NextUnit already has inline, member, class, matrix, and combined data sources;
+the missing work is metadata and scalable asynchronous enumeration.
+
+#### Typed per-row metadata
+
+- [ ] Add a typed data-row representation usable by `TestData` and class data sources.
+- [ ] Support per-row display name, categories, tags, and skip reason without changing the test
+  method signature.
+- [ ] Preserve row identity and metadata in Microsoft.Testing.Platform and the VSTest adapter so
+  IDE selection and filtering behave consistently.
+- [ ] Diagnose incompatible row value types and invalid metadata at build time where the source is
+  statically knowable.
+- [ ] Cover ordinary JIT, trimming, and Native AOT package-consumer paths.
+
+#### Async and deferred data sources
+
+- [ ] Accept cancellation-aware `IAsyncEnumerable<T>` member data and task/value-task-wrapped
+  member collections without runtime reflection in the AOT path.
+- [ ] Add explicit deferred enumeration for very large data sets so discovery can expose one
+  placeholder and enumerate rows only during execution.
+- [ ] Document the selection/filtering tradeoff of deferred rows and keep eager enumeration as the
+  default.
+- [ ] Benchmark discovery and execution with a 10,000-row source to prevent the feature from
+  regressing startup or allocating an unbounded intermediate list.
+
+### Priority 0 — One-command project creation
+
+The .NET SDK ships MSTest, NUnit, and xUnit project templates, and TUnit publishes its own template.
+NextUnit's package is now self-contained, but users still have to create and edit a project by hand.
+
+- [ ] Publish a small `NextUnit.Templates` package with one C# `dotnet new nextunit` project
+  template.
+- [ ] Generate the minimal Microsoft.Testing.Platform project using only the `NextUnit` package and
+  one passing example test.
+- [ ] Verify install, creation, restore, build, discovery, execution, and uninstall from a clean
+  NuGet cache in CI.
+- Guardrail: do not add separate ASP.NET Core, Playwright, or Aspire templates until repeated user demand
+  shows that the base template plus normal package references is insufficient.
+
+### Priority 1 — Selective retry and retry observability
+
+The existing `[Retry]` retries every non-timeout, non-skip failure. TUnit and current NUnit allow
+retry decisions based on the exception, while MSTest exposes the current run count.
+
+- [ ] Provide an extensible, async retry decision API with the exception, test context, and current
+  attempt; keep today's retry-all behavior as the compatibility default.
+- [ ] Expose the one-based retry attempt in `ITestContext` and include total attempts in the final
+  failure output/result metadata.
+- [ ] Prove cleanup, output, artifacts, cancellation, and `StateBag` semantics across attempts.
+- Guardrail: avoid a separate statistics store; reporting should flow through existing test results and
+  Microsoft.Testing.Platform.
+
+### Priority 1 — Deterministic culture isolation
+
+- [ ] Add assembly-, class-, and method-level culture control for current culture and UI culture,
+  including an invariant-culture shorthand.
+- [ ] Restore the original culture after pass, failure, timeout, and cancellation, and prevent
+  culture-changing tests from contaminating concurrently running tests.
+- [ ] Add representative `en-US`, `ja-JP`, and invariant test runs for formatting, parsing, display
+  names, and assertion messages.
+
+### Priority 1 — Performance regression detection
+
+Weekly and pull-request round-robin comparisons already measure framework-dependent and Native AOT
+executables and publish Markdown/JSON artifacts. The missing capability is a durable, noise-aware
+decision rather than more schedules or report formats.
+
+- [ ] Store a rolling history with runner, SDK, runtime, framework versions, commit, and raw samples.
+- [ ] Compare like-for-like baselines and fail only on a repeated, statistically meaningful
+  regression; never gate on one noisy median.
+- Guardrail: keep the existing weekly schedule and path-filtered pull-request run. Do not add a second daily
+  comparison workflow.
+
+### Priority 2 — Adoption documentation
+
+- [ ] Add concise NUnit-to-NextUnit and MSTest-to-NextUnit migration guides covering project setup,
+  lifecycle, data sources, filtering, assertions, and deliberate non-equivalents.
+- [ ] Link the guides from the README and NuGet README and compile every code sample in CI.
+- Guardrail: defer an automated Roslyn migration tool until issues or real migrations demonstrate repeated
+  mechanical work that documentation cannot solve.
+
+### Priority 2 — Make dependency findings actionable
+
+- [ ] Replace the non-blocking vulnerability scan with a check that fails for a newly introduced
+  known vulnerable direct or transitive package.
+- [ ] Support a narrow, reviewed, expiring allowlist for upstream vulnerabilities that cannot be
+  removed immediately.
+- Guardrail: keep Dependabot as the update mechanism; CodeQL and SBOM generation remain demand-triggered,
+  not standing roadmap work.
+
+## Explicitly not planned
+
+These items were considered during the 2026-07-23 audit and are intentionally absent from the
+active queue:
+
+- Framework-owned watch mode; use `dotnet watch`, IDE support, or platform tooling.
+- Dedicated `MatrixSourceMethod` or `MatrixSourceRange`; `ValuesFromMember` already accepts static
+  fields, properties, and methods, including methods that return numeric ranges.
+- Aggregate repeat results; each repeat remains an individually diagnosable test case.
+- First-party mocking, property-based testing, or snapshot testing libraries; use focused ecosystem
+  packages unless an interoperability defect requires framework work.
+- First-party Playwright, Aspire, Blazor, Minimal API, or gRPC packages/samples without concrete
+  demand that existing lifecycle, artifact, and ASP.NET Core support cannot satisfy.
+- A standalone documentation site, daily cross-framework benchmarks, a general CodeQL initiative,
+  or SBOM generation without a scale, threat, or distribution requirement.
+- A promise to reach a "complete feature set" relative to TUnit, xUnit, NUnit, or MSTest.
+
+Reconsider a deferred item when an open issue or repeated user request identifies a real workflow,
+when package-consumer validation exposes integration friction, or when benchmark evidence shows a
+measurable performance or reliability cost.
+
+## Completed summary
+
+| Version | Shipped capability |
+| ------- | ------------------ |
+| 1.15.x | ASP.NET Core integration, reliable one-package Microsoft.Testing.Platform setup, Native AOT assertion/package validation |
+| 1.14.x | Execution priority and analyzer phase 2 |
+| 1.12.x–1.13.x | Artifacts, explicit tests, and major generator/runtime refactoring |
+| 1.10.x–1.11.x | Class and combined data sources with shared instances |
+| 1.6.x–1.8.x | Runtime skip, timeout, context, retry, repeat, display names, matrix data, analyzers, and parallel constraints |
+| 1.0.x–1.5.x | Generated execution, lifecycle scopes, filtering, output, assertions, VSTest integration, and benchmark harness |
+
+Full detail remains in [PLANS-archive.md](PLANS-archive.md) and [CHANGELOG.md](CHANGELOG.md).
+
+## Audit sources
+
+The competitor set comes from [docs/PERFORMANCE.md](docs/PERFORMANCE.md). The 2026-07-23 audit used
+the official documentation for [TUnit data sources](https://tunit.dev/docs/writing-tests/method-data-source/),
+[TUnit row metadata](https://tunit.dev/docs/writing-tests/test-data-row/),
+[TUnit deferred enumeration](https://tunit.dev/docs/writing-tests/defer-enumeration/),
+[TUnit retry](https://tunit.dev/docs/execution/retrying/),
+[xUnit v3 features](https://xunit.net/docs/getting-started/v3/whats-new),
+[NUnit attributes](https://docs.nunit.org/articles/nunit/writing-tests/attributes.html),
+[MSTest test context](https://learn.microsoft.com/dotnet/core/testing/unit-testing-mstest-writing-tests-testcontext),
+and the [.NET SDK project templates](https://learn.microsoft.com/dotnet/core/tools/dotnet-new-sdk-templates).
