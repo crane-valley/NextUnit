@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-07-22
+
 ### Fixed
 
 - Package the Microsoft Testing Platform builder hook through the canonical
@@ -15,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as development-only.
 - Register source-generated test metadata directly with the in-process host so
   Native AOT test applications can discover and execute trimmed test suites.
+- Format complex-object assertion failures without reflection under Native AOT
+  while preserving rich property output for normal JIT execution.
+- Publish and verify all six packages, including the first NuGet.org publication
+  of `NextUnit.AspNetCore`, from an explicitly selected and tested solution.
 
 ## [1.15.0] - 2026-01-25
 
@@ -1073,6 +1079,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.15.1 | 2026-07-22 | 683 | MTP package integration, Native AOT fixes, complete six-package release | Released |
 | 1.15.0 | 2026-01-25 | 395+ | ASP.NET Core Integration | Released |
 | 1.14.0 | 2026-01-25 | 380+ | ExecutionPriority, Roslyn Analyzers Phase 2 | Released |
 | 1.13.0 | 2026-01-24 | 375+ | Explicit Tests | Released |
