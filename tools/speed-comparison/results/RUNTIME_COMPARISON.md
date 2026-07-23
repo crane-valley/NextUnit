@@ -1,24 +1,24 @@
 # Round-robin runtime comparison
 
-Generated: 2026-07-22 01:30:04 UTC
+Generated: 2026-07-23 12:43:45 UTC
 
-Environment: Microsoft Windows 10.0.26200 (X64)
+Environment: Ubuntu 24.04.4 LTS (X64)
 
 .NET SDK / Runtime: 10.0.302 / .NET 10.0.10
 
-Processor: Intel64 Family 6 Model 191 Stepping 2, GenuineIntel
+Processor: X64
 
 Workload: 127 tests, 21 measured runs per participant
 
 | Framework | Version | Runs | Mean | Median | StdDev | Min | Max | Median / NextUnit |
 | --------- | ------- | ---: | ---: | -----: | -----: | --: | --: | ----------------: |
-| NextUnit (AOT) | 1.15.0 | 21 | 239.54ms | 223.38ms | 51.19ms | 199.25ms | 419.77ms | 0.51x |
-| TUnit (AOT) | 1.61.15 | 21 | 243.18ms | 226.20ms | 46.15ms | 194.85ms | 380.59ms | 0.51x |
-| NextUnit | 1.15.0 | 21 | 467.03ms | 442.31ms | 85.79ms | 404.11ms | 750.65ms | 1.00x |
-| MSTest | 4.3.2 | 21 | 555.50ms | 528.43ms | 78.76ms | 503.83ms | 802.57ms | 1.19x |
-| TUnit | 1.61.15 | 21 | 623.20ms | 580.56ms | 125.71ms | 525.58ms | 1035.13ms | 1.31x |
-| xUnit | 3.2.2 | 21 | 635.52ms | 593.86ms | 119.92ms | 532.90ms | 1034.94ms | 1.34x |
-| NUnit | 4.6.1 | 21 | 630.84ms | 604.33ms | 74.44ms | 553.11ms | 856.49ms | 1.37x |
+| NextUnit (AOT) | 1.15.1 | 21 | 21.89ms | 21.51ms | 0.77ms | 21.08ms | 24.19ms | 0.07x |
+| TUnit (AOT) | 1.61.15 | 21 | 27.54ms | 27.45ms | 0.81ms | 26.21ms | 29.17ms | 0.09x |
+| NextUnit | 1.15.1 | 21 | 310.43ms | 311.43ms | 4.19ms | 299.05ms | 317.01ms | 1.00x |
+| MSTest | 4.3.2 | 21 | 439.89ms | 438.73ms | 8.34ms | 428.03ms | 468.41ms | 1.41x |
+| NUnit | 4.6.1 | 21 | 513.87ms | 512.90ms | 4.74ms | 506.20ms | 522.76ms | 1.65x |
+| xUnit | 3.2.2 | 21 | 550.79ms | 551.40ms | 8.22ms | 536.36ms | 565.35ms | 1.77x |
+| TUnit | 1.61.15 | 21 | 555.09ms | 555.00ms | 3.41ms | 548.33ms | 561.28ms | 1.78x |
 
 Method:
 
