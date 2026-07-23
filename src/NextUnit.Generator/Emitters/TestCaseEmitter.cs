@@ -47,14 +47,15 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DisplayName = {AttributeHelper.ToLiteral(displayName)},");
         builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
         builder.AppendLine($"                MethodName = {AttributeHelper.ToLiteral(test.MethodName)},");
+        builder.AppendLine($"                TestClassFactory = {BuildTestClassFactory(test, lifecycleMethods)},");
 
         if (arguments.HasValue)
         {
-            builder.AppendLine($"                TestMethod = {CodeBuilder.BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, arguments.Value, test.IsStatic)},");
+            builder.AppendLine($"                TestMethod = {CodeBuilder.BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, arguments.Value, test.IsStatic, test.ReturnsVoid, test.AcceptsCancellationToken)},");
         }
         else
         {
-            builder.AppendLine($"                TestMethod = {CodeBuilder.BuildTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.IsStatic)},");
+            builder.AppendLine($"                TestMethod = {CodeBuilder.BuildTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.IsStatic, test.ReturnsVoid, test.AcceptsCancellationToken)},");
         }
 
         builder.AppendLine($"                Lifecycle = {CodeBuilder.BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
@@ -128,7 +129,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DisplayName = {AttributeHelper.ToLiteral(displayName)},");
         builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
         builder.AppendLine($"                MethodName = {AttributeHelper.ToLiteral(test.MethodName)},");
-        builder.AppendLine($"                TestMethod = {CodeBuilder.BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, combination, test.IsStatic)},");
+        builder.AppendLine($"                TestClassFactory = {BuildTestClassFactory(test, lifecycleMethods)},");
+        builder.AppendLine($"                TestMethod = {CodeBuilder.BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, combination, test.IsStatic, test.ReturnsVoid, test.AcceptsCancellationToken)},");
         builder.AppendLine($"                Lifecycle = {CodeBuilder.BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
         builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
         builder.AppendLine("                {");
@@ -180,8 +182,11 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DisplayName = {AttributeHelper.ToLiteral(test.DisplayName)},");
         builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
         builder.AppendLine($"                MethodName = {AttributeHelper.ToLiteral(test.MethodName)},");
+        builder.AppendLine($"                TestClassFactory = {BuildTestClassFactory(test, lifecycleMethods)},");
+        builder.AppendLine($"                TestMethodWithArguments = {CodeBuilder.BuildRuntimeParameterizedTestMethodDelegate(test)},");
         builder.AppendLine($"                DataSourceName = {AttributeHelper.ToLiteral(dataSource.MemberName)},");
         builder.AppendLine($"                DataSourceType = typeof({dataSourceType}),");
+        builder.AppendLine($"                DataSourceProvider = {CodeBuilder.BuildDataSourceProvider(dataSourceType, dataSource.MemberName, dataSource.MemberKind)},");
         builder.AppendLine($"                ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
         builder.AppendLine($"                Lifecycle = {CodeBuilder.BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
         builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
@@ -227,6 +232,8 @@ internal static class TestCaseEmitter
         // Build the DataSourceTypes array literal
         var typesList = string.Join(", ", classDataSources.Select(s => $"typeof({s.TypeName})"));
         var dataSourceTypesLiteral = $"new global::System.Type[] {{ {typesList} }}";
+        var factoriesList = string.Join(", ", classDataSources.Select(s => CodeBuilder.BuildDataSourceFactory(s.TypeName)));
+        var dataSourceFactoriesLiteral = $"new global::NextUnit.Internal.DataSourceProviderDelegate[] {{ {factoriesList} }}";
 
         // Use the first data source's shared type and key (all should be the same from one attribute)
         var firstSource = classDataSources[0];
@@ -246,7 +253,10 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DisplayName = {AttributeHelper.ToLiteral(test.DisplayName)},");
         builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
         builder.AppendLine($"                MethodName = {AttributeHelper.ToLiteral(test.MethodName)},");
+        builder.AppendLine($"                TestClassFactory = {BuildTestClassFactory(test, lifecycleMethods)},");
+        builder.AppendLine($"                TestMethodWithArguments = {CodeBuilder.BuildRuntimeParameterizedTestMethodDelegate(test)},");
         builder.AppendLine($"                DataSourceTypes = {dataSourceTypesLiteral},");
+        builder.AppendLine($"                DataSourceFactories = {dataSourceFactoriesLiteral},");
         builder.AppendLine($"                SharedType = {sharedTypeLiteral},");
         builder.AppendLine($"                SharedKey = {(firstSource.Key is not null ? AttributeHelper.ToLiteral(firstSource.Key) : "null")},");
         builder.AppendLine($"                ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
@@ -296,6 +306,8 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                DisplayName = {AttributeHelper.ToLiteral(test.DisplayName)},");
         builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
         builder.AppendLine($"                MethodName = {AttributeHelper.ToLiteral(test.MethodName)},");
+        builder.AppendLine($"                TestClassFactory = {BuildTestClassFactory(test, lifecycleMethods)},");
+        builder.AppendLine($"                TestMethodWithArguments = {CodeBuilder.BuildRuntimeParameterizedTestMethodDelegate(test)},");
         builder.AppendLine($"                ParameterSources = {BuildParameterSourcesLiteral(test)},");
         builder.AppendLine($"                ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
         builder.AppendLine($"                Lifecycle = {CodeBuilder.BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
@@ -355,6 +367,24 @@ internal static class TestCaseEmitter
         return sb.ToString();
     }
 
+    private static string BuildTestClassFactory(
+        TestMethodDescriptor test,
+        List<LifecycleMethodDescriptor> lifecycleMethods)
+    {
+        var requiresInstance = !test.IsStatic ||
+            lifecycleMethods.Any(static lifecycle =>
+                !lifecycle.IsStatic &&
+                (lifecycle.BeforeScopes.Contains(LifecycleScopeConstants.Test) ||
+                 lifecycle.AfterScopes.Contains(LifecycleScopeConstants.Test) ||
+                 lifecycle.BeforeScopes.Contains(LifecycleScopeConstants.Class) ||
+                 lifecycle.AfterScopes.Contains(LifecycleScopeConstants.Class)));
+
+        return CodeBuilder.BuildTestClassFactory(
+            test.FullyQualifiedTypeName,
+            test.ConstructorKind,
+            requiresInstance);
+    }
+
     private static string BuildParameterSourceLiteral(ParameterDataSourceDescriptor source, string testClassName)
     {
         var sb = new StringBuilder();
@@ -369,7 +399,9 @@ internal static class TestCaseEmitter
                 sb.Append($"InlineValues = {ArgumentFormatter.BuildArgumentsLiteral(source.InlineValues)}, ");
                 sb.Append("MemberName = null, ");
                 sb.Append("MemberType = null, ");
+                sb.Append("MemberProvider = null, ");
                 sb.Append("ClassDataSourceType = null, ");
+                sb.Append("ClassDataSourceFactory = null, ");
                 sb.Append("SharedType = global::NextUnit.SharedType.None, ");
                 sb.Append("SharedKey = null");
                 break;
@@ -379,7 +411,9 @@ internal static class TestCaseEmitter
                 sb.Append($"MemberName = {AttributeHelper.ToLiteral(source.MemberName!)}, ");
                 var memberType = source.MemberTypeName ?? testClassName;
                 sb.Append($"MemberType = typeof({memberType}), ");
+                sb.Append($"MemberProvider = {CodeBuilder.BuildDataSourceProvider(memberType, source.MemberName!, source.MemberKind)}, ");
                 sb.Append("ClassDataSourceType = null, ");
+                sb.Append("ClassDataSourceFactory = null, ");
                 sb.Append("SharedType = global::NextUnit.SharedType.None, ");
                 sb.Append("SharedKey = null");
                 break;
@@ -388,7 +422,9 @@ internal static class TestCaseEmitter
                 sb.Append("InlineValues = null, ");
                 sb.Append("MemberName = null, ");
                 sb.Append("MemberType = null, ");
+                sb.Append("MemberProvider = null, ");
                 sb.Append($"ClassDataSourceType = typeof({source.ClassTypeName}), ");
+                sb.Append($"ClassDataSourceFactory = {CodeBuilder.BuildDataSourceFactory(source.ClassTypeName!)}, ");
                 var sharedTypeLiteral = source.SharedType switch
                 {
                     SharedTypeConstants.None => "global::NextUnit.SharedType.None",

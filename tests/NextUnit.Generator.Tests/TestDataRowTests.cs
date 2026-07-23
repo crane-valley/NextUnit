@@ -23,6 +23,19 @@ public sealed class TestDataRowTests
     }
 
     [Fact]
+    public async Task TestDataExpander_ManualDescriptor_CreatesReflectionFallbackAsync()
+    {
+        var testCase = Assert.Single(TestDataExpander.ExpandSingle(CreateTestDataDescriptor()));
+
+        Xunit.Assert.NotNull(testCase.TestMethodWithArguments);
+        var invoker = testCase.TestMethodWithArguments!;
+        await invoker(
+            new Target(),
+            testCase.Arguments!,
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public void ClassDataSourceExpander_TypedTupleRow_PreservesArgumentsAndMetadata()
     {
         var descriptor = new ClassDataSourceDescriptor

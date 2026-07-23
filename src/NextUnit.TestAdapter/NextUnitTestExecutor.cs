@@ -153,6 +153,9 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         // Collect all test cases
         var allTestCases = new List<TestCaseDescriptor>();
+        var selectedDescriptorIds = testIdsToRun is null
+            ? null
+            : BuildSelectedDescriptorIds(testIdsToRun);
 
         // Get static TestCases
         var testCases = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestCaseDescriptor>>(registryType, "TestCases");
@@ -169,8 +172,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             IEnumerable<TestDataDescriptor> descriptorsToExpand = testDataDescriptors;
             if (testIdsToRun is not null)
             {
-                descriptorsToExpand = testDataDescriptors.Where(d =>
-                    testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
+                descriptorsToExpand = testDataDescriptors.Where(d => selectedDescriptorIds!.Contains(d.BaseId));
             }
             else
             {
@@ -190,8 +192,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             IEnumerable<ClassDataSourceDescriptor> descriptorsToExpand = classDataSourceDescriptors;
             if (testIdsToRun is not null)
             {
-                descriptorsToExpand = classDataSourceDescriptors.Where(d =>
-                    testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
+                descriptorsToExpand = classDataSourceDescriptors.Where(d => selectedDescriptorIds!.Contains(d.BaseId));
             }
             else
             {
@@ -211,8 +212,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             IEnumerable<CombinedDataSourceDescriptor> descriptorsToExpand = combinedDataSourceDescriptors;
             if (testIdsToRun is not null)
             {
-                descriptorsToExpand = combinedDataSourceDescriptors.Where(d =>
-                    testIdsToRun.Any(id => id.StartsWith(d.BaseId, StringComparison.Ordinal)));
+                descriptorsToExpand = combinedDataSourceDescriptors.Where(d => selectedDescriptorIds!.Contains(d.BaseId));
             }
             else
             {
@@ -250,6 +250,24 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         // Run tests synchronously (VSTest expects this)
         engine.RunAsync(allTestCases, sink, cancellationToken).GetAwaiter().GetResult();
+    }
+
+    internal static HashSet<string> BuildSelectedDescriptorIds(IEnumerable<string> selectedTestIds)
+    {
+        var descriptorIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var testId in selectedTestIds)
+        {
+            descriptorIds.Add(testId);
+
+            var separatorIndex = testId.IndexOf(':', StringComparison.Ordinal);
+            if (separatorIndex > 0)
+            {
+                descriptorIds.Add(testId.Substring(0, separatorIndex));
+            }
+        }
+
+        return descriptorIds;
     }
 
     private sealed class VSTestResultSink : ITestExecutionSink

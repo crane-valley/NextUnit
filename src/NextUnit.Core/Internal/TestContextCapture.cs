@@ -8,8 +8,8 @@ namespace NextUnit.Internal;
 /// </summary>
 internal sealed class TestContextCapture : ITestContext
 {
-    private readonly Dictionary<string, object?> _stateBag = new();
-    private readonly List<Artifact> _artifacts = new();
+    private Dictionary<string, object?>? _stateBag;
+    private List<Artifact>? _artifacts;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TestContextCapture"/> class.
@@ -85,10 +85,11 @@ internal sealed class TestContextCapture : ITestContext
     public ITestOutput Output { get; }
 
     /// <inheritdoc/>
-    public IDictionary<string, object?> StateBag => _stateBag;
+    public IDictionary<string, object?> StateBag => _stateBag ??= new Dictionary<string, object?>();
 
     /// <inheritdoc/>
-    public IReadOnlyList<Artifact> Artifacts => _artifacts;
+    public IReadOnlyList<Artifact> Artifacts =>
+        _artifacts is null ? Array.Empty<Artifact>() : _artifacts;
 
     /// <inheritdoc/>
     public void AttachArtifact(string filePath, string? description = null)
@@ -104,7 +105,7 @@ internal sealed class TestContextCapture : ITestContext
             throw new FileNotFoundException("Artifact file not found", artifact.FilePath);
         }
 
-        _artifacts.Add(new Artifact
+        (_artifacts ??= new List<Artifact>()).Add(new Artifact
         {
             FilePath = Path.GetFullPath(artifact.FilePath),
             Description = artifact.Description,
