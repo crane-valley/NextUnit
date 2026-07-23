@@ -122,7 +122,8 @@ public void Add_TypedRows(int a, int b, int expected)
 
 `TestDataRow<T>` works with both `[TestData]` members and `[ClassDataSource<T>]` enumerables.
 Method- and class-level categories or tags are combined with row metadata. A row display name and
-skip reason apply only to that generated test case.
+skip reason apply only to that generated test case. Tuple values expand across parameters; other
+values, including `null` and collections, remain a single argument.
 
 ## Running Tests
 
