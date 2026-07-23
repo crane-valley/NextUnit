@@ -88,6 +88,32 @@ public class ParameterizedTests
     }
 
     /// <summary>
+    /// Data rows with test-case-specific metadata.
+    /// </summary>
+    public static IEnumerable<TestDataRow<(int A, int B, int Expected)>> AdditionRows()
+    {
+        yield return new TestDataRow<(int A, int B, int Expected)>(
+            (2, 4, 6),
+            displayName: "adds positive row values",
+            categories: ["DataRow"],
+            tags: ["AOT"]);
+        yield return new TestDataRow<(int A, int B, int Expected)>(
+            (-3, 1, -2),
+            displayName: "adds mixed-sign row values",
+            categories: ["DataRow"]);
+    }
+
+    /// <summary>
+    /// Test using typed row data and row-level metadata.
+    /// </summary>
+    [Test]
+    [TestData(nameof(AdditionRows))]
+    public void Add_TypedDataRow_ReturnsCorrectSum(int a, int b, int expected)
+    {
+        Assert.Equal(expected, a + b);
+    }
+
+    /// <summary>
     /// Test using [TestData] with MemberType to specify an external data source.
     /// </summary>
     [Test]

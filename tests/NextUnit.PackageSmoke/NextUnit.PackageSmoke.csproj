@@ -2,6 +2,10 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <IsAotCompatible>true</IsAotCompatible>
+    <PublishAot Condition="'$(PublishAotPackageSmoke)' == 'true'">true</PublishAot>
+    <SelfContained Condition="'$(PublishAotPackageSmoke)' == 'true'">true</SelfContained>
+    <DefineConstants Condition="'$(UseLocalNextUnitPackage)' == 'true'">$(DefineConstants);NEXTUNIT_LOCAL_PACKAGE</DefineConstants>
     <NextUnitPackageSmokeVersion Condition="'$(UseLocalNextUnitPackage)' == 'true'">$(NextUnitVersion)</NextUnitPackageSmokeVersion>
     <NextUnitPackageSmokeVersion Condition="'$(NextUnitPackageSmokeVersion)' == ''">1.13.0</NextUnitPackageSmokeVersion>
   </PropertyGroup>

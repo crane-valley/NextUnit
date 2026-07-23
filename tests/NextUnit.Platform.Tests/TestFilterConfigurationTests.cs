@@ -6,6 +6,28 @@ namespace NextUnit.Platform.Tests;
 public class TestFilterConfigurationTests
 {
     [Test]
+    public void RequiresDynamicExpansion_IncludeFilter_ReturnsTrue()
+    {
+        var config = new TestFilterConfiguration
+        {
+            IncludeCategories = ["RowOnly"]
+        };
+
+        Assert.True(config.RequiresDynamicExpansion);
+    }
+
+    [Test]
+    public void RequiresDynamicExpansion_ExcludeFilterOnly_ReturnsFalse()
+    {
+        var config = new TestFilterConfiguration
+        {
+            ExcludeCategories = ["Method"]
+        };
+
+        Assert.False(config.RequiresDynamicExpansion);
+    }
+
+    [Test]
     public void ShouldIncludeTest_NoFilters_ReturnsTrue()
     {
         // Arrange

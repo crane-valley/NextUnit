@@ -36,14 +36,14 @@ the missing work is metadata and scalable asynchronous enumeration.
 
 #### Typed per-row metadata
 
-- [ ] Add a typed data-row representation usable by `TestData` and class data sources.
-- [ ] Support per-row display name, categories, tags, and skip reason without changing the test
+- [x] Add a typed data-row representation usable by `TestData` and class data sources.
+- [x] Support per-row display name, categories, tags, and skip reason without changing the test
   method signature.
-- [ ] Preserve row identity and metadata in Microsoft.Testing.Platform and the VSTest adapter so
+- [x] Preserve row identity and metadata in Microsoft.Testing.Platform and the VSTest adapter so
   IDE selection and filtering behave consistently.
-- [ ] Diagnose incompatible row value types and invalid metadata at build time where the source is
+- [x] Diagnose incompatible row value types and invalid metadata at build time where the source is
   statically knowable.
-- [ ] Cover ordinary JIT, trimming, and Native AOT package-consumer paths.
+- [x] Cover ordinary JIT, trimming, and Native AOT package-consumer paths.
 
 #### Async and deferred data sources
 

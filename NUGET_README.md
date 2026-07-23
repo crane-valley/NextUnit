@@ -93,6 +93,7 @@ Microsoft.Testing.Platform in the repository's `global.json`:
 - **Combined data sources** - `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product
 - **Matrix data source** - `[Matrix]` for Cartesian product test generation
 - **Class data source** - `[ClassDataSource<T>]` with shared instance support
+- **Typed data rows** - Per-row display names, categories, tags, and skip reasons
 - **Explicit tests** - `[Explicit]` to exclude from default runs
 - **Roslyn analyzers** - Compile-time validation of test code
 - **Multi-scope lifecycle** - Test, Class, Assembly scopes

@@ -34,6 +34,7 @@
     <Project Path="tests/NextUnit.Analyzers.Tests/NextUnit.Analyzers.Tests.csproj" />
     <Project Path="tests/NextUnit.Generator.Tests/NextUnit.Generator.Tests.csproj" />
     <Project Path="tests/NextUnit.Platform.Tests/NextUnit.Platform.Tests.csproj" />
+    <Project Path="tests/NextUnit.TestAdapter.Tests/NextUnit.TestAdapter.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/" />
   <Folder Name="/tools/speed-comparison/">

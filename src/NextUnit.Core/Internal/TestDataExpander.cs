@@ -46,8 +46,8 @@ public static class TestDataExpander
         var index = 0;
         foreach (var dataRow in data)
         {
-            var arguments = ConvertToObjectArray(dataRow);
-            var testCase = CreateTestCase(descriptor, arguments, index);
+            var row = TestDataRowResolver.Resolve(dataRow);
+            var testCase = CreateTestCase(descriptor, row, index);
             yield return testCase;
             index++;
         }
@@ -107,32 +107,21 @@ public static class TestDataExpander
         }
     }
 
-    private static object?[] ConvertToObjectArray(object? dataRow)
-    {
-        return dataRow switch
-        {
-            null => [],
-            object?[] array => array,
-            IEnumerable enumerable => enumerable.Cast<object?>().ToArray(),
-            _ => [dataRow]
-        };
-    }
-
     private static TestCaseDescriptor CreateTestCase(
         TestDataDescriptor descriptor,
-        object?[] arguments,
+        ResolvedTestDataRow row,
         int index)
     {
         // Include data source type and name in test ID to ensure uniqueness
         // This handles cases where multiple [TestData] attributes point to identically named members on different classes
         var dataSourceType = descriptor.DataSourceType ?? descriptor.TestClass;
         var testId = $"{descriptor.BaseId}:{dataSourceType.FullName}.{descriptor.DataSourceName}[{index}]";
-        var displayName = DisplayNameBuilder.Build(
+        var displayName = row.DisplayName ?? DisplayNameBuilder.Build(
             descriptor.MethodName,
             descriptor.CustomDisplayNameTemplate,
             descriptor.DisplayNameFormatterType,
             descriptor.TestClass,
-            arguments,
+            row.Arguments,
             index);
 
         // Get the test method via reflection for creating the delegate
@@ -148,7 +137,7 @@ public static class TestDataExpander
 
         if (methodInfo is not null)
         {
-            testMethod = CreateTestMethodDelegate(methodInfo, arguments);
+            testMethod = CreateTestMethodDelegate(methodInfo, row.Arguments);
         }
 
         return new TestCaseDescriptor
@@ -162,13 +151,13 @@ public static class TestDataExpander
             Parallel = descriptor.Parallel,
             Dependencies = descriptor.Dependencies,
             DependencyInfos = descriptor.DependencyInfos,
-            IsSkipped = descriptor.IsSkipped,
-            SkipReason = descriptor.SkipReason,
+            IsSkipped = descriptor.IsSkipped || row.SkipReason is not null,
+            SkipReason = descriptor.SkipReason ?? row.SkipReason,
             IsExplicit = descriptor.IsExplicit,
             ExplicitReason = descriptor.ExplicitReason,
-            Arguments = arguments,
-            Categories = descriptor.Categories,
-            Tags = descriptor.Tags,
+            Arguments = row.Arguments,
+            Categories = TestDataRowResolver.MergeLabels(descriptor.Categories, row.Categories),
+            Tags = TestDataRowResolver.MergeLabels(descriptor.Tags, row.Tags),
             RequiresTestOutput = descriptor.RequiresTestOutput,
             RequiresTestContext = descriptor.RequiresTestContext,
             TimeoutMs = descriptor.TimeoutMs,

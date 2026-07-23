@@ -92,6 +92,38 @@ public class CalculatorTests
 }
 ```
 
+### Typed Data Rows
+
+Use `TestDataRow<T>` when individual rows need their own display name, filtering metadata, or skip
+reason. Tuple data is expanded across the test method parameters without changing the method
+signature:
+
+```csharp
+public static IEnumerable<TestDataRow<(int A, int B, int Expected)>> AdditionRows()
+{
+    yield return new(
+        (2, 3, 5),
+        displayName: "adds positive values",
+        categories: ["Arithmetic"],
+        tags: ["Smoke"]);
+    yield return new(
+        (1, -1, 0),
+        displayName: "adds mixed-sign values",
+        skipReason: "Tracked issue");
+}
+
+[Test]
+[TestData(nameof(AdditionRows))]
+public void Add_TypedRows(int a, int b, int expected)
+{
+    Assert.Equal(expected, a + b);
+}
+```
+
+`TestDataRow<T>` works with both `[TestData]` members and `[ClassDataSource<T>]` enumerables.
+Method- and class-level categories or tags are combined with row metadata. A row display name and
+skip reason apply only to that generated test case.
+
 ## Running Tests
 
 ### Command Line
