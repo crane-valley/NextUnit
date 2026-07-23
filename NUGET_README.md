@@ -117,6 +117,7 @@ Microsoft.Testing.Platform in the repository's `global.json`:
 - **[Getting Started Guide](https://github.com/crane-valley/NextUnit/blob/main/docs/GETTING_STARTED.md)**
 - **[Migration from xUnit](https://github.com/crane-valley/NextUnit/blob/main/docs/MIGRATION_FROM_XUNIT.md)**
 - **[Best Practices](https://github.com/crane-valley/NextUnit/blob/main/docs/BEST_PRACTICES.md)**
+- **[Performance methodology and results](https://github.com/crane-valley/NextUnit/blob/main/docs/PERFORMANCE.md)**
 - **[Full Documentation](https://github.com/crane-valley/NextUnit)**
 
 ## What's Different from xUnit?

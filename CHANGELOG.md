@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add typed `TestDataRow<T>` metadata for `[TestData]` and class data sources, including per-row
+  display names, categories, tags, and skip reasons across Microsoft.Testing.Platform and VSTest.
+- Diagnose statically knowable row-shape and metadata errors at build time.
+
+### Changed
+
+- Generate direct test invokers, constructor factories, and data-source accessors so generated
+  execution avoids runtime reflection.
+- Batch scheduler work without repeatedly copying the remaining tests, and allocate execution
+  context and output storage only when needed.
+- Cache analyzer and VSTest lookup data, and replace synthetic benchmarks with engine, scheduler,
+  and complete sample-suite measurements up to 10,000 tests.
+
 ## [1.15.1] - 2026-07-22
 
 ### Fixed
