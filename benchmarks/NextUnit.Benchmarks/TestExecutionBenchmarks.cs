@@ -1,58 +1,71 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
 using NextUnit.Core;
+using NextUnit.Internal;
 
 namespace NextUnit.Benchmarks;
 
-/// <summary>
-/// Benchmarks for test discovery and execution performance
-/// </summary>
 [SimpleJob(RunStrategy.Monitoring, iterationCount: 10)]
 [MemoryDiagnoser]
 public class TestExecutionBenchmarks
 {
-    private readonly Consumer _consumer = new();
+    private static readonly ITestExecutionSink _sink = new NullSink();
+    private TestCaseDescriptor[] _tests = [];
 
-    [Benchmark(Description = "Execute 1000 simple tests")]
-    public async Task Execute1000TestsAsync()
+    [Params(100, 1_000, 10_000)]
+    public int TestCount { get; set; }
+
+    [GlobalSetup]
+    public void Setup()
     {
-        // Simulate running the large test suite
-        // In practice, this would launch the test executable, but for benchmark purposes
-        // we'll measure the overhead of test registration and basic execution
-
-        var tasks = new List<Task>();
-        for (int i = 0; i < 1000; i++)
-        {
-            tasks.Add(Task.Run(() => SimpleTest()));
-        }
-        await Task.WhenAll(tasks);
+        _tests = Enumerable.Range(0, TestCount)
+            .Select(static index => new TestCaseDescriptor
+            {
+                Id = new TestCaseId($"BenchmarkTests.Test{index}"),
+                DisplayName = $"Test{index}",
+                TestClass = typeof(BenchmarkTestClass),
+                MethodName = nameof(BenchmarkTestClass.Run),
+                TestClassFactory = static (_, _) => new BenchmarkTestClass(),
+                TestMethod = static (instance, cancellationToken) =>
+                    ((BenchmarkTestClass)instance).Run(cancellationToken)
+            })
+            .ToArray();
     }
 
-    [Benchmark(Description = "Execute 100 simple tests")]
-    public async Task Execute100TestsAsync()
+    [Benchmark(Description = "Execute tests through the NextUnit engine")]
+    public Task ExecuteTestsAsync() =>
+        new TestExecutionEngine().RunAsync(_tests, _sink, CancellationToken.None);
+
+    private sealed class BenchmarkTestClass
     {
-        var tasks = new List<Task>();
-        for (int i = 0; i < 100; i++)
-        {
-            tasks.Add(Task.Run(() => SimpleTest()));
-        }
-        await Task.WhenAll(tasks);
+        public Task Run(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    [Benchmark(Description = "Execute 10 simple tests")]
-    public async Task Execute10TestsAsync()
+    private sealed class NullSink : ITestExecutionSink
     {
-        var tasks = new List<Task>();
-        for (int i = 0; i < 10; i++)
-        {
-            tasks.Add(Task.Run(() => SimpleTest()));
-        }
-        await Task.WhenAll(tasks);
-    }
+        public Task ReportPassedAsync(
+            TestCaseDescriptor test,
+            string? output = null,
+            IReadOnlyList<Artifact>? artifacts = null) =>
+            Task.CompletedTask;
 
-    private void SimpleTest()
-    {
-        Assert.True(true);
-        _consumer.Consume(true);
+        public Task ReportFailedAsync(
+            TestCaseDescriptor test,
+            AssertionFailedException ex,
+            string? output = null,
+            IReadOnlyList<Artifact>? artifacts = null) =>
+            Task.CompletedTask;
+
+        public Task ReportErrorAsync(
+            TestCaseDescriptor test,
+            Exception ex,
+            string? output = null,
+            IReadOnlyList<Artifact>? artifacts = null) =>
+            Task.CompletedTask;
+
+        public Task ReportSkippedAsync(
+            TestCaseDescriptor test,
+            IReadOnlyList<Artifact>? artifacts = null) =>
+            Task.CompletedTask;
     }
 }

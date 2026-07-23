@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using NextUnit.Core;
 
 namespace NextUnit.Internal;
@@ -53,6 +54,7 @@ public interface ITestExecutionSink
 /// </summary>
 public sealed class TestExecutionEngine
 {
+    private static readonly ConditionalWeakTable<Assembly, string> _assemblyNames = new();
     private readonly ConcurrentDictionary<Type, ClassExecutionContext> _classContexts = new();
     private readonly SemaphoreSlim _assemblySetupLock = new(1, 1);
     private bool _assemblySetupExecuted;
@@ -262,9 +264,6 @@ public sealed class TestExecutionEngine
             : null;
         var effectiveToken = linkedCts?.Token ?? cancellationToken;
 
-        // Set up test context for async-local access
-        TestContext.SetCurrent(CreateTestContext(testCase, effectiveToken, new TestOutputCapture()));
-
         try
         {
             await ExecuteWithRetryAsync(testCase, sink, effectiveToken, timeoutCts, cancellationToken).ConfigureAwait(false);
@@ -299,7 +298,7 @@ public sealed class TestExecutionEngine
             return SkipCheckResult.Skip;
         }
 
-        if (testCase.TestMethod is null)
+        if (testCase.TestMethod is null && testCase.TestMethodWithArguments is null)
         {
             await sink.ReportErrorAsync(
                 testCase,
@@ -331,7 +330,9 @@ public sealed class TestExecutionEngine
         return new TestContextCapture(
             testName: testCase.MethodName,
             className: testCase.TestClass.Name,
-            assemblyName: testCase.TestClass.Assembly.GetName().Name ?? "",
+            assemblyName: _assemblyNames.GetValue(
+                testCase.TestClass.Assembly,
+                static assembly => assembly.GetName().Name ?? ""),
             fullyQualifiedName: testCase.Id.Value,
             categories: testCase.Categories,
             tags: testCase.Tags,
@@ -412,7 +413,7 @@ public sealed class TestExecutionEngine
         // TestContext.Current is guaranteed non-null because SetCurrent() is called in ExecuteWithRetryAsync before this method
         var currentContext = TestContext.Current
             ?? throw new InvalidOperationException("TestContext.Current must be initialized before executing a test attempt.");
-        var instance = CreateTestInstance(testCase.TestClass, testOutput, currentContext);
+        var instance = CreateTestInstance(testCase, testOutput, currentContext);
 
         try
         {
@@ -424,7 +425,17 @@ public sealed class TestExecutionEngine
 
             // Execute the test method
             // TestMethod is guaranteed non-null because CheckSkipConditionsAsync validates it before execution
-            await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
+            if (testCase.TestMethodWithArguments is not null)
+            {
+                await testCase.TestMethodWithArguments(
+                    instance,
+                    testCase.Arguments ?? Array.Empty<object?>(),
+                    effectiveToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
+            }
 
             // Execute after lifecycle methods (test-scoped)
             foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
@@ -478,30 +489,22 @@ public sealed class TestExecutionEngine
     /// <remarks>
     /// Callers must ensure the exception is non-null before calling this method.
     /// </remarks>
-    private static async Task ReportFinalExceptionAsync(
+    private static Task ReportFinalExceptionAsync(
         TestCaseDescriptor testCase,
         ITestExecutionSink sink,
         Exception exception,
         string? output,
         IReadOnlyList<Artifact>? artifacts = null)
     {
-        if (exception is AssertionFailedException assertionEx)
-        {
-            await sink.ReportFailedAsync(testCase, assertionEx, output, artifacts).ConfigureAwait(false);
-        }
-        else
-        {
-            await sink.ReportErrorAsync(testCase, exception, output, artifacts).ConfigureAwait(false);
-        }
+        return exception is AssertionFailedException assertionEx
+            ? sink.ReportFailedAsync(testCase, assertionEx, output, artifacts)
+            : sink.ReportErrorAsync(testCase, exception, output, artifacts);
     }
 
     /// <summary>
     /// Disposes a test instance if it implements IDisposable or IAsyncDisposable.
     /// </summary>
-    private static async Task DisposeInstanceAsync(object instance)
-    {
-        await DisposeHelper.DisposeAsync(instance).ConfigureAwait(false);
-    }
+    private static ValueTask DisposeInstanceAsync(object instance) => DisposeHelper.DisposeAsync(instance);
 
     /// <summary>
     /// Result of checking skip conditions before test execution.
@@ -562,11 +565,24 @@ public sealed class TestExecutionEngine
     /// <summary>
     /// Creates a test class instance with appropriate constructor injection.
     /// </summary>
-    /// <param name="testClass">The type of test class to instantiate.</param>
+    /// <param name="testCase">The test descriptor containing the generated factory or class type.</param>
     /// <param name="testOutput">The test output capture to inject into the constructor.</param>
     /// <param name="testContext">The test context capture to inject into the constructor.</param>
     /// <returns>A new instance of the test class.</returns>
     private static object CreateTestInstance(
+        TestCaseDescriptor testCase,
+        ITestOutput testOutput,
+        ITestContext testContext)
+    {
+        if (testCase.TestClassFactory is not null)
+        {
+            return testCase.TestClassFactory(testOutput, testContext);
+        }
+
+        return CreateTestInstanceWithReflection(testCase.TestClass, testOutput, testContext);
+    }
+
+    private static object CreateTestInstanceWithReflection(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type testClass,
         ITestOutput testOutput,
         ITestContext testContext)
@@ -648,12 +664,18 @@ public sealed class TestExecutionEngine
     /// </summary>
     private async Task EnsureClassSetupAsync(TestCaseDescriptor testCase, CancellationToken cancellationToken)
     {
+        if (testCase.Lifecycle.BeforeClassMethods.Count == 0 &&
+            testCase.Lifecycle.AfterClassMethods.Count == 0)
+        {
+            return;
+        }
+
         var testClass = testCase.TestClass;
 
         // Get or create class context (thread-safe)
         var context = _classContexts.GetOrAdd(testClass, _ =>
         {
-            var instance = CreateTestInstance(testClass, NullTestOutput.Instance, NullTestContext.Instance);
+            var instance = CreateTestInstance(testCase, NullTestOutput.Instance, NullTestContext.Instance);
 
             return new ClassExecutionContext
             {
@@ -662,6 +684,11 @@ public sealed class TestExecutionEngine
                 SetupLock = new SemaphoreSlim(1, 1)
             };
         });
+
+        if (Volatile.Read(ref context.SetupExecuted))
+        {
+            return;
+        }
 
         // Use semaphore to ensure class setup runs only once even in parallel execution
         await context.SetupLock.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -682,7 +709,7 @@ public sealed class TestExecutionEngine
                     // Class setup requested skip - all tests in this class will be skipped
                     context.SkipReason = ex.Message;
                 }
-                context.SetupExecuted = true;
+                Volatile.Write(ref context.SetupExecuted, true);
             }
         }
         finally
@@ -733,7 +760,7 @@ public sealed class TestExecutionEngine
     {
         public object Instance { get; init; } = null!;
         public LifecycleInfo Lifecycle { get; init; } = null!;
-        public bool SetupExecuted { get; set; }
+        public bool SetupExecuted;
         public string? SkipReason { get; set; }
         public SemaphoreSlim SetupLock { get; init; } = null!;
     }
@@ -752,28 +779,28 @@ public sealed class TestExecutionEngine
             _scheduler = scheduler;
         }
 
-        public async Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
+        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             _scheduler.ReportOutcome(test.Id, TestOutcome.Passed);
-            await _inner.ReportPassedAsync(test, output, artifacts).ConfigureAwait(false);
+            return _inner.ReportPassedAsync(test, output, artifacts);
         }
 
-        public async Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
+        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             _scheduler.ReportOutcome(test.Id, TestOutcome.Failed);
-            await _inner.ReportFailedAsync(test, ex, output, artifacts).ConfigureAwait(false);
+            return _inner.ReportFailedAsync(test, ex, output, artifacts);
         }
 
-        public async Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
+        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
         {
             _scheduler.ReportOutcome(test.Id, TestOutcome.Error);
-            await _inner.ReportErrorAsync(test, ex, output, artifacts).ConfigureAwait(false);
+            return _inner.ReportErrorAsync(test, ex, output, artifacts);
         }
 
-        public async Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
+        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
         {
             _scheduler.ReportOutcome(test.Id, TestOutcome.Skipped);
-            await _inner.ReportSkippedAsync(test, artifacts).ConfigureAwait(false);
+            return _inner.ReportSkippedAsync(test, artifacts);
         }
     }
 }

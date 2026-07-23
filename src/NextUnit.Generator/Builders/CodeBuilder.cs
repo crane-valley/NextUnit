@@ -15,11 +15,22 @@ internal static class CodeBuilder
     /// <summary>
     /// Builds a test method delegate.
     /// </summary>
-    public static string BuildTestMethodDelegate(string typeName, string methodName, bool isStatic)
+    public static string BuildTestMethodDelegate(
+        string typeName,
+        string methodName,
+        bool isStatic,
+        bool returnsVoid,
+        bool acceptsCancellationToken)
     {
-        return isStatic
-            ? $"static async (instance, ct) => {{ await InvokeTestMethodAsync({typeName}.{methodName}, ct).ConfigureAwait(false); }}"
-            : $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
+        var target = isStatic
+            ? $"{typeName}.{methodName}"
+            : $"(({typeName})instance).{methodName}";
+        var arguments = acceptsCancellationToken ? "ct" : "";
+        var invocation = $"{target}({arguments})";
+
+        return returnsVoid
+            ? $"static (instance, ct) => {{ {invocation}; return global::System.Threading.Tasks.Task.CompletedTask; }}"
+            : $"static (instance, ct) => {invocation}";
     }
 
     /// <summary>
@@ -30,7 +41,9 @@ internal static class CodeBuilder
         string methodName,
         ImmutableArray<IParameterSymbol> parameters,
         ImmutableArray<TypedConstant> arguments,
-        bool isStatic)
+        bool isStatic,
+        bool returnsVoid,
+        bool acceptsCancellationToken)
     {
         var argsBuilder = new StringBuilder();
         for (var i = 0; i < arguments.Length; i++)
@@ -46,19 +59,121 @@ internal static class CodeBuilder
             argsBuilder.Append(ArgumentFormatter.FormatArgumentValue(arg, param?.Type));
         }
 
-        return isStatic
-            ? $"static async (instance, ct) => {{ await InvokeTestMethodAsync(() => {typeName}.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}"
-            : $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeTestMethodAsync(() => typedInstance.{methodName}({argsBuilder}), ct).ConfigureAwait(false); }}";
+        if (acceptsCancellationToken)
+        {
+            if (argsBuilder.Length > 0)
+            {
+                argsBuilder.Append(", ");
+            }
+
+            argsBuilder.Append("ct");
+        }
+
+        var target = isStatic
+            ? $"{typeName}.{methodName}"
+            : $"(({typeName})instance).{methodName}";
+        var invocation = $"{target}({argsBuilder})";
+
+        return returnsVoid
+            ? $"static (instance, ct) => {{ {invocation}; return global::System.Threading.Tasks.Task.CompletedTask; }}"
+            : $"static (instance, ct) => {invocation}";
     }
+
+    public static string BuildRuntimeParameterizedTestMethodDelegate(TestMethodDescriptor test)
+    {
+        var arguments = new StringBuilder();
+        var runtimeArgumentIndex = 0;
+
+        for (var parameterIndex = 0; parameterIndex < test.Parameters.Length; parameterIndex++)
+        {
+            var parameter = test.Parameters[parameterIndex];
+            var isCancellationToken =
+                parameterIndex == test.Parameters.Length - 1 &&
+                test.AcceptsCancellationToken;
+
+            if (arguments.Length > 0)
+            {
+                arguments.Append(", ");
+            }
+
+            if (isCancellationToken)
+            {
+                arguments.Append("ct");
+                continue;
+            }
+
+            var typeName = parameter.Type.ToDisplayString(AttributeHelper.TypeofCompatibleFormat);
+            arguments.Append($"({typeName})arguments[{runtimeArgumentIndex}]!");
+            runtimeArgumentIndex++;
+        }
+
+        var target = test.IsStatic
+            ? $"{test.FullyQualifiedTypeName}.{test.MethodName}"
+            : $"(({test.FullyQualifiedTypeName})instance).{test.MethodName}";
+        var invocation = $"{target}({arguments})";
+
+        return test.ReturnsVoid
+            ? $"static (instance, arguments, ct) => {{ {invocation}; return global::System.Threading.Tasks.Task.CompletedTask; }}"
+            : $"static (instance, arguments, ct) => {invocation}";
+    }
+
+    public static string BuildTestClassFactory(
+        string typeName,
+        TestClassConstructorKind constructorKind,
+        bool requiresInstance)
+    {
+        if (!requiresInstance)
+        {
+            return "static (output, context) => null!";
+        }
+
+        return constructorKind switch
+        {
+            TestClassConstructorKind.Parameterless => $"static (output, context) => new {typeName}()",
+            TestClassConstructorKind.Context => $"static (output, context) => new {typeName}(context)",
+            TestClassConstructorKind.Output => $"static (output, context) => new {typeName}(output)",
+            TestClassConstructorKind.ContextAndOutput => $"static (output, context) => new {typeName}(context, output)",
+            TestClassConstructorKind.OutputAndContext => $"static (output, context) => new {typeName}(output, context)",
+            _ => "null"
+        };
+    }
+
+    public static string BuildDataSourceProvider(
+        string typeName,
+        string memberName,
+        DataSourceMemberKind memberKind)
+    {
+        var access = memberKind == DataSourceMemberKind.Method
+            ? $"{typeName}.{memberName}()"
+            : $"{typeName}.{memberName}";
+
+        return memberKind == DataSourceMemberKind.Unknown
+            ? "null"
+            : $"static () => (object?){access}";
+    }
+
+    public static string BuildDataSourceFactory(string typeName) =>
+        $"static () => new {typeName}()";
 
     /// <summary>
     /// Builds a lifecycle method delegate.
     /// </summary>
-    public static string BuildLifecycleMethodDelegate(string typeName, string methodName, bool isStatic)
+    public static string BuildLifecycleMethodDelegate(
+        string typeName,
+        string methodName,
+        bool isStatic,
+        bool returnsVoid,
+        bool acceptsCancellationToken)
     {
-        return isStatic
-            ? $"static async (instance, ct) => {{ await InvokeLifecycleMethodAsync({typeName}.{methodName}, ct).ConfigureAwait(false); }}"
-            : $"static async (instance, ct) => {{ var typedInstance = ({typeName})instance; await InvokeLifecycleMethodAsync(typedInstance.{methodName}, ct).ConfigureAwait(false); }}";
+        var target = isStatic
+            ? $"{typeName}.{methodName}"
+            : $"(({typeName})instance).{methodName}";
+        var arguments = acceptsCancellationToken ? "ct" : "";
+        var invocation = $"{target}({arguments})";
+
+        return returnsVoid
+            ? $"static (instance, ct) => {{ {invocation}; return global::System.Threading.Tasks.Task.CompletedTask; }}"
+            : $"static (instance, ct) => {invocation}";
     }
 
     /// <summary>
@@ -117,7 +232,8 @@ internal static class CodeBuilder
             builder.AppendLine("                    {");
             foreach (var method in methods)
             {
-                builder.AppendLine($"                        {BuildLifecycleMethodDelegate(typeName, method.MethodName, method.IsStatic)},");
+                builder.AppendLine(
+                    $"                        {BuildLifecycleMethodDelegate(typeName, method.MethodName, method.IsStatic, method.ReturnsVoid, method.AcceptsCancellationToken)},");
             }
             builder.Append("                    }");
         }

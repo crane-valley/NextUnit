@@ -30,6 +30,9 @@ internal sealed class TestMethodDescriptor
         ImmutableArray<string> categories,
         ImmutableArray<string> tags,
         bool isStatic,
+        bool returnsVoid,
+        bool acceptsCancellationToken,
+        TestClassConstructorKind constructorKind,
         bool requiresTestOutput,
         bool requiresTestContext,
         int? timeoutMs,
@@ -66,6 +69,9 @@ internal sealed class TestMethodDescriptor
         Categories = categories;
         Tags = tags;
         IsStatic = isStatic;
+        ReturnsVoid = returnsVoid;
+        AcceptsCancellationToken = acceptsCancellationToken;
+        ConstructorKind = constructorKind;
         RequiresTestOutput = requiresTestOutput;
         RequiresTestContext = requiresTestContext;
         TimeoutMs = timeoutMs;
@@ -103,6 +109,9 @@ internal sealed class TestMethodDescriptor
     public ImmutableArray<string> Categories { get; }
     public ImmutableArray<string> Tags { get; }
     public bool IsStatic { get; }
+    public bool ReturnsVoid { get; }
+    public bool AcceptsCancellationToken { get; }
+    public TestClassConstructorKind ConstructorKind { get; }
     public bool RequiresTestOutput { get; }
     public bool RequiresTestContext { get; }
     public int? TimeoutMs { get; }
@@ -129,13 +138,17 @@ internal sealed class LifecycleMethodDescriptor
         string methodName,
         ImmutableArray<int> beforeScopes,
         ImmutableArray<int> afterScopes,
-        bool isStatic)
+        bool isStatic,
+        bool returnsVoid,
+        bool acceptsCancellationToken)
     {
         FullyQualifiedTypeName = fullyQualifiedTypeName;
         MethodName = methodName;
         BeforeScopes = beforeScopes;
         AfterScopes = afterScopes;
         IsStatic = isStatic;
+        ReturnsVoid = returnsVoid;
+        AcceptsCancellationToken = acceptsCancellationToken;
     }
 
     public string FullyQualifiedTypeName { get; }
@@ -143,6 +156,26 @@ internal sealed class LifecycleMethodDescriptor
     public ImmutableArray<int> BeforeScopes { get; }
     public ImmutableArray<int> AfterScopes { get; }
     public bool IsStatic { get; }
+    public bool ReturnsVoid { get; }
+    public bool AcceptsCancellationToken { get; }
+}
+
+internal enum TestClassConstructorKind
+{
+    None,
+    Parameterless,
+    Context,
+    Output,
+    ContextAndOutput,
+    OutputAndContext
+}
+
+internal enum DataSourceMemberKind
+{
+    Unknown,
+    Method,
+    Property,
+    Field
 }
 
 /// <summary>
@@ -150,14 +183,19 @@ internal sealed class LifecycleMethodDescriptor
 /// </summary>
 internal sealed class TestDataSource
 {
-    public TestDataSource(string memberName, string? memberTypeName)
+    public TestDataSource(
+        string memberName,
+        string? memberTypeName,
+        DataSourceMemberKind memberKind)
     {
         MemberName = memberName;
         MemberTypeName = memberTypeName;
+        MemberKind = memberKind;
     }
 
     public string MemberName { get; }
     public string? MemberTypeName { get; }
+    public DataSourceMemberKind MemberKind { get; }
 }
 
 /// <summary>
@@ -266,6 +304,7 @@ internal sealed class ParameterDataSourceDescriptor
         ImmutableArray<TypedConstant> inlineValues,
         string? memberName,
         string? memberTypeName,
+        DataSourceMemberKind memberKind,
         string? classTypeName,
         int sharedType,
         string? sharedKey)
@@ -276,6 +315,7 @@ internal sealed class ParameterDataSourceDescriptor
         InlineValues = inlineValues;
         MemberName = memberName;
         MemberTypeName = memberTypeName;
+        MemberKind = memberKind;
         ClassTypeName = classTypeName;
         SharedType = sharedType;
         SharedKey = sharedKey;
@@ -313,6 +353,7 @@ internal sealed class ParameterDataSourceDescriptor
     /// Null if the test class should be used.
     /// </summary>
     public string? MemberTypeName { get; }
+    public DataSourceMemberKind MemberKind { get; }
 
     /// <summary>
     /// Gets the fully qualified type name of the class data source.

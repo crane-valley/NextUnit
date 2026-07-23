@@ -43,13 +43,18 @@ public static class ClassDataSourceExpander
         // Combine data from all source types
         var allData = new List<ResolvedTestDataRow>();
 
-        foreach (var sourceType in descriptor.DataSourceTypes)
+        for (var sourceIndex = 0; sourceIndex < descriptor.DataSourceTypes.Length; sourceIndex++)
         {
+            var sourceType = descriptor.DataSourceTypes[sourceIndex];
+            var factory = sourceIndex < descriptor.DataSourceFactories.Length
+                ? descriptor.DataSourceFactories[sourceIndex]
+                : null;
             var instance = GetOrCreateInstance(
                 sourceType,
                 descriptor.SharedType,
                 descriptor.SharedKey,
-                descriptor.TestClass);
+                descriptor.TestClass,
+                factory);
 
             try
             {
@@ -73,10 +78,15 @@ public static class ClassDataSourceExpander
             }
         }
 
+        var testMethod = descriptor.TestMethodWithArguments ??
+            ReflectionTestInvokerFactory.Create(
+                descriptor.TestClass,
+                descriptor.MethodName,
+                descriptor.ParameterTypes);
         var index = 0;
         foreach (var row in allData)
         {
-            yield return CreateTestCase(descriptor, row, index);
+            yield return CreateTestCase(descriptor, row, testMethod, index);
             index++;
         }
     }
@@ -121,29 +131,30 @@ public static class ClassDataSourceExpander
         Type sourceType,
         SharedType sharedType,
         string? key,
-        Type testClass)
+        Type testClass,
+        DataSourceProviderDelegate? factory)
     {
         return sharedType switch
         {
-            SharedType.None => CreateInstance(sourceType),
+            SharedType.None => CreateInstance(sourceType, factory),
 
             SharedType.Keyed => _keyedInstances.GetOrAdd(
                 $"{sourceType.FullName}:{key ?? "default"}",
-                _ => CreateInstance(sourceType)),
+                _ => CreateInstance(sourceType, factory)),
 
             SharedType.PerClass => _perClassInstances.GetOrAdd(
                 (testClass, sourceType),
-                _ => CreateInstance(sourceType)),
+                _ => CreateInstance(sourceType, factory)),
 
             SharedType.PerAssembly => _perAssemblyInstances.GetOrAdd(
                 sourceType,
-                _ => CreateInstance(sourceType)),
+                _ => CreateInstance(sourceType, factory)),
 
             SharedType.PerSession => _perSessionInstances.GetOrAdd(
                 sourceType,
-                _ => CreateInstance(sourceType)),
+                _ => CreateInstance(sourceType, factory)),
 
-            _ => CreateInstance(sourceType)
+            _ => CreateInstance(sourceType, factory)
         };
     }
 
@@ -151,10 +162,19 @@ public static class ClassDataSourceExpander
         "Trimming",
         "IL2067",
         Justification = "The source generator roots class data source constructors with DynamicDependency.")]
-    private static object CreateInstance(Type sourceType)
+    private static object CreateInstance(
+        Type sourceType,
+        DataSourceProviderDelegate? factory)
     {
         try
         {
+            if (factory is not null)
+            {
+                return factory()
+                    ?? throw new InvalidOperationException(
+                        $"Failed to create instance of '{sourceType.FullName}': factory returned null");
+            }
+
             return Activator.CreateInstance(sourceType)
                 ?? throw new InvalidOperationException(
                     $"Failed to create instance of '{sourceType.FullName}': Activator returned null");
@@ -176,6 +196,7 @@ public static class ClassDataSourceExpander
     private static TestCaseDescriptor CreateTestCase(
         ClassDataSourceDescriptor descriptor,
         ResolvedTestDataRow row,
+        TestMethodWithArgumentsDelegate? testMethod,
         int index)
     {
         // Build unique test ID including all source type names
@@ -190,27 +211,14 @@ public static class ClassDataSourceExpander
             row.Arguments,
             index);
 
-        // Get the test method via reflection for creating the delegate
-        var methodInfo = descriptor.TestClass.GetMethod(
-            descriptor.MethodName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-            binder: null,
-            types: descriptor.ParameterTypes,
-            modifiers: null);
-
-        TestMethodDelegate? testMethod = null;
-        if (methodInfo is not null)
-        {
-            testMethod = CreateTestMethodDelegate(methodInfo, row.Arguments);
-        }
-
         return new TestCaseDescriptor
         {
             Id = new TestCaseId(testId),
             DisplayName = displayName,
             TestClass = descriptor.TestClass,
             MethodName = descriptor.MethodName,
-            TestMethod = testMethod,
+            TestMethodWithArguments = testMethod,
+            TestClassFactory = descriptor.TestClassFactory,
             Lifecycle = descriptor.Lifecycle,
             Parallel = descriptor.Parallel,
             Dependencies = descriptor.Dependencies,
@@ -229,43 +237,6 @@ public static class ClassDataSourceExpander
             CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate,
             DisplayNameFormatterType = descriptor.DisplayNameFormatterType,
             Priority = descriptor.Priority
-        };
-    }
-
-    private static TestMethodDelegate CreateTestMethodDelegate(MethodInfo methodInfo, object?[] arguments)
-    {
-        return async (instance, ct) =>
-        {
-            try
-            {
-                var parameters = methodInfo.GetParameters();
-                object?[] actualArguments = arguments;
-
-                // Check if the method expects a CancellationToken as the last parameter
-                // and arguments array has exactly one fewer element (the CancellationToken slot)
-                if (parameters.Length > 0 &&
-                    parameters[^1].ParameterType == typeof(System.Threading.CancellationToken) &&
-                    arguments.Length == parameters.Length - 1)
-                {
-                    actualArguments = new object?[arguments.Length + 1];
-                    arguments.CopyTo(actualArguments, 0);
-                    actualArguments[arguments.Length] = ct;
-                }
-
-                var result = methodInfo.Invoke(instance, actualArguments);
-                if (result is Task task)
-                {
-                    await task.ConfigureAwait(false);
-                }
-            }
-            catch (TargetInvocationException ex)
-            {
-                if (ex.InnerException is not null)
-                {
-                    throw ex.InnerException;
-                }
-                throw;
-            }
         };
     }
 

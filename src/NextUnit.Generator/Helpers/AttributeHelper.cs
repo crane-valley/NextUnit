@@ -295,9 +295,13 @@ internal static class AttributeHelper
                 .Select(arg => (INamedTypeSymbol)arg.Value.Value!)
                 .FirstOrDefault();
 
+            var memberType = memberTypeArg ?? methodSymbol.ContainingType;
             string? memberTypeName = memberTypeArg?.ToDisplayString(FullyQualifiedTypeFormat);
 
-            builder.Add(new TestDataSource(memberName, memberTypeName));
+            builder.Add(new TestDataSource(
+                memberName,
+                memberTypeName,
+                GetDataSourceMemberKind(memberType, memberName)));
         }
 
         return builder.ToImmutable();
@@ -779,6 +783,7 @@ internal static class AttributeHelper
                     inlineValues: attribute.ConstructorArguments[0].Values,
                     memberName: null,
                     memberTypeName: null,
+                    memberKind: DataSourceMemberKind.Unknown,
                     classTypeName: null,
                     sharedType: 0,
                     sharedKey: null);
@@ -795,6 +800,7 @@ internal static class AttributeHelper
                     .Select(arg => arg.Value.Value as INamedTypeSymbol)
                     .FirstOrDefault(t => t is not null);
 
+                var memberType = memberTypeArg ?? parameter.ContainingSymbol.ContainingType;
                 string? memberTypeName = memberTypeArg?.ToDisplayString(TypeofCompatibleFormat);
 
                 return new ParameterDataSourceDescriptor(
@@ -804,6 +810,7 @@ internal static class AttributeHelper
                     inlineValues: ImmutableArray<TypedConstant>.Empty,
                     memberName: memberName,
                     memberTypeName: memberTypeName,
+                    memberKind: GetDataSourceMemberKind(memberType, memberName),
                     classTypeName: null,
                     sharedType: 0,
                     sharedKey: null);
@@ -845,6 +852,7 @@ internal static class AttributeHelper
                         inlineValues: ImmutableArray<TypedConstant>.Empty,
                         memberName: null,
                         memberTypeName: null,
+                        memberKind: DataSourceMemberKind.Unknown,
                         classTypeName: classTypeName,
                         sharedType: sharedType,
                         sharedKey: key);
@@ -853,6 +861,100 @@ internal static class AttributeHelper
         }
 
         return null;
+    }
+
+    public static TestClassConstructorKind GetTestClassConstructorKind(INamedTypeSymbol typeSymbol)
+    {
+        var hasParameterless = false;
+        var hasContext = false;
+        var hasOutput = false;
+
+        foreach (var constructor in typeSymbol.InstanceConstructors)
+        {
+            if (constructor.DeclaredAccessibility != Accessibility.Public)
+            {
+                continue;
+            }
+
+            var parameters = constructor.Parameters;
+            if (parameters.Length == 0)
+            {
+                hasParameterless = true;
+                continue;
+            }
+
+            if (parameters.Length == 1)
+            {
+                var parameterType = parameters[0].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                hasContext |= parameterType == ITestContextMetadataName;
+                hasOutput |= parameterType == ITestOutputMetadataName;
+                continue;
+            }
+
+            if (parameters.Length == 2)
+            {
+                var first = parameters[0].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                var second = parameters[1].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                if (first == ITestContextMetadataName && second == ITestOutputMetadataName)
+                {
+                    return TestClassConstructorKind.ContextAndOutput;
+                }
+
+                if (first == ITestOutputMetadataName && second == ITestContextMetadataName)
+                {
+                    return TestClassConstructorKind.OutputAndContext;
+                }
+            }
+        }
+
+        if (hasContext)
+        {
+            return TestClassConstructorKind.Context;
+        }
+
+        if (hasOutput)
+        {
+            return TestClassConstructorKind.Output;
+        }
+
+        return hasParameterless
+            ? TestClassConstructorKind.Parameterless
+            : TestClassConstructorKind.None;
+    }
+
+    private static DataSourceMemberKind GetDataSourceMemberKind(
+        INamedTypeSymbol? typeSymbol,
+        string memberName)
+    {
+        if (typeSymbol is null)
+        {
+            return DataSourceMemberKind.Unknown;
+        }
+
+        foreach (var member in typeSymbol.GetMembers(memberName))
+        {
+            if (!member.IsStatic)
+            {
+                continue;
+            }
+
+            if (member is IMethodSymbol { Parameters.Length: 0 })
+            {
+                return DataSourceMemberKind.Method;
+            }
+
+            if (member is IPropertySymbol)
+            {
+                return DataSourceMemberKind.Property;
+            }
+
+            if (member is IFieldSymbol)
+            {
+                return DataSourceMemberKind.Field;
+            }
+        }
+
+        return DataSourceMemberKind.Unknown;
     }
 
     private static (int? count, int delayMs) GetRetryFromSymbol(ISymbol symbol)

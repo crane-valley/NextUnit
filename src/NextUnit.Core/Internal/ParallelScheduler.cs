@@ -193,12 +193,12 @@ public sealed class ParallelScheduler
             .Where(n => !n.Test.Parallel.NotInParallel)
             .ToList();
 
-        // Create serial batches for tests without constraint keys (one test per batch)
-        foreach (var node in serialWithoutKeys)
+        // Tests without constraint keys share the same global serial constraint.
+        if (serialWithoutKeys.Count > 0)
         {
             batches.Add(new TestBatch
             {
-                Tests = new[] { node.Test },
+                Tests = serialWithoutKeys.Select(static node => node.Test).ToList(),
                 MaxDegreeOfParallelism = 1,
                 IsSerial = true,
                 ParallelGroup = null,
@@ -211,20 +211,17 @@ public sealed class ParallelScheduler
         var constraintKeyGroups = GroupByConstraintKeys(serialWithKeys);
         foreach (var constraintGroup in constraintKeyGroups)
         {
-            // Each constraint group runs one test at a time
-            // Sort nodes within each group by priority (descending - higher priority first)
-            var sortedNodes = constraintGroup.Nodes.OrderByDescending(n => n.Test.Priority);
-            foreach (var node in sortedNodes)
+            batches.Add(new TestBatch
             {
-                batches.Add(new TestBatch
-                {
-                    Tests = new[] { node.Test },
-                    MaxDegreeOfParallelism = 1,
-                    IsSerial = true,
-                    ParallelGroup = null,
-                    ConstraintKeys = constraintGroup.Keys.ToArray()
-                });
-            }
+                Tests = constraintGroup.Nodes
+                    .OrderByDescending(static node => node.Test.Priority)
+                    .Select(static node => node.Test)
+                    .ToList(),
+                MaxDegreeOfParallelism = 1,
+                IsSerial = true,
+                ParallelGroup = null,
+                ConstraintKeys = constraintGroup.Keys.ToArray()
+            });
         }
 
         // Group parallel tests by their ParallelLimit, preserving priority order within each group
@@ -235,25 +232,14 @@ public sealed class ParallelScheduler
 
         foreach (var (limit, nodes) in testsByLimit)
         {
-            var tests = nodes.Select(n => n.Test).ToList();
-
-            // If there are many tests with the same limit, we can potentially split them
-            // into multiple batches for better load balancing
-            while (tests.Count > 0)
+            batches.Add(new TestBatch
             {
-                var batchSize = Math.Min(tests.Count, limit * 2); // Allow some buffering
-                var batchTests = tests.Take(batchSize).ToList();
-                tests = tests.Skip(batchSize).ToList();
-
-                batches.Add(new TestBatch
-                {
-                    Tests = batchTests,
-                    MaxDegreeOfParallelism = limit,
-                    IsSerial = false,
-                    ParallelGroup = null,
-                    ConstraintKeys = Array.Empty<string>()
-                });
-            }
+                Tests = nodes.Select(static node => node.Test).ToList(),
+                MaxDegreeOfParallelism = limit,
+                IsSerial = false,
+                ParallelGroup = null,
+                ConstraintKeys = Array.Empty<string>()
+            });
         }
 
         return batches;

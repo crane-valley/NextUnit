@@ -34,7 +34,8 @@ public static class TestDataExpander
     public static IEnumerable<TestCaseDescriptor> ExpandSingle(TestDataDescriptor descriptor)
     {
         var dataSourceType = descriptor.DataSourceType ?? descriptor.TestClass;
-        var data = GetTestData(dataSourceType, descriptor.DataSourceName);
+        var data = descriptor.DataSourceProvider?.Invoke() as IEnumerable ??
+            GetTestData(dataSourceType, descriptor.DataSourceName);
 
         if (data is null)
         {
@@ -43,11 +44,16 @@ public static class TestDataExpander
                 $"Test data source '{descriptor.DataSourceName}' not found in type '{dataSourceType.FullName}'");
         }
 
+        var testMethod = descriptor.TestMethodWithArguments ??
+            ReflectionTestInvokerFactory.Create(
+                descriptor.TestClass,
+                descriptor.MethodName,
+                descriptor.ParameterTypes);
         var index = 0;
         foreach (var dataRow in data)
         {
             var row = TestDataRowResolver.Resolve(dataRow);
-            var testCase = CreateTestCase(descriptor, row, index);
+            var testCase = CreateTestCase(descriptor, row, testMethod, index);
             yield return testCase;
             index++;
         }
@@ -110,6 +116,7 @@ public static class TestDataExpander
     private static TestCaseDescriptor CreateTestCase(
         TestDataDescriptor descriptor,
         ResolvedTestDataRow row,
+        TestMethodWithArgumentsDelegate? testMethod,
         int index)
     {
         // Include data source type and name in test ID to ensure uniqueness
@@ -124,29 +131,14 @@ public static class TestDataExpander
             row.Arguments,
             index);
 
-        // Get the test method via reflection for creating the delegate
-        // Specify parameter types to avoid AmbiguousMatchException when method is overloaded
-        var methodInfo = descriptor.TestClass.GetMethod(
-            descriptor.MethodName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-            binder: null,
-            types: descriptor.ParameterTypes,
-            modifiers: null);
-
-        TestMethodDelegate? testMethod = null;
-
-        if (methodInfo is not null)
-        {
-            testMethod = CreateTestMethodDelegate(methodInfo, row.Arguments);
-        }
-
         return new TestCaseDescriptor
         {
             Id = new TestCaseId(testId),
             DisplayName = displayName,
             TestClass = descriptor.TestClass,
             MethodName = descriptor.MethodName,
-            TestMethod = testMethod,
+            TestMethodWithArguments = testMethod,
+            TestClassFactory = descriptor.TestClassFactory,
             Lifecycle = descriptor.Lifecycle,
             Parallel = descriptor.Parallel,
             Dependencies = descriptor.Dependencies,
@@ -168,41 +160,4 @@ public static class TestDataExpander
         };
     }
 
-    private static TestMethodDelegate CreateTestMethodDelegate(MethodInfo methodInfo, object?[] arguments)
-    {
-        return async (instance, ct) =>
-        {
-            try
-            {
-                // Check if the method expects a CancellationToken as the last parameter
-                // and we need to append it to the arguments
-                var parameters = methodInfo.GetParameters();
-                object?[] actualArguments = arguments;
-                if (parameters.Length > 0 &&
-                    parameters[^1].ParameterType == typeof(System.Threading.CancellationToken) &&
-                    arguments.Length < parameters.Length)
-                {
-                    // Append ct to the arguments array
-                    actualArguments = new object?[arguments.Length + 1];
-                    arguments.CopyTo(actualArguments, 0);
-                    actualArguments[arguments.Length] = ct;
-                }
-
-                var result = methodInfo.Invoke(instance, actualArguments);
-                if (result is Task task)
-                {
-                    await task.ConfigureAwait(false);
-                }
-            }
-            catch (TargetInvocationException ex)
-            {
-                // Unwrap the inner exception to preserve the original test failure
-                if (ex.InnerException is not null)
-                {
-                    throw ex.InnerException;
-                }
-                throw;
-            }
-        };
-    }
 }

@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using NextUnit.Core;
 
 namespace NextUnit.Internal;
 
@@ -46,6 +47,24 @@ public enum TestOutcome
 /// <param name="cancellationToken">A cancellation token.</param>
 /// <returns>A task representing the test execution.</returns>
 public delegate Task TestMethodDelegate(object instance, CancellationToken cancellationToken);
+
+/// <summary>
+/// Invokes a generated parameterized test method without runtime reflection.
+/// </summary>
+public delegate Task TestMethodWithArgumentsDelegate(
+    object instance,
+    object?[] arguments,
+    CancellationToken cancellationToken);
+
+/// <summary>
+/// Creates a test class instance using a source-generated constructor call.
+/// </summary>
+public delegate object TestClassFactoryDelegate(ITestOutput output, ITestContext context);
+
+/// <summary>
+/// Resolves a source-generated member or class data source.
+/// </summary>
+public delegate object? DataSourceProviderDelegate();
 
 /// <summary>
 /// Delegate for invoking a lifecycle method.
@@ -216,6 +235,16 @@ public sealed class TestCaseDescriptor
     public TestMethodDelegate? TestMethod { get; init; }
 
     /// <summary>
+    /// Gets or initializes the generated delegate for a runtime-parameterized test method.
+    /// </summary>
+    public TestMethodWithArgumentsDelegate? TestMethodWithArguments { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the generated test class factory.
+    /// </summary>
+    public TestClassFactoryDelegate? TestClassFactory { get; init; }
+
+    /// <summary>
     /// Gets or initializes the lifecycle hooks configuration for the test.
     /// </summary>
     public LifecycleInfo Lifecycle { get; init; } = new();
@@ -337,6 +366,8 @@ public sealed class TestCaseDescriptor
         TestClass = TestClass,
         MethodName = MethodName,
         TestMethod = TestMethod,
+        TestMethodWithArguments = TestMethodWithArguments,
+        TestClassFactory = TestClassFactory,
         Lifecycle = Lifecycle,
         Parallel = Parallel,
         Dependencies = Dependencies,
@@ -390,6 +421,16 @@ public sealed class TestDataDescriptor
     public string MethodName { get; init; } = "";
 
     /// <summary>
+    /// Gets or initializes the generated test class factory.
+    /// </summary>
+    public TestClassFactoryDelegate? TestClassFactory { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the generated runtime-argument test invoker.
+    /// </summary>
+    public TestMethodWithArgumentsDelegate? TestMethodWithArguments { get; init; }
+
+    /// <summary>
     /// Gets or initializes the name of the data source member (method or property).
     /// </summary>
     public string DataSourceName { get; init; } = "";
@@ -400,6 +441,11 @@ public sealed class TestDataDescriptor
     /// </summary>
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)]
     public Type? DataSourceType { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the generated data source accessor.
+    /// </summary>
+    public DataSourceProviderDelegate? DataSourceProvider { get; init; }
 
     /// <summary>
     /// Gets or initializes the lifecycle hooks configuration for the test.
@@ -561,11 +607,21 @@ public sealed class ParameterDataSource
     public Type? MemberType { get; init; }
 
     /// <summary>
+    /// Gets or initializes the generated member accessor.
+    /// </summary>
+    public DataSourceProviderDelegate? MemberProvider { get; init; }
+
+    /// <summary>
     /// Gets or initializes the type of the class data source.
     /// Null for non-class kinds.
     /// </summary>
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
     public Type? ClassDataSourceType { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the generated class data source factory.
+    /// </summary>
+    public DataSourceProviderDelegate? ClassDataSourceFactory { get; init; }
 
     /// <summary>
     /// Gets or initializes the sharing scope for class data sources.
@@ -609,6 +665,16 @@ public sealed class CombinedDataSourceDescriptor
     /// Gets or initializes the name of the test method.
     /// </summary>
     public string MethodName { get; init; } = "";
+
+    /// <summary>
+    /// Gets or initializes the generated test class factory.
+    /// </summary>
+    public TestClassFactoryDelegate? TestClassFactory { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the generated runtime-argument test invoker.
+    /// </summary>
+    public TestMethodWithArgumentsDelegate? TestMethodWithArguments { get; init; }
 
     /// <summary>
     /// Gets or initializes the data sources for each parameter.
@@ -741,10 +807,25 @@ public sealed class ClassDataSourceDescriptor
     public string MethodName { get; init; } = "";
 
     /// <summary>
+    /// Gets or initializes the generated test class factory.
+    /// </summary>
+    public TestClassFactoryDelegate? TestClassFactory { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the generated runtime-argument test invoker.
+    /// </summary>
+    public TestMethodWithArgumentsDelegate? TestMethodWithArguments { get; init; }
+
+    /// <summary>
     /// Gets or initializes the types that provide the test data.
     /// Each type must implement <see cref="System.Collections.Generic.IEnumerable{T}"/> where T is object?[].
     /// </summary>
     public Type[] DataSourceTypes { get; init; } = [];
+
+    /// <summary>
+    /// Gets or initializes generated factories aligned with <see cref="DataSourceTypes"/>.
+    /// </summary>
+    public DataSourceProviderDelegate?[] DataSourceFactories { get; init; } = [];
 
     /// <summary>
     /// Gets or initializes the sharing scope for data source instances.

@@ -9,17 +9,22 @@ namespace NextUnit.Internal;
 /// </summary>
 internal sealed class TestOutputCapture : ITestOutput
 {
-    private readonly StringBuilder _output = new();
-    private readonly object _lock = new();
+    private OutputBuffer? _buffer;
 
     /// <summary>
     /// Gets the captured output as a string.
     /// </summary>
     public string GetOutput()
     {
-        lock (_lock)
+        var buffer = Volatile.Read(ref _buffer);
+        if (buffer is null)
         {
-            return _output.ToString();
+            return string.Empty;
+        }
+
+        lock (buffer)
+        {
+            return buffer.Output.ToString();
         }
     }
 
@@ -28,9 +33,10 @@ internal sealed class TestOutputCapture : ITestOutput
     /// </summary>
     public void WriteLine(string message)
     {
-        lock (_lock)
+        var buffer = GetOrCreateBuffer();
+        lock (buffer)
         {
-            _output.AppendLine(message);
+            buffer.Output.AppendLine(message);
         }
     }
 
@@ -39,10 +45,29 @@ internal sealed class TestOutputCapture : ITestOutput
     /// </summary>
     public void WriteLine(string format, params object?[] args)
     {
-        lock (_lock)
+        var buffer = GetOrCreateBuffer();
+        lock (buffer)
         {
-            _output.AppendLine(string.Format(format, args));
+            buffer.Output.AppendFormat(format, args);
+            buffer.Output.AppendLine();
         }
+    }
+
+    private OutputBuffer GetOrCreateBuffer()
+    {
+        var buffer = Volatile.Read(ref _buffer);
+        if (buffer is not null)
+        {
+            return buffer;
+        }
+
+        var created = new OutputBuffer();
+        return Interlocked.CompareExchange(ref _buffer, created, null) ?? created;
+    }
+
+    private sealed class OutputBuffer
+    {
+        public StringBuilder Output { get; } = new();
     }
 }
 

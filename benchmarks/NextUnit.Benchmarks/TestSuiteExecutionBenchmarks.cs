@@ -11,8 +11,11 @@ namespace NextUnit.Benchmarks;
 public class TestSuiteExecutionBenchmarks
 {
     private static readonly string _repositoryRoot = GetRepositoryRoot();
-    private static readonly string _largeTestSuitePath = Path.Combine(_repositoryRoot, "samples", "NextUnit.LargeTestSuite", "NextUnit.LargeTestSuite.csproj");
     private static readonly string _sampleTestsPath = Path.Combine(_repositoryRoot, "samples", "NextUnit.SampleTests", "NextUnit.SampleTests.csproj");
+
+    [GlobalSetup]
+    public Task BuildSampleSuiteAsync() =>
+        RunDotnetAsync(["build", _sampleTestsPath, "--configuration", "Release"]);
 
     /// <summary>
     /// Locates the repository root by walking up from the assembly location.
@@ -39,55 +42,52 @@ public class TestSuiteExecutionBenchmarks
         throw new InvalidOperationException("Could not locate repository root. Ensure the benchmark is run from within the NextUnit repository.");
     }
 
-    [Benchmark(Description = "NextUnit: 1000 tests execution time")]
-    public async Task NextUnit_1000TestsAsync()
+    [Benchmark(Description = "NextUnit sample suite process execution")]
+    public Task NextUnitSampleTestsAsync() =>
+        RunDotnetAsync(
+            [
+                "run",
+                "--configuration",
+                "Release",
+                "--no-build",
+                "--project",
+                _sampleTestsPath,
+                "--",
+                "--minimum-expected-tests",
+                "20"
+            ]);
+
+    private static async Task RunDotnetAsync(IReadOnlyList<string> arguments)
     {
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --no-build --project {_largeTestSuitePath}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
+        foreach (var argument in arguments)
+        {
+            psi.ArgumentList.Add(argument);
+        }
 
         using var process = Process.Start(psi);
         if (process == null)
+        {
             throw new InvalidOperationException("Failed to start process");
+        }
 
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
 
         if (process.ExitCode != 0)
         {
-            var error = await process.StandardError.ReadToEndAsync();
+            var error = await errorTask;
             throw new InvalidOperationException($"Test execution failed: {error}");
         }
-    }
 
-    [Benchmark(Description = "NextUnit: 125 tests execution time")]
-    public async Task NextUnit_125TestsAsync()
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            Arguments = $"run --no-build --project {_sampleTestsPath}",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        using var process = Process.Start(psi);
-        if (process == null)
-            throw new InvalidOperationException("Failed to start process");
-
-        await process.WaitForExitAsync();
-
-        if (process.ExitCode != 0)
-        {
-            var error = await process.StandardError.ReadToEndAsync();
-            throw new InvalidOperationException($"Test execution failed: {error}");
-        }
+        _ = await outputTask;
     }
 }

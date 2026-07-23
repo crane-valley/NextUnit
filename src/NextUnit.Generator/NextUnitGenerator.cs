@@ -23,19 +23,19 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     /// <param name="context">The initialization context for the generator.</param>
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var testMethods = context.SyntaxProvider
+        var methodCandidates = context.SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (node, _) => IsCandidate(node),
-                transform: static (ctx, _) => TransformMethod(ctx))
-            .Where(static d => d is not null)!
-            .Select(static (descriptor, _) => (TestMethodDescriptor)descriptor!);
+                transform: static (ctx, _) => TransformCandidate(ctx))
+            .Where(static candidate => candidate is not null)!;
 
-        var lifecycleMethods = context.SyntaxProvider
-            .CreateSyntaxProvider(
-                predicate: static (node, _) => IsCandidate(node),
-                transform: static (ctx, _) => TransformLifecycleMethod(ctx))
-            .Where(static d => d is not null)!
-            .Select(static (descriptor, _) => (LifecycleMethodDescriptor)descriptor!);
+        var testMethods = methodCandidates
+            .Where(static candidate => candidate!.Test is not null)
+            .Select(static (candidate, _) => candidate!.Test!);
+
+        var lifecycleMethods = methodCandidates
+            .Where(static candidate => candidate!.Lifecycle is not null)
+            .Select(static (candidate, _) => candidate!.Lifecycle!);
 
         var testMethodsGrouped = testMethods
             .Collect()
@@ -45,15 +45,24 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             .Collect()
             .Select(static (methods, _) => methods.GroupBy(m => m.FullyQualifiedTypeName).ToImmutableArray());
 
-        var combined = context.CompilationProvider
-            .Combine(testMethodsGrouped)
-            .Combine(lifecycleMethodsGrouped);
+        var combined = testMethodsGrouped.Combine(lifecycleMethodsGrouped);
 
         context.RegisterSourceOutput(combined, static (spc, source) =>
         {
-            var ((compilation, testGroups), lifecycleGroups) = source;
-            EmitRegistry(spc, compilation, testGroups, lifecycleGroups);
-            EmitEntryPoint(spc, compilation);
+            var (testGroups, lifecycleGroups) = source;
+            EmitRegistry(spc, testGroups, lifecycleGroups);
+        });
+
+        var requiresEntryPoint = context.CompilationProvider
+            .Select(static (compilation, cancellationToken) =>
+                compilation.GetEntryPoint(cancellationToken) is null);
+
+        context.RegisterSourceOutput(requiresEntryPoint, static (spc, shouldEmit) =>
+        {
+            if (shouldEmit)
+            {
+                EmitEntryPoint(spc);
+            }
         });
     }
 
@@ -62,7 +71,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return node is MethodDeclarationSyntax { AttributeLists.Count: > 0 };
     }
 
-    private static object? TransformMethod(GeneratorSyntaxContext context)
+    private static MethodCandidate? TransformCandidate(GeneratorSyntaxContext context)
     {
         if (context.Node is not MethodDeclarationSyntax methodSyntax)
         {
@@ -74,6 +83,15 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             return null;
         }
 
+        var test = TransformMethod(methodSymbol);
+        var lifecycle = TransformLifecycleMethod(methodSymbol);
+        return test is null && lifecycle is null
+            ? null
+            : new MethodCandidate(test, lifecycle);
+    }
+
+    private static TestMethodDescriptor? TransformMethod(IMethodSymbol methodSymbol)
+    {
         if (!AttributeHelper.HasAttribute(methodSymbol, AttributeHelper.TestAttributeMetadataName))
         {
             return null;
@@ -102,6 +120,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var tags = AttributeHelper.GetTags(methodSymbol, typeSymbol);
         var requiresTestOutput = AttributeHelper.RequiresTestOutput(typeSymbol);
         var requiresTestContext = AttributeHelper.RequiresTestContext(typeSymbol);
+        var constructorKind = AttributeHelper.GetTestClassConstructorKind(typeSymbol);
         var timeoutMs = AttributeHelper.GetTimeout(methodSymbol, typeSymbol);
         var (retryCount, retryDelayMs, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol);
         var repeatCount = AttributeHelper.GetRepeatCount(methodSymbol);
@@ -132,6 +151,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             categories,
             tags,
             methodSymbol.IsStatic,
+            methodSymbol.ReturnsVoid,
+            HasTrailingCancellationToken(methodSymbol),
+            constructorKind,
             requiresTestOutput,
             requiresTestContext,
             timeoutMs,
@@ -148,18 +170,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             priority);
     }
 
-    private static object? TransformLifecycleMethod(GeneratorSyntaxContext context)
+    private static LifecycleMethodDescriptor? TransformLifecycleMethod(IMethodSymbol methodSymbol)
     {
-        if (context.Node is not MethodDeclarationSyntax methodSyntax)
-        {
-            return null;
-        }
-
-        if (context.SemanticModel.GetDeclaredSymbol(methodSyntax) is not IMethodSymbol methodSymbol)
-        {
-            return null;
-        }
-
         var typeSymbol = methodSymbol.ContainingType;
         var fullyQualifiedTypeName = AttributeHelper.GetFullyQualifiedTypeName(typeSymbol);
 
@@ -176,17 +188,35 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             methodSymbol.Name,
             beforeScopes,
             afterScopes,
-            methodSymbol.IsStatic);
+            methodSymbol.IsStatic,
+            methodSymbol.ReturnsVoid,
+            HasTrailingCancellationToken(methodSymbol));
     }
+
+    private sealed class MethodCandidate
+    {
+        public MethodCandidate(
+            TestMethodDescriptor? test,
+            LifecycleMethodDescriptor? lifecycle)
+        {
+            Test = test;
+            Lifecycle = lifecycle;
+        }
+
+        public TestMethodDescriptor? Test { get; }
+
+        public LifecycleMethodDescriptor? Lifecycle { get; }
+    }
+
+    private static bool HasTrailingCancellationToken(IMethodSymbol methodSymbol) =>
+        methodSymbol.Parameters.Length > 0 &&
+        methodSymbol.Parameters[methodSymbol.Parameters.Length - 1].Type.ToDisplayString() == "System.Threading.CancellationToken";
 
     private static void EmitRegistry(
         SourceProductionContext context,
-        Compilation compilation,
         ImmutableArray<IGrouping<string, TestMethodDescriptor>> testGroups,
         ImmutableArray<IGrouping<string, LifecycleMethodDescriptor>> lifecycleGroups)
     {
-        _ = compilation;
-
         var lifecycleByType = lifecycleGroups
             .SelectMany(g => g)
             .GroupBy(l => l.FullyQualifiedTypeName)
@@ -247,13 +277,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         public List<LifecycleMethodDescriptor> AfterSession { get; } = new();
     }
 
-    private static void EmitEntryPoint(SourceProductionContext context, Compilation compilation)
+    private static void EmitEntryPoint(SourceProductionContext context)
     {
-        if (compilation.GetEntryPoint(context.CancellationToken) is not null)
-        {
-            return;
-        }
-
         var source = @"// <auto-generated />
 #nullable enable
 using System.Threading.Tasks;
@@ -292,39 +317,6 @@ internal static class Program
         builder.AppendLine("[global::System.CodeDom.Compiler.GeneratedCode(\"NextUnit.Generator\", \"1.0.0\")]");
         builder.AppendLine("internal static class GeneratedTestRegistry");
         builder.AppendLine("{");
-
-        builder.AppendLine("    private static async Task InvokeTestMethodAsync(Action method, CancellationToken ct)");
-        builder.AppendLine("    {");
-        builder.AppendLine("        method();");
-        builder.AppendLine("        await Task.CompletedTask.ConfigureAwait(false);");
-        builder.AppendLine("    }");
-        builder.AppendLine();
-        builder.AppendLine("    private static async Task InvokeTestMethodAsync(Func<Task> method, CancellationToken ct)");
-        builder.AppendLine("    {");
-        builder.AppendLine("        await method().ConfigureAwait(false);");
-        builder.AppendLine("    }");
-        builder.AppendLine();
-        builder.AppendLine("    private static async Task InvokeTestMethodAsync(Func<CancellationToken, Task> method, CancellationToken ct)");
-        builder.AppendLine("    {");
-        builder.AppendLine("        await method(ct).ConfigureAwait(false);");
-        builder.AppendLine("    }");
-        builder.AppendLine();
-        builder.AppendLine("    private static async Task InvokeLifecycleMethodAsync(Action method, CancellationToken ct)");
-        builder.AppendLine("    {");
-        builder.AppendLine("        method();");
-        builder.AppendLine("        await Task.CompletedTask.ConfigureAwait(false);");
-        builder.AppendLine("    }");
-        builder.AppendLine();
-        builder.AppendLine("    private static async Task InvokeLifecycleMethodAsync(Func<Task> method, CancellationToken ct)");
-        builder.AppendLine("    {");
-        builder.AppendLine("        await method().ConfigureAwait(false);");
-        builder.AppendLine("    }");
-        builder.AppendLine();
-        builder.AppendLine("    private static async Task InvokeLifecycleMethodAsync(Func<CancellationToken, Task> method, CancellationToken ct)");
-        builder.AppendLine("    {");
-        builder.AppendLine("        await method(ct).ConfigureAwait(false);");
-        builder.AppendLine("    }");
-        builder.AppendLine();
 
         // Static readonly empty arrays to reduce type resolution overhead and code size
         builder.AppendLine("    private static readonly global::NextUnit.Internal.LifecycleMethodDelegate[] EmptyLifecycleMethods = [];");
@@ -547,7 +539,7 @@ internal static class Program
             builder.AppendLine("    {");
             foreach (var method in methods)
             {
-                builder.AppendLine($"        {CodeBuilder.BuildLifecycleMethodDelegate(method.FullyQualifiedTypeName, method.MethodName, method.IsStatic)},");
+                builder.AppendLine($"        {CodeBuilder.BuildLifecycleMethodDelegate(method.FullyQualifiedTypeName, method.MethodName, method.IsStatic, method.ReturnsVoid, method.AcceptsCancellationToken)},");
             }
 
             builder.AppendLine("    };");

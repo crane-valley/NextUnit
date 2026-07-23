@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -20,26 +21,54 @@ public sealed class DependsOnAnalyzer : DiagnosticAnalyzer
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+        context.RegisterCompilationStartAction(static startContext =>
+        {
+            var testMethodsByType =
+                new ConcurrentDictionary<INamedTypeSymbol, ImmutableHashSet<string>>(
+                    SymbolEqualityComparer.Default);
+
+            startContext.RegisterSymbolAction(methodContext =>
+            {
+                var method = (IMethodSymbol)methodContext.Symbol;
+                var containingType = method.ContainingType;
+                if (containingType is null)
+                {
+                    return;
+                }
+
+                AnalyzeMethod(methodContext, containingType, testMethodsByType);
+            }, SymbolKind.Method);
+        });
     }
 
-    private static void AnalyzeMethod(SymbolAnalysisContext context)
+    private static ImmutableHashSet<string> GetTestMethodNames(INamedTypeSymbol containingType)
     {
-        var method = (IMethodSymbol)context.Symbol;
-        var containingType = method.ContainingType;
-
-        if (containingType is null)
+        var builder = ImmutableHashSet.CreateBuilder<string>(StringComparer.Ordinal);
+        foreach (var member in containingType.GetMembers())
         {
-            return;
+            if (member is IMethodSymbol method)
+            {
+                foreach (var attribute in method.GetAttributes())
+                {
+                    if (attribute.AttributeClass?.ToDisplayString() == TestAttributeFullName)
+                    {
+                        builder.Add(method.Name);
+                        break;
+                    }
+                }
+            }
         }
 
-        // Get all test method names in the class using LINQ
-        var testMethodNames = new HashSet<string>(
-            containingType.GetMembers()
-                .OfType<IMethodSymbol>()
-                .Where(m => m.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == TestAttributeFullName))
-                .Select(m => m.Name),
-            StringComparer.Ordinal);
+        return builder.ToImmutable();
+    }
+
+    private static void AnalyzeMethod(
+        SymbolAnalysisContext context,
+        INamedTypeSymbol containingType,
+        ConcurrentDictionary<INamedTypeSymbol, ImmutableHashSet<string>> testMethodsByType)
+    {
+        var method = (IMethodSymbol)context.Symbol;
+        ImmutableHashSet<string>? testMethodNames = null;
 
         // Check each [DependsOn] attribute
         foreach (var attribute in method.GetAttributes())
@@ -48,6 +77,10 @@ public sealed class DependsOnAnalyzer : DiagnosticAnalyzer
             {
                 continue;
             }
+
+            testMethodNames ??= testMethodsByType.GetOrAdd(
+                containingType,
+                static type => GetTestMethodNames(type));
 
             // Get the constructor arguments (the params string[] dependencies)
             var constructorArgs = attribute.ConstructorArguments;
