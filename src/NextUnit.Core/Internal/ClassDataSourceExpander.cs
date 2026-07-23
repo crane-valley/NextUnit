@@ -41,7 +41,7 @@ public static class ClassDataSourceExpander
     public static IEnumerable<TestCaseDescriptor> ExpandSingle(ClassDataSourceDescriptor descriptor)
     {
         // Combine data from all source types
-        var allData = new List<object?[]>();
+        var allData = new List<ResolvedTestDataRow>();
 
         foreach (var sourceType in descriptor.DataSourceTypes)
         {
@@ -53,15 +53,11 @@ public static class ClassDataSourceExpander
 
             try
             {
-                if (instance is IEnumerable<object?[]> typedEnumerable)
-                {
-                    allData.AddRange(typedEnumerable);
-                }
-                else if (instance is IEnumerable nonGeneric)
+                if (instance is IEnumerable nonGeneric)
                 {
                     foreach (var item in nonGeneric)
                     {
-                        allData.Add(ConvertToObjectArray(item));
+                        allData.Add(TestDataRowResolver.Resolve(item));
                     }
                 }
             }
@@ -78,9 +74,9 @@ public static class ClassDataSourceExpander
         }
 
         var index = 0;
-        foreach (var arguments in allData)
+        foreach (var row in allData)
         {
-            yield return CreateTestCase(descriptor, arguments, index);
+            yield return CreateTestCase(descriptor, row, index);
             index++;
         }
     }
@@ -177,32 +173,21 @@ public static class ClassDataSourceExpander
         }
     }
 
-    private static object?[] ConvertToObjectArray(object? dataRow)
-    {
-        return dataRow switch
-        {
-            null => [],
-            object?[] array => array,
-            IEnumerable enumerable => enumerable.Cast<object?>().ToArray(),
-            _ => [dataRow]
-        };
-    }
-
     private static TestCaseDescriptor CreateTestCase(
         ClassDataSourceDescriptor descriptor,
-        object?[] arguments,
+        ResolvedTestDataRow row,
         int index)
     {
         // Build unique test ID including all source type names
         var combinedSourceTypesName = string.Join("+", descriptor.DataSourceTypes.Select(t => t.Name));
         var testId = $"{descriptor.BaseId}:ClassData:{combinedSourceTypesName}[{index}]";
 
-        var displayName = DisplayNameBuilder.Build(
+        var displayName = row.DisplayName ?? DisplayNameBuilder.Build(
             descriptor.MethodName,
             descriptor.CustomDisplayNameTemplate,
             descriptor.DisplayNameFormatterType,
             descriptor.TestClass,
-            arguments,
+            row.Arguments,
             index);
 
         // Get the test method via reflection for creating the delegate
@@ -216,7 +201,7 @@ public static class ClassDataSourceExpander
         TestMethodDelegate? testMethod = null;
         if (methodInfo is not null)
         {
-            testMethod = CreateTestMethodDelegate(methodInfo, arguments);
+            testMethod = CreateTestMethodDelegate(methodInfo, row.Arguments);
         }
 
         return new TestCaseDescriptor
@@ -230,13 +215,13 @@ public static class ClassDataSourceExpander
             Parallel = descriptor.Parallel,
             Dependencies = descriptor.Dependencies,
             DependencyInfos = descriptor.DependencyInfos,
-            IsSkipped = descriptor.IsSkipped,
-            SkipReason = descriptor.SkipReason,
+            IsSkipped = descriptor.IsSkipped || row.SkipReason is not null,
+            SkipReason = descriptor.SkipReason ?? row.SkipReason,
             IsExplicit = descriptor.IsExplicit,
             ExplicitReason = descriptor.ExplicitReason,
-            Arguments = arguments,
-            Categories = descriptor.Categories,
-            Tags = descriptor.Tags,
+            Arguments = row.Arguments,
+            Categories = TestDataRowResolver.MergeLabels(descriptor.Categories, row.Categories),
+            Tags = TestDataRowResolver.MergeLabels(descriptor.Tags, row.Tags),
             RequiresTestOutput = descriptor.RequiresTestOutput,
             RequiresTestContext = descriptor.RequiresTestContext,
             TimeoutMs = descriptor.TimeoutMs,

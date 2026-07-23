@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -286,6 +287,10 @@ internal static class AssertionMessageFormatter
         return item.ToString() ?? "<null>";
     }
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2075",
+        Justification = "Reflection is reachable only when dynamic code is supported; Native AOT uses the non-reflective fallback.")]
     private static string FormatObject<T>(T? obj)
     {
         if (obj == null)

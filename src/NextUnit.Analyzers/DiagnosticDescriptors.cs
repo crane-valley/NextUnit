@@ -104,4 +104,28 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "The number of values in [MatrixExclusion] attribute must match the number of [Matrix] parameters.");
+
+    /// <summary>
+    /// NU0009: Data source row type is incompatible with the test method.
+    /// </summary>
+    public static readonly DiagnosticDescriptor TestDataRowTypeMismatch = new(
+        id: "NU0009",
+        title: "Test data row type does not match test method parameters",
+        messageFormat: "Data source '{0}' supplies row type '{1}', which is incompatible with test method '{2}'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Statically typed test data rows must provide values that can be passed to the test method parameters.");
+
+    /// <summary>
+    /// NU0010: Test data row metadata is invalid.
+    /// </summary>
+    public static readonly DiagnosticDescriptor InvalidTestDataRowMetadata = new(
+        id: "NU0010",
+        title: "Test data row metadata is invalid",
+        messageFormat: "Test data row metadata '{0}' cannot contain an empty or whitespace value",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Constant test data row display names, skip reasons, categories, and tags must contain meaningful text.");
 }

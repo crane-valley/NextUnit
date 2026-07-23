@@ -207,4 +207,85 @@ public class TestDataMemberAnalyzerTests
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
     }
+
+    [Fact]
+    public async Task TestDataWithCompatibleTypedTupleRow_NoDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                public static IEnumerable<TestDataRow<(int, string)>> TestCases => [];
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value, string text)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    [Fact]
+    public async Task TestDataWithIncompatibleTypedRow_ReportsDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                public static IEnumerable<TestDataRow<string>> TestCases => [];
+
+                [Test]
+                [{|#0:TestData("TestCases")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0009")
+            .WithLocation(0)
+            .WithArguments("TestCases", "string", "TestMethod");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task ClassDataSourceWithIncompatibleTypedTupleRow_ReportsDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            public sealed class Rows : IEnumerable<TestDataRow<(int, string)>>
+            {
+                public IEnumerator<TestDataRow<(int, string)>> GetEnumerator() => throw new System.NotImplementedException();
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public class Tests
+            {
+                [Test]
+                [{|#0:ClassDataSource<Rows>|}]
+                public void TestMethod(int value, int other)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0009")
+            .WithLocation(0)
+            .WithArguments("Rows", "(int, string)", "TestMethod");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
 }

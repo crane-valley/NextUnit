@@ -66,6 +66,26 @@ public static class CSharpAnalyzerVerifier<TAnalyzer>
                 public System.Type? MemberType { get; }
             }
 
+            public sealed class TestDataRow<T>
+            {
+                public TestDataRow(
+                    T data,
+                    string? displayName = null,
+                    System.Collections.Generic.IEnumerable<string>? categories = null,
+                    System.Collections.Generic.IEnumerable<string>? tags = null,
+                    string? skipReason = null)
+                {
+                    Data = data;
+                }
+                public T Data { get; }
+            }
+
+            [System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = true)]
+            public sealed class ClassDataSourceAttribute<T> : System.Attribute
+                where T : System.Collections.IEnumerable, new()
+            {
+            }
+
             [System.AttributeUsage(System.AttributeTargets.Parameter)]
             public sealed class ValuesFromMemberAttribute : System.Attribute
             {

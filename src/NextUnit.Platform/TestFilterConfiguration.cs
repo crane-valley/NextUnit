@@ -57,6 +57,45 @@ internal sealed class TestFilterConfiguration
     public bool IncludeExplicitTests { get; set; }
 
     /// <summary>
+    /// Gets a value indicating whether dynamic data sources must be expanded before include filters
+    /// can be evaluated against row-level names, categories, or tags.
+    /// </summary>
+    public bool RequiresDynamicExpansion =>
+        IncludeCategories.Count > 0 ||
+        IncludeTags.Count > 0 ||
+        _compiledWildcardPatterns.Count > 0 ||
+        TestNameRegexPatterns.Count > 0;
+
+    /// <summary>
+    /// Determines whether a dynamic data source should be expanded before row-level filtering.
+    /// </summary>
+    public bool ShouldExpandDynamicTest(
+        IReadOnlyList<string> categories,
+        IReadOnlyList<string> tags,
+        string testName,
+        bool isExplicit = false)
+    {
+        if (isExplicit && !IncludeExplicitTests)
+        {
+            return false;
+        }
+
+        if (ExcludeCategories.Count > 0 &&
+            categories.Any(category => ExcludeCategories.Contains(category, StringComparer.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        if (ExcludeTags.Count > 0 &&
+            tags.Any(tag => ExcludeTags.Contains(tag, StringComparer.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        return RequiresDynamicExpansion || ShouldIncludeTest(categories, tags, testName, isExplicit);
+    }
+
+    /// <summary>
     /// Determines whether a test should be included based on the filter configuration.
     /// </summary>
     /// <param name="categories">The categories assigned to the test.</param>
@@ -84,9 +123,7 @@ internal sealed class TestFilterConfiguration
         }
 
         // If no include filters are specified, test passes
-        var hasIncludeFilters = IncludeCategories.Count > 0 || IncludeTags.Count > 0
-            || _compiledWildcardPatterns.Count > 0 || TestNameRegexPatterns.Count > 0;
-        if (!hasIncludeFilters)
+        if (!RequiresDynamicExpansion)
         {
             return true;
         }

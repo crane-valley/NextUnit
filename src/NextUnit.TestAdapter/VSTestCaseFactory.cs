@@ -47,6 +47,11 @@ internal static class VSTestCaseFactory
             testCase.Traits.Add(new Trait("Tag", tag));
         }
 
+        if (descriptor.SkipReason is not null)
+        {
+            testCase.Traits.Add(new Trait("SkipReason", descriptor.SkipReason));
+        }
+
         if (descriptor.IsExplicit)
         {
             testCase.Traits.Add(new Trait("Explicit", "true"));

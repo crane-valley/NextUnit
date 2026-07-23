@@ -157,7 +157,7 @@ internal sealed class NextUnitFramework :
         {
             // Filter TestDataDescriptors BEFORE expansion to avoid executing data providers for excluded tests
             var filteredDescriptors = generatedRegistry.TestDataDescriptors
-                .Where(td => _filterConfig.ShouldIncludeTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit))
+                .Where(td => _filterConfig.ShouldExpandDynamicTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit))
                 .ToList();
 
             // Expand only the filtered TestDataDescriptors into TestCaseDescriptors at runtime
@@ -169,7 +169,7 @@ internal sealed class NextUnitFramework :
         {
             // Filter ClassDataSourceDescriptors BEFORE expansion to avoid instantiating data sources for excluded tests
             var filteredDescriptors = generatedRegistry.ClassDataSourceDescriptors
-                .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
+                .Where(cd => _filterConfig.ShouldExpandDynamicTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
                 .ToList();
 
             // Expand only the filtered ClassDataSourceDescriptors into TestCaseDescriptors at runtime
@@ -181,7 +181,7 @@ internal sealed class NextUnitFramework :
         {
             // Filter CombinedDataSourceDescriptors BEFORE expansion to avoid resolving data sources for excluded tests
             var filteredDescriptors = generatedRegistry.CombinedDataSourceDescriptors
-                .Where(cd => _filterConfig.ShouldIncludeTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
+                .Where(cd => _filterConfig.ShouldExpandDynamicTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
                 .ToList();
 
             // Expand only the filtered CombinedDataSourceDescriptors into TestCaseDescriptors at runtime
@@ -360,12 +360,7 @@ internal sealed class NextUnitFramework :
 
         foreach (var testCase in testCases)
         {
-            var testNode = new TestNode
-            {
-                Uid = new TestNodeUid(testCase.Id.Value),
-                DisplayName = testCase.DisplayName,
-                Properties = new PropertyBag()
-            };
+            var testNode = TestNodeFactory.Create(testCase);
 
             await messageBus.PublishAsync(
                 this,
@@ -412,12 +407,7 @@ internal sealed class NextUnitFramework :
 
             AddArtifactProperties(properties, artifacts);
 
-            var testNode = new TestNode
-            {
-                Uid = new TestNodeUid(test.Id.Value),
-                DisplayName = test.DisplayName,
-                Properties = new PropertyBag(properties.ToArray())
-            };
+            var testNode = TestNodeFactory.Create(test, properties);
 
             await _messageBus.PublishAsync(
                 _producer,
@@ -437,12 +427,7 @@ internal sealed class NextUnitFramework :
 
             AddArtifactProperties(properties, artifacts);
 
-            var testNode = new TestNode
-            {
-                Uid = new TestNodeUid(test.Id.Value),
-                DisplayName = test.DisplayName,
-                Properties = new PropertyBag(properties.ToArray())
-            };
+            var testNode = TestNodeFactory.Create(test, properties);
 
             await _messageBus.PublishAsync(
                 _producer,
@@ -462,12 +447,7 @@ internal sealed class NextUnitFramework :
 
             AddArtifactProperties(properties, artifacts);
 
-            var testNode = new TestNode
-            {
-                Uid = new TestNodeUid(test.Id.Value),
-                DisplayName = test.DisplayName,
-                Properties = new PropertyBag(properties.ToArray())
-            };
+            var testNode = TestNodeFactory.Create(test, properties);
 
             await _messageBus.PublishAsync(
                 _producer,
@@ -504,12 +484,7 @@ internal sealed class NextUnitFramework :
 
             AddArtifactProperties(properties, artifacts);
 
-            var testNode = new TestNode
-            {
-                Uid = new TestNodeUid(test.Id.Value),
-                DisplayName = test.DisplayName,
-                Properties = new PropertyBag(properties.ToArray())
-            };
+            var testNode = TestNodeFactory.Create(test, properties);
 
             await _messageBus.PublishAsync(
                 _producer,

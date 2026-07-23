@@ -33,6 +33,10 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="NextUnit.TestAdapter.Tests" />
+  </ItemGroup>
+
   <!-- Ensure adapter DLL is copied to test project output -->
   <ItemGroup>
     <None Include="build\NextUnit.TestAdapter.props" Pack="true" PackagePath="build" />
