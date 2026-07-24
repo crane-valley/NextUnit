@@ -171,6 +171,16 @@ public sealed class TestExecutionEngine
         // The body was non-critical (or absent), so a critical exception escaping cleanup surfaces next.
         cleanupCritical?.Throw();
 
+        // Cancellation may first fire during cleanup itself (e.g. the final teardown hook cancels the
+        // token and returns normally). No hook threw, so nothing was recorded and the pre-cleanup check
+        // ran too early; synthesize the cancellation so the cancelled run does not complete successfully.
+        var bodyIsRunCancellation = bodyFailure?.SourceException is OperationCanceledException bodyOce
+            && IsRunCancellation(bodyOce, cancellationToken);
+        if (cancellationToken.IsCancellationRequested && cleanupCancellation is null && !bodyIsRunCancellation)
+        {
+            cleanupCancellation = new OperationCanceledException(cancellationToken);
+        }
+
         ThrowCombinedFailure(bodyFailure?.SourceException, cleanupCancellation, cleanupFailures, cancellationToken);
     }
 

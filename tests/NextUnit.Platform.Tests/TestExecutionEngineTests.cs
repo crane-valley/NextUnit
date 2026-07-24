@@ -443,6 +443,42 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
+    public async Task ClassTeardownCancelsRunAndReturnsNormally_SurfacesCancellationAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("teardown.cancels.run"),
+            DisplayName = "teardown.cancels.run",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            TestMethod = static (_, _) => Task.CompletedTask,
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods =
+                [
+                    (_, _) =>
+                    {
+                        // Cancellation first fires during cleanup, and the hook returns normally.
+                        cts.Cancel();
+                        return Task.CompletedTask;
+                    }
+                ]
+            }
+        };
+
+        var sink = new RecordingSink();
+
+        // A run cancelled only during cleanup must still surface, not complete successfully.
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
+
+        Assert.Empty(sink.Errors);
+    }
+
+    [Test]
     public async Task TimeoutWithOuterCancellation_PropagatesCancellationNotErrorAsync()
     {
         using var cts = new CancellationTokenSource();
