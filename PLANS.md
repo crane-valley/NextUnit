@@ -132,6 +132,16 @@ need a deliberate compatibility decision rather than a drive-by fix.
 - [ ] `Assert.NotInRange` XML doc says the range is exclusive, but the implementation treats the
   bounds as inclusive; align the doc or the behavior.
 
+### Priority 2 — Engine follow-ups from the 2026-07-24 cancellation review
+
+Pre-existing behaviors surfaced while hardening cancellation and teardown reporting; both need a
+deliberate design decision rather than a drive-by fix.
+
+- [ ] A per-test instance whose `Dispose` throws propagates the exception out of `RunAsync`
+  uncaught; decide whether to report it as a test-scoped error like class-level disposal.
+- [ ] Assembly-teardown failures surface by throwing from `RunAsync` instead of a dedicated sink
+  node; decide whether an assembly-scope synthetic node is worth the adapter-visible change.
+
 ## Explicitly not planned
 
 These items were considered during the 2026-07-23 audit and are intentionally absent from the

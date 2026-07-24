@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using NextUnit.Core;
 
@@ -8,7 +9,9 @@ namespace NextUnit.Internal;
 /// </summary>
 internal sealed class TestContextCapture : ITestContext
 {
-    private Dictionary<string, object?>? _stateBag;
+    // Tests may attach artifacts or mutate state from concurrently awaited tasks, so both stores are thread-safe.
+    private readonly object _artifactsLock = new();
+    private ConcurrentDictionary<string, object?>? _stateBag;
     private List<Artifact>? _artifacts;
 
     /// <summary>
@@ -85,11 +88,20 @@ internal sealed class TestContextCapture : ITestContext
     public ITestOutput Output { get; }
 
     /// <inheritdoc/>
-    public IDictionary<string, object?> StateBag => _stateBag ??= new Dictionary<string, object?>();
+    public IDictionary<string, object?> StateBag =>
+        System.Threading.LazyInitializer.EnsureInitialized(ref _stateBag, static () => new ConcurrentDictionary<string, object?>());
 
     /// <inheritdoc/>
-    public IReadOnlyList<Artifact> Artifacts =>
-        _artifacts is null ? Array.Empty<Artifact>() : _artifacts;
+    public IReadOnlyList<Artifact> Artifacts
+    {
+        get
+        {
+            lock (_artifactsLock)
+            {
+                return _artifacts is null ? Array.Empty<Artifact>() : _artifacts.ToArray();
+            }
+        }
+    }
 
     /// <inheritdoc/>
     public void AttachArtifact(string filePath, string? description = null)
@@ -105,12 +117,17 @@ internal sealed class TestContextCapture : ITestContext
             throw new FileNotFoundException("Artifact file not found", artifact.FilePath);
         }
 
-        (_artifacts ??= new List<Artifact>()).Add(new Artifact
+        var resolved = new Artifact
         {
             FilePath = Path.GetFullPath(artifact.FilePath),
             Description = artifact.Description,
             MimeType = artifact.MimeType ?? GetMimeType(artifact.FilePath)
-        });
+        };
+
+        lock (_artifactsLock)
+        {
+            (_artifacts ??= new List<Artifact>()).Add(resolved);
+        }
     }
 
     private static readonly Dictionary<string, string> _mimeTypeMappings = new(StringComparer.OrdinalIgnoreCase)
