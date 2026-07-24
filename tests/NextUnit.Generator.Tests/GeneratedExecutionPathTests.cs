@@ -119,6 +119,39 @@ public sealed class GeneratedExecutionPathTests
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
+    [Fact]
+    public void Generator_TaskDerivedReturnType_EmitsInvocationAndCompiles()
+    {
+        const string source = """
+            using System.Threading.Tasks;
+            using NextUnit;
+
+            public sealed class CustomTask : Task
+            {
+                public CustomTask() : base(() => { })
+                {
+                }
+            }
+
+            public sealed class DerivedTaskTests
+            {
+                [Test]
+                public CustomTask DerivedTaskTest() => new();
+            }
+            """;
+
+        var (generatedRegistry, outputCompilation) = RunGenerator(source);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        Xunit.Assert.Contains(
+            "((global::DerivedTaskTests)instance).DerivedTaskTest()",
+            generatedRegistry);
+        Xunit.Assert.DoesNotContain("Task.FromException", generatedRegistry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain(
+            outputCompilation.GetDiagnostics(cancellationToken),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
     private static (string GeneratedRegistry, Compilation OutputCompilation) RunGenerator(string source)
     {
         var cancellationToken = TestContext.Current.CancellationToken;

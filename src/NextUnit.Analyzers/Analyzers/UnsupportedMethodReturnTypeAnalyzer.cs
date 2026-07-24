@@ -23,14 +23,22 @@ public sealed class UnsupportedMethodReturnTypeAnalyzer : DiagnosticAnalyzer
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+        context.RegisterCompilationStartAction(startContext =>
+        {
+            var knownTypes = KnownTypes.Create(startContext.Compilation);
+            startContext.RegisterSymbolAction(
+                symbolContext => AnalyzeMethod(symbolContext, knownTypes),
+                SymbolKind.Method);
+        });
     }
 
-    private static void AnalyzeMethod(SymbolAnalysisContext context)
+    private static void AnalyzeMethod(
+        SymbolAnalysisContext context,
+        KnownTypes knownTypes)
     {
         var method = (IMethodSymbol)context.Symbol;
 
-        if (!HasSupportedAttribute(method) || IsSupportedReturnType(method))
+        if (!HasSupportedAttribute(method) || IsSupportedReturnType(method, knownTypes))
         {
             return;
         }
@@ -46,21 +54,68 @@ public sealed class UnsupportedMethodReturnTypeAnalyzer : DiagnosticAnalyzer
         method.GetAttributes().Any(
             attribute => _supportedAttributeNames.Contains(attribute.AttributeClass?.ToDisplayString() ?? ""));
 
-    private static bool IsSupportedReturnType(IMethodSymbol method)
+    private static bool IsSupportedReturnType(
+        IMethodSymbol method,
+        KnownTypes knownTypes)
     {
         if (method.ReturnsVoid)
         {
             return true;
         }
 
-        if (method.ReturnType is not INamedTypeSymbol returnType ||
-            returnType.ContainingNamespace.ToDisplayString() != "System.Threading.Tasks")
+        if (method.ReturnType is not INamedTypeSymbol returnType)
         {
             return false;
         }
 
-        return returnType is
-        { Name: "Task", Arity: 0 or 1 } or
-        { Name: "ValueTask", Arity: 0 or 1 };
+        if (knownTypes.Task is not null && IsTaskType(returnType, knownTypes.Task))
+        {
+            return true;
+        }
+
+        return (knownTypes.ValueTask is not null &&
+                SymbolEqualityComparer.Default.Equals(returnType, knownTypes.ValueTask)) ||
+            (knownTypes.GenericValueTask is not null &&
+             SymbolEqualityComparer.Default.Equals(returnType.OriginalDefinition, knownTypes.GenericValueTask));
+    }
+
+    private static bool IsTaskType(
+        INamedTypeSymbol returnType,
+        INamedTypeSymbol taskType)
+    {
+        for (INamedTypeSymbol? current = returnType; current is not null; current = current.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current, taskType))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private sealed class KnownTypes
+    {
+        private KnownTypes(
+            INamedTypeSymbol? task,
+            INamedTypeSymbol? valueTask,
+            INamedTypeSymbol? genericValueTask)
+        {
+            Task = task;
+            ValueTask = valueTask;
+            GenericValueTask = genericValueTask;
+        }
+
+        public INamedTypeSymbol? Task { get; }
+
+        public INamedTypeSymbol? ValueTask { get; }
+
+        public INamedTypeSymbol? GenericValueTask { get; }
+
+        public static KnownTypes Create(Compilation compilation) =>
+            new(
+                compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"),
+                compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask"),
+                compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask`1"));
     }
 }

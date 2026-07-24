@@ -95,4 +95,56 @@ public sealed class UnsupportedMethodReturnTypeAnalyzerTests
 
         await CSharpAnalyzerVerifier<UnsupportedMethodReturnTypeAnalyzer>.VerifyAnalyzerAsync(source);
     }
+
+    [Fact]
+    public async Task TaskDerivedReturnType_NoDiagnosticAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            public sealed class CustomTask : Task
+            {
+                public CustomTask() : base(() => { })
+                {
+                }
+            }
+
+            public class Tests
+            {
+                [Test]
+                public CustomTask DerivedTaskTest() => new();
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<UnsupportedMethodReturnTypeAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    [Fact]
+    public async Task SameNamedImpostorReturnType_ReportsDiagnosticAsync()
+    {
+        const string source = """
+            using NextUnit;
+
+            namespace Impostor
+            {
+                public sealed class Task
+                {
+                }
+            }
+
+            public class Tests
+            {
+                [Test]
+                public Impostor.Task ImpostorTaskTest() => new();
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<UnsupportedMethodReturnTypeAnalyzer>
+            .Diagnostic("NU0011")
+            .WithSpan(13, 26, 13, 42)
+            .WithArguments("ImpostorTaskTest", "Impostor.Task");
+
+        await CSharpAnalyzerVerifier<UnsupportedMethodReturnTypeAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
 }

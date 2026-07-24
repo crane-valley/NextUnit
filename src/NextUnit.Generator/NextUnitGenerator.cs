@@ -83,14 +83,17 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             return null;
         }
 
-        var test = TransformMethod(methodSymbol);
-        var lifecycle = TransformLifecycleMethod(methodSymbol);
+        var knownTypes = KnownTypes.Create(context.SemanticModel.Compilation);
+        var test = TransformMethod(methodSymbol, knownTypes);
+        var lifecycle = TransformLifecycleMethod(methodSymbol, knownTypes);
         return test is null && lifecycle is null
             ? null
             : new MethodCandidate(test, lifecycle);
     }
 
-    private static TestMethodDescriptor? TransformMethod(IMethodSymbol methodSymbol)
+    private static TestMethodDescriptor? TransformMethod(
+        IMethodSymbol methodSymbol,
+        KnownTypes knownTypes)
     {
         if (!AttributeHelper.HasAttribute(methodSymbol, AttributeHelper.TestAttributeMetadataName))
         {
@@ -151,7 +154,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             categories,
             tags,
             methodSymbol.IsStatic,
-            GetMethodReturnKind(methodSymbol),
+            GetMethodReturnKind(methodSymbol, knownTypes),
             HasTrailingCancellationToken(methodSymbol),
             constructorKind,
             requiresTestOutput,
@@ -170,7 +173,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             priority);
     }
 
-    private static LifecycleMethodDescriptor? TransformLifecycleMethod(IMethodSymbol methodSymbol)
+    private static LifecycleMethodDescriptor? TransformLifecycleMethod(
+        IMethodSymbol methodSymbol,
+        KnownTypes knownTypes)
     {
         var typeSymbol = methodSymbol.ContainingType;
         var fullyQualifiedTypeName = AttributeHelper.GetFullyQualifiedTypeName(typeSymbol);
@@ -189,29 +194,78 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             beforeScopes,
             afterScopes,
             methodSymbol.IsStatic,
-            GetMethodReturnKind(methodSymbol),
+            GetMethodReturnKind(methodSymbol, knownTypes),
             HasTrailingCancellationToken(methodSymbol));
     }
 
-    private static MethodReturnKind GetMethodReturnKind(IMethodSymbol methodSymbol)
+    private static MethodReturnKind GetMethodReturnKind(
+        IMethodSymbol methodSymbol,
+        KnownTypes knownTypes)
     {
         if (methodSymbol.ReturnsVoid)
         {
             return MethodReturnKind.Void;
         }
 
-        if (methodSymbol.ReturnType is not INamedTypeSymbol returnType ||
-            returnType.ContainingNamespace.ToDisplayString() != "System.Threading.Tasks")
+        if (methodSymbol.ReturnType is not INamedTypeSymbol returnType)
         {
             return MethodReturnKind.Unsupported;
         }
 
-        return returnType.Name switch
+        if (knownTypes.Task is not null && IsTaskType(returnType, knownTypes.Task))
         {
-            "Task" when returnType.Arity is 0 or 1 => MethodReturnKind.Task,
-            "ValueTask" when returnType.Arity is 0 or 1 => MethodReturnKind.ValueTask,
-            _ => MethodReturnKind.Unsupported
-        };
+            return MethodReturnKind.Task;
+        }
+
+        if ((knownTypes.ValueTask is not null &&
+             SymbolEqualityComparer.Default.Equals(returnType, knownTypes.ValueTask)) ||
+            (knownTypes.GenericValueTask is not null &&
+             SymbolEqualityComparer.Default.Equals(returnType.OriginalDefinition, knownTypes.GenericValueTask)))
+        {
+            return MethodReturnKind.ValueTask;
+        }
+
+        return MethodReturnKind.Unsupported;
+    }
+
+    private static bool IsTaskType(
+        INamedTypeSymbol returnType,
+        INamedTypeSymbol taskType)
+    {
+        for (INamedTypeSymbol? current = returnType; current is not null; current = current.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current, taskType))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private readonly struct KnownTypes
+    {
+        private KnownTypes(
+            INamedTypeSymbol? task,
+            INamedTypeSymbol? valueTask,
+            INamedTypeSymbol? genericValueTask)
+        {
+            Task = task;
+            ValueTask = valueTask;
+            GenericValueTask = genericValueTask;
+        }
+
+        public INamedTypeSymbol? Task { get; }
+
+        public INamedTypeSymbol? ValueTask { get; }
+
+        public INamedTypeSymbol? GenericValueTask { get; }
+
+        public static KnownTypes Create(Compilation compilation) =>
+            new(
+                compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"),
+                compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask"),
+                compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask`1"));
     }
 
     private sealed class MethodCandidate
