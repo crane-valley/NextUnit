@@ -24,5 +24,13 @@ public class BasicTests
     {
         NextUnit.Assert.Equal(expected, a + b);
     }
+
+    [NextUnit.Test]
+    [NextUnit.TestData(nameof(Rows))]
+    public ValueTask<int> PackageRunsValueTaskDataRow(int a, int b, int expected)
+    {
+        NextUnit.Assert.Equal(expected, a + b);
+        return new ValueTask<int>(expected);
+    }
 #endif
 }

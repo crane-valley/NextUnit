@@ -36,6 +36,36 @@ public sealed class TestDataRowTests
     }
 
     [Fact]
+    public async Task ReflectionInvoker_ValueTask_PropagatesPostAwaitExceptionAsync()
+    {
+        var invoker = ReflectionTestInvokerFactory.Create(
+            typeof(ValueTaskTarget),
+            nameof(ValueTaskTarget.ThrowAsync),
+            Type.EmptyTypes);
+
+        Xunit.Assert.NotNull(invoker);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => invoker!(new ValueTaskTarget(), [], TestContext.Current.CancellationToken));
+
+        Assert.Equal("ValueTask failed", exception.Message);
+    }
+
+    [Fact]
+    public async Task ReflectionInvoker_GenericValueTask_PropagatesPostAwaitExceptionAsync()
+    {
+        var invoker = ReflectionTestInvokerFactory.Create(
+            typeof(ValueTaskTarget),
+            nameof(ValueTaskTarget.ThrowGenericAsync),
+            Type.EmptyTypes);
+
+        Xunit.Assert.NotNull(invoker);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => invoker!(new ValueTaskTarget(), [], TestContext.Current.CancellationToken));
+
+        Assert.Equal("ValueTask<int> failed", exception.Message);
+    }
+
+    [Fact]
     public void ClassDataSourceExpander_TypedTupleRow_PreservesArgumentsAndMetadata()
     {
         var descriptor = new ClassDataSourceDescriptor
@@ -124,5 +154,20 @@ public sealed class TestDataRowTests
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    private sealed class ValueTaskTarget
+    {
+        public async ValueTask ThrowAsync()
+        {
+            await Task.Yield();
+            throw new InvalidOperationException("ValueTask failed");
+        }
+
+        public async ValueTask<int> ThrowGenericAsync()
+        {
+            await Task.Yield();
+            throw new InvalidOperationException("ValueTask<int> failed");
+        }
     }
 }

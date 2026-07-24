@@ -10,16 +10,16 @@ internal static class DiagnosticDescriptors
     private const string Category = "NextUnit";
 
     /// <summary>
-    /// NU0001: Test method should not be async void.
+    /// NU0001: Test or lifecycle method should not be async void.
     /// </summary>
     public static readonly DiagnosticDescriptor AsyncVoidTest = new(
         id: "NU0001",
-        title: "Test method should not be async void",
-        messageFormat: "Test method '{0}' is async void; change return type to Task",
+        title: "Test or lifecycle method should not be async void",
+        messageFormat: "Method '{0}' is async void; change return type to Task",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Async test methods should return Task instead of void to properly await asynchronous operations and propagate exceptions.");
+        description: "Async test and lifecycle methods should return Task instead of void so NextUnit can await completion and propagate exceptions.");
 
     /// <summary>
     /// NU0002: Test method must be public.
@@ -128,4 +128,16 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "Constant test data row display names, skip reasons, categories, and tags must contain meaningful text.");
+
+    /// <summary>
+    /// NU0011: Test or lifecycle method return type is unsupported.
+    /// </summary>
+    public static readonly DiagnosticDescriptor UnsupportedMethodReturnType = new(
+        id: "NU0011",
+        title: "Test or lifecycle method return type is unsupported",
+        messageFormat: "Method '{0}' has unsupported return type '{1}'; use void, Task, Task<T>, ValueTask, or ValueTask<T>",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Test and lifecycle methods must return void, Task, Task<T>, ValueTask, or ValueTask<T> so NextUnit can observe completion and failures.");
 }

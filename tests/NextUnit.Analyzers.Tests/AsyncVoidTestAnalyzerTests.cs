@@ -86,6 +86,56 @@ public class Tests
     }
 
     [Fact]
+    public async Task AsyncVoidBeforeMethod_ReportsDiagnosticAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                [Before(LifecycleScope.Test)]
+                public async void Setup()
+                {
+                    await Task.Yield();
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<AsyncVoidTestAnalyzer>
+            .Diagnostic("NU0001")
+            .WithSpan(7, 23, 7, 28)
+            .WithArguments("Setup");
+
+        await CSharpAnalyzerVerifier<AsyncVoidTestAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task AsyncVoidAfterMethod_ReportsDiagnosticAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                [After(LifecycleScope.Test)]
+                public async void Cleanup()
+                {
+                    await Task.Yield();
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<AsyncVoidTestAnalyzer>
+            .Diagnostic("NU0001")
+            .WithSpan(7, 23, 7, 30)
+            .WithArguments("Cleanup");
+
+        await CSharpAnalyzerVerifier<AsyncVoidTestAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
     public async Task CodeFix_ChangesAsyncVoidToAsyncTaskAsync()
     {
         var source = @"

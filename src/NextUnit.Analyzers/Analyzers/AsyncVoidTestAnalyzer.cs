@@ -5,12 +5,16 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace NextUnit.Analyzers.Analyzers;
 
 /// <summary>
-/// Analyzer that detects async void test methods.
+/// Analyzer that detects async void test and lifecycle methods.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class AsyncVoidTestAnalyzer : DiagnosticAnalyzer
 {
-    private const string TestAttributeFullName = "NextUnit.TestAttribute";
+    private static readonly ImmutableHashSet<string> _supportedAttributeNames =
+        ImmutableHashSet.Create(
+            "NextUnit.TestAttribute",
+            "NextUnit.BeforeAttribute",
+            "NextUnit.AfterAttribute");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.AsyncVoidTest);
@@ -26,7 +30,7 @@ public sealed class AsyncVoidTestAnalyzer : DiagnosticAnalyzer
     {
         var method = (IMethodSymbol)context.Symbol;
 
-        if (!HasTestAttribute(method))
+        if (!HasSupportedAttribute(method))
         {
             return;
         }
@@ -40,6 +44,7 @@ public sealed class AsyncVoidTestAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool HasTestAttribute(IMethodSymbol method) =>
-        method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == TestAttributeFullName);
+    private static bool HasSupportedAttribute(IMethodSymbol method) =>
+        method.GetAttributes().Any(
+            attribute => _supportedAttributeNames.Contains(attribute.AttributeClass?.ToDisplayString() ?? ""));
 }
