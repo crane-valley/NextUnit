@@ -103,6 +103,49 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
+    public async Task ClassTeardownObservingCancellation_IsNotReportedAsErrorAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("teardown.cancelled"),
+            DisplayName = "teardown.cancelled",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            TestMethod = (_, _) =>
+            {
+                cts.Cancel();
+                return Task.CompletedTask;
+            },
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods =
+                [
+                    static (_, ct) =>
+                    {
+                        // Teardown observes the cancelled run token; this is not a teardown failure.
+                        ct.ThrowIfCancellationRequested();
+                        return Task.CompletedTask;
+                    }
+                ]
+            }
+        };
+
+        var sink = new RecordingSink();
+        try
+        {
+            await new TestExecutionEngine().RunAsync([test], sink, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // The run itself surfaces cancellation; that is expected.
+        }
+
+        Assert.Empty(sink.Errors);
+    }
+
+    [Test]
     public void InvalidTestNameRegex_SurfacesErrorInsteadOfRunningEverything()
     {
         const string envVar = "NEXTUNIT_TEST_NAME_REGEX";

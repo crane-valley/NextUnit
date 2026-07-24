@@ -742,6 +742,10 @@ public sealed class TestExecutionEngine
                     await afterClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // A cancelled run aborting teardown is not a teardown failure; do not report it.
+            }
             catch (Exception ex)
             {
                 // Report teardown failures instead of swallowing them, mirroring per-test error reporting.
@@ -752,6 +756,10 @@ public sealed class TestExecutionEngine
             {
                 // Dispose instance regardless of any AfterClass failure above.
                 await DisposeHelper.DisposeAsync(context.Instance).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // A cancelled run aborting disposal is not a teardown failure; do not report it.
             }
             catch (Exception ex)
             {
