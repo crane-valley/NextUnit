@@ -54,6 +54,15 @@ public class AssertDoesNotThrowTests
     }
 
     [Test]
+    public void DoesNotThrow_ActionThrowsCancellation_PropagatesNotFailure()
+    {
+        // The engine derives timeout results from OperationCanceledException, so it must
+        // propagate rather than be wrapped in an assertion failure.
+        Assert.Throws<OperationCanceledException>(
+            () => Assert.DoesNotThrow(() => throw new OperationCanceledException()));
+    }
+
+    [Test]
     public async Task DoesNotThrowAsync_ActionSucceeds_DoesNotThrowAsync()
     {
         await Assert.DoesNotThrowAsync(() => Task.CompletedTask);
@@ -95,6 +104,30 @@ public class AssertDoesNotThrowTests
             {
                 await Task.Yield();
                 Assert.Skip("conditionally skipped");
+            }));
+    }
+
+    [Test]
+    public async Task DoesNotThrowAsync_ActionThrowsCancellation_PropagatesNotFailureAsync()
+    {
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => Assert.DoesNotThrowAsync(async () =>
+            {
+                await Task.Yield();
+                throw new OperationCanceledException();
+            }));
+    }
+
+    [Test]
+    public async Task DoesNotThrowAsync_ActionThrowsTaskCanceled_PropagatesNotFailureAsync()
+    {
+        // TaskCanceledException derives from OperationCanceledException, so the OCE
+        // rethrow covers it without a separate catch.
+        await Assert.ThrowsAsync<TaskCanceledException>(
+            () => Assert.DoesNotThrowAsync(async () =>
+            {
+                await Task.Yield();
+                throw new TaskCanceledException();
             }));
     }
 }

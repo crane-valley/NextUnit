@@ -632,7 +632,12 @@ public static class Assert
     /// </summary>
     /// <param name="action">The action to execute.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
-    /// <exception cref="AssertionFailedException">Thrown when the action throws an exception.</exception>
+    /// <exception cref="AssertionFailedException">Thrown when the action throws a non-control-flow exception.</exception>
+    /// <remarks>
+    /// Framework control-flow exceptions (<see cref="TestSkippedException"/> and
+    /// <see cref="OperationCanceledException"/>, the latter covering timeout cancellation)
+    /// propagate unchanged rather than being reported as assertion failures.
+    /// </remarks>
     public static void DoesNotThrow(Action action, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -644,6 +649,13 @@ public static class Assert
         catch (TestSkippedException)
         {
             // A runtime skip is control flow, not a failure; let it reach the engine.
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            // The engine turns timeout cancellation into a timeout result from this
+            // exception; wrapping it would misreport a timeout as an assertion failure.
+            // TaskCanceledException derives from it and is covered here too.
             throw;
         }
         catch (Exception ex)
@@ -660,7 +672,12 @@ public static class Assert
     /// <param name="action">The asynchronous action to execute.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    /// <exception cref="AssertionFailedException">Thrown when the action throws an exception.</exception>
+    /// <exception cref="AssertionFailedException">Thrown when the action throws a non-control-flow exception.</exception>
+    /// <remarks>
+    /// Framework control-flow exceptions (<see cref="TestSkippedException"/> and
+    /// <see cref="OperationCanceledException"/>, the latter covering timeout cancellation)
+    /// propagate unchanged rather than being reported as assertion failures.
+    /// </remarks>
     public static async Task DoesNotThrowAsync(Func<Task> action, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -672,6 +689,13 @@ public static class Assert
         catch (TestSkippedException)
         {
             // A runtime skip is control flow, not a failure; let it reach the engine.
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            // The engine turns timeout cancellation into a timeout result from this
+            // exception; wrapping it would misreport a timeout as an assertion failure.
+            // TaskCanceledException derives from it and is covered here too.
             throw;
         }
         catch (Exception ex)
