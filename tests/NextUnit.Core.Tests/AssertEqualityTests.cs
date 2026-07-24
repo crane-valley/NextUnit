@@ -12,7 +12,7 @@ public class AssertEqualityTests
     {
         public bool Equals(int x, int y) => Math.Abs(x) == Math.Abs(y);
 
-        public int GetHashCode(int obj) => Math.Abs(obj).GetHashCode();
+        public int GetHashCode(int obj) => Math.Abs(obj);
     }
 
     [Test]
