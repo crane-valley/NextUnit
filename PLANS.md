@@ -123,6 +123,10 @@ decision rather than more schedules or report formats.
 
 ### Priority 2 — Assert API defects found in the 2026-07-24 review
 
+- [x] Assert API gaps found dogfooding 1.15.1 in an NUnit migration: added Same/NotSame, Fail,
+  DoesNotThrow/DoesNotThrowAsync, and tolerance-based Equal/NotEqual double overloads (additive
+  only; int third argument still binds to the precision overload, proven by test).
+
 Found while adding behavioral tests for the Assert API; both change the public surface, so they
 need a deliberate compatibility decision rather than a drive-by fix.
 
