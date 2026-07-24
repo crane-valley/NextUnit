@@ -639,10 +639,11 @@ public static class Assert
     /// (<see cref="TestSkippedException"/>), cancellation (<see cref="OperationCanceledException"/>,
     /// including the derived <see cref="TaskCanceledException"/>), an inner
     /// <see cref="AssertionFailedException"/> (its original formatted message is preserved),
-    /// and critical fail-fast exceptions (<see cref="OutOfMemoryException"/>,
-    /// <see cref="StackOverflowException"/>). Cancellation is rethrown blanket because the
-    /// engine decides timeout-versus-failure from its own timeout token state, not from the
-    /// exception, so the outcome matches a bare test body throwing the same exception.
+    /// and critical fail-fast exceptions (out-of-memory, stack overflow, thread abort, and
+    /// access violation, per the shared critical-exception check). Cancellation is rethrown
+    /// blanket because the engine decides timeout-versus-failure from its own timeout token
+    /// state, not from the exception, so the outcome matches a bare test body throwing the
+    /// same exception.
     /// </remarks>
     public static void DoesNotThrow(Action action, string? message = null)
     {
@@ -671,18 +672,16 @@ public static class Assert
             // as-is instead of double-wrapping and obscuring the original failure.
             throw;
         }
-        catch (OutOfMemoryException)
-        {
-            // Mirror the engine: critical exceptions stay unwrapped to preserve fail-fast.
-            throw;
-        }
-        catch (StackOverflowException)
-        {
-            // Mirror the engine: critical exceptions stay unwrapped to preserve fail-fast.
-            throw;
-        }
         catch (Exception ex)
         {
+            if (Internal.ExceptionHelper.IsCriticalException(ex))
+            {
+                // Match the repo's broad-catch idiom: critical exceptions (out-of-memory,
+                // stack overflow, thread abort, access violation) escape unwrapped to
+                // preserve fail-fast behavior.
+                throw;
+            }
+
             throw new AssertionFailedException(
                 message ?? $"Expected no exception but got {ex.GetType().Name}: {ex.Message}",
                 ex);
@@ -702,10 +701,11 @@ public static class Assert
     /// (<see cref="TestSkippedException"/>), cancellation (<see cref="OperationCanceledException"/>,
     /// including the derived <see cref="TaskCanceledException"/>), an inner
     /// <see cref="AssertionFailedException"/> (its original formatted message is preserved),
-    /// and critical fail-fast exceptions (<see cref="OutOfMemoryException"/>,
-    /// <see cref="StackOverflowException"/>). Cancellation is rethrown blanket because the
-    /// engine decides timeout-versus-failure from its own timeout token state, not from the
-    /// exception, so the outcome matches a bare test body throwing the same exception.
+    /// and critical fail-fast exceptions (out-of-memory, stack overflow, thread abort, and
+    /// access violation, per the shared critical-exception check). Cancellation is rethrown
+    /// blanket because the engine decides timeout-versus-failure from its own timeout token
+    /// state, not from the exception, so the outcome matches a bare test body throwing the
+    /// same exception.
     /// </remarks>
     public static async Task DoesNotThrowAsync(Func<Task> action, string? message = null)
     {
@@ -734,18 +734,16 @@ public static class Assert
             // as-is instead of double-wrapping and obscuring the original failure.
             throw;
         }
-        catch (OutOfMemoryException)
-        {
-            // Mirror the engine: critical exceptions stay unwrapped to preserve fail-fast.
-            throw;
-        }
-        catch (StackOverflowException)
-        {
-            // Mirror the engine: critical exceptions stay unwrapped to preserve fail-fast.
-            throw;
-        }
         catch (Exception ex)
         {
+            if (Internal.ExceptionHelper.IsCriticalException(ex))
+            {
+                // Match the repo's broad-catch idiom: critical exceptions (out-of-memory,
+                // stack overflow, thread abort, access violation) escape unwrapped to
+                // preserve fail-fast behavior.
+                throw;
+            }
+
             throw new AssertionFailedException(
                 message ?? $"Expected no exception but got {ex.GetType().Name}: {ex.Message}",
                 ex);
