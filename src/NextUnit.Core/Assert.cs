@@ -634,16 +634,17 @@ public static class Assert
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <exception cref="AssertionFailedException">Thrown when the action throws a non-control-flow exception.</exception>
     /// <remarks>
-    /// Exceptions that the test engine handles specially are rethrown unchanged rather than
-    /// wrapped, so this assertion stays transparent to the runtime: runtime skips
+    /// Exceptions that the test engine handles specially are excluded by the catch filter, so
+    /// they propagate unchanged (keeping their original stack) rather than being wrapped, and
+    /// this assertion stays transparent to the runtime: runtime skips
     /// (<see cref="TestSkippedException"/>), cancellation (<see cref="OperationCanceledException"/>,
     /// including the derived <see cref="TaskCanceledException"/>), an inner
     /// <see cref="AssertionFailedException"/> (its original formatted message is preserved),
     /// and critical fail-fast exceptions (out-of-memory, stack overflow, thread abort, and
-    /// access violation, per the shared critical-exception check). Cancellation is rethrown
-    /// blanket because the engine decides timeout-versus-failure from its own timeout token
-    /// state, not from the exception, so the outcome matches a bare test body throwing the
-    /// same exception.
+    /// access violation, per the shared critical-exception check). Cancellation propagates
+    /// unconditionally because the engine decides timeout-versus-failure from its own timeout
+    /// token state, not from the exception, so the outcome matches a bare test body throwing
+    /// the same exception.
     /// </remarks>
     public static void DoesNotThrow(Action action, string? message = null)
     {
@@ -653,35 +654,10 @@ public static class Assert
         {
             action();
         }
-        catch (TestSkippedException)
+        catch (Exception ex) when (IsUnexpectedFailure(ex))
         {
-            // A runtime skip is control flow, not a failure; let it reach the engine.
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            // The engine classifies cancellation from its own timeout-token state, not from
-            // this exception, and only recognizes a timeout while the OCE type is intact.
-            // Wrapping would hide a genuine timeout; rethrowing keeps the outcome identical
-            // to a bare test body. TaskCanceledException derives from OCE and is covered too.
-            throw;
-        }
-        catch (AssertionFailedException)
-        {
-            // An assert inside the action already carries a formatted message; rethrow it
-            // as-is instead of double-wrapping and obscuring the original failure.
-            throw;
-        }
-        catch (Exception ex)
-        {
-            if (Internal.ExceptionHelper.IsCriticalException(ex))
-            {
-                // Match the repo's broad-catch idiom: critical exceptions (out-of-memory,
-                // stack overflow, thread abort, access violation) escape unwrapped to
-                // preserve fail-fast behavior.
-                throw;
-            }
-
+            // Filter (not catch-and-rethrow) so control-flow and critical exceptions keep
+            // their original stack and first-chance debugger behavior; see IsUnexpectedFailure.
             throw new AssertionFailedException(
                 message ?? $"Expected no exception but got {ex.GetType().Name}: {ex.Message}",
                 ex);
@@ -696,16 +672,17 @@ public static class Assert
     /// <returns>A task that represents the asynchronous operation.</returns>
     /// <exception cref="AssertionFailedException">Thrown when the action throws a non-control-flow exception.</exception>
     /// <remarks>
-    /// Exceptions that the test engine handles specially are rethrown unchanged rather than
-    /// wrapped, so this assertion stays transparent to the runtime: runtime skips
+    /// Exceptions that the test engine handles specially are excluded by the catch filter, so
+    /// they propagate unchanged (keeping their original stack) rather than being wrapped, and
+    /// this assertion stays transparent to the runtime: runtime skips
     /// (<see cref="TestSkippedException"/>), cancellation (<see cref="OperationCanceledException"/>,
     /// including the derived <see cref="TaskCanceledException"/>), an inner
     /// <see cref="AssertionFailedException"/> (its original formatted message is preserved),
     /// and critical fail-fast exceptions (out-of-memory, stack overflow, thread abort, and
-    /// access violation, per the shared critical-exception check). Cancellation is rethrown
-    /// blanket because the engine decides timeout-versus-failure from its own timeout token
-    /// state, not from the exception, so the outcome matches a bare test body throwing the
-    /// same exception.
+    /// access violation, per the shared critical-exception check). Cancellation propagates
+    /// unconditionally because the engine decides timeout-versus-failure from its own timeout
+    /// token state, not from the exception, so the outcome matches a bare test body throwing
+    /// the same exception.
     /// </remarks>
     public static async Task DoesNotThrowAsync(Func<Task> action, string? message = null)
     {
@@ -717,48 +694,38 @@ public static class Assert
             if (task is null)
             {
                 // A null Task would make ConfigureAwait throw an opaque NullReferenceException;
-                // report the delegate misuse clearly instead. The AssertionFailedException catch
-                // below rethrows it unwrapped.
+                // report the delegate misuse clearly instead. The catch filter excludes
+                // AssertionFailedException, so this propagates unwrapped.
                 throw new AssertionFailedException(
                     "Expected no exception, but the asynchronous action returned a null Task.");
             }
 
             await task.ConfigureAwait(false);
         }
-        catch (TestSkippedException)
+        catch (Exception ex) when (IsUnexpectedFailure(ex))
         {
-            // A runtime skip is control flow, not a failure; let it reach the engine.
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            // The engine classifies cancellation from its own timeout-token state, not from
-            // this exception, and only recognizes a timeout while the OCE type is intact.
-            // Wrapping would hide a genuine timeout; rethrowing keeps the outcome identical
-            // to a bare test body. TaskCanceledException derives from OCE and is covered too.
-            throw;
-        }
-        catch (AssertionFailedException)
-        {
-            // An assert inside the action already carries a formatted message; rethrow it
-            // as-is instead of double-wrapping and obscuring the original failure.
-            throw;
-        }
-        catch (Exception ex)
-        {
-            if (Internal.ExceptionHelper.IsCriticalException(ex))
-            {
-                // Match the repo's broad-catch idiom: critical exceptions (out-of-memory,
-                // stack overflow, thread abort, access violation) escape unwrapped to
-                // preserve fail-fast behavior.
-                throw;
-            }
-
+            // Filter (not catch-and-rethrow) so control-flow and critical exceptions keep
+            // their original stack and first-chance debugger behavior; see IsUnexpectedFailure.
             throw new AssertionFailedException(
                 message ?? $"Expected no exception but got {ex.GetType().Name}: {ex.Message}",
                 ex);
         }
     }
+
+    // Determines whether an exception raised inside a DoesNotThrow action is a genuine
+    // failure to wrap, versus one that must reach the test engine untouched. Excluded:
+    // TestSkippedException (runtime skip control flow); OperationCanceledException, incl. the
+    // derived TaskCanceledException (the engine classifies timeout-versus-failure from its own
+    // timeout-token state, not the exception, so wrapping could hide a genuine timeout);
+    // AssertionFailedException (an inner assert already carries a formatted message);
+    // and critical fail-fast exceptions (out-of-memory, stack overflow, thread abort, access
+    // violation) via the shared repo check. Used as an exception filter so the excluded
+    // exceptions propagate without stack unwinding.
+    private static bool IsUnexpectedFailure(Exception ex) =>
+        ex is not TestSkippedException
+            and not OperationCanceledException
+            and not AssertionFailedException
+        && !Internal.ExceptionHelper.IsCriticalException(ex);
 
     // Collection Assertions
 
