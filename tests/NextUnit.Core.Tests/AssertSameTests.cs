@@ -80,4 +80,35 @@ public class AssertSameTests
             () => Assert.NotSame(instance, instance, "must differ"));
         Assert.Equal("must differ", ex.Message);
     }
+
+    [Test]
+    public void Same_ExpectedIsValueType_ThrowsArgumentException()
+    {
+        // Boxing makes reference identity meaningless; a value-type argument is a test bug.
+        var ex = Assert.Throws<ArgumentException>(() => Assert.Same(42, new Box(1)));
+        Assert.Contains("value type", ex.Message);
+        Assert.Equal("expected", ex.ParamName);
+    }
+
+    [Test]
+    public void Same_ActualIsValueType_ThrowsArgumentException()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => Assert.Same(new Box(1), 42));
+        Assert.Equal("actual", ex.ParamName);
+    }
+
+    [Test]
+    public void NotSame_ExpectedIsValueType_ThrowsArgumentException()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => Assert.NotSame(42, new Box(1)));
+        Assert.Contains("value type", ex.Message);
+        Assert.Equal("expected", ex.ParamName);
+    }
+
+    [Test]
+    public void NotSame_ActualIsValueType_ThrowsArgumentException()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => Assert.NotSame(new Box(1), 42));
+        Assert.Equal("actual", ex.ParamName);
+    }
 }

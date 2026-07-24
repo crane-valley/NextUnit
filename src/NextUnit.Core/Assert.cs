@@ -447,9 +447,18 @@ public static class Assert
     /// <param name="expected">The expected instance.</param>
     /// <param name="actual">The actual instance.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="ArgumentException">Thrown when either argument is a value type, whose boxing makes reference identity meaningless.</exception>
     /// <exception cref="AssertionFailedException">Thrown when the objects are not the same instance.</exception>
+    /// <remarks>
+    /// This is a reference-identity check. Value-type arguments are boxed into fresh objects,
+    /// so <see cref="object.ReferenceEquals"/> would almost never hold; passing one is rejected
+    /// as a test-authoring mistake. Use <see cref="Equal{T}(T, T, string?)"/> for value equality.
+    /// </remarks>
     public static void Same(object? expected, object? actual, string? message = null)
     {
+        ThrowIfValueType(expected, nameof(expected));
+        ThrowIfValueType(actual, nameof(actual));
+
         if (!ReferenceEquals(expected, actual))
         {
             throw new AssertionFailedException(
@@ -463,13 +472,35 @@ public static class Assert
     /// <param name="expected">The instance that should not be the same as <paramref name="actual"/>.</param>
     /// <param name="actual">The actual instance.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="ArgumentException">Thrown when either argument is a value type, whose boxing makes reference identity meaningless.</exception>
     /// <exception cref="AssertionFailedException">Thrown when the objects are the same instance.</exception>
+    /// <remarks>
+    /// This is a reference-identity check. Value-type arguments are boxed into fresh objects,
+    /// so <see cref="object.ReferenceEquals"/> would almost never hold; passing one is rejected
+    /// as a test-authoring mistake. Use <see cref="NotEqual{T}(T, T, string?)"/> for value inequality.
+    /// </remarks>
     public static void NotSame(object? expected, object? actual, string? message = null)
     {
+        ThrowIfValueType(expected, nameof(expected));
+        ThrowIfValueType(actual, nameof(actual));
+
         if (ReferenceEquals(expected, actual))
         {
             throw new AssertionFailedException(
                 message ?? "Expected the arguments to reference different instances, but they were the same instance.");
+        }
+    }
+
+    // Guards Same/NotSame against boxed value types: reference identity on a fresh box is
+    // meaningless, so a value-type argument is a test-authoring bug rather than a failed
+    // assertion. null is a reference (not a ValueType), so null arguments are allowed.
+    private static void ThrowIfValueType(object? argument, string parameterName)
+    {
+        if (argument is ValueType)
+        {
+            throw new ArgumentException(
+                $"Reference-identity assertions (Same/NotSame) do not support value types; '{argument.GetType().Name}' is boxed into a fresh object, making reference identity meaningless. Use Equal/NotEqual for value comparison.",
+                parameterName);
         }
     }
 
