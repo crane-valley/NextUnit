@@ -612,12 +612,16 @@ public sealed class TestExecutionEngine
             await sink.ReportPassedAsync(testCase, testOutput.GetOutput(), artifacts).ConfigureAwait(false);
             return AttemptResult.Passed;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
             // The outer run token fired (Ctrl+C / host shutdown): propagate cancellation per
             // Microsoft.Testing.Platform guidance instead of misclassifying it as an error and
             // re-executing the in-flight test under [Retry].
-            throw;
+            //
+            // With [Timeout] the body observes the linked (timeout + run) token, so the OCE can carry
+            // the linked token rather than the run token. Normalize it to the run token so downstream
+            // classification recognizes genuine run cancellation instead of wrapping it as a failure.
+            throw new OperationCanceledException(ex.Message, ex, cancellationToken);
         }
         catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true)
         {

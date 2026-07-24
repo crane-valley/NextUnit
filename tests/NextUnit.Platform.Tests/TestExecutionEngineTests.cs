@@ -443,6 +443,38 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
+    public async Task TimeoutWithOuterCancellation_PropagatesCancellationNotErrorAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("timeout.plus.cancel"),
+            DisplayName = "timeout.plus.cancel",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            // Large timeout so the timeout CTS does not fire; the outer run token is what cancels.
+            TimeoutMs = 60_000,
+            TestMethod = async (_, ct) =>
+            {
+                // ct is the linked (timeout + run) token; cancelling the run makes the delay throw an
+                // OCE that carries the linked token, not the run token.
+                cts.Cancel();
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+        };
+
+        var sink = new RecordingSink();
+
+        // Genuine run cancellation must surface as OperationCanceledException, not be wrapped as a failure.
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
+
+        Assert.Empty(sink.Errors);
+    }
+
+    [Test]
     public async Task RetryAfterCancellation_DoesNotRetryOrReportErrorAsync()
     {
         using var cts = new CancellationTokenSource();
