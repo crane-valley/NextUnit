@@ -95,6 +95,19 @@ public static class CSharpAnalyzerVerifier<TAnalyzer>
                 public System.Type? MemberType { get; }
             }
 
+            [System.AttributeUsage(System.AttributeTargets.Parameter)]
+            public sealed class ValuesAttribute : System.Attribute
+            {
+                public ValuesAttribute(params object?[] values) { Values = values; }
+                public object?[] Values { get; }
+            }
+
+            [System.AttributeUsage(System.AttributeTargets.Parameter)]
+            public sealed class ValuesFromAttribute<T> : System.Attribute
+                where T : System.Collections.IEnumerable, new()
+            {
+            }
+
             public enum LifecycleScope { Test, Class, Assembly, Session }
 
             [System.AttributeUsage(System.AttributeTargets.Method)]

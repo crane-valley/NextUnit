@@ -79,6 +79,68 @@ public class TestClass
     }
 
     [Fact]
+    public async Task SpecialFloatingPointArguments_GenerateCompilableTestCasesAsync()
+    {
+        var source = @"
+using NextUnit;
+
+namespace TestProject;
+
+public class TestClass
+{
+    [Test]
+    [Arguments(float.NaN)]
+    [Arguments(float.PositiveInfinity)]
+    [Arguments(float.NegativeInfinity)]
+    public void FloatTest(float value)
+    {
+    }
+
+    [Test]
+    [Arguments(double.NaN)]
+    [Arguments(double.PositiveInfinity)]
+    [Arguments(double.NegativeInfinity)]
+    public void DoubleTest(double value)
+    {
+    }
+}";
+
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
+    }
+
+    [Fact]
+    public async Task ExtremeFloatingPointArguments_GenerateCompilableTestCasesAsync()
+    {
+        // float.MaxValue/MinValue and double.MaxValue/MinValue must round-trip through
+        // the emitted literal exactly. A bare ToString(InvariantCulture) can fall back to
+        // 15/7 significant digits on some runtimes, which rounds these extreme values to
+        // a string that no longer fits the type's range and fails to compile (CS0594).
+        var source = @"
+using NextUnit;
+
+namespace TestProject;
+
+public class TestClass
+{
+    [Test]
+    [Arguments(float.MaxValue)]
+    [Arguments(float.MinValue)]
+    public void FloatTest(float value)
+    {
+    }
+
+    [Test]
+    [Arguments(double.MaxValue)]
+    [Arguments(double.MinValue)]
+    public void DoubleTest(double value)
+    {
+    }
+}";
+
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
+    }
+
+    [Fact]
     public async Task SkippedTest_GeneratesWithSkipInfoAsync()
     {
         var source = @"

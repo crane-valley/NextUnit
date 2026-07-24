@@ -48,8 +48,23 @@ internal static class ArgumentFormatter
             byte or sbyte or short or ushort or int or uint => value.ToString()!,
             long l => $"{l}L",
             ulong ul => $"{ul}UL",
-            float f => $"{f.ToString(CultureInfo.InvariantCulture)}f",
-            double d => $"{d.ToString(CultureInfo.InvariantCulture)}d",
+            float f when float.IsNaN(f) => "global::System.Single.NaN",
+            float f when float.IsPositiveInfinity(f) => "global::System.Single.PositiveInfinity",
+            float f when float.IsNegativeInfinity(f) => "global::System.Single.NegativeInfinity",
+            // "G9"/"G17" (not the bare default, and not "R") guarantee a round-trippable
+            // literal on every runtime this netstandard2.0 generator can execute under.
+            // .NET Core 3.0+ hosts already format shortest-round-trippable by default, but
+            // this generator can also run in-proc under .NET Framework (e.g. VBCSCompiler
+            // inside Visual Studio), where the bare ToString() falls back to 15/7
+            // significant digits. At that precision, float.MaxValue/double.MaxValue (and
+            // MinValue) round to a string that no longer fits the type's range, so the
+            // emitted literal fails to compile with CS0594. "R" is avoided because it has
+            // its own documented round-trip bugs on .NET Framework for float/double.
+            float f => $"{f.ToString("G9", CultureInfo.InvariantCulture)}f",
+            double d when double.IsNaN(d) => "global::System.Double.NaN",
+            double d when double.IsPositiveInfinity(d) => "global::System.Double.PositiveInfinity",
+            double d when double.IsNegativeInfinity(d) => "global::System.Double.NegativeInfinity",
+            double d => $"{d.ToString("G17", CultureInfo.InvariantCulture)}d",
             decimal m => $"{m.ToString(CultureInfo.InvariantCulture)}m",
             _ => value.ToString() ?? "null"
         };
