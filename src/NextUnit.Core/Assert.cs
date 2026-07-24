@@ -217,6 +217,43 @@ public static class Assert
     }
 
     /// <summary>
+    /// Verifies that two double values are equal within an absolute tolerance.
+    /// </summary>
+    /// <param name="expected">The expected value.</param>
+    /// <param name="actual">The actual value.</param>
+    /// <param name="tolerance">The maximum allowed absolute difference. Must be zero or positive.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="tolerance"/> is negative or NaN.</exception>
+    /// <exception cref="AssertionFailedException">Thrown when the values differ by more than the tolerance.</exception>
+    /// <remarks>
+    /// Following xUnit semantics, NaN is considered equal to NaN and each infinity is
+    /// considered equal to itself, so those cases pass regardless of the tolerance.
+    /// </remarks>
+    public static void Equal(double expected, double actual, double tolerance, string? message = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(tolerance);
+        if (double.IsNaN(tolerance))
+        {
+            throw new ArgumentOutOfRangeException(nameof(tolerance), "Tolerance must be a number.");
+        }
+
+        // object.Equals treats NaN as equal to NaN and each infinity as equal to itself,
+        // matching xUnit's tolerance-comparison behavior for those special values.
+        if (Equals(expected, actual))
+        {
+            return;
+        }
+
+        // Negated <= (rather than >) so a NaN difference, e.g. abs(NaN - 1.0), fails.
+        var difference = Math.Abs(expected - actual);
+        if (!(difference <= tolerance))
+        {
+            throw new AssertionFailedException(
+                message ?? $"Expected: {expected} (±{tolerance}); Actual: {actual}; Difference: {difference}");
+        }
+    }
+
+    /// <summary>
     /// Verifies that two decimal values are equal within a specified precision.
     /// </summary>
     /// <param name="expected">The expected value.</param>
@@ -304,6 +341,43 @@ public static class Assert
     }
 
     /// <summary>
+    /// Verifies that two double values are not equal within an absolute tolerance.
+    /// </summary>
+    /// <param name="notExpected">The value that should not match the actual value.</param>
+    /// <param name="actual">The actual value.</param>
+    /// <param name="tolerance">The maximum allowed absolute difference. Must be zero or positive.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="tolerance"/> is negative or NaN.</exception>
+    /// <exception cref="AssertionFailedException">Thrown when the values differ by no more than the tolerance.</exception>
+    /// <remarks>
+    /// Following xUnit semantics, NaN is considered equal to NaN and each infinity is
+    /// considered equal to itself, so those cases are treated as equal and therefore fail.
+    /// </remarks>
+    public static void NotEqual(double notExpected, double actual, double tolerance, string? message = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(tolerance);
+        if (double.IsNaN(tolerance))
+        {
+            throw new ArgumentOutOfRangeException(nameof(tolerance), "Tolerance must be a number.");
+        }
+
+        // object.Equals treats NaN as equal to NaN and each infinity as equal to itself,
+        // matching xUnit's tolerance-comparison behavior for those special values.
+        if (Equals(notExpected, actual))
+        {
+            throw new AssertionFailedException(
+                message ?? $"Did not expect: {actual} (within ±{tolerance} of {notExpected})");
+        }
+
+        var difference = Math.Abs(notExpected - actual);
+        if (difference <= tolerance)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Did not expect: {actual} (within ±{tolerance} of {notExpected})");
+        }
+    }
+
+    /// <summary>
     /// Verifies that two decimal values are not equal within a specified precision.
     /// </summary>
     /// <param name="notExpected">The value that should not match the actual value.</param>
@@ -365,6 +439,49 @@ public static class Assert
         {
             throw new AssertionFailedException(message ?? "Expected non-null.");
         }
+    }
+
+    /// <summary>
+    /// Verifies that two objects refer to the same instance using reference equality.
+    /// </summary>
+    /// <param name="expected">The expected instance.</param>
+    /// <param name="actual">The actual instance.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the objects are not the same instance.</exception>
+    public static void Same(object? expected, object? actual, string? message = null)
+    {
+        if (!ReferenceEquals(expected, actual))
+        {
+            throw new AssertionFailedException(
+                message ?? $"Expected both arguments to reference the same instance.\nExpected: {expected}\nActual: {actual}");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that two objects refer to different instances using reference equality.
+    /// </summary>
+    /// <param name="expected">The instance that should not be the same as <paramref name="actual"/>.</param>
+    /// <param name="actual">The actual instance.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the objects are the same instance.</exception>
+    public static void NotSame(object? expected, object? actual, string? message = null)
+    {
+        if (ReferenceEquals(expected, actual))
+        {
+            throw new AssertionFailedException(
+                message ?? "Expected the arguments to reference different instances, but they were the same instance.");
+        }
+    }
+
+    /// <summary>
+    /// Fails the current test unconditionally.
+    /// </summary>
+    /// <param name="message">Optional custom message describing the failure.</param>
+    /// <exception cref="AssertionFailedException">Always thrown.</exception>
+    [System.Diagnostics.CodeAnalysis.DoesNotReturn]
+    public static void Fail(string? message = null)
+    {
+        throw new AssertionFailedException(message ?? "Assert.Fail() was called.");
     }
 
     /// <summary>
@@ -508,6 +625,51 @@ public static class Assert
 
         throw new AssertionFailedException(
             message ?? $"Expected {typeof(TException).Name} but no exception was thrown.");
+    }
+
+    /// <summary>
+    /// Verifies that an action does not throw any exception.
+    /// </summary>
+    /// <param name="action">The action to execute.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="AssertionFailedException">Thrown when the action throws an exception.</exception>
+    public static void DoesNotThrow(Action action, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Expected no exception but got {ex.GetType().Name}: {ex.Message}",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Verifies that an asynchronous action does not throw any exception.
+    /// </summary>
+    /// <param name="action">The asynchronous action to execute.</param>
+    /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <exception cref="AssertionFailedException">Thrown when the action throws an exception.</exception>
+    public static async Task DoesNotThrowAsync(Func<Task> action, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        try
+        {
+            await action().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new AssertionFailedException(
+                message ?? $"Expected no exception but got {ex.GetType().Name}: {ex.Message}",
+                ex);
+        }
     }
 
     // Collection Assertions
