@@ -30,14 +30,21 @@ jobs:
 
       - name: Verify tag matches package version
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           PACKAGE_VERSION=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Directory.Build.props)
           if [ -z "$PACKAGE_VERSION" ]; then
             echo "Error: package version not found in Directory.Build.props"
             exit 1
           fi
-          if [ "v$PACKAGE_VERSION" != "${{ github.event.release.tag_name }}" ]; then
-            echo "Error: release tag ${{ github.event.release.tag_name }} does not match package version $PACKAGE_VERSION"
+          NEXTUNIT_VERSION=$(sed -n 's/.*<NextUnitVersion>\([^<]*\)<\/NextUnitVersion>.*/\1/p' Directory.Packages.props)
+          if [ "$NEXTUNIT_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Error: Directory.Packages.props NextUnitVersion '$NEXTUNIT_VERSION' does not match Directory.Build.props Version '$PACKAGE_VERSION'"
+            exit 1
+          fi
+          if [ "v$PACKAGE_VERSION" != "$RELEASE_TAG" ]; then
+            echo "Error: release tag $RELEASE_TAG does not match package version $PACKAGE_VERSION"
             exit 1
           fi
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
@@ -138,7 +145,7 @@ jobs:
 
       - name: NuGet login (OIDC)
         id: login
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           user: ${{ secrets.NUGET_USER }}
 

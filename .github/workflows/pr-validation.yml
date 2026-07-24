@@ -26,8 +26,9 @@ jobs:
         fetch-depth: 0
 
     - name: Check PR title format
+      env:
+        PR_TITLE: ${{ github.event.pull_request.title }}
       run: |
-        PR_TITLE="${{ github.event.pull_request.title }}"
         if [[ "$PR_TITLE" =~ ^(feat|fix|docs|refactor|test|chore|perf|ci|build|style):\ .+ ]]; then
           echo "✓ PR title follows conventional format"
         else
@@ -95,6 +96,7 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    # Intentionally format NextUnit.slnx, the superset of strict-build's NextUnit.CI.slnx, to cover tests, benchmarks, samples, and tools.
     - name: Check code formatting
       run: dotnet format NextUnit.slnx --verify-no-changes --verbosity minimal
 
