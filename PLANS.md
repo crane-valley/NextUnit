@@ -121,6 +121,17 @@ decision rather than more schedules or report formats.
 - Guardrail: keep Dependabot as the update mechanism; CodeQL and SBOM generation remain demand-triggered,
   not standing roadmap work.
 
+### Priority 2 — Assert API defects found in the 2026-07-24 review
+
+Found while adding behavioral tests for the Assert API; both change the public surface, so they
+need a deliberate compatibility decision rather than a drive-by fix.
+
+- [ ] `Assert.Throws<T>(action, string)` and the async equivalent always bind to the
+  custom-message overload, so the expectedMessage validation overload is unreachable with two
+  arguments; decide whether to rename, collapse, or annotate the overloads.
+- [ ] `Assert.NotInRange` XML doc says the range is exclusive, but the implementation treats the
+  bounds as inclusive; align the doc or the behavior.
+
 ## Explicitly not planned
 
 These items were considered during the 2026-07-23 audit and are intentionally absent from the
