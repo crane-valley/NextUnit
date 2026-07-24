@@ -97,6 +97,18 @@ public class AssertThrowsTests
     }
 
     [Test]
+    public async Task ThrowsAsync_ExceptionAfterAwait_ReturnsExceptionAsync()
+    {
+        // Guards against a regression where the returned task is invoked but not awaited.
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await Task.Yield();
+            throw new InvalidOperationException("async fault");
+        });
+        Assert.Equal("async fault", ex.Message);
+    }
+
+    [Test]
     public async Task ThrowsAsync_WrongExceptionType_ThrowsAsync()
     {
         await Assert.ThrowsAsync<AssertionFailedException>(
