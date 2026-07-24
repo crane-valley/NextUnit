@@ -140,4 +140,18 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "Test and lifecycle methods must return void, Task, Task<T>, ValueTask, or ValueTask<T> so NextUnit can observe completion and failures.");
+
+    // NU0012 is intentionally unused -- reserved to avoid ID churn with other in-flight work.
+
+    /// <summary>
+    /// NU0013: Data source attribute requires [Test].
+    /// </summary>
+    public static readonly DiagnosticDescriptor DataSourceWithoutTest = new(
+        id: "NU0013",
+        title: "Data source attribute without [Test]",
+        messageFormat: "Method '{0}' has a data-source attribute ([{1}]) but is missing [Test]; the generator will silently ignore it",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        description: "Methods with [Arguments], [TestData], or [Matrix] must also have [Test] to be discovered by the test generator.");
 }
