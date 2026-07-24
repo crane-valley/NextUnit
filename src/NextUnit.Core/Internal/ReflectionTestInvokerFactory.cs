@@ -66,6 +66,10 @@ internal static class ReflectionTestInvokerFactory
         };
     }
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2072",
+        Justification = "MethodInfo.Invoke already materializes the concrete ValueTask<T> return type for boxing. AsTask is a public non-virtual instance method without its own generic parameters on that same closed instantiation.")]
     private static bool TryGetValueTaskAsTask(object result, out Task task)
     {
         var resultType = result.GetType();
@@ -76,9 +80,17 @@ internal static class ReflectionTestInvokerFactory
             return false;
         }
 
-        task = (Task)resultType
+        task = GetValueTaskAsTask(result, resultType);
+        return true;
+    }
+
+    private static Task GetValueTaskAsTask(
+        object result,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        Type resultType)
+    {
+        return (Task)resultType
             .GetMethod(nameof(ValueTask<int>.AsTask), BindingFlags.Public | BindingFlags.Instance)!
             .Invoke(result, null)!;
-        return true;
     }
 }

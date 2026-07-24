@@ -10,16 +10,16 @@ internal static class DiagnosticDescriptors
     private const string Category = "NextUnit";
 
     /// <summary>
-    /// NU0001: Test method should not be async void.
+    /// NU0001: Test or lifecycle method should not be async void.
     /// </summary>
     public static readonly DiagnosticDescriptor AsyncVoidTest = new(
         id: "NU0001",
-        title: "Test method should not be async void",
-        messageFormat: "Test method '{0}' is async void; change return type to Task",
+        title: "Test or lifecycle method should not be async void",
+        messageFormat: "Method '{0}' is async void; change return type to Task",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Async test methods should return Task instead of void to properly await asynchronous operations and propagate exceptions.");
+        description: "Async test and lifecycle methods should return Task instead of void so NextUnit can await completion and propagate exceptions.");
 
     /// <summary>
     /// NU0002: Test method must be public.

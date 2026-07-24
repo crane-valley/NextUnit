@@ -211,7 +211,7 @@ jobs:
           --configuration Release \
           --no-restore \
           -p:UseLocalNextUnitPackage=true \
-          -- --minimum-expected-tests 2
+          -- --minimum-expected-tests 3
         dotnet restore tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
           --configfile .github/NextUnit.PackageSmoke.NuGet.Config \
           --runtime linux-x64 \
@@ -225,7 +225,7 @@ jobs:
           -p:UseLocalNextUnitPackage=true \
           -p:PublishAotPackageSmoke=true
         chmod +x artifacts/package-smoke-aot/NextUnit.PackageSmoke
-        artifacts/package-smoke-aot/NextUnit.PackageSmoke --minimum-expected-tests 2
+        artifacts/package-smoke-aot/NextUnit.PackageSmoke --minimum-expected-tests 3
         dotnet restore tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj \
           --configfile .github/NextUnit.PackageSmoke.NuGet.Config \
           -p:UseLocalNextUnitPackage=true

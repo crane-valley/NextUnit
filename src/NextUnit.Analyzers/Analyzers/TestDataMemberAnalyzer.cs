@@ -200,9 +200,10 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             var compilation = (CSharpCompilation)context.Compilation;
             for (var i = 0; i < suppliedTypes.Length; i++)
             {
-                if (!compilation.ClassifyConversion(
+                var conversion = compilation.ClassifyConversion(
                     suppliedTypes[i],
-                    targetParameters[i].Type).IsImplicit)
+                    targetParameters[i].Type);
+                if (!conversion.IsImplicit || conversion.IsUserDefined)
                 {
                     isCompatible = false;
                     break;

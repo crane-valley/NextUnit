@@ -152,19 +152,89 @@ public sealed class GeneratedExecutionPathTests
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
-    private static (string GeneratedRegistry, Compilation OutputCompilation) RunGenerator(string source)
+    [Fact]
+    public void Generator_AsyncVoidLifecycle_EmitsUnsupportedDelegate()
+    {
+        const string source = """
+            using System.Threading.Tasks;
+            using NextUnit;
+
+            public sealed class AsyncVoidLifecycleTests
+            {
+                [Before(LifecycleScope.Test)]
+                public async void Setup()
+                {
+                    await Task.Yield();
+                }
+
+                [Test]
+                public void Run()
+                {
+                }
+            }
+            """;
+
+        var (generatedRegistry, outputCompilation) = RunGenerator(source);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        Xunit.Assert.Contains("Task.FromException", generatedRegistry);
+        Xunit.Assert.Contains(
+            "Method 'global::AsyncVoidLifecycleTests.Setup' has an unsupported return type.",
+            generatedRegistry);
+        Xunit.Assert.DoesNotContain(
+            outputCompilation.GetDiagnostics(cancellationToken),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Generator_NamespaceIdenticalImpostorReturnTypes_EmitUnsupportedDelegates()
+    {
+        const string source = """
+            extern alias FakeTasks;
+            using NextUnit;
+
+            public sealed class ImpostorTaskTests
+            {
+                [Test]
+                public FakeTasks::System.Threading.Tasks.Task ImpostorTaskTest() => new();
+
+                [Test]
+                public FakeTasks::System.Threading.Tasks.ValueTask ImpostorValueTaskTest() => new();
+            }
+            """;
+
+        var fakeTasksReference = CreateFakeTasksReference();
+        var (generatedRegistry, outputCompilation) = RunGenerator(
+            source,
+            [fakeTasksReference]);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        Xunit.Assert.Contains(
+            "Method 'global::ImpostorTaskTests.ImpostorTaskTest' has an unsupported return type.",
+            generatedRegistry);
+        Xunit.Assert.Contains(
+            "Method 'global::ImpostorTaskTests.ImpostorValueTaskTest' has an unsupported return type.",
+            generatedRegistry);
+        Xunit.Assert.DoesNotContain(".AsTask()", generatedRegistry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain(
+            outputCompilation.GetDiagnostics(cancellationToken),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    private static (string GeneratedRegistry, Compilation OutputCompilation) RunGenerator(
+        string source,
+        IEnumerable<MetadataReference>? additionalReferences = null)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var syntaxTree = CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken);
-        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-            .Split(Path.PathSeparator)
-            .Select(static path => MetadataReference.CreateFromFile(path))
+        var references = GetPlatformReferences()
             .Concat(
             [
                 MetadataReference.CreateFromFile(typeof(TestAttribute).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(TestApplication).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(NextUnit.Platform.NextUnitApplicationBuilderExtensions).Assembly.Location)
-            ]);
+            ])
+            .Concat(additionalReferences ?? []);
         var compilation = CSharpCompilation.Create(
             $"GeneratedExecutionPath_{Guid.NewGuid():N}",
             [syntaxTree],
@@ -188,4 +258,43 @@ public sealed class GeneratedExecutionPathTests
 
         return (generatedRegistry, outputCompilation);
     }
+
+    private static MetadataReference CreateFakeTasksReference()
+    {
+        const string source = """
+            namespace System.Threading.Tasks
+            {
+                public sealed class Task
+                {
+                }
+
+                public readonly struct ValueTask
+                {
+                }
+            }
+            """;
+
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var compilation = CSharpCompilation.Create(
+            "FakeTasks",
+            [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
+            GetPlatformReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var stream = new MemoryStream();
+        var emitResult = compilation.Emit(stream, cancellationToken: cancellationToken);
+        Xunit.Assert.True(
+            emitResult.Success,
+            string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        return MetadataReference.CreateFromImage(
+            stream.ToArray(),
+            new MetadataReferenceProperties(
+                aliases: ImmutableArray.Create("FakeTasks")));
+    }
+
+    private static MetadataReference[] GetPlatformReferences() =>
+        ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        .Split(Path.PathSeparator)
+        .Select(static path => MetadataReference.CreateFromFile(path))
+        .ToArray();
 }

@@ -202,6 +202,11 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         IMethodSymbol methodSymbol,
         KnownTypes knownTypes)
     {
+        if (methodSymbol.IsAsync && methodSymbol.ReturnsVoid)
+        {
+            return MethodReturnKind.Unsupported;
+        }
+
         if (methodSymbol.ReturnsVoid)
         {
             return MethodReturnKind.Void;

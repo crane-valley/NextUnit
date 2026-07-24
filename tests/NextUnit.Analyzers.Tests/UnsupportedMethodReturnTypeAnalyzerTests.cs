@@ -1,3 +1,7 @@
+using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using NextUnit.Analyzers.Analyzers;
 using NextUnit.Analyzers.Tests.Verifiers;
 using Xunit;
@@ -121,30 +125,106 @@ public sealed class UnsupportedMethodReturnTypeAnalyzerTests
     }
 
     [Fact]
-    public async Task SameNamedImpostorReturnType_ReportsDiagnosticAsync()
+    public async Task AsyncVoidLifecycleMethod_NoDiagnosticAsync()
     {
         const string source = """
             using NextUnit;
+            using System.Threading.Tasks;
 
-            namespace Impostor
+            public class Tests
+            {
+                [Before(LifecycleScope.Test)]
+                public async void Setup()
+                {
+                    await Task.Yield();
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<UnsupportedMethodReturnTypeAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    [Fact]
+    public async Task NamespaceIdenticalImpostorReturnTypes_ReportDiagnosticsAsync()
+    {
+        const string fakeTasksSource = """
+            namespace System.Threading.Tasks
             {
                 public sealed class Task
                 {
                 }
+
+                public readonly struct ValueTask
+                {
+                }
             }
+            """;
+
+        const string source = """
+            extern alias FakeTasks;
+            using NextUnit;
 
             public class Tests
             {
                 [Test]
-                public Impostor.Task ImpostorTaskTest() => new();
+                public FakeTasks::System.Threading.Tasks.Task ImpostorTaskTest() => new();
+
+                [Test]
+                public FakeTasks::System.Threading.Tasks.ValueTask ImpostorValueTaskTest() => new();
             }
             """;
 
-        var expected = CSharpAnalyzerVerifier<UnsupportedMethodReturnTypeAnalyzer>
-            .Diagnostic("NU0011")
-            .WithSpan(13, 26, 13, 42)
-            .WithArguments("ImpostorTaskTest", "Impostor.Task");
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var platformReferences = GetPlatformReferences();
+        var fakeTasksCompilation = CSharpCompilation.Create(
+            "FakeTasks",
+            [CSharpSyntaxTree.ParseText(fakeTasksSource, cancellationToken: cancellationToken)],
+            platformReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var fakeTasksStream = new MemoryStream();
+        var emitResult = fakeTasksCompilation.Emit(
+            fakeTasksStream,
+            cancellationToken: cancellationToken);
+        Xunit.Assert.True(
+            emitResult.Success,
+            string.Join(Environment.NewLine, emitResult.Diagnostics));
 
-        await CSharpAnalyzerVerifier<UnsupportedMethodReturnTypeAnalyzer>.VerifyAnalyzerAsync(source, expected);
+        var fakeTasksReference = MetadataReference.CreateFromImage(
+            fakeTasksStream.ToArray(),
+            new MetadataReferenceProperties(
+                aliases: ImmutableArray.Create("FakeTasks")));
+        var compilation = CSharpCompilation.Create(
+            "ImpostorReturnTypes",
+            [
+                CSharpSyntaxTree.ParseText(
+                    CSharpAnalyzerVerifier<UnsupportedMethodReturnTypeAnalyzer>.AttributeDefinitions,
+                    cancellationToken: cancellationToken),
+                CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)
+            ],
+            platformReferences.Append(fakeTasksReference),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation
+            .WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(
+                new UnsupportedMethodReturnTypeAnalyzer()),
+                options: null)
+            .GetAnalyzerDiagnosticsAsync(cancellationToken);
+
+        Xunit.Assert.Equal(2, diagnostics.Count(diagnostic => diagnostic.Id == "NU0011"));
+        Xunit.Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.GetMessage().Contains(
+                "ImpostorTaskTest",
+                StringComparison.Ordinal));
+        Xunit.Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.GetMessage().Contains(
+                "ImpostorValueTaskTest",
+                StringComparison.Ordinal));
     }
+
+    private static MetadataReference[] GetPlatformReferences() =>
+        ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        .Split(Path.PathSeparator)
+        .Select(static path => MetadataReference.CreateFromFile(path))
+        .ToArray();
 }

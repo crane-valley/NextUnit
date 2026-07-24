@@ -258,6 +258,42 @@ public class TestDataMemberAnalyzerTests
     }
 
     [Fact]
+    public async Task TestDataWithUserDefinedImplicitConversion_ReportsDiagnosticAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public sealed class Source
+            {
+            }
+
+            public sealed class Target
+            {
+                public static implicit operator Target(Source source) => new();
+            }
+
+            public class Tests
+            {
+                public static IEnumerable<TestDataRow<Source>> TestCases => [];
+
+                [Test]
+                [{|#0:TestData("TestCases")|}]
+                public void TestMethod(Target value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0009")
+            .WithLocation(0)
+            .WithArguments("TestCases", "Source", "TestMethod");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
     public async Task ClassDataSourceWithIncompatibleTypedTupleRow_ReportsDiagnosticAsync()
     {
         var source = """
