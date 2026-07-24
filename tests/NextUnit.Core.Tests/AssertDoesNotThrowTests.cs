@@ -117,6 +117,16 @@ public class AssertDoesNotThrowTests
     }
 
     [Test]
+    public async Task DoesNotThrowAsync_ActionReturnsNullTask_ThrowsClearAssertionAsync()
+    {
+        // A delegate returning a null Task must fail with a clear message, not an opaque
+        // NullReferenceException from awaiting null.
+        var ex = await Assert.ThrowsAsync<AssertionFailedException>(
+            () => Assert.DoesNotThrowAsync(() => null!));
+        Assert.Contains("null Task", ex.Message);
+    }
+
+    [Test]
     public async Task DoesNotThrowAsync_ActionCallsSkip_PropagatesSkipNotFailureAsync()
     {
         await Assert.ThrowsAsync<TestSkippedException>(

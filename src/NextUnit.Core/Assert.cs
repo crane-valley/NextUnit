@@ -713,7 +713,17 @@ public static class Assert
 
         try
         {
-            await action().ConfigureAwait(false);
+            var task = action();
+            if (task is null)
+            {
+                // A null Task would make ConfigureAwait throw an opaque NullReferenceException;
+                // report the delegate misuse clearly instead. The AssertionFailedException catch
+                // below rethrows it unwrapped.
+                throw new AssertionFailedException(
+                    "Expected no exception, but the asynchronous action returned a null Task.");
+            }
+
+            await task.ConfigureAwait(false);
         }
         catch (TestSkippedException)
         {
