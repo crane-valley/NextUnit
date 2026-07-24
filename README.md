@@ -99,10 +99,11 @@ configuration.
 | Category | Methods |
 | -------- | ------- |
 | Basic | `Equal`, `NotEqual`, `True`, `False`, `Null`, `NotNull` |
+| Identity | `Same`, `NotSame`, `Fail` |
 | Collections | `Contains`, `DoesNotContain`, `Empty`, `NotEmpty`, `Single`, `All` |
 | Strings | `StartsWith`, `EndsWith`, `Contains` |
-| Numeric | `InRange`, `NotInRange`, `Equal(expected, actual, precision)` |
-| Exceptions | `Throws<T>`, `ThrowsAsync<T>` |
+| Numeric | `InRange`, `NotInRange`, `Equal(expected, actual, precision)`, `Equal(expected, actual, tolerance)`, `NotEqual(expected, actual, tolerance)` |
+| Exceptions | `Throws<T>`, `ThrowsAsync<T>`, `DoesNotThrow`, `DoesNotThrowAsync` |
 | Advanced | `Equivalent`, `Subset`, `Disjoint` |
 
 ## Lifecycle Hooks
