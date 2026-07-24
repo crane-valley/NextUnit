@@ -19,7 +19,7 @@ internal static class CodeBuilder
         string typeName,
         string methodName,
         bool isStatic,
-        bool returnsVoid,
+        MethodReturnKind returnKind,
         bool acceptsCancellationToken)
     {
         var target = isStatic
@@ -28,9 +28,12 @@ internal static class CodeBuilder
         var arguments = acceptsCancellationToken ? "ct" : "";
         var invocation = $"{target}({arguments})";
 
-        return returnsVoid
-            ? $"static (instance, ct) => {{ {invocation}; return global::System.Threading.Tasks.Task.CompletedTask; }}"
-            : $"static (instance, ct) => {invocation}";
+        return BuildMethodDelegate(
+            "instance, ct",
+            invocation,
+            returnKind,
+            typeName,
+            methodName);
     }
 
     /// <summary>
@@ -42,7 +45,7 @@ internal static class CodeBuilder
         ImmutableArray<IParameterSymbol> parameters,
         ImmutableArray<TypedConstant> arguments,
         bool isStatic,
-        bool returnsVoid,
+        MethodReturnKind returnKind,
         bool acceptsCancellationToken)
     {
         var argsBuilder = new StringBuilder();
@@ -74,9 +77,12 @@ internal static class CodeBuilder
             : $"(({typeName})instance).{methodName}";
         var invocation = $"{target}({argsBuilder})";
 
-        return returnsVoid
-            ? $"static (instance, ct) => {{ {invocation}; return global::System.Threading.Tasks.Task.CompletedTask; }}"
-            : $"static (instance, ct) => {invocation}";
+        return BuildMethodDelegate(
+            "instance, ct",
+            invocation,
+            returnKind,
+            typeName,
+            methodName);
     }
 
     public static string BuildRuntimeParameterizedTestMethodDelegate(TestMethodDescriptor test)
@@ -103,7 +109,8 @@ internal static class CodeBuilder
             }
 
             var typeName = parameter.Type.ToDisplayString(AttributeHelper.TypeofCompatibleFormat);
-            arguments.Append($"({typeName})arguments[{runtimeArgumentIndex}]!");
+            arguments.Append(
+                $"global::NextUnit.Internal.ArgumentConverter.Convert<{typeName}>(arguments[{runtimeArgumentIndex}], {AttributeHelper.ToLiteral(parameter.Name)}, {AttributeHelper.ToLiteral(test.MethodName)})");
             runtimeArgumentIndex++;
         }
 
@@ -112,9 +119,12 @@ internal static class CodeBuilder
             : $"(({test.FullyQualifiedTypeName})instance).{test.MethodName}";
         var invocation = $"{target}({arguments})";
 
-        return test.ReturnsVoid
-            ? $"static (instance, arguments, ct) => {{ {invocation}; return global::System.Threading.Tasks.Task.CompletedTask; }}"
-            : $"static (instance, arguments, ct) => {invocation}";
+        return BuildMethodDelegate(
+            "instance, arguments, ct",
+            invocation,
+            test.ReturnKind,
+            test.FullyQualifiedTypeName,
+            test.MethodName);
     }
 
     public static string BuildTestClassFactory(
@@ -162,7 +172,7 @@ internal static class CodeBuilder
         string typeName,
         string methodName,
         bool isStatic,
-        bool returnsVoid,
+        MethodReturnKind returnKind,
         bool acceptsCancellationToken)
     {
         var target = isStatic
@@ -171,9 +181,12 @@ internal static class CodeBuilder
         var arguments = acceptsCancellationToken ? "ct" : "";
         var invocation = $"{target}({arguments})";
 
-        return returnsVoid
-            ? $"static (instance, ct) => {{ {invocation}; return global::System.Threading.Tasks.Task.CompletedTask; }}"
-            : $"static (instance, ct) => {invocation}";
+        return BuildMethodDelegate(
+            "instance, ct",
+            invocation,
+            returnKind,
+            typeName,
+            methodName);
     }
 
     /// <summary>
@@ -233,10 +246,30 @@ internal static class CodeBuilder
             foreach (var method in methods)
             {
                 builder.AppendLine(
-                    $"                        {BuildLifecycleMethodDelegate(typeName, method.MethodName, method.IsStatic, method.ReturnsVoid, method.AcceptsCancellationToken)},");
+                    $"                        {BuildLifecycleMethodDelegate(typeName, method.MethodName, method.IsStatic, method.ReturnKind, method.AcceptsCancellationToken)},");
             }
             builder.Append("                    }");
         }
+    }
+
+    private static string BuildMethodDelegate(
+        string parameters,
+        string invocation,
+        MethodReturnKind returnKind,
+        string typeName,
+        string methodName)
+    {
+        return returnKind switch
+        {
+            MethodReturnKind.Void =>
+                $"static ({parameters}) => {{ {invocation}; return global::System.Threading.Tasks.Task.CompletedTask; }}",
+            MethodReturnKind.Task =>
+                $"static ({parameters}) => {invocation}",
+            MethodReturnKind.ValueTask =>
+                $"static ({parameters}) => {invocation}.AsTask()",
+            _ =>
+                $"static ({parameters}) => global::System.Threading.Tasks.Task.FromException(new global::System.InvalidOperationException({AttributeHelper.ToLiteral($"Method '{typeName}.{methodName}' has an unsupported return type.")}))"
+        };
     }
 
     /// <summary>

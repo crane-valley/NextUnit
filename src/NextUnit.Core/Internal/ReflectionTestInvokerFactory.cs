@@ -45,7 +45,16 @@ internal static class ReflectionTestInvokerFactory
 
             try
             {
-                if (method.Invoke(method.IsStatic ? null : instance, actualArguments) is Task task)
+                var result = method.Invoke(method.IsStatic ? null : instance, actualArguments);
+                if (result is Task task)
+                {
+                    await task.ConfigureAwait(false);
+                }
+                else if (result is ValueTask valueTask)
+                {
+                    await valueTask.ConfigureAwait(false);
+                }
+                else if (result is not null && TryGetValueTaskAsTask(result, out task))
                 {
                     await task.ConfigureAwait(false);
                 }
@@ -55,5 +64,21 @@ internal static class ReflectionTestInvokerFactory
                 ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
             }
         };
+    }
+
+    private static bool TryGetValueTaskAsTask(object result, out Task task)
+    {
+        var resultType = result.GetType();
+        if (!resultType.IsGenericType ||
+            resultType.GetGenericTypeDefinition() != typeof(ValueTask<>))
+        {
+            task = null!;
+            return false;
+        }
+
+        task = (Task)resultType
+            .GetMethod(nameof(ValueTask<int>.AsTask), BindingFlags.Public | BindingFlags.Instance)!
+            .Invoke(result, null)!;
+        return true;
     }
 }

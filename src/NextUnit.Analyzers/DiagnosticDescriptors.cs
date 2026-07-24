@@ -128,4 +128,16 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "Constant test data row display names, skip reasons, categories, and tags must contain meaningful text.");
+
+    /// <summary>
+    /// NU0011: Test or lifecycle method return type is unsupported.
+    /// </summary>
+    public static readonly DiagnosticDescriptor UnsupportedMethodReturnType = new(
+        id: "NU0011",
+        title: "Test or lifecycle method return type is unsupported",
+        messageFormat: "Method '{0}' has unsupported return type '{1}'; use void, Task, Task<T>, ValueTask, or ValueTask<T>",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Test and lifecycle methods must return void, Task, Task<T>, ValueTask, or ValueTask<T> so NextUnit can observe completion and failures.");
 }

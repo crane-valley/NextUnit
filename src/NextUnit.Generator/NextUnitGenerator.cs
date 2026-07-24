@@ -151,7 +151,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             categories,
             tags,
             methodSymbol.IsStatic,
-            methodSymbol.ReturnsVoid,
+            GetMethodReturnKind(methodSymbol),
             HasTrailingCancellationToken(methodSymbol),
             constructorKind,
             requiresTestOutput,
@@ -189,8 +189,29 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             beforeScopes,
             afterScopes,
             methodSymbol.IsStatic,
-            methodSymbol.ReturnsVoid,
+            GetMethodReturnKind(methodSymbol),
             HasTrailingCancellationToken(methodSymbol));
+    }
+
+    private static MethodReturnKind GetMethodReturnKind(IMethodSymbol methodSymbol)
+    {
+        if (methodSymbol.ReturnsVoid)
+        {
+            return MethodReturnKind.Void;
+        }
+
+        if (methodSymbol.ReturnType is not INamedTypeSymbol returnType ||
+            returnType.ContainingNamespace.ToDisplayString() != "System.Threading.Tasks")
+        {
+            return MethodReturnKind.Unsupported;
+        }
+
+        return returnType.Name switch
+        {
+            "Task" when returnType.Arity is 0 or 1 => MethodReturnKind.Task,
+            "ValueTask" when returnType.Arity is 0 or 1 => MethodReturnKind.ValueTask,
+            _ => MethodReturnKind.Unsupported
+        };
     }
 
     private sealed class MethodCandidate
@@ -539,7 +560,7 @@ internal static class Program
             builder.AppendLine("    {");
             foreach (var method in methods)
             {
-                builder.AppendLine($"        {CodeBuilder.BuildLifecycleMethodDelegate(method.FullyQualifiedTypeName, method.MethodName, method.IsStatic, method.ReturnsVoid, method.AcceptsCancellationToken)},");
+                builder.AppendLine($"        {CodeBuilder.BuildLifecycleMethodDelegate(method.FullyQualifiedTypeName, method.MethodName, method.IsStatic, method.ReturnKind, method.AcceptsCancellationToken)},");
             }
 
             builder.AppendLine("    };");
