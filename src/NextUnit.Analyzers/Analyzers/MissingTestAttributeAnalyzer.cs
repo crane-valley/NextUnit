@@ -10,15 +10,15 @@ namespace NextUnit.Analyzers.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
 {
-    private const string TestAttributeFullName = "NextUnit.TestAttribute";
-    private const string ArgumentsAttributeFullName = "NextUnit.ArgumentsAttribute";
-    private const string TestDataAttributeFullName = "NextUnit.TestDataAttribute";
-    private const string MatrixAttributeFullName = "NextUnit.MatrixAttribute";
-    private const string ValuesAttributeFullName = "NextUnit.ValuesAttribute";
-    private const string ValuesFromMemberAttributeFullName = "NextUnit.ValuesFromMemberAttribute";
-    private const string ClassDataSourceAttributePrefix = "ClassDataSourceAttribute`";
-    private const string ValuesFromAttributePrefix = "ValuesFromAttribute`";
-    private const string NextUnitNamespace = "NextUnit";
+    private const string NextUnitNamespaceName = "NextUnit";
+    private const string TestAttributeName = "TestAttribute";
+    private const string ArgumentsAttributeName = "ArgumentsAttribute";
+    private const string TestDataAttributeName = "TestDataAttribute";
+    private const string ClassDataSourceAttributeName = "ClassDataSourceAttribute";
+    private const string MatrixAttributeName = "MatrixAttribute";
+    private const string ValuesAttributeName = "ValuesAttribute";
+    private const string ValuesFromMemberAttributeName = "ValuesFromMemberAttribute";
+    private const string ValuesFromAttributeName = "ValuesFromAttribute";
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.DataSourceWithoutTest);
@@ -30,6 +30,10 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
         context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
     }
 
+    // This runs on every method in the compilation, so it avoids ToDisplayString()
+    // (which allocates a formatted string per attribute) and LINQ (which allocates
+    // enumerators/closures per call) in favor of plain loops and cheap Name/namespace
+    // symbol comparisons.
     private static void AnalyzeMethod(SymbolAnalysisContext context)
     {
         var method = (IMethodSymbol)context.Symbol;
@@ -44,13 +48,22 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (method.GetAttributes().Any(
-            attribute => attribute.AttributeClass?.ToDisplayString() == TestAttributeFullName))
+        var methodAttributes = method.GetAttributes();
+        var parameters = method.Parameters;
+
+        // The overwhelming majority of methods carry no relevant attributes at all;
+        // bail out before touching parameter attribute lists or doing any name matching.
+        if (methodAttributes.Length == 0 && !AnyParameterHasAttributes(parameters))
         {
             return;
         }
 
-        var dataSourceName = GetDataSourceName(method);
+        if (HasTestAttribute(methodAttributes))
+        {
+            return;
+        }
+
+        var dataSourceName = GetDataSourceName(methodAttributes, parameters);
         if (dataSourceName is null)
         {
             return;
@@ -63,72 +76,119 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
             dataSourceName));
     }
 
+    private static bool AnyParameterHasAttributes(ImmutableArray<IParameterSymbol> parameters)
+    {
+        foreach (var parameter in parameters)
+        {
+            if (parameter.GetAttributes().Length > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasTestAttribute(ImmutableArray<AttributeData> methodAttributes)
+    {
+        foreach (var attribute in methodAttributes)
+        {
+            if (IsNextUnitAttribute(attribute.AttributeClass, TestAttributeName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Finds the name of the first data-source attribute covering all attributes the
     /// generator honors when discovering test cases: method-level [Arguments],
     /// [TestData], [ClassDataSource&lt;T&gt;] and parameter-level [Matrix], [Values],
     /// [ValuesFromMember], [ValuesFrom&lt;T&gt;].
     /// </summary>
-    private static string? GetDataSourceName(IMethodSymbol method)
+    private static string? GetDataSourceName(
+        ImmutableArray<AttributeData> methodAttributes,
+        ImmutableArray<IParameterSymbol> parameters)
     {
-        var methodLevelName = method.GetAttributes()
-            .Select(attribute => GetMethodLevelDataSourceName(attribute.AttributeClass))
-            .Where(name => name is not null)
-            .FirstOrDefault();
-
-        if (methodLevelName is not null)
+        foreach (var attribute in methodAttributes)
         {
-            return methodLevelName;
+            var name = GetMethodLevelDataSourceName(attribute.AttributeClass);
+            if (name is not null)
+            {
+                return name;
+            }
         }
 
-        return method.Parameters
-            .SelectMany(parameter => parameter.GetAttributes())
-            .Select(attribute => GetParameterLevelDataSourceName(attribute.AttributeClass))
-            .Where(name => name is not null)
-            .FirstOrDefault();
+        foreach (var parameter in parameters)
+        {
+            foreach (var attribute in parameter.GetAttributes())
+            {
+                var name = GetParameterLevelDataSourceName(attribute.AttributeClass);
+                if (name is not null)
+                {
+                    return name;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static string? GetMethodLevelDataSourceName(INamedTypeSymbol? attributeClass)
     {
-        switch (attributeClass?.ToDisplayString())
+        if (!IsNextUnitAttribute(attributeClass))
         {
-            case ArgumentsAttributeFullName:
-                return "Arguments";
-            case TestDataAttributeFullName:
-                return "TestData";
+            return null;
         }
 
-        return IsGenericAttribute(attributeClass, ClassDataSourceAttributePrefix)
-            ? "ClassDataSource"
-            : null;
+        return attributeClass!.Name switch
+        {
+            ArgumentsAttributeName => "Arguments",
+            TestDataAttributeName => "TestData",
+            ClassDataSourceAttributeName when attributeClass.IsGenericType => "ClassDataSource",
+            _ => null
+        };
     }
 
     private static string? GetParameterLevelDataSourceName(INamedTypeSymbol? attributeClass)
     {
-        switch (attributeClass?.ToDisplayString())
+        if (!IsNextUnitAttribute(attributeClass))
         {
-            case MatrixAttributeFullName:
-                return "Matrix";
-            case ValuesAttributeFullName:
-                return "Values";
-            case ValuesFromMemberAttributeFullName:
-                return "ValuesFromMember";
+            return null;
         }
 
-        return IsGenericAttribute(attributeClass, ValuesFromAttributePrefix)
-            ? "ValuesFrom"
-            : null;
+        return attributeClass!.Name switch
+        {
+            MatrixAttributeName => "Matrix",
+            ValuesAttributeName => "Values",
+            ValuesFromMemberAttributeName => "ValuesFromMember",
+            ValuesFromAttributeName when attributeClass.IsGenericType => "ValuesFrom",
+            _ => null
+        };
     }
 
-    private static bool IsGenericAttribute(INamedTypeSymbol? attributeClass, string metadataNamePrefix)
+    /// <summary>
+    /// Checks an attribute's class against the NextUnit namespace (and, optionally, an
+    /// exact simple name) by walking symbols directly instead of formatting a display
+    /// string, since a named type symbol's simple Name already excludes generic arity
+    /// (e.g. "ClassDataSourceAttribute" for every ClassDataSourceAttribute&lt;...&gt; arity).
+    /// </summary>
+    private static bool IsNextUnitAttribute(INamedTypeSymbol? attributeClass, string? expectedName = null)
     {
-        if (attributeClass is not { IsGenericType: true })
+        if (attributeClass is null)
         {
             return false;
         }
 
-        var constructedFrom = attributeClass.ConstructedFrom;
-        return constructedFrom.MetadataName.StartsWith(metadataNamePrefix, StringComparison.Ordinal) &&
-            constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitNamespace;
+        if (expectedName is not null && attributeClass.Name != expectedName)
+        {
+            return false;
+        }
+
+        var containingNamespace = attributeClass.ContainingNamespace;
+        return containingNamespace is { Name: NextUnitNamespaceName } &&
+            containingNamespace.ContainingNamespace?.IsGlobalNamespace == true;
     }
 }
