@@ -66,10 +66,11 @@ internal static class ReflectionTestInvokerFactory
         };
     }
 
+    [DynamicDependency(nameof(ValueTask<int>.AsTask), typeof(ValueTask<>))]
     [UnconditionalSuppressMessage(
         "Trimming",
         "IL2072",
-        Justification = "MethodInfo.Invoke already materializes the concrete ValueTask<T> return type for boxing. AsTask is a public non-virtual instance method without its own generic parameters on that same closed instantiation.")]
+        Justification = "DynamicDependency explicitly preserves ValueTask<T>.AsTask for every closed instantiation reached through this reflection fallback.")]
     private static bool TryGetValueTaskAsTask(object result, out Task task)
     {
         var resultType = result.GetType();

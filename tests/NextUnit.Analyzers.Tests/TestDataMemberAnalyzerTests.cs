@@ -294,6 +294,33 @@ public class TestDataMemberAnalyzerTests
     }
 
     [Fact]
+    public async Task TestDataWithNestedTupleConversion_ReportsDiagnosticAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                public static IEnumerable<TestDataRow<((int, int), string)>> TestCases => [];
+
+                [Test]
+                [{|#0:TestData("TestCases")|}]
+                public void TestMethod((long, long) pair, string label)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0009")
+            .WithLocation(0)
+            .WithArguments("TestCases", "((int, int), string)", "TestMethod");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
     public async Task ClassDataSourceWithIncompatibleTypedTupleRow_ReportsDiagnosticAsync()
     {
         var source = """

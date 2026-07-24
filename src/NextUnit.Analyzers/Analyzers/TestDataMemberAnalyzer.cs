@@ -203,7 +203,9 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 var conversion = compilation.ClassifyConversion(
                     suppliedTypes[i],
                     targetParameters[i].Type);
-                if (!conversion.IsImplicit || conversion.IsUserDefined)
+                if (!conversion.IsImplicit ||
+                    conversion.IsUserDefined ||
+                    conversion.IsTupleConversion)
                 {
                     isCompatible = false;
                     break;
