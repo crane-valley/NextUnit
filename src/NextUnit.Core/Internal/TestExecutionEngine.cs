@@ -171,7 +171,7 @@ public sealed class TestExecutionEngine
         // The body was non-critical (or absent), so a critical exception escaping cleanup surfaces next.
         cleanupCritical?.Throw();
 
-        ThrowCombinedFailure(bodyFailure?.SourceException, cleanupCancellation, cleanupFailures);
+        ThrowCombinedFailure(bodyFailure?.SourceException, cleanupCancellation, cleanupFailures, cancellationToken);
     }
 
     /// <summary>
@@ -194,15 +194,27 @@ public sealed class TestExecutionEngine
     private static void ThrowCombinedFailure(
         Exception? bodyException,
         OperationCanceledException? cleanupCancellation,
-        List<Exception> cleanupFailures)
+        List<Exception> cleanupFailures,
+        CancellationToken cancellationToken)
     {
-        // Represent cancellation once, whether observed by the run body or during cleanup.
-        var cancellation = bodyException as OperationCanceledException ?? cleanupCancellation;
+        // A body OCE counts as run cancellation only when it is genuine run cancellation; an OCE carrying
+        // a foreign token (e.g. a setup hook or sink throwing its own) is a normal failure. Represent
+        // cancellation once, whether observed by the run body or during cleanup.
+        OperationCanceledException? bodyCancellation =
+            bodyException is OperationCanceledException oce && IsRunCancellation(oce, cancellationToken)
+                ? oce
+                : null;
+        var cancellation = bodyCancellation ?? cleanupCancellation;
 
         var failures = new List<Exception>();
-        if (bodyException is not null and not OperationCanceledException)
+        if (bodyException is not null && !ReferenceEquals(bodyException, bodyCancellation))
         {
-            failures.Add(bodyException);
+            // Wrap a non-run OCE so it is not mistaken for run cancellation (which adapters swallow).
+            failures.Add(bodyException is OperationCanceledException
+                ? new InvalidOperationException(
+                    "A run operation threw OperationCanceledException that does not represent run cancellation.",
+                    bodyException)
+                : bodyException);
         }
 
         failures.AddRange(cleanupFailures);
@@ -516,6 +528,11 @@ public sealed class TestExecutionEngine
             {
                 return;
             }
+
+            // If the run was cancelled during this attempt, abort instead of retrying or reporting a
+            // spurious error: a normal exception from a cancelled attempt is superseded by cancellation,
+            // and later attempts would otherwise start on the already-cancelled token.
+            cancellationToken.ThrowIfCancellationRequested();
 
             // Non-terminal failure - check if we should retry
             if (attempt < maxAttempts)

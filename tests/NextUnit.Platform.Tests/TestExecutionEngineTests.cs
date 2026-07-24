@@ -414,6 +414,68 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
+    public async Task AssemblySetupForeignCancellation_SurfacesAsFailureNotCancellationAsync()
+    {
+        var engine = new TestExecutionEngine();
+        engine.SetGlobalAssemblyLifecycle(
+            beforeMethods: [static (_, _) => throw new OperationCanceledException(new CancellationToken(canceled: true))],
+            afterMethods: null);
+
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("assembly.setup.foreign.oce"),
+            DisplayName = "assembly.setup.foreign.oce",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            TestMethod = static (_, _) => Task.CompletedTask
+        };
+
+        var sink = new RecordingSink();
+
+        // The run token is never cancelled, so a setup hook's own OCE must surface as a failure, not be
+        // misread as run cancellation (which downstream adapters silently swallow, running zero tests).
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => engine.RunAsync([test], sink, CancellationToken.None));
+
+        Assert.True(error.InnerException is OperationCanceledException);
+    }
+
+    [Test]
+    public async Task RetryAfterCancellation_DoesNotRetryOrReportErrorAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var attempts = 0;
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("retry.after.cancel"),
+            DisplayName = "retry.after.cancel",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            Retry = new RetryInfo { Count = 3, DelayMs = 0 },
+            TestMethod = (_, _) =>
+            {
+                Interlocked.Increment(ref attempts);
+                // Cancel the run, then fail with a normal (non-OCE) exception.
+                cts.Cancel();
+                throw new InvalidOperationException("boom after cancel");
+            }
+        };
+
+        var sink = new RecordingSink();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
+
+        // The cancelled run must not retry the test or report a spurious error.
+        Assert.Equal(1, attempts);
+        Assert.Empty(sink.Errors);
+    }
+
+    [Test]
     public async Task ClassTeardownForeignCancellation_IsReportedAsFailureNotRunCancellationAsync()
     {
         using var cts = new CancellationTokenSource();
