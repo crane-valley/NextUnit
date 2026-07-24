@@ -14,6 +14,11 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
     private const string ArgumentsAttributeFullName = "NextUnit.ArgumentsAttribute";
     private const string TestDataAttributeFullName = "NextUnit.TestDataAttribute";
     private const string MatrixAttributeFullName = "NextUnit.MatrixAttribute";
+    private const string ValuesAttributeFullName = "NextUnit.ValuesAttribute";
+    private const string ValuesFromMemberAttributeFullName = "NextUnit.ValuesFromMemberAttribute";
+    private const string ClassDataSourceAttributePrefix = "ClassDataSourceAttribute`";
+    private const string ValuesFromAttributePrefix = "ValuesFromAttribute`";
+    private const string NextUnitNamespace = "NextUnit";
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.DataSourceWithoutTest);
@@ -28,6 +33,16 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeMethod(SymbolAnalysisContext context)
     {
         var method = (IMethodSymbol)context.Symbol;
+
+        // Constructors, property/event accessors, operators, and other non-ordinary
+        // method kinds can never carry [Test] and would only produce false positives
+        // (e.g. a primary-constructor parameter carrying [Matrix]). Compiler-synthesized
+        // members (record equality members, etc.) can also report an empty Locations
+        // array, which would throw on the Locations[0] access below.
+        if (method.MethodKind != MethodKind.Ordinary || method.Locations.IsEmpty)
+        {
+            return;
+        }
 
         if (method.GetAttributes().Any(
             attribute => attribute.AttributeClass?.ToDisplayString() == TestAttributeFullName))
@@ -48,28 +63,72 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
             dataSourceName));
     }
 
+    /// <summary>
+    /// Finds the name of the first data-source attribute covering all attributes the
+    /// generator honors when discovering test cases: method-level [Arguments],
+    /// [TestData], [ClassDataSource&lt;T&gt;] and parameter-level [Matrix], [Values],
+    /// [ValuesFromMember], [ValuesFrom&lt;T&gt;].
+    /// </summary>
     private static string? GetDataSourceName(IMethodSymbol method)
     {
-        foreach (var attribute in method.GetAttributes())
+        var methodLevelName = method.GetAttributes()
+            .Select(attribute => GetMethodLevelDataSourceName(attribute.AttributeClass))
+            .Where(name => name is not null)
+            .FirstOrDefault();
+
+        if (methodLevelName is not null)
         {
-            switch (attribute.AttributeClass?.ToDisplayString())
-            {
-                case ArgumentsAttributeFullName:
-                    return "Arguments";
-                case TestDataAttributeFullName:
-                    return "TestData";
-            }
+            return methodLevelName;
         }
 
-        foreach (var parameter in method.Parameters)
+        return method.Parameters
+            .SelectMany(parameter => parameter.GetAttributes())
+            .Select(attribute => GetParameterLevelDataSourceName(attribute.AttributeClass))
+            .Where(name => name is not null)
+            .FirstOrDefault();
+    }
+
+    private static string? GetMethodLevelDataSourceName(INamedTypeSymbol? attributeClass)
+    {
+        switch (attributeClass?.ToDisplayString())
         {
-            if (parameter.GetAttributes().Any(
-                attribute => attribute.AttributeClass?.ToDisplayString() == MatrixAttributeFullName))
-            {
+            case ArgumentsAttributeFullName:
+                return "Arguments";
+            case TestDataAttributeFullName:
+                return "TestData";
+        }
+
+        return IsGenericAttribute(attributeClass, ClassDataSourceAttributePrefix)
+            ? "ClassDataSource"
+            : null;
+    }
+
+    private static string? GetParameterLevelDataSourceName(INamedTypeSymbol? attributeClass)
+    {
+        switch (attributeClass?.ToDisplayString())
+        {
+            case MatrixAttributeFullName:
                 return "Matrix";
-            }
+            case ValuesAttributeFullName:
+                return "Values";
+            case ValuesFromMemberAttributeFullName:
+                return "ValuesFromMember";
         }
 
-        return null;
+        return IsGenericAttribute(attributeClass, ValuesFromAttributePrefix)
+            ? "ValuesFrom"
+            : null;
+    }
+
+    private static bool IsGenericAttribute(INamedTypeSymbol? attributeClass, string metadataNamePrefix)
+    {
+        if (attributeClass is not { IsGenericType: true })
+        {
+            return false;
+        }
+
+        var constructedFrom = attributeClass.ConstructedFrom;
+        return constructedFrom.MetadataName.StartsWith(metadataNamePrefix, StringComparison.Ordinal) &&
+            constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitNamespace;
     }
 }

@@ -97,6 +97,119 @@ public class Tests
     }
 
     [Fact]
+    public async Task ClassDataSourceWithoutTest_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class RowSource : System.Collections.Generic.List<int>
+{
+}
+
+public class Tests
+{
+    [ClassDataSource<RowSource>]
+    public void TestMethod(int value)
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<MissingTestAttributeAnalyzer>
+            .Diagnostic("NU0013")
+            .WithSpan(11, 17, 11, 27)
+            .WithArguments("TestMethod", "ClassDataSource");
+
+        await CSharpAnalyzerVerifier<MissingTestAttributeAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task ValuesWithoutTest_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    public void TestMethod([Values(1, 2)] int value)
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<MissingTestAttributeAnalyzer>
+            .Diagnostic("NU0013")
+            .WithSpan(6, 17, 6, 27)
+            .WithArguments("TestMethod", "Values");
+
+        await CSharpAnalyzerVerifier<MissingTestAttributeAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task ValuesFromMemberWithoutTest_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    public static int[] Data => new[] { 1 };
+
+    public void TestMethod([ValuesFromMember(nameof(Data))] int value)
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<MissingTestAttributeAnalyzer>
+            .Diagnostic("NU0013")
+            .WithSpan(8, 17, 8, 27)
+            .WithArguments("TestMethod", "ValuesFromMember");
+
+        await CSharpAnalyzerVerifier<MissingTestAttributeAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task ValuesFromWithoutTest_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class RowSource : System.Collections.Generic.List<int>
+{
+}
+
+public class Tests
+{
+    public void TestMethod([ValuesFrom<RowSource>] int value)
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<MissingTestAttributeAnalyzer>
+            .Diagnostic("NU0013")
+            .WithSpan(10, 17, 10, 27)
+            .WithArguments("TestMethod", "ValuesFrom");
+
+        await CSharpAnalyzerVerifier<MissingTestAttributeAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task ConstructorWithMatrixParameter_NoDiagnosticAsync()
+    {
+        // Constructors can never carry [Test]; a [Matrix] parameter on one (e.g. a
+        // primary-constructor-style parameter) must not be flagged as a false positive.
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    public Tests([Matrix(1, 2)] int value)
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<MissingTestAttributeAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    [Fact]
     public async Task TestWithArguments_NoDiagnosticAsync()
     {
         var source = @"
