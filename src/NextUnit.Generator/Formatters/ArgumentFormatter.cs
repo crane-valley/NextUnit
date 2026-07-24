@@ -48,7 +48,13 @@ internal static class ArgumentFormatter
             byte or sbyte or short or ushort or int or uint => value.ToString()!,
             long l => $"{l}L",
             ulong ul => $"{ul}UL",
+            float f when float.IsNaN(f) => "global::System.Single.NaN",
+            float f when float.IsPositiveInfinity(f) => "global::System.Single.PositiveInfinity",
+            float f when float.IsNegativeInfinity(f) => "global::System.Single.NegativeInfinity",
             float f => $"{f.ToString(CultureInfo.InvariantCulture)}f",
+            double d when double.IsNaN(d) => "global::System.Double.NaN",
+            double d when double.IsPositiveInfinity(d) => "global::System.Double.PositiveInfinity",
+            double d when double.IsNegativeInfinity(d) => "global::System.Double.NegativeInfinity",
             double d => $"{d.ToString(CultureInfo.InvariantCulture)}d",
             decimal m => $"{m.ToString(CultureInfo.InvariantCulture)}m",
             _ => value.ToString() ?? "null"

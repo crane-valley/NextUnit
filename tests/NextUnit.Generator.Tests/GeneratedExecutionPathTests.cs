@@ -221,6 +221,93 @@ public sealed class GeneratedExecutionPathTests
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
+    [Fact]
+    public void Generator_EmitsCompilableSpecialFloatingPointArguments()
+    {
+        const string source = """
+            using NextUnit;
+
+            public sealed class FloatingPointTests
+            {
+                [Test]
+                [Arguments(float.NaN)]
+                [Arguments(float.PositiveInfinity)]
+                [Arguments(float.NegativeInfinity)]
+                public void FloatTest(float value)
+                {
+                }
+
+                [Test]
+                [Arguments(double.NaN)]
+                [Arguments(double.PositiveInfinity)]
+                [Arguments(double.NegativeInfinity)]
+                public void DoubleTest(double value)
+                {
+                }
+            }
+            """;
+
+        var (generatedRegistry, outputCompilation) = RunGenerator(source);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        Xunit.Assert.Contains("global::System.Single.NaN", generatedRegistry);
+        Xunit.Assert.Contains("global::System.Single.PositiveInfinity", generatedRegistry);
+        Xunit.Assert.Contains("global::System.Single.NegativeInfinity", generatedRegistry);
+        Xunit.Assert.Contains("global::System.Double.NaN", generatedRegistry);
+        Xunit.Assert.Contains("global::System.Double.PositiveInfinity", generatedRegistry);
+        Xunit.Assert.Contains("global::System.Double.NegativeInfinity", generatedRegistry);
+        Xunit.Assert.DoesNotContain("NaNf", generatedRegistry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("NaNd", generatedRegistry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("Infinityf", generatedRegistry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("Infinityd", generatedRegistry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("-Infinityf", generatedRegistry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("-Infinityd", generatedRegistry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain(
+            outputCompilation.GetDiagnostics(cancellationToken),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Generator_EmitsCompilableExtremeFloatingPointArguments()
+    {
+        const string source = """
+            using NextUnit;
+
+            public sealed class ExtremeFloatingPointTests
+            {
+                [Test]
+                [Arguments(float.MaxValue)]
+                [Arguments(float.MinValue)]
+                public void FloatTest(float value)
+                {
+                }
+
+                [Test]
+                [Arguments(double.MaxValue)]
+                [Arguments(double.MinValue)]
+                public void DoubleTest(double value)
+                {
+                }
+            }
+            """;
+
+        var (generatedRegistry, outputCompilation) = RunGenerator(source);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // "G9" for float and "G17" for double guarantee round-trip precision on every
+        // runtime, unlike the bare (culture-invariant, no-format) ToString() this
+        // generator used to call, which can fall back to 15/7 significant digits on
+        // some hosts and round float.MaxValue/double.MaxValue (and MinValue) out of
+        // the type's representable range.
+        Xunit.Assert.Contains("3.40282347E+38f", generatedRegistry);
+        Xunit.Assert.Contains("-3.40282347E+38f", generatedRegistry);
+        Xunit.Assert.Contains("1.7976931348623157E+308d", generatedRegistry);
+        Xunit.Assert.Contains("-1.7976931348623157E+308d", generatedRegistry);
+        Xunit.Assert.DoesNotContain(
+            outputCompilation.GetDiagnostics(cancellationToken),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
     private static (string GeneratedRegistry, Compilation OutputCompilation) RunGenerator(
         string source,
         IEnumerable<MetadataReference>? additionalReferences = null)

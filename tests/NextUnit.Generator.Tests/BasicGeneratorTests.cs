@@ -79,6 +79,36 @@ public class TestClass
     }
 
     [Fact]
+    public async Task SpecialFloatingPointArguments_GenerateCompilableTestCasesAsync()
+    {
+        var source = @"
+using NextUnit;
+
+namespace TestProject;
+
+public class TestClass
+{
+    [Test]
+    [Arguments(float.NaN)]
+    [Arguments(float.PositiveInfinity)]
+    [Arguments(float.NegativeInfinity)]
+    public void FloatTest(float value)
+    {
+    }
+
+    [Test]
+    [Arguments(double.NaN)]
+    [Arguments(double.PositiveInfinity)]
+    [Arguments(double.NegativeInfinity)]
+    public void DoubleTest(double value)
+    {
+    }
+}";
+
+        await VerifyGeneratorRunsWithoutErrorsAsync(source);
+    }
+
+    [Fact]
     public async Task SkippedTest_GeneratesWithSkipInfoAsync()
     {
         var source = @"
