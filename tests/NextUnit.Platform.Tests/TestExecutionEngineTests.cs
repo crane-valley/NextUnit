@@ -308,6 +308,106 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
+    public async Task Run_SurfacesCancellationWhenOnlyTestIgnoresTokenAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("only.ignores.token"),
+            DisplayName = "only.ignores.token",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            TestMethod = (_, _) =>
+            {
+                // The only test ignores the token and completes normally.
+                cts.Cancel();
+                return Task.CompletedTask;
+            }
+        };
+
+        var sink = new RecordingSink();
+
+        // With no further loop iteration to observe the token, the run must still surface cancellation.
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
+
+        Assert.Single(sink.Passed);
+    }
+
+    [Test]
+    public async Task MultipleClassTeardownFailures_AggregateIntoSingleNodeAsync()
+    {
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("teardown.multi.fail"),
+            DisplayName = "teardown.multi.fail",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            TestMethod = static (_, _) => Task.CompletedTask,
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods =
+                [
+                    static (_, _) => throw new InvalidOperationException("first boom"),
+                    static (_, _) => throw new InvalidOperationException("second boom")
+                ]
+            }
+        };
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        Assert.Single(sink.Passed);
+        var error = Assert.Single(sink.Errors);
+        Assert.True(error.Test.Id.Value.EndsWith("[ClassTeardown]", StringComparison.Ordinal));
+        var aggregate = error.Exception as AggregateException;
+        Assert.NotNull(aggregate);
+        Assert.Equal(2, aggregate!.InnerExceptions.Count);
+    }
+
+    [Test]
+    public async Task SinkFailureDuringCleanupReport_DoesNotAbortRemainingReportsAsync()
+    {
+        var firstClass = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("sink.fail.a"),
+            DisplayName = "sink.fail.a",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            TestMethod = static (_, _) => Task.CompletedTask,
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods = [static (_, _) => throw new InvalidOperationException("teardown boom")]
+            }
+        };
+
+        var secondClass = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("sink.fail.b"),
+            DisplayName = "sink.fail.b",
+            TestClass = typeof(SecondSampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SecondSampleTestClass(),
+            TestMethod = static (_, _) => Task.CompletedTask,
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods = [static (_, _) => throw new InvalidOperationException("teardown boom")]
+            }
+        };
+
+        var sink = new ThrowingReportSink();
+
+        // A sink that throws on report must not abort the remaining cleanup reports.
+        await new TestExecutionEngine().RunAsync([firstClass, secondClass], sink, CancellationToken.None);
+
+        Assert.Equal(2, sink.ErrorReportAttempts);
+    }
+
+    [Test]
     public void InvalidTestNameRegex_SurfacesErrorInsteadOfRunningEverything()
     {
         const string envVar = "NEXTUNIT_TEST_NAME_REGEX";
@@ -328,6 +428,10 @@ public sealed class TestExecutionEngineTests
     {
     }
 
+    private sealed class SecondSampleTestClass
+    {
+    }
+
     private sealed class ThrowingDisposeClass : IDisposable
     {
         public void Dispose() => throw new InvalidOperationException("dispose boom");
@@ -336,6 +440,25 @@ public sealed class TestExecutionEngineTests
     private sealed class NullServiceProvider : IServiceProvider
     {
         public object? GetService(Type serviceType) => null;
+    }
+
+    private sealed class ThrowingReportSink : ITestExecutionSink
+    {
+        private int _errorReportAttempts;
+
+        public int ErrorReportAttempts => Volatile.Read(ref _errorReportAttempts);
+
+        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null) => Task.CompletedTask;
+
+        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null) => Task.CompletedTask;
+
+        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
+        {
+            Interlocked.Increment(ref _errorReportAttempts);
+            throw new InvalidOperationException("sink is down");
+        }
+
+        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null) => Task.CompletedTask;
     }
 
     private sealed class RecordingSink : ITestExecutionSink

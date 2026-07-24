@@ -123,6 +123,10 @@ public sealed class TestExecutionEngine
             {
                 await ExecuteBatchAsync(batch, trackingSink, cancellationToken).ConfigureAwait(false);
             }
+
+            // The last (or only) test may ignore the token and complete normally, leaving no further
+            // loop iteration to observe cancellation; surface it here so a cancelled run does not pass.
+            cancellationToken.ThrowIfCancellationRequested();
         }
         finally
         {
@@ -251,7 +255,8 @@ public sealed class TestExecutionEngine
             return null;
         }
 
-        Exception? pending = null;
+        OperationCanceledException? cancellation = null;
+        var failures = new List<Exception>();
 
         // Assembly lifecycle methods are always static (enforced by generator),
         // so the instance parameter is unused. We pass null for efficiency.
@@ -263,13 +268,38 @@ public sealed class TestExecutionEngine
             {
                 await afterMethod(null!, cancellationToken).ConfigureAwait(false);
             }
+            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+            {
+                // Genuine run cancellation.
+                cancellation ??= ex;
+            }
+            catch (OperationCanceledException ex)
+            {
+                // The outer token is not cancelled, so this is the hook's own unrelated cancellation.
+                // Wrap it in a non-OCE so it is surfaced as a teardown failure rather than being
+                // mistaken for run cancellation (which downstream adapters swallow).
+                failures.Add(new InvalidOperationException(
+                    "An assembly teardown method threw OperationCanceledException without run cancellation.", ex));
+            }
             catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
             {
-                pending ??= ex;
+                failures.Add(ex);
             }
         }
 
-        return pending;
+        // Run cancellation takes precedence so the run surfaces as cancelled; otherwise surface the
+        // teardown failures (a single exception, or an aggregate of several).
+        if (cancellation is not null)
+        {
+            return cancellation;
+        }
+
+        return failures.Count switch
+        {
+            0 => null,
+            1 => failures[0],
+            _ => new AggregateException("One or more assembly teardown methods failed.", failures)
+        };
     }
 
     /// <summary>
@@ -772,12 +802,17 @@ public sealed class TestExecutionEngine
     {
         OperationCanceledException? cancellation = null;
 
+        // Collect failures while every hook and disposal runs; report only after all cleanup finishes,
+        // so a sink failure cannot abort remaining disposal, classes, or assembly teardown.
+        var reports = new List<(TestCaseDescriptor Test, Exception Error)>();
+
         foreach (var kvp in _classContexts)
         {
             var context = kvp.Value;
 
             // Catch per hook so that a hook observing cancellation (or failing) does not skip the
             // remaining AfterClass hooks of this class.
+            var teardownErrors = new List<Exception>();
             foreach (var afterClassMethod in context.Lifecycle.AfterClassMethods)
             {
                 try
@@ -792,9 +827,21 @@ public sealed class TestExecutionEngine
                 }
                 catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
                 {
-                    // Report teardown failures instead of swallowing them, mirroring per-test error reporting.
-                    await ReportClassScopeErrorAsync(sink, context.RepresentativeTest, "ClassTeardown", ex).ConfigureAwait(false);
+                    // A non-run-cancellation exception (including a hook's own unrelated OCE) is a
+                    // teardown failure, not run cancellation.
+                    teardownErrors.Add(ex);
                 }
+            }
+
+            if (teardownErrors.Count > 0)
+            {
+                // Aggregate all hook failures for one class into a single node so multiple failures do
+                // not collide on the same "[ClassTeardown]" identity.
+                reports.Add((
+                    CreateClassScopeTest(context.RepresentativeTest, "ClassTeardown"),
+                    teardownErrors.Count == 1
+                        ? teardownErrors[0]
+                        : new AggregateException("One or more class teardown methods failed.", teardownErrors)));
             }
 
             try
@@ -808,7 +855,7 @@ public sealed class TestExecutionEngine
             }
             catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
             {
-                await ReportClassScopeErrorAsync(sink, context.RepresentativeTest, "ClassDispose", ex).ConfigureAwait(false);
+                reports.Add((CreateClassScopeTest(context.RepresentativeTest, "ClassDispose"), ex));
             }
             finally
             {
@@ -820,32 +867,44 @@ public sealed class TestExecutionEngine
         _classContexts.Clear();
         _assemblySetupLock.Dispose();
 
+        // Report only after all cleanup is complete; guard each report so a sink failure does not
+        // prevent the remaining failures from being surfaced.
+        foreach (var (test, error) in reports)
+        {
+            try
+            {
+                await sink.ReportErrorAsync(test, error).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            {
+                // The sink itself failed (e.g. message bus shut down); surface on stderr so the failure
+                // is not fully lost, without interrupting the remaining reports.
+                Console.Error.WriteLine($"[NextUnit] Failed to report class cleanup error for '{test.Id.Value}': {ex}");
+            }
+        }
+
         return cancellation;
     }
 
     /// <summary>
-    /// Reports a class-scope cleanup failure against a synthetic node.
+    /// Builds a synthetic node describing a class-scope cleanup failure.
     /// </summary>
     /// <remarks>
     /// A dedicated node keeps an already-passed test from being retroactively failed while still
     /// surfacing the failure through the same sink used for per-test failures. Teardown and disposal
     /// use distinct node identities so two failures on the same class do not collide.
     /// </remarks>
-    private static Task ReportClassScopeErrorAsync(
-        ITestExecutionSink sink,
+    private static TestCaseDescriptor CreateClassScopeTest(
         TestCaseDescriptor representativeTest,
-        string scope,
-        Exception exception)
+        string scope)
     {
-        var classScopeTest = new TestCaseDescriptor
+        return new TestCaseDescriptor
         {
             Id = new TestCaseId($"{representativeTest.TestClass.FullName ?? representativeTest.TestClass.Name}.[{scope}]"),
             DisplayName = $"{representativeTest.TestClass.Name} ({scope})",
             TestClass = representativeTest.TestClass,
             MethodName = scope
         };
-
-        return sink.ReportErrorAsync(classScopeTest, exception);
     }
 
     /// <summary>
