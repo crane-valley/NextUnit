@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using NextUnit.Core;
 
 namespace NextUnit.Internal;
@@ -107,6 +108,11 @@ public sealed class TestExecutionEngine
         // Wrap sink to track outcomes for ProceedOnFailure support
         var trackingSink = new OutcomeTrackingSink(sink, scheduler);
 
+        // A failure first observed while cleaning up (typically run cancellation) is captured here and
+        // rethrown only after the try/finally completes normally. Throwing from the finally itself would
+        // overwrite any exception already propagating from the try, including critical exceptions.
+        ExceptionDispatchInfo? cleanupFailure = null;
+
         try
         {
             // Execute assembly-level setup
@@ -121,18 +127,21 @@ public sealed class TestExecutionEngine
         finally
         {
             // Execute class teardown and cleanup
-            var teardownCancellation = await CleanupClassInstancesAsync(trackingSink, cancellationToken).ConfigureAwait(false);
+            var teardownFailure = await CleanupClassInstancesAsync(trackingSink, cancellationToken).ConfigureAwait(false);
 
             // Execute assembly-level teardown
-            await ExecuteAssemblyTeardownAsync(testCasesList, cancellationToken).ConfigureAwait(false);
+            var assemblyFailure = await ExecuteAssemblyTeardownAsync(testCasesList, cancellationToken).ConfigureAwait(false);
 
-            // Cancellation first observed during class teardown would otherwise be lost, letting a
-            // cancelled run complete as successful; surface it once all cleanup has finished.
-            if (teardownCancellation is not null)
+            var pending = teardownFailure ?? assemblyFailure;
+            if (pending is not null)
             {
-                throw teardownCancellation;
+                cleanupFailure = ExceptionDispatchInfo.Capture(pending);
             }
         }
+
+        // Reached only when the try body completed without throwing. If the try faulted, that exception
+        // already propagated (preserved through the finally), so cleanup never masks it.
+        cleanupFailure?.Throw();
     }
 
     /// <summary>
@@ -164,6 +173,9 @@ public sealed class TestExecutionEngine
             // Execute serially
             foreach (var test in batch.Tests)
             {
+                // Stop starting new tests once the run is cancelled, even if the previous test
+                // ignored the token and returned normally.
+                cancellationToken.ThrowIfCancellationRequested();
                 await ExecuteSingleAsync(test, sink, cancellationToken).ConfigureAwait(false);
             }
         }
@@ -228,19 +240,36 @@ public sealed class TestExecutionEngine
     /// <summary>
     /// Executes assembly-level teardown methods.
     /// </summary>
-    private async Task ExecuteAssemblyTeardownAsync(List<TestCaseDescriptor> testCases, CancellationToken cancellationToken)
+    /// <returns>
+    /// The first cancellation or non-critical failure observed across the hooks, to be re-surfaced
+    /// by the caller, or <c>null</c> if assembly teardown completed cleanly.
+    /// </returns>
+    private async Task<Exception?> ExecuteAssemblyTeardownAsync(List<TestCaseDescriptor> testCases, CancellationToken cancellationToken)
     {
         if (_assemblyAfterMethods.Count == 0 || testCases.Count == 0)
         {
-            return;
+            return null;
         }
+
+        Exception? pending = null;
 
         // Assembly lifecycle methods are always static (enforced by generator),
         // so the instance parameter is unused. We pass null for efficiency.
+        // Catch per hook so a hook observing cancellation (or failing) still runs every remaining hook;
+        // the first such failure is returned so the run does not silently complete as successful.
         foreach (var afterMethod in _assemblyAfterMethods)
         {
-            await afterMethod(null!, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await afterMethod(null!, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            {
+                pending ??= ex;
+            }
         }
+
+        return pending;
     }
 
     /// <summary>
@@ -747,24 +776,25 @@ public sealed class TestExecutionEngine
         {
             var context = kvp.Value;
 
-            try
+            // Catch per hook so that a hook observing cancellation (or failing) does not skip the
+            // remaining AfterClass hooks of this class.
+            foreach (var afterClassMethod in context.Lifecycle.AfterClassMethods)
             {
-                // Execute AfterClass methods
-                foreach (var afterClassMethod in context.Lifecycle.AfterClassMethods)
+                try
                 {
                     await afterClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
                 }
-            }
-            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
-            {
-                // A cancelled run aborting teardown is not a teardown failure, but the cancellation
-                // must still surface: remember it, finish remaining cleanup, then let the caller rethrow.
-                cancellation ??= ex;
-            }
-            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
-            {
-                // Report teardown failures instead of swallowing them, mirroring per-test error reporting.
-                await ReportClassScopeErrorAsync(sink, context.RepresentativeTest, "ClassTeardown", ex).ConfigureAwait(false);
+                catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+                {
+                    // A cancelled run aborting teardown is not a teardown failure, but the cancellation
+                    // must still surface: remember it, finish remaining cleanup, then let the caller rethrow.
+                    cancellation ??= ex;
+                }
+                catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+                {
+                    // Report teardown failures instead of swallowing them, mirroring per-test error reporting.
+                    await ReportClassScopeErrorAsync(sink, context.RepresentativeTest, "ClassTeardown", ex).ConfigureAwait(false);
+                }
             }
 
             try

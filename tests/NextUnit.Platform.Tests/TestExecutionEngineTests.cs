@@ -182,6 +182,132 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
+    public async Task ClassTeardownHooksRunToCompletionAfterCancellationAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var secondHookRan = false;
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("teardown.multi.hook"),
+            DisplayName = "teardown.multi.hook",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            TestMethod = (_, _) =>
+            {
+                cts.Cancel();
+                return Task.CompletedTask;
+            },
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods =
+                [
+                    static (_, ct) =>
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        return Task.CompletedTask;
+                    },
+                    (_, _) =>
+                    {
+                        secondHookRan = true;
+                        return Task.CompletedTask;
+                    }
+                ]
+            }
+        };
+
+        var sink = new RecordingSink();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
+
+        // A hook observing cancellation must not skip the remaining AfterClass hooks.
+        Assert.True(secondHookRan);
+        Assert.Empty(sink.Errors);
+    }
+
+    [Test]
+    public async Task AssemblyTeardownHooksRunToCompletionAfterCancellationAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var secondHookRan = false;
+        var engine = new TestExecutionEngine();
+        engine.SetGlobalAssemblyLifecycle(
+            beforeMethods: null,
+            afterMethods:
+            [
+                static (_, ct) =>
+                {
+                    ct.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                },
+                (_, _) =>
+                {
+                    secondHookRan = true;
+                    return Task.CompletedTask;
+                }
+            ]);
+
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("assembly.teardown.multi"),
+            DisplayName = "assembly.teardown.multi",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            TestMethod = (_, _) =>
+            {
+                cts.Cancel();
+                return Task.CompletedTask;
+            }
+        };
+
+        var sink = new RecordingSink();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => engine.RunAsync([test], sink, cts.Token));
+
+        // A hook observing cancellation must not skip the remaining assembly teardown hooks.
+        Assert.True(secondHookRan);
+    }
+
+    [Test]
+    public async Task SerialBatch_DoesNotStartTestsAfterCancellationAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var executions = 0;
+
+        TestCaseDescriptor MakeTest(string id, int priority) => new()
+        {
+            Id = new TestCaseId(id),
+            DisplayName = id,
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Priority = priority,
+            Parallel = new ParallelInfo { NotInParallel = true },
+            TestMethod = (_, _) =>
+            {
+                Interlocked.Increment(ref executions);
+                // Ignore the token and return normally; the batch loop must still stop.
+                cts.Cancel();
+                return Task.CompletedTask;
+            }
+        };
+
+        var tests = new[] { MakeTest("serial.a", 10), MakeTest("serial.b", 0) };
+        var sink = new RecordingSink();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync(tests, sink, cts.Token));
+
+        // Exactly one test runs; the second must not start after the run is cancelled.
+        Assert.Equal(1, executions);
+    }
+
+    [Test]
     public void InvalidTestNameRegex_SurfacesErrorInsteadOfRunningEverything()
     {
         const string envVar = "NEXTUNIT_TEST_NAME_REGEX";
