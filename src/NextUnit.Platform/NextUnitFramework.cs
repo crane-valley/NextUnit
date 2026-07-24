@@ -282,10 +282,13 @@ internal sealed class NextUnitFramework :
                         System.Text.RegularExpressions.RegexOptions.IgnoreCase |
                         System.Text.RegularExpressions.RegexOptions.Compiled));
                 }
-                catch (ArgumentException)
+                catch (ArgumentException ex)
                 {
-                    // Invalid regex pattern - silently skip it
-                    // Users will notice when their filter doesn't match expected tests
+                    // Surface invalid patterns explicitly: silently dropping the only include filter
+                    // leaves RequiresDynamicExpansion false, so every test would run unfiltered.
+                    throw new ArgumentException(
+                        $"Invalid --test-name-regex / NEXTUNIT_TEST_NAME_REGEX pattern '{pattern}': {ex.Message}",
+                        ex);
                 }
             }
             config.TestNameRegexPatterns = regexList;

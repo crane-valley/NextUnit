@@ -121,7 +121,7 @@ public sealed class TestExecutionEngine
         finally
         {
             // Execute class teardown and cleanup
-            await CleanupClassInstancesAsync(cancellationToken).ConfigureAwait(false);
+            await CleanupClassInstancesAsync(trackingSink, cancellationToken).ConfigureAwait(false);
 
             // Execute assembly-level teardown
             await ExecuteAssemblyTeardownAsync(testCasesList, cancellationToken).ConfigureAwait(false);
@@ -255,18 +255,9 @@ public sealed class TestExecutionEngine
             return;
         }
 
-        // Create a combined cancellation token if timeout is specified
-        using var timeoutCts = testCase.TimeoutMs.HasValue
-            ? new CancellationTokenSource(testCase.TimeoutMs.Value)
-            : null;
-        using var linkedCts = timeoutCts is not null
-            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token)
-            : null;
-        var effectiveToken = linkedCts?.Token ?? cancellationToken;
-
         try
         {
-            await ExecuteWithRetryAsync(testCase, sink, effectiveToken, timeoutCts, cancellationToken).ConfigureAwait(false);
+            await ExecuteWithRetryAsync(testCase, sink, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -349,8 +340,6 @@ public sealed class TestExecutionEngine
     private async Task ExecuteWithRetryAsync(
         TestCaseDescriptor testCase,
         ITestExecutionSink sink,
-        CancellationToken effectiveToken,
-        CancellationTokenSource? timeoutCts,
         CancellationToken cancellationToken)
     {
         var maxAttempts = testCase.Retry.Count ?? 1;
@@ -358,6 +347,16 @@ public sealed class TestExecutionEngine
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
+            // A fresh timeout source per attempt makes [Timeout] a per-attempt budget; a single
+            // source shared across retries would leave later attempts starting already-cancelled.
+            using var timeoutCts = testCase.TimeoutMs.HasValue
+                ? new CancellationTokenSource(testCase.TimeoutMs.Value)
+                : null;
+            using var linkedCts = timeoutCts is not null
+                ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token)
+                : null;
+            var effectiveToken = linkedCts?.Token ?? cancellationToken;
+
             var testOutput = new TestOutputCapture();
             var testContext = CreateTestContext(testCase, effectiveToken, testOutput);
             TestContext.SetCurrent(testContext);
@@ -448,7 +447,14 @@ public sealed class TestExecutionEngine
             await sink.ReportPassedAsync(testCase, testOutput.GetOutput(), artifacts).ConfigureAwait(false);
             return AttemptResult.Passed;
         }
-        catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The outer run token fired (Ctrl+C / host shutdown): propagate cancellation per
+            // Microsoft.Testing.Platform guidance instead of misclassifying it as an error and
+            // re-executing the in-flight test under [Retry].
+            throw;
+        }
+        catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true)
         {
             // Timeout occurred - do not retry timeouts
             var timeoutEx = new TestTimeoutException(testCase.TimeoutMs!.Value);
@@ -681,6 +687,7 @@ public sealed class TestExecutionEngine
             {
                 Instance = instance,
                 Lifecycle = testCase.Lifecycle,
+                RepresentativeTest = testCase,
                 SetupLock = new SemaphoreSlim(1, 1)
             };
         });
@@ -721,7 +728,7 @@ public sealed class TestExecutionEngine
     /// <summary>
     /// Executes class-level teardown and disposes class instances.
     /// </summary>
-    private async Task CleanupClassInstancesAsync(CancellationToken cancellationToken)
+    private async Task CleanupClassInstancesAsync(ITestExecutionSink sink, CancellationToken cancellationToken)
     {
         foreach (var kvp in _classContexts)
         {
@@ -734,13 +741,21 @@ public sealed class TestExecutionEngine
                 {
                     await afterClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
                 }
+            }
+            catch (Exception ex)
+            {
+                // Report teardown failures instead of swallowing them, mirroring per-test error reporting.
+                await ReportClassScopeErrorAsync(sink, context.RepresentativeTest, ex).ConfigureAwait(false);
+            }
 
-                // Dispose instance
+            try
+            {
+                // Dispose instance regardless of any AfterClass failure above.
                 await DisposeHelper.DisposeAsync(context.Instance).ConfigureAwait(false);
             }
-            catch
+            catch (Exception ex)
             {
-                // Suppress cleanup errors
+                await ReportClassScopeErrorAsync(sink, context.RepresentativeTest, ex).ConfigureAwait(false);
             }
             finally
             {
@@ -754,12 +769,36 @@ public sealed class TestExecutionEngine
     }
 
     /// <summary>
+    /// Reports a class-teardown failure against a synthetic class-scope node.
+    /// </summary>
+    /// <remarks>
+    /// A dedicated node keeps an already-passed test from being retroactively failed while still
+    /// surfacing the teardown error through the same sink used for per-test failures.
+    /// </remarks>
+    private static Task ReportClassScopeErrorAsync(
+        ITestExecutionSink sink,
+        TestCaseDescriptor representativeTest,
+        Exception exception)
+    {
+        var classScopeTest = new TestCaseDescriptor
+        {
+            Id = new TestCaseId($"{representativeTest.TestClass.FullName ?? representativeTest.TestClass.Name}.[ClassTeardown]"),
+            DisplayName = $"{representativeTest.TestClass.Name} (class teardown)",
+            TestClass = representativeTest.TestClass,
+            MethodName = "ClassTeardown"
+        };
+
+        return sink.ReportErrorAsync(classScopeTest, exception);
+    }
+
+    /// <summary>
     /// Holds execution context for a test class.
     /// </summary>
     private sealed class ClassExecutionContext
     {
         public object Instance { get; init; } = null!;
         public LifecycleInfo Lifecycle { get; init; } = null!;
+        public TestCaseDescriptor RepresentativeTest { get; init; } = null!;
         public bool SetupExecuted;
         public string? SkipReason { get; set; }
         public SemaphoreSlim SetupLock { get; init; } = null!;

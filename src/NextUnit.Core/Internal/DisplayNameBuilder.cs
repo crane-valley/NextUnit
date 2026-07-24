@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
@@ -53,12 +52,12 @@ internal static class DisplayNameBuilder
             }
             catch (InvalidOperationException ex)
             {
-                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.Message}");
+                ReportFormatterFailure(formatterType, ex.Message);
                 // Fall through to next priority
             }
             catch (TargetInvocationException ex)
             {
-                Debug.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {ex.InnerException?.Message ?? ex.Message}");
+                ReportFormatterFailure(formatterType, ex.InnerException?.Message ?? ex.Message);
                 // Fall through to next priority
             }
         }
@@ -77,6 +76,12 @@ internal static class DisplayNameBuilder
 
         var formattedArgs = string.Join(", ", arguments.Select(FormatArgument));
         return $"{methodName}({formattedArgs})";
+    }
+
+    private static void ReportFormatterFailure(Type formatterType, string message)
+    {
+        // Route to stderr so the warning survives Release builds; Debug.WriteLine is compiled out there.
+        Console.Error.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {message}");
     }
 
     /// <summary>
