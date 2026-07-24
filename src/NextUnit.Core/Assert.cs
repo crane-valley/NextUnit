@@ -641,6 +641,11 @@ public static class Assert
         {
             action();
         }
+        catch (TestSkippedException)
+        {
+            // A runtime skip is control flow, not a failure; let it reach the engine.
+            throw;
+        }
         catch (Exception ex)
         {
             throw new AssertionFailedException(
@@ -663,6 +668,11 @@ public static class Assert
         try
         {
             await action().ConfigureAwait(false);
+        }
+        catch (TestSkippedException)
+        {
+            // A runtime skip is control flow, not a failure; let it reach the engine.
+            throw;
         }
         catch (Exception ex)
         {

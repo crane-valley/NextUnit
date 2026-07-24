@@ -46,6 +46,14 @@ public class AssertDoesNotThrowTests
     }
 
     [Test]
+    public void DoesNotThrow_ActionCallsSkip_PropagatesSkipNotFailure()
+    {
+        // A runtime skip must reach the engine as a skip, not be reported as a failure.
+        Assert.Throws<TestSkippedException>(
+            () => Assert.DoesNotThrow(() => Assert.Skip("conditionally skipped")));
+    }
+
+    [Test]
     public async Task DoesNotThrowAsync_ActionSucceeds_DoesNotThrowAsync()
     {
         await Assert.DoesNotThrowAsync(() => Task.CompletedTask);
@@ -77,5 +85,16 @@ public class AssertDoesNotThrowTests
     public async Task DoesNotThrowAsync_NullAction_ThrowsArgumentNullAsync()
     {
         await Assert.ThrowsAsync<ArgumentNullException>(() => Assert.DoesNotThrowAsync(null!));
+    }
+
+    [Test]
+    public async Task DoesNotThrowAsync_ActionCallsSkip_PropagatesSkipNotFailureAsync()
+    {
+        await Assert.ThrowsAsync<TestSkippedException>(
+            () => Assert.DoesNotThrowAsync(async () =>
+            {
+                await Task.Yield();
+                Assert.Skip("conditionally skipped");
+            }));
     }
 }
