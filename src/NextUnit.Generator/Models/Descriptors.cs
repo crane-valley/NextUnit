@@ -3,6 +3,14 @@ using Microsoft.CodeAnalysis;
 
 namespace NextUnit.Generator.Models;
 
+internal enum MethodReturnKind
+{
+    Void,
+    Task,
+    ValueTask,
+    Unsupported
+}
+
 /// <summary>
 /// Describes a test method discovered by the source generator.
 /// </summary>
@@ -30,7 +38,7 @@ internal sealed class TestMethodDescriptor
         ImmutableArray<string> categories,
         ImmutableArray<string> tags,
         bool isStatic,
-        bool returnsVoid,
+        MethodReturnKind returnKind,
         bool acceptsCancellationToken,
         TestClassConstructorKind constructorKind,
         bool requiresTestOutput,
@@ -69,7 +77,7 @@ internal sealed class TestMethodDescriptor
         Categories = categories;
         Tags = tags;
         IsStatic = isStatic;
-        ReturnsVoid = returnsVoid;
+        ReturnKind = returnKind;
         AcceptsCancellationToken = acceptsCancellationToken;
         ConstructorKind = constructorKind;
         RequiresTestOutput = requiresTestOutput;
@@ -109,7 +117,7 @@ internal sealed class TestMethodDescriptor
     public ImmutableArray<string> Categories { get; }
     public ImmutableArray<string> Tags { get; }
     public bool IsStatic { get; }
-    public bool ReturnsVoid { get; }
+    public MethodReturnKind ReturnKind { get; }
     public bool AcceptsCancellationToken { get; }
     public TestClassConstructorKind ConstructorKind { get; }
     public bool RequiresTestOutput { get; }
@@ -139,7 +147,7 @@ internal sealed class LifecycleMethodDescriptor
         ImmutableArray<int> beforeScopes,
         ImmutableArray<int> afterScopes,
         bool isStatic,
-        bool returnsVoid,
+        MethodReturnKind returnKind,
         bool acceptsCancellationToken)
     {
         FullyQualifiedTypeName = fullyQualifiedTypeName;
@@ -147,7 +155,7 @@ internal sealed class LifecycleMethodDescriptor
         BeforeScopes = beforeScopes;
         AfterScopes = afterScopes;
         IsStatic = isStatic;
-        ReturnsVoid = returnsVoid;
+        ReturnKind = returnKind;
         AcceptsCancellationToken = acceptsCancellationToken;
     }
 
@@ -156,7 +164,7 @@ internal sealed class LifecycleMethodDescriptor
     public ImmutableArray<int> BeforeScopes { get; }
     public ImmutableArray<int> AfterScopes { get; }
     public bool IsStatic { get; }
-    public bool ReturnsVoid { get; }
+    public MethodReturnKind ReturnKind { get; }
     public bool AcceptsCancellationToken { get; }
 }
 

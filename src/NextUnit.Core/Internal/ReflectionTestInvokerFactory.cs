@@ -45,7 +45,16 @@ internal static class ReflectionTestInvokerFactory
 
             try
             {
-                if (method.Invoke(method.IsStatic ? null : instance, actualArguments) is Task task)
+                var result = method.Invoke(method.IsStatic ? null : instance, actualArguments);
+                if (result is Task task)
+                {
+                    await task.ConfigureAwait(false);
+                }
+                else if (result is ValueTask valueTask)
+                {
+                    await valueTask.ConfigureAwait(false);
+                }
+                else if (result is not null && TryGetValueTaskAsTask(result, out task))
                 {
                     await task.ConfigureAwait(false);
                 }
@@ -55,5 +64,34 @@ internal static class ReflectionTestInvokerFactory
                 ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
             }
         };
+    }
+
+    [DynamicDependency(nameof(ValueTask<int>.AsTask), typeof(ValueTask<>))]
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2072",
+        Justification = "DynamicDependency explicitly preserves ValueTask<T>.AsTask for every closed instantiation reached through this reflection fallback.")]
+    private static bool TryGetValueTaskAsTask(object result, out Task task)
+    {
+        var resultType = result.GetType();
+        if (!resultType.IsGenericType ||
+            resultType.GetGenericTypeDefinition() != typeof(ValueTask<>))
+        {
+            task = null!;
+            return false;
+        }
+
+        task = GetValueTaskAsTask(result, resultType);
+        return true;
+    }
+
+    private static Task GetValueTaskAsTask(
+        object result,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        Type resultType)
+    {
+        return (Task)resultType
+            .GetMethod(nameof(ValueTask<int>.AsTask), BindingFlags.Public | BindingFlags.Instance)!
+            .Invoke(result, null)!;
     }
 }

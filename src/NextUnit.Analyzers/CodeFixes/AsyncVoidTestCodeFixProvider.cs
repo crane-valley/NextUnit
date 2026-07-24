@@ -9,7 +9,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace NextUnit.Analyzers.CodeFixes;
 
 /// <summary>
-/// Code fix provider that changes async void test methods to async Task.
+/// Code fix provider that changes async void test and lifecycle methods to async Task.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AsyncVoidTestCodeFixProvider))]
 [Shared]

@@ -51,11 +51,11 @@ internal static class TestCaseEmitter
 
         if (arguments.HasValue)
         {
-            builder.AppendLine($"                TestMethod = {CodeBuilder.BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, arguments.Value, test.IsStatic, test.ReturnsVoid, test.AcceptsCancellationToken)},");
+            builder.AppendLine($"                TestMethod = {CodeBuilder.BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, arguments.Value, test.IsStatic, test.ReturnKind, test.AcceptsCancellationToken)},");
         }
         else
         {
-            builder.AppendLine($"                TestMethod = {CodeBuilder.BuildTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.IsStatic, test.ReturnsVoid, test.AcceptsCancellationToken)},");
+            builder.AppendLine($"                TestMethod = {CodeBuilder.BuildTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.IsStatic, test.ReturnKind, test.AcceptsCancellationToken)},");
         }
 
         builder.AppendLine($"                Lifecycle = {CodeBuilder.BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
@@ -130,7 +130,7 @@ internal static class TestCaseEmitter
         builder.AppendLine($"                TestClass = typeof({test.FullyQualifiedTypeName}),");
         builder.AppendLine($"                MethodName = {AttributeHelper.ToLiteral(test.MethodName)},");
         builder.AppendLine($"                TestClassFactory = {BuildTestClassFactory(test, lifecycleMethods)},");
-        builder.AppendLine($"                TestMethod = {CodeBuilder.BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, combination, test.IsStatic, test.ReturnsVoid, test.AcceptsCancellationToken)},");
+        builder.AppendLine($"                TestMethod = {CodeBuilder.BuildParameterizedTestMethodDelegate(test.FullyQualifiedTypeName, test.MethodName, test.Parameters, combination, test.IsStatic, test.ReturnKind, test.AcceptsCancellationToken)},");
         builder.AppendLine($"                Lifecycle = {CodeBuilder.BuildLifecycleInfoLiteral(test.FullyQualifiedTypeName, lifecycleMethods)},");
         builder.AppendLine("                Parallel = new global::NextUnit.Internal.ParallelInfo");
         builder.AppendLine("                {");
