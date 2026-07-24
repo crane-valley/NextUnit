@@ -85,6 +85,30 @@ public static class ArgumentConverter
                 _ => null!
             };
         }
+        else if (targetType == typeof(nint))
+        {
+            converted = value switch
+            {
+                sbyte number => (nint)number,
+                byte number => (nint)number,
+                short number => (nint)number,
+                ushort number => (nint)number,
+                int number => (nint)number,
+                char number => (nint)number,
+                _ => null!
+            };
+        }
+        else if (targetType == typeof(nuint))
+        {
+            converted = value switch
+            {
+                byte number => (nuint)number,
+                ushort number => (nuint)number,
+                uint number => (nuint)number,
+                char number => (nuint)number,
+                _ => null!
+            };
+        }
         else if (targetType == typeof(long))
         {
             converted = value switch
@@ -96,6 +120,7 @@ public static class ArgumentConverter
                 int number => (long)number,
                 uint number => (long)number,
                 char number => (long)number,
+                nint number => (long)number,
                 _ => null!
             };
         }
@@ -107,6 +132,7 @@ public static class ArgumentConverter
                 ushort number => (ulong)number,
                 uint number => (ulong)number,
                 char number => (ulong)number,
+                nuint number => (ulong)number,
                 _ => null!
             };
         }
@@ -123,6 +149,8 @@ public static class ArgumentConverter
                 long number => (float)number,
                 ulong number => (float)number,
                 char number => (float)number,
+                nint number => (float)number,
+                nuint number => (float)number,
                 _ => null!
             };
         }
@@ -140,6 +168,8 @@ public static class ArgumentConverter
                 ulong number => (double)number,
                 char number => (double)number,
                 float number => (double)number,
+                nint number => (double)number,
+                nuint number => (double)number,
                 _ => null!
             };
         }
@@ -156,6 +186,8 @@ public static class ArgumentConverter
                 long number => (decimal)number,
                 ulong number => (decimal)number,
                 char number => (decimal)number,
+                nint number => (decimal)number,
+                nuint number => (decimal)number,
                 _ => null!
             };
         }
