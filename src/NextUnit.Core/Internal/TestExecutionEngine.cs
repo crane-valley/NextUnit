@@ -112,6 +112,7 @@ public sealed class TestExecutionEngine
         // can be surfaced alongside it. Throwing from the finally would overwrite an in-flight exception
         // (including critical ones); merging happens after the finally instead.
         ExceptionDispatchInfo? bodyFailure = null;
+        ExceptionDispatchInfo? cleanupCritical = null;
         OperationCanceledException? cleanupCancellation = null;
         var cleanupFailures = new List<Exception>();
 
@@ -136,24 +137,54 @@ public sealed class TestExecutionEngine
         }
         finally
         {
-            // Execute class teardown and cleanup
-            var (classCancellation, classFailures) = await CleanupClassInstancesAsync(trackingSink, cancellationToken).ConfigureAwait(false);
+            // Run each cleanup phase under its own guard: a critical exception escaping one phase must
+            // not skip the next, nor mask a critical run-body exception (resolved after the finally).
+            try
+            {
+                var (classCancellation, classFailures) = await CleanupClassInstancesAsync(trackingSink, cancellationToken).ConfigureAwait(false);
+                cleanupCancellation = classCancellation;
+                cleanupFailures.AddRange(classFailures);
+            }
+            catch (Exception ex)
+            {
+                cleanupCritical ??= ExceptionDispatchInfo.Capture(ex);
+            }
 
-            // Execute assembly-level teardown
-            var (assemblyCancellation, assemblyFailures) = await ExecuteAssemblyTeardownAsync(testCasesList, cancellationToken).ConfigureAwait(false);
-
-            cleanupCancellation = classCancellation ?? assemblyCancellation;
-            cleanupFailures.AddRange(classFailures);
-            cleanupFailures.AddRange(assemblyFailures);
+            try
+            {
+                var (assemblyCancellation, assemblyFailures) = await ExecuteAssemblyTeardownAsync(testCasesList, cancellationToken).ConfigureAwait(false);
+                cleanupCancellation ??= assemblyCancellation;
+                cleanupFailures.AddRange(assemblyFailures);
+            }
+            catch (Exception ex)
+            {
+                cleanupCritical ??= ExceptionDispatchInfo.Capture(ex);
+            }
         }
 
-        // Never mask a critical run-body exception (OOM, stack overflow, ...) with cleanup noise.
+        // A critical run-body exception (OOM, stack overflow, ...) must propagate alone and unmasked.
         if (bodyFailure is not null && ExceptionHelper.IsCriticalException(bodyFailure.SourceException))
         {
             bodyFailure.Throw();
         }
 
+        // The body was non-critical (or absent), so a critical exception escaping cleanup surfaces next.
+        cleanupCritical?.Throw();
+
         ThrowCombinedFailure(bodyFailure?.SourceException, cleanupCancellation, cleanupFailures);
+    }
+
+    /// <summary>
+    /// Determines whether an <see cref="OperationCanceledException"/> represents cancellation of this run
+    /// rather than a lifecycle hook's own unrelated cancellation.
+    /// </summary>
+    /// <remarks>
+    /// The exception must carry the run token; an OCE bearing a different token (or
+    /// <see cref="CancellationToken.None"/>) is a hook's own cancellation and is treated as a failure.
+    /// </remarks>
+    private static bool IsRunCancellation(OperationCanceledException exception, CancellationToken cancellationToken)
+    {
+        return cancellationToken.IsCancellationRequested && exception.CancellationToken == cancellationToken;
     }
 
     /// <summary>
@@ -329,18 +360,18 @@ public sealed class TestExecutionEngine
             {
                 await afterMethod(null!, cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException ex) when (IsRunCancellation(ex, cancellationToken))
             {
-                // Genuine run cancellation.
+                // Genuine run cancellation (the OCE carries the run token).
                 cancellation ??= ex;
             }
             catch (OperationCanceledException ex)
             {
-                // The outer token is not cancelled, so this is the hook's own unrelated cancellation.
+                // An OCE carrying a different token (or none) is the hook's own unrelated cancellation.
                 // Wrap it in a non-OCE so it is surfaced as a teardown failure rather than being
                 // mistaken for run cancellation (which downstream adapters swallow).
                 failures.Add(new InvalidOperationException(
-                    "An assembly teardown method threw OperationCanceledException without run cancellation.", ex));
+                    "An assembly teardown method threw OperationCanceledException that does not represent run cancellation.", ex));
             }
             catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
             {
@@ -871,7 +902,7 @@ public sealed class TestExecutionEngine
                 {
                     await afterClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+                catch (OperationCanceledException ex) when (IsRunCancellation(ex, cancellationToken))
                 {
                     // A cancelled run aborting teardown is not a teardown failure, but the cancellation
                     // must still surface: remember it, finish remaining cleanup, then let the caller rethrow.
@@ -879,7 +910,7 @@ public sealed class TestExecutionEngine
                 }
                 catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
                 {
-                    // A non-run-cancellation exception (including a hook's own unrelated OCE) is a
+                    // A non-run-cancellation exception (including an OCE carrying a different token) is a
                     // teardown failure, not run cancellation.
                     teardownErrors.Add(ex);
                 }
@@ -901,12 +932,10 @@ public sealed class TestExecutionEngine
                 // Dispose instance regardless of any AfterClass failure above.
                 await DisposeHelper.DisposeAsync(context.Instance).ConfigureAwait(false);
             }
-            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
-            {
-                cancellation ??= ex;
-            }
             catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
             {
+                // Disposal is not passed the run token, so an OCE from a disposer is its own cancellation,
+                // not run cancellation; treat every non-critical disposal failure as a cleanup failure.
                 reports.Add((CreateClassScopeTest(context.RepresentativeTest, "ClassDispose"), ex));
             }
             finally
@@ -932,9 +961,12 @@ public sealed class TestExecutionEngine
             }
             catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
             {
-                Diagnostics.SafeWriteError($"[NextUnit] Failed to report class cleanup error for '{test.Id.Value}': {ex}");
-                reportFailures.Add(new InvalidOperationException(
-                    $"Failed to report class cleanup error for '{test.Id.Value}'.", ex));
+                Diagnostics.SafeWriteError($"[NextUnit] Failed to report class cleanup error for '{test.Id.Value}'", ex);
+
+                // Preserve BOTH the original cleanup error and the sink failure; reporting the sink
+                // failure alone would silently lose the teardown/dispose exception it was carrying.
+                reportFailures.Add(new AggregateException(
+                    $"Failed to report class cleanup error for '{test.Id.Value}'.", error, ex));
             }
         }
 

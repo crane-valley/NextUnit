@@ -414,6 +414,46 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
+    public async Task ClassTeardownForeignCancellation_IsReportedAsFailureNotRunCancellationAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("teardown.foreign.oce"),
+            DisplayName = "teardown.foreign.oce",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            TestMethod = (_, _) =>
+            {
+                cts.Cancel();
+                return Task.CompletedTask;
+            },
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods =
+                [
+                    // An OCE carrying a token that is NOT the run token is the hook's own cancellation.
+                    static (_, _) => throw new OperationCanceledException(new CancellationToken(canceled: true))
+                ]
+            }
+        };
+
+        var sink = new RecordingSink();
+
+        // Genuine run cancellation still surfaces from the run body.
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
+
+        // The hook's foreign-token OCE must be reported as a teardown failure, not silently classified
+        // as run cancellation.
+        var error = Assert.Single(sink.Errors);
+        Assert.True(error.Test.Id.Value.EndsWith("[ClassTeardown]", StringComparison.Ordinal));
+        Assert.True(error.Exception is OperationCanceledException);
+    }
+
+    [Test]
     public async Task SinkFailureDuringCleanupReport_DoesNotAbortRemainingReportsAsync()
     {
         var firstClass = new TestCaseDescriptor
@@ -453,7 +493,11 @@ public sealed class TestExecutionEngineTests
             () => new TestExecutionEngine().RunAsync([firstClass, secondClass], sink, CancellationToken.None));
 
         Assert.Equal(2, sink.ErrorReportAttempts);
-        Assert.Equal(2, error.InnerExceptions.Count);
+
+        // Both the original teardown error and the sink's own failure must be preserved.
+        var flat = error.Flatten();
+        Assert.Contains(flat.InnerExceptions, static e => e.Message.Contains("teardown boom"));
+        Assert.Contains(flat.InnerExceptions, static e => e.Message.Contains("sink is down"));
     }
 
     [Test]

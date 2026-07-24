@@ -24,4 +24,20 @@ internal static class Diagnostics
             // Intentionally ignored: diagnostics must not throw.
         }
     }
+
+    /// <summary>
+    /// Writes a diagnostic prefix and an exception to standard error, stringifying the exception inside
+    /// the guard so that a custom exception whose <see cref="object.ToString"/> throws cannot escape.
+    /// </summary>
+    public static void SafeWriteError(string prefix, Exception exception)
+    {
+        try
+        {
+            Console.Error.WriteLine($"{prefix}: {exception}");
+        }
+        catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+        {
+            // Intentionally ignored: diagnostics must not throw, even if exception.ToString() throws.
+        }
+    }
 }
