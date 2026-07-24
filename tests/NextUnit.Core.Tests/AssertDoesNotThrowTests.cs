@@ -63,6 +63,26 @@ public class AssertDoesNotThrowTests
     }
 
     [Test]
+    public void DoesNotThrow_InnerAssertionFails_PreservesOriginalMessage()
+    {
+        // An assertion failure inside the action must surface with its original formatted
+        // message, not be double-wrapped behind "Expected no exception but got ...".
+        var ex = Assert.Throws<AssertionFailedException>(
+            () => Assert.DoesNotThrow(() => Assert.Equal("abc", "abd")));
+        Assert.Contains("String assertion failed", ex.Message);
+        Assert.False(ex.Message.Contains("Expected no exception", StringComparison.Ordinal));
+        Assert.Null(ex.InnerException);
+    }
+
+    [Test]
+    public void DoesNotThrow_ActionThrowsCritical_PropagatesUnwrapped()
+    {
+        // Critical fail-fast exceptions must not be wrapped, mirroring the engine.
+        Assert.Throws<OutOfMemoryException>(
+            () => Assert.DoesNotThrow(() => throw new OutOfMemoryException()));
+    }
+
+    [Test]
     public async Task DoesNotThrowAsync_ActionSucceeds_DoesNotThrowAsync()
     {
         await Assert.DoesNotThrowAsync(() => Task.CompletedTask);
@@ -128,6 +148,31 @@ public class AssertDoesNotThrowTests
             {
                 await Task.Yield();
                 throw new TaskCanceledException();
+            }));
+    }
+
+    [Test]
+    public async Task DoesNotThrowAsync_InnerAssertionFails_PreservesOriginalMessageAsync()
+    {
+        var ex = await Assert.ThrowsAsync<AssertionFailedException>(
+            () => Assert.DoesNotThrowAsync(async () =>
+            {
+                await Task.Yield();
+                Assert.Equal("abc", "abd");
+            }));
+        Assert.Contains("String assertion failed", ex.Message);
+        Assert.False(ex.Message.Contains("Expected no exception", StringComparison.Ordinal));
+        Assert.Null(ex.InnerException);
+    }
+
+    [Test]
+    public async Task DoesNotThrowAsync_ActionThrowsCritical_PropagatesUnwrappedAsync()
+    {
+        await Assert.ThrowsAsync<OutOfMemoryException>(
+            () => Assert.DoesNotThrowAsync(async () =>
+            {
+                await Task.Yield();
+                throw new OutOfMemoryException();
             }));
     }
 }

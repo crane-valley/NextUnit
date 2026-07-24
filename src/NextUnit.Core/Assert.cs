@@ -237,9 +237,9 @@ public static class Assert
             throw new ArgumentOutOfRangeException(nameof(tolerance), "Tolerance must be a number.");
         }
 
-        // object.Equals treats NaN as equal to NaN and each infinity as equal to itself,
-        // matching xUnit's tolerance-comparison behavior for those special values.
-        if (Equals(expected, actual))
+        // double.Equals (IEquatable<double>, no boxing) treats NaN as equal to NaN and
+        // each infinity as equal to itself, matching xUnit's tolerance-comparison behavior.
+        if (expected.Equals(actual))
         {
             return;
         }
@@ -361,9 +361,9 @@ public static class Assert
             throw new ArgumentOutOfRangeException(nameof(tolerance), "Tolerance must be a number.");
         }
 
-        // object.Equals treats NaN as equal to NaN and each infinity as equal to itself,
-        // matching xUnit's tolerance-comparison behavior for those special values.
-        if (Equals(notExpected, actual))
+        // double.Equals (IEquatable<double>, no boxing) treats NaN as equal to NaN and
+        // each infinity as equal to itself, matching xUnit's tolerance-comparison behavior.
+        if (notExpected.Equals(actual))
         {
             throw new AssertionFailedException(
                 message ?? $"Did not expect: {actual} (within ±{tolerance} of {notExpected})");
@@ -634,9 +634,15 @@ public static class Assert
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <exception cref="AssertionFailedException">Thrown when the action throws a non-control-flow exception.</exception>
     /// <remarks>
-    /// Framework control-flow exceptions (<see cref="TestSkippedException"/> and
-    /// <see cref="OperationCanceledException"/>, the latter covering timeout cancellation)
-    /// propagate unchanged rather than being reported as assertion failures.
+    /// Exceptions that the test engine handles specially are rethrown unchanged rather than
+    /// wrapped, so this assertion stays transparent to the runtime: runtime skips
+    /// (<see cref="TestSkippedException"/>), cancellation (<see cref="OperationCanceledException"/>,
+    /// including the derived <see cref="TaskCanceledException"/>), an inner
+    /// <see cref="AssertionFailedException"/> (its original formatted message is preserved),
+    /// and critical fail-fast exceptions (<see cref="OutOfMemoryException"/>,
+    /// <see cref="StackOverflowException"/>). Cancellation is rethrown blanket because the
+    /// engine decides timeout-versus-failure from its own timeout token state, not from the
+    /// exception, so the outcome matches a bare test body throwing the same exception.
     /// </remarks>
     public static void DoesNotThrow(Action action, string? message = null)
     {
@@ -653,9 +659,26 @@ public static class Assert
         }
         catch (OperationCanceledException)
         {
-            // The engine turns timeout cancellation into a timeout result from this
-            // exception; wrapping it would misreport a timeout as an assertion failure.
-            // TaskCanceledException derives from it and is covered here too.
+            // The engine classifies cancellation from its own timeout-token state, not from
+            // this exception, and only recognizes a timeout while the OCE type is intact.
+            // Wrapping would hide a genuine timeout; rethrowing keeps the outcome identical
+            // to a bare test body. TaskCanceledException derives from OCE and is covered too.
+            throw;
+        }
+        catch (AssertionFailedException)
+        {
+            // An assert inside the action already carries a formatted message; rethrow it
+            // as-is instead of double-wrapping and obscuring the original failure.
+            throw;
+        }
+        catch (OutOfMemoryException)
+        {
+            // Mirror the engine: critical exceptions stay unwrapped to preserve fail-fast.
+            throw;
+        }
+        catch (StackOverflowException)
+        {
+            // Mirror the engine: critical exceptions stay unwrapped to preserve fail-fast.
             throw;
         }
         catch (Exception ex)
@@ -674,9 +697,15 @@ public static class Assert
     /// <returns>A task that represents the asynchronous operation.</returns>
     /// <exception cref="AssertionFailedException">Thrown when the action throws a non-control-flow exception.</exception>
     /// <remarks>
-    /// Framework control-flow exceptions (<see cref="TestSkippedException"/> and
-    /// <see cref="OperationCanceledException"/>, the latter covering timeout cancellation)
-    /// propagate unchanged rather than being reported as assertion failures.
+    /// Exceptions that the test engine handles specially are rethrown unchanged rather than
+    /// wrapped, so this assertion stays transparent to the runtime: runtime skips
+    /// (<see cref="TestSkippedException"/>), cancellation (<see cref="OperationCanceledException"/>,
+    /// including the derived <see cref="TaskCanceledException"/>), an inner
+    /// <see cref="AssertionFailedException"/> (its original formatted message is preserved),
+    /// and critical fail-fast exceptions (<see cref="OutOfMemoryException"/>,
+    /// <see cref="StackOverflowException"/>). Cancellation is rethrown blanket because the
+    /// engine decides timeout-versus-failure from its own timeout token state, not from the
+    /// exception, so the outcome matches a bare test body throwing the same exception.
     /// </remarks>
     public static async Task DoesNotThrowAsync(Func<Task> action, string? message = null)
     {
@@ -693,9 +722,26 @@ public static class Assert
         }
         catch (OperationCanceledException)
         {
-            // The engine turns timeout cancellation into a timeout result from this
-            // exception; wrapping it would misreport a timeout as an assertion failure.
-            // TaskCanceledException derives from it and is covered here too.
+            // The engine classifies cancellation from its own timeout-token state, not from
+            // this exception, and only recognizes a timeout while the OCE type is intact.
+            // Wrapping would hide a genuine timeout; rethrowing keeps the outcome identical
+            // to a bare test body. TaskCanceledException derives from OCE and is covered too.
+            throw;
+        }
+        catch (AssertionFailedException)
+        {
+            // An assert inside the action already carries a formatted message; rethrow it
+            // as-is instead of double-wrapping and obscuring the original failure.
+            throw;
+        }
+        catch (OutOfMemoryException)
+        {
+            // Mirror the engine: critical exceptions stay unwrapped to preserve fail-fast.
+            throw;
+        }
+        catch (StackOverflowException)
+        {
+            // Mirror the engine: critical exceptions stay unwrapped to preserve fail-fast.
             throw;
         }
         catch (Exception ex)
