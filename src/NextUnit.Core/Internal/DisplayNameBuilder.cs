@@ -13,6 +13,7 @@ namespace NextUnit.Internal;
 internal static class DisplayNameBuilder
 {
     private static readonly ConcurrentDictionary<Type, IDisplayNameFormatter> _formatterCache = new();
+    private static readonly ConcurrentDictionary<Type, byte> _warnedFormatters = new();
 
     /// <summary>
     /// Builds a display name for a test case using the priority order:
@@ -80,8 +81,16 @@ internal static class DisplayNameBuilder
 
     private static void ReportFormatterFailure(Type formatterType, string message)
     {
-        // Route to stderr so the warning survives Release builds; Debug.WriteLine is compiled out there.
-        Console.Error.WriteLine($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {message}");
+        // Warn once per formatter type: an always-failing formatter is invoked once per expanded data
+        // row, so repeating the warning would flood logs and slow discovery on large data sources.
+        if (!_warnedFormatters.TryAdd(formatterType, 0))
+        {
+            return;
+        }
+
+        // Route through a best-effort writer so the warning survives Release builds (Debug.WriteLine is
+        // compiled out) without a closed/broken error stream turning discovery into a failure.
+        Diagnostics.SafeWriteError($"[NextUnit] DisplayNameFormatter '{formatterType.FullName}' failed: {message}");
     }
 
     /// <summary>

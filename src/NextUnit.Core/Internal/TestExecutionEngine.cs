@@ -108,10 +108,12 @@ public sealed class TestExecutionEngine
         // Wrap sink to track outcomes for ProceedOnFailure support
         var trackingSink = new OutcomeTrackingSink(sink, scheduler);
 
-        // A failure first observed while cleaning up (typically run cancellation) is captured here and
-        // rethrown only after the try/finally completes normally. Throwing from the finally itself would
-        // overwrite any exception already propagating from the try, including critical exceptions.
-        ExceptionDispatchInfo? cleanupFailure = null;
+        // Capture the run-body exception rather than letting it propagate directly, so cleanup failures
+        // can be surfaced alongside it. Throwing from the finally would overwrite an in-flight exception
+        // (including critical ones); merging happens after the finally instead.
+        ExceptionDispatchInfo? bodyFailure = null;
+        OperationCanceledException? cleanupCancellation = null;
+        var cleanupFailures = new List<Exception>();
 
         try
         {
@@ -128,24 +130,82 @@ public sealed class TestExecutionEngine
             // loop iteration to observe cancellation; surface it here so a cancelled run does not pass.
             cancellationToken.ThrowIfCancellationRequested();
         }
+        catch (Exception ex)
+        {
+            bodyFailure = ExceptionDispatchInfo.Capture(ex);
+        }
         finally
         {
             // Execute class teardown and cleanup
-            var teardownFailure = await CleanupClassInstancesAsync(trackingSink, cancellationToken).ConfigureAwait(false);
+            var (classCancellation, classFailures) = await CleanupClassInstancesAsync(trackingSink, cancellationToken).ConfigureAwait(false);
 
             // Execute assembly-level teardown
-            var assemblyFailure = await ExecuteAssemblyTeardownAsync(testCasesList, cancellationToken).ConfigureAwait(false);
+            var (assemblyCancellation, assemblyFailures) = await ExecuteAssemblyTeardownAsync(testCasesList, cancellationToken).ConfigureAwait(false);
 
-            var pending = teardownFailure ?? assemblyFailure;
-            if (pending is not null)
-            {
-                cleanupFailure = ExceptionDispatchInfo.Capture(pending);
-            }
+            cleanupCancellation = classCancellation ?? assemblyCancellation;
+            cleanupFailures.AddRange(classFailures);
+            cleanupFailures.AddRange(assemblyFailures);
         }
 
-        // Reached only when the try body completed without throwing. If the try faulted, that exception
-        // already propagated (preserved through the finally), so cleanup never masks it.
-        cleanupFailure?.Throw();
+        // Never mask a critical run-body exception (OOM, stack overflow, ...) with cleanup noise.
+        if (bodyFailure is not null && ExceptionHelper.IsCriticalException(bodyFailure.SourceException))
+        {
+            bodyFailure.Throw();
+        }
+
+        ThrowCombinedFailure(bodyFailure?.SourceException, cleanupCancellation, cleanupFailures);
+    }
+
+    /// <summary>
+    /// Surfaces the run-body exception together with any cleanup failures so that neither run
+    /// cancellation nor a coexisting teardown/report failure is silently lost.
+    /// </summary>
+    private static void ThrowCombinedFailure(
+        Exception? bodyException,
+        OperationCanceledException? cleanupCancellation,
+        List<Exception> cleanupFailures)
+    {
+        // Represent cancellation once, whether observed by the run body or during cleanup.
+        var cancellation = bodyException as OperationCanceledException ?? cleanupCancellation;
+
+        var failures = new List<Exception>();
+        if (bodyException is not null and not OperationCanceledException)
+        {
+            failures.Add(bodyException);
+        }
+
+        failures.AddRange(cleanupFailures);
+
+        if (failures.Count == 0)
+        {
+            // Pure cancellation, or a completely clean run.
+            if (cancellation is not null)
+            {
+                ExceptionDispatchInfo.Capture(cancellation).Throw();
+            }
+
+            return;
+        }
+
+        if (cancellation is null && failures.Count == 1)
+        {
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            return;
+        }
+
+        var all = new List<Exception>(failures.Count + 1);
+        if (cancellation is not null)
+        {
+            all.Add(cancellation);
+        }
+
+        all.AddRange(failures);
+
+        throw new AggregateException(
+            cancellation is not null
+                ? "The test run was cancelled and one or more cleanup steps failed."
+                : "One or more cleanup steps failed.",
+            all);
     }
 
     /// <summary>
@@ -245,14 +305,15 @@ public sealed class TestExecutionEngine
     /// Executes assembly-level teardown methods.
     /// </summary>
     /// <returns>
-    /// The first cancellation or non-critical failure observed across the hooks, to be re-surfaced
-    /// by the caller, or <c>null</c> if assembly teardown completed cleanly.
+    /// The run cancellation observed during teardown (if any) and every non-critical teardown failure,
+    /// so the caller can surface both without discarding either.
     /// </returns>
-    private async Task<Exception?> ExecuteAssemblyTeardownAsync(List<TestCaseDescriptor> testCases, CancellationToken cancellationToken)
+    private async Task<(OperationCanceledException? Cancellation, List<Exception> Failures)> ExecuteAssemblyTeardownAsync(
+        List<TestCaseDescriptor> testCases, CancellationToken cancellationToken)
     {
         if (_assemblyAfterMethods.Count == 0 || testCases.Count == 0)
         {
-            return null;
+            return (null, new List<Exception>());
         }
 
         OperationCanceledException? cancellation = null;
@@ -287,19 +348,9 @@ public sealed class TestExecutionEngine
             }
         }
 
-        // Run cancellation takes precedence so the run surfaces as cancelled; otherwise surface the
-        // teardown failures (a single exception, or an aggregate of several).
-        if (cancellation is not null)
-        {
-            return cancellation;
-        }
-
-        return failures.Count switch
-        {
-            0 => null,
-            1 => failures[0],
-            _ => new AggregateException("One or more assembly teardown methods failed.", failures)
-        };
+        // Return both so the caller can surface cancellation and teardown failures together; returning
+        // cancellation alone would discard concurrent failures.
+        return (cancellation, failures);
     }
 
     /// <summary>
@@ -795,10 +846,11 @@ public sealed class TestExecutionEngine
     /// Executes class-level teardown and disposes class instances.
     /// </summary>
     /// <returns>
-    /// The cancellation observed during teardown or disposal that must be re-surfaced by the caller,
-    /// or <c>null</c> if the run was not cancelled during cleanup.
+    /// The run cancellation observed during cleanup (if any) and every sink-reporting failure, so the
+    /// caller can surface a teardown failure even when it could not be delivered to the sink.
     /// </returns>
-    private async Task<OperationCanceledException?> CleanupClassInstancesAsync(ITestExecutionSink sink, CancellationToken cancellationToken)
+    private async Task<(OperationCanceledException? Cancellation, List<Exception> Failures)> CleanupClassInstancesAsync(
+        ITestExecutionSink sink, CancellationToken cancellationToken)
     {
         OperationCanceledException? cancellation = null;
 
@@ -868,7 +920,10 @@ public sealed class TestExecutionEngine
         _assemblySetupLock.Dispose();
 
         // Report only after all cleanup is complete; guard each report so a sink failure does not
-        // prevent the remaining failures from being surfaced.
+        // prevent the remaining failures from being surfaced. A sink failure is collected (not merely
+        // logged) so the caller can fail the run: otherwise a teardown failure whose report also failed
+        // would be silently lost.
+        var reportFailures = new List<Exception>();
         foreach (var (test, error) in reports)
         {
             try
@@ -877,13 +932,13 @@ public sealed class TestExecutionEngine
             }
             catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
             {
-                // The sink itself failed (e.g. message bus shut down); surface on stderr so the failure
-                // is not fully lost, without interrupting the remaining reports.
-                Console.Error.WriteLine($"[NextUnit] Failed to report class cleanup error for '{test.Id.Value}': {ex}");
+                Diagnostics.SafeWriteError($"[NextUnit] Failed to report class cleanup error for '{test.Id.Value}': {ex}");
+                reportFailures.Add(new InvalidOperationException(
+                    $"Failed to report class cleanup error for '{test.Id.Value}'.", ex));
             }
         }
 
-        return cancellation;
+        return (cancellation, reportFailures);
     }
 
     /// <summary>

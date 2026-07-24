@@ -369,6 +369,51 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
+    public async Task CancellationAndTeardownFailure_AreBothSurfacedAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var engine = new TestExecutionEngine();
+        engine.SetGlobalAssemblyLifecycle(
+            beforeMethods: null,
+            afterMethods: [static (_, _) => throw new InvalidOperationException("assembly boom")]);
+
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("cancel.plus.failure"),
+            DisplayName = "cancel.plus.failure",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            TestMethod = (_, _) =>
+            {
+                cts.Cancel();
+                return Task.CompletedTask;
+            },
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods =
+                [
+                    static (_, ct) =>
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        return Task.CompletedTask;
+                    }
+                ]
+            }
+        };
+
+        var sink = new RecordingSink();
+
+        // Run cancellation and a normal teardown failure coexist; neither may be discarded.
+        var error = await Assert.ThrowsAsync<AggregateException>(
+            () => engine.RunAsync([test], sink, cts.Token));
+
+        Assert.Contains(error.InnerExceptions, static e => e is OperationCanceledException);
+        Assert.Contains(error.InnerExceptions, static e => e is InvalidOperationException && e.Message.Contains("assembly boom"));
+    }
+
+    [Test]
     public async Task SinkFailureDuringCleanupReport_DoesNotAbortRemainingReportsAsync()
     {
         var firstClass = new TestCaseDescriptor
@@ -401,10 +446,14 @@ public sealed class TestExecutionEngineTests
 
         var sink = new ThrowingReportSink();
 
-        // A sink that throws on report must not abort the remaining cleanup reports.
-        await new TestExecutionEngine().RunAsync([firstClass, secondClass], sink, CancellationToken.None);
+        // A sink that throws on report must not abort the remaining cleanup reports, and the failures
+        // must be surfaced (not silently logged) so a teardown failure whose report also failed is
+        // never lost.
+        var error = await Assert.ThrowsAsync<AggregateException>(
+            () => new TestExecutionEngine().RunAsync([firstClass, secondClass], sink, CancellationToken.None));
 
         Assert.Equal(2, sink.ErrorReportAttempts);
+        Assert.Equal(2, error.InnerExceptions.Count);
     }
 
     [Test]
