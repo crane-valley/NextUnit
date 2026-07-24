@@ -103,6 +103,43 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
+    public async Task ClassTeardownAndDisposeFailures_ReportDistinctNodesAsync()
+    {
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("teardown.and.dispose"),
+            DisplayName = "teardown.and.dispose",
+            TestClass = typeof(ThrowingDisposeClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new ThrowingDisposeClass(),
+            TestMethod = static (_, _) => Task.CompletedTask,
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods =
+                [
+                    static (_, _) => throw new InvalidOperationException("teardown boom")
+                ]
+            }
+        };
+
+        var sink = new RecordingSink();
+        try
+        {
+            await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+        }
+        catch (InvalidOperationException)
+        {
+            // The per-test instance also throws on dispose; that is incidental here. This test asserts
+            // on the class-scope error nodes captured by the sink, not on the per-test disposal path.
+        }
+
+        // Teardown and disposal failures must land on distinct node identities so they do not collide.
+        var errorIds = sink.Errors.Select(static e => e.Test.Id.Value).ToList();
+        Assert.Contains(errorIds, static id => id.EndsWith("[ClassTeardown]", StringComparison.Ordinal));
+        Assert.Contains(errorIds, static id => id.EndsWith("[ClassDispose]", StringComparison.Ordinal));
+    }
+
+    [Test]
     public async Task ClassTeardownObservingCancellation_IsNotReportedAsErrorAsync()
     {
         using var cts = new CancellationTokenSource();
@@ -113,6 +150,9 @@ public sealed class TestExecutionEngineTests
             TestClass = typeof(SampleTestClass),
             MethodName = "Ok",
             TestClassFactory = static (_, _) => new SampleTestClass(),
+            // Serial execution keeps the parallel loop from observing the token, so the AfterClass
+            // teardown is the only place cancellation is first seen (the case that was being lost).
+            Parallel = new ParallelInfo { NotInParallel = true },
             TestMethod = (_, _) =>
             {
                 cts.Cancel();
@@ -133,14 +173,10 @@ public sealed class TestExecutionEngineTests
         };
 
         var sink = new RecordingSink();
-        try
-        {
-            await new TestExecutionEngine().RunAsync([test], sink, cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            // The run itself surfaces cancellation; that is expected.
-        }
+
+        // Cancellation first seen in teardown must still propagate, not be silently swallowed.
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
 
         Assert.Empty(sink.Errors);
     }
@@ -164,6 +200,11 @@ public sealed class TestExecutionEngineTests
 
     private sealed class SampleTestClass
     {
+    }
+
+    private sealed class ThrowingDisposeClass : IDisposable
+    {
+        public void Dispose() => throw new InvalidOperationException("dispose boom");
     }
 
     private sealed class NullServiceProvider : IServiceProvider
