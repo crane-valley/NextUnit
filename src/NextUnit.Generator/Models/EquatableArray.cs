@@ -74,10 +74,13 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
 
         unchecked
         {
+            // Same rationale as Equals: the default comparer hashes value-type elements without
+            // boxing and returns 0 for null reference-type elements.
+            var comparer = EqualityComparer<T>.Default;
             var hash = 17;
             foreach (var value in _values)
             {
-                hash = (hash * 31) + (value?.GetHashCode() ?? 0);
+                hash = (hash * 31) + (value is null ? 0 : comparer.GetHashCode(value));
             }
 
             return hash;
