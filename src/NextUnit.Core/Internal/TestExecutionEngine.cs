@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
@@ -184,18 +183,8 @@ public sealed class TestExecutionEngine
         ThrowCombinedFailure(bodyFailure?.SourceException, cleanupCancellation, cleanupFailures, cancellationToken);
     }
 
-    /// <summary>
-    /// Determines whether an <see cref="OperationCanceledException"/> represents cancellation of this run
-    /// rather than a lifecycle hook's own unrelated cancellation.
-    /// </summary>
-    /// <remarks>
-    /// The exception must carry the run token; an OCE bearing a different token (or
-    /// <see cref="CancellationToken.None"/>) is a hook's own cancellation and is treated as a failure.
-    /// </remarks>
-    private static bool IsRunCancellation(OperationCanceledException exception, CancellationToken cancellationToken)
-    {
-        return cancellationToken.IsCancellationRequested && exception.CancellationToken == cancellationToken;
-    }
+    private static bool IsRunCancellation(OperationCanceledException exception, CancellationToken cancellationToken) =>
+        RunCancellationClassifier.IsRunCancellation(exception, cancellationToken);
 
     /// <summary>
     /// Surfaces the run-body exception together with any cleanup failures so that neither run
@@ -220,11 +209,9 @@ public sealed class TestExecutionEngine
         if (bodyException is not null && !ReferenceEquals(bodyException, bodyCancellation))
         {
             // Wrap a non-run OCE so it is not mistaken for run cancellation (which adapters swallow).
-            failures.Add(bodyException is OperationCanceledException
-                ? new InvalidOperationException(
-                    "A run operation threw OperationCanceledException that does not represent run cancellation.",
-                    bodyException)
-                : bodyException);
+            failures.Add(RunCancellationClassifier.ToFailure(
+                bodyException,
+                "A run operation threw OperationCanceledException that does not represent run cancellation."));
         }
 
         failures.AddRange(cleanupFailures);
@@ -392,8 +379,9 @@ public sealed class TestExecutionEngine
                 // An OCE carrying a different token (or none) is the hook's own unrelated cancellation.
                 // Wrap it in a non-OCE so it is surfaced as a teardown failure rather than being
                 // mistaken for run cancellation (which downstream adapters swallow).
-                failures.Add(new InvalidOperationException(
-                    "An assembly teardown method threw OperationCanceledException that does not represent run cancellation.", ex));
+                failures.Add(RunCancellationClassifier.ToFailure(
+                    ex,
+                    "An assembly teardown method threw OperationCanceledException that does not represent run cancellation."));
             }
             catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
             {
@@ -638,7 +626,7 @@ public sealed class TestExecutionEngine
         // TestContext.Current is guaranteed non-null because SetCurrent() is called in ExecuteWithRetryAsync before this method
         var currentContext = TestContext.Current
             ?? throw new InvalidOperationException("TestContext.Current must be initialized before executing a test attempt.");
-        var instance = CreateTestInstance(testCase, testOutput, currentContext);
+        var instance = TestInstanceActivator.Create(testCase, testOutput, currentContext);
 
         AttemptResult result;
         Exception? disposalFailure = null;
@@ -913,103 +901,6 @@ public sealed class TestExecutionEngine
     }
 
     /// <summary>
-    /// Creates a test class instance with appropriate constructor injection.
-    /// </summary>
-    /// <param name="testCase">The test descriptor containing the generated factory or class type.</param>
-    /// <param name="testOutput">The test output capture to inject into the constructor.</param>
-    /// <param name="testContext">The test context capture to inject into the constructor.</param>
-    /// <returns>A new instance of the test class.</returns>
-    private static object CreateTestInstance(
-        TestCaseDescriptor testCase,
-        ITestOutput testOutput,
-        ITestContext testContext)
-    {
-        if (testCase.TestClassFactory is not null)
-        {
-            return testCase.TestClassFactory(testOutput, testContext);
-        }
-
-        return CreateTestInstanceWithReflection(testCase.TestClass, testOutput, testContext);
-    }
-
-    private static object CreateTestInstanceWithReflection(
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type testClass,
-        ITestOutput testOutput,
-        ITestContext testContext)
-    {
-        // Find the best matching constructor in a single pass
-        // Priority: 2-param > 1-param ITestContext > 1-param ITestOutput > parameterless
-        var constructors = testClass.GetConstructors();
-
-        ConstructorInfo? twoParamCtor = null;
-        bool twoParamContextFirst = false;
-        ConstructorInfo? contextOnlyCtor = null;
-        ConstructorInfo? outputOnlyCtor = null;
-        ConstructorInfo? parameterlessCtor = null;
-
-        foreach (var ctor in constructors)
-        {
-            var parameters = ctor.GetParameters();
-
-            switch (parameters.Length)
-            {
-                case 0:
-                    parameterlessCtor = ctor;
-                    break;
-                case 1:
-                    if (parameters[0].ParameterType == typeof(ITestContext))
-                    {
-                        contextOnlyCtor = ctor;
-                    }
-                    else if (parameters[0].ParameterType == typeof(ITestOutput))
-                    {
-                        outputOnlyCtor = ctor;
-                    }
-                    break;
-                case 2:
-                    var param0Type = parameters[0].ParameterType;
-                    var param1Type = parameters[1].ParameterType;
-                    if (param0Type == typeof(ITestContext) && param1Type == typeof(ITestOutput))
-                    {
-                        twoParamCtor = ctor;
-                        twoParamContextFirst = true;
-                    }
-                    else if (param0Type == typeof(ITestOutput) && param1Type == typeof(ITestContext))
-                    {
-                        twoParamCtor = ctor;
-                        twoParamContextFirst = false;
-                    }
-                    break;
-            }
-        }
-
-        // Return based on priority
-        if (twoParamCtor is not null)
-        {
-            return twoParamContextFirst
-                ? twoParamCtor.Invoke([testContext, testOutput])
-                : twoParamCtor.Invoke([testOutput, testContext]);
-        }
-
-        if (contextOnlyCtor is not null)
-        {
-            return contextOnlyCtor.Invoke([testContext]);
-        }
-
-        if (outputOnlyCtor is not null)
-        {
-            return outputOnlyCtor.Invoke([testOutput]);
-        }
-
-        if (parameterlessCtor is not null)
-        {
-            return parameterlessCtor.Invoke([]);
-        }
-
-        return Activator.CreateInstance(testClass)!;
-    }
-
-    /// <summary>
     /// Ensures class-level setup methods have been executed for the test class.
     /// </summary>
     private async Task EnsureClassSetupAsync(TestCaseDescriptor testCase, CancellationToken cancellationToken)
@@ -1025,7 +916,7 @@ public sealed class TestExecutionEngine
         // Get or create class context (thread-safe)
         var context = _classContexts.GetOrAdd(testClass, _ =>
         {
-            var instance = CreateTestInstance(testCase, NullTestOutput.Instance, NullTestContext.Instance);
+            var instance = TestInstanceActivator.Create(testCase, NullTestOutput.Instance, NullTestContext.Instance);
 
             return new ClassExecutionContext
             {
