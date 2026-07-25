@@ -9,6 +9,9 @@ namespace NextUnit.Generator.Tests;
 /// The generator compares resolved constants instead of Roslyn <c>TypedConstant</c> values, so the
 /// resolved form has to stay distinguishable for values that differ only inside a nested array or
 /// only by numeric type.
+/// One case the resolved form also handles has no test here: two types that share a fully qualified
+/// name in different assemblies, reachable only through an extern alias. This harness compiles a
+/// single compilation and cannot express that without building and referencing a second assembly.
 /// </remarks>
 public class MatrixExclusionMatchingTests
 {
@@ -138,6 +141,39 @@ public class MatrixExclusionMatchingTests
         Assert.True(
             generated.Contains("Outer<string>.Inner", StringComparison.Ordinal),
             "Only the excluded Outer<int>.Inner combination must be removed.");
+    }
+
+    /// <summary>
+    /// Floating-point values that differ beyond the default formatting precision stay distinct.
+    /// </summary>
+    /// <remarks>
+    /// The generator can run in-proc under .NET Framework, where the default numeric format rounds to
+    /// 15 significant digits and would merge these two values.
+    /// </remarks>
+    [Fact]
+    public async Task CloseFloatingPointValues_AreNotConfusedAsync()
+    {
+        var source = """
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class MatrixTests
+            {
+                [Test]
+                [MatrixExclusion(1.0000000000000002)]
+                public void Single([Matrix(1.0000000000000002, 1.0000000000000004)] double value)
+                {
+                }
+            }
+            """;
+
+        var generated = await GenerateRegistryAsync(source);
+
+        Assert.Equal(1, CountTestCases(generated));
+        Assert.True(
+            generated.Contains("1.0000000000000004", StringComparison.Ordinal),
+            "Only the excluded value must be removed.");
     }
 
     /// <summary>
