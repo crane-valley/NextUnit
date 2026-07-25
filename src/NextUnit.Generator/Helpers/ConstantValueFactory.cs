@@ -42,41 +42,56 @@ internal static class ConstantValueFactory
 
     private static string BuildEqualityKey(TypedConstant constant)
     {
+        var builder = new StringBuilder();
+        AppendEqualityKey(builder, constant);
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Appends a self-delimiting encoding of one constant.
+    /// </summary>
+    /// <remarks>
+    /// Every part is length-prefixed and the three kinds start with distinct markers, so the encoding
+    /// is injective: no value can produce the key of a different value, which a separator-joined
+    /// encoding would allow for text containing the separator.
+    /// </remarks>
+    private static void AppendEqualityKey(StringBuilder builder, TypedConstant constant)
+    {
         if (constant.IsNull)
         {
-            return "null";
+            builder.Append("n;");
+            return;
         }
 
         if (constant.Kind == TypedConstantKind.Array)
         {
-            var builder = new StringBuilder("[");
+            builder.Append('a').Append(constant.Values.Length).Append(';');
 
-            for (var i = 0; i < constant.Values.Length; i++)
+            foreach (var element in constant.Values)
             {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                builder.Append(BuildEqualityKey(constant.Values[i]));
+                AppendEqualityKey(builder, element);
             }
 
-            builder.Append(']');
-            return builder.ToString();
+            return;
         }
 
         var value = constant.Value;
         if (value is null)
         {
-            return "null";
+            builder.Append("n;");
+            return;
         }
 
         // The runtime type is part of the key because the previous matcher compared boxed values with
         // object.Equals, where an int and a long holding the same number are not equal.
+        var typeName = value.GetType().FullName ?? string.Empty;
         var text = value is ISymbol symbol
             ? symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-            : Convert.ToString(value, CultureInfo.InvariantCulture);
+            : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
 
-        return $"{value.GetType().FullName}:{text}";
+        builder
+            .Append('v')
+            .Append(typeName.Length).Append(':').Append(typeName)
+            .Append(text.Length).Append(':').Append(text);
     }
 }
