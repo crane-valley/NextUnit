@@ -465,9 +465,7 @@ public sealed class TestExecutionEngineTests
         // Two failures must not collide on the same node identity.
         var error = Assert.Single(sink.Errors);
         Assert.True(error.Test.Id.Value.EndsWith("[AssemblyTeardown]", StringComparison.Ordinal));
-        var aggregate = error.Exception as AggregateException;
-        Assert.NotNull(aggregate);
-        Assert.Equal(2, aggregate!.InnerExceptions.Count);
+        Assert.Equal(2, AsAggregate(error.Exception).InnerExceptions.Count);
     }
 
     [Test]
@@ -550,11 +548,35 @@ public sealed class TestExecutionEngineTests
         Assert.Equal(1, attempts);
         var error = Assert.Single(sink.Errors);
         Assert.Equal("dispose.after.failure", error.Test.Id.Value);
-        var aggregate = error.Exception as AggregateException;
-        Assert.NotNull(aggregate);
-        Assert.Equal(2, aggregate!.InnerExceptions.Count);
+        var aggregate = AsAggregate(error.Exception);
+        Assert.Equal(2, aggregate.InnerExceptions.Count);
         Assert.Contains("test boom", aggregate.InnerExceptions[0].Message);
         Assert.Contains("dispose boom", aggregate.InnerExceptions[1].Message);
+    }
+
+    [Test]
+    public async Task DisposalFailureReportFailure_SurfacesBothErrorsAsync()
+    {
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("dispose.sink.fail"),
+            DisplayName = "dispose.sink.fail",
+            TestClass = typeof(ThrowingDisposeClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new ThrowingDisposeClass(),
+            TestMethod = static (_, _) => Task.CompletedTask
+        };
+
+        var sink = new ThrowingReportSink();
+
+        // A disposal failure whose report also fails must not be lost: a sink that is temporarily down
+        // must not erase the actual cleanup error.
+        var error = await Assert.ThrowsAsync<AggregateException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None));
+
+        var flat = error.Flatten();
+        Assert.Contains(flat.InnerExceptions, static e => e.Message.Contains("dispose boom"));
+        Assert.Contains(flat.InnerExceptions, static e => e.Message.Contains("sink is down"));
     }
 
     [Test]
@@ -812,6 +834,16 @@ public sealed class TestExecutionEngineTests
         {
             Environment.SetEnvironmentVariable(envVar, original);
         }
+    }
+
+    /// <summary>
+    /// Narrows an exception to <see cref="AggregateException"/> without a null-forgiving dereference.
+    /// </summary>
+    private static AggregateException AsAggregate(Exception exception)
+    {
+        return exception as AggregateException
+            ?? throw new AssertionFailedException(
+                $"Expected an AggregateException but got {exception.GetType().Name}: {exception.Message}");
     }
 
     private sealed class SampleTestClass

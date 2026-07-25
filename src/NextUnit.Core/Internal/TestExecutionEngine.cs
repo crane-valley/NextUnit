@@ -671,12 +671,25 @@ public sealed class TestExecutionEngine
         // The instance belongs to this test, so its disposal failure is reported on the test's own node
         // instead of a synthetic one (unlike class-scope disposal, whose instance is shared). Reporting
         // happens after disposal so a passing test is not first reported as passed and then failed.
-        await ReportFinalExceptionAsync(
-            testCase,
-            sink,
-            CombineWithDisposalFailure(result, disposalFailure),
-            testOutput.GetOutput(),
-            currentContext.Artifacts).ConfigureAwait(false);
+        var reportedFailure = CombineWithDisposalFailure(result, disposalFailure);
+        try
+        {
+            await ReportFinalExceptionAsync(
+                testCase,
+                sink,
+                reportedFailure,
+                testOutput.GetOutput(),
+                currentContext.Artifacts).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+        {
+            Diagnostics.SafeWriteError($"[NextUnit] Failed to report test instance disposal failure for '{testCase.Id.Value}'", ex);
+
+            // Preserve BOTH the disposal failure and the sink failure, as the class and assembly cleanup
+            // paths do: propagating the sink failure alone would erase the cleanup error it was carrying.
+            throw new AggregateException(
+                $"Failed to report test instance disposal failure for '{testCase.Id.Value}'.", reportedFailure, ex);
+        }
 
         // Terminal: a disposer that throws is not fixed by retrying, and a later passing attempt would
         // silently discard the failure already reported here.
