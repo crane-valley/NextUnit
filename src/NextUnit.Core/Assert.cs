@@ -598,6 +598,13 @@ public static class Assert
             message ?? $"Expected {typeof(TException).Name} but no exception was thrown.");
     }
 
+    // The two expectedMessage overloads below are a binding trap: Throws(action, "text") always
+    // resolves to the (action, string? message) custom-message overload, because overload
+    // resolution prefers the candidate that leaves fewer optional parameters unfilled. The
+    // message validation therefore only runs when a caller passes an explicit third argument or
+    // uses a named argument. They stay [Obsolete] rather than deleted so 1.x remains binary and
+    // source compatible; removal is planned for 2.0.
+
     /// <summary>
     /// Verifies that an action throws a specific type of exception with a message matching the expected message.
     /// </summary>
@@ -608,6 +615,7 @@ public static class Assert
     /// <returns>The exception that was thrown.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> or <paramref name="expectedMessage"/> is null.</exception>
     /// <exception cref="AssertionFailedException">Thrown when no exception is thrown, a different exception type is thrown, or the message doesn't match.</exception>
+    [Obsolete("Unreachable with two arguments (they bind to the custom-message overload); use the returned exception's Message instead. This overload will be removed in NextUnit 2.0.")]
     public static TException Throws<TException>(Action action, string expectedMessage, string? message = null)
         where TException : Exception
     {
@@ -650,6 +658,7 @@ public static class Assert
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> or <paramref name="expectedMessage"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="action"/> returns a null task.</exception>
     /// <exception cref="AssertionFailedException">Thrown when no exception is thrown, a different exception type is thrown, or the message doesn't match.</exception>
+    [Obsolete("Unreachable with two arguments (they bind to the custom-message overload); use the returned exception's Message instead. This overload will be removed in NextUnit 2.0.")]
     public static async Task<TException> ThrowsAsync<TException>(
         Func<Task> action,
         string expectedMessage,
@@ -1221,14 +1230,15 @@ public static class Assert
     }
 
     /// <summary>
-    /// Verifies that a value is not within a specified range (exclusive).
+    /// Verifies that a value is outside a specified range whose bounds are inclusive.
+    /// A value equal to <paramref name="min"/> or <paramref name="max"/> is inside the range and fails the assertion.
     /// </summary>
     /// <typeparam name="T">The type of the value to verify.</typeparam>
     /// <param name="actual">The value to verify.</param>
     /// <param name="min">The minimum value (inclusive).</param>
     /// <param name="max">The maximum value (inclusive).</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
-    /// <exception cref="AssertionFailedException">Thrown when the value is within the specified range.</exception>
+    /// <exception cref="AssertionFailedException">Thrown when the value is within the specified inclusive range.</exception>
     public static void NotInRange<T>(T actual, T min, T max, string? message = null)
         where T : IComparable<T>
     {

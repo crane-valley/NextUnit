@@ -132,28 +132,26 @@ public class EnhancedAssertionTests
 
     private sealed record AssertionValue(int Value);
 
-    // Enhanced Exception Assertions with Message Matching
+    // Exception Assertions with Message Matching
 
     [Test]
-    public void Throws_WithExpectedMessage_MatchesExactMessage()
+    public void Throws_ReturnedException_ExposesMessageForMatching()
     {
         var exception = Assert.Throws<ArgumentException>(
-            () => throw new ArgumentException("Invalid argument"),
-            expectedMessage: "Invalid argument");
+            () => throw new ArgumentException("Invalid argument"));
 
         Assert.Equal("Invalid argument", exception.Message);
     }
 
     [Test]
-    public async Task ThrowsAsync_WithExpectedMessage_MatchesExactMessageAsync()
+    public async Task ThrowsAsync_ReturnedException_ExposesMessageForMatchingAsync()
     {
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () =>
             {
                 await Task.Delay(1);
                 throw new InvalidOperationException("Operation failed");
-            },
-            expectedMessage: "Operation failed");
+            });
 
         Assert.Equal("Operation failed", exception.Message);
     }
@@ -161,11 +159,10 @@ public class EnhancedAssertionTests
     [Test]
     [Arguments("First error")]
     [Arguments("Second error")]
-    public void Throws_WithExpectedMessage_ParameterizedTests(string expectedMessage)
+    public void Throws_ReturnedException_ParameterizedTests(string expectedMessage)
     {
         var exception = Assert.Throws<ArgumentException>(
-            () => throw new ArgumentException(expectedMessage),
-            expectedMessage: expectedMessage);
+            () => throw new ArgumentException(expectedMessage));
 
         Assert.Equal(expectedMessage, exception.Message);
     }
