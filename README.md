@@ -188,6 +188,7 @@ and [raw timings](tools/speed-comparison/results/runtime-comparison.json).
 - [Class Library Testing](samples/ClassLibrary.Sample.Tests/) - Business logic testing patterns
 - [Console App Testing](samples/Console.Sample.Tests/) - CLI argument parsing, file processing
 - [Framework Tests](samples/NextUnit.SampleTests/) - All NextUnit features demonstrated
+- [Web API Testing](samples/WebApi.Sample.Tests/) - ASP.NET Core integration testing with `WebApplicationTest<T>`
 
 ## Contributing
 

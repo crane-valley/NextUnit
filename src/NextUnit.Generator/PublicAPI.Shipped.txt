@@ -1,0 +1,4 @@
+#nullable enable
+NextUnit.Generator.NextUnitGenerator
+NextUnit.Generator.NextUnitGenerator.Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context) -> void
+NextUnit.Generator.NextUnitGenerator.NextUnitGenerator() -> void

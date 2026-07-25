@@ -1,0 +1,5 @@
+#nullable enable
+NextUnit.Platform.NextUnitApplicationBuilderExtensions
+NextUnit.Platform.TestingPlatformBuilderHook
+static NextUnit.Platform.NextUnitApplicationBuilderExtensions.AddNextUnit(this Microsoft.Testing.Platform.Builder.ITestApplicationBuilder! builder) -> Microsoft.Testing.Platform.Builder.ITestApplicationBuilder!
+static NextUnit.Platform.TestingPlatformBuilderHook.AddExtensions(Microsoft.Testing.Platform.Builder.ITestApplicationBuilder! builder, string![]! args) -> void

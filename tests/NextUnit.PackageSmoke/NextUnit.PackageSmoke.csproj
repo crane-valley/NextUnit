@@ -6,6 +6,11 @@
     <PublishAot Condition="'$(PublishAotPackageSmoke)' == 'true'">true</PublishAot>
     <SelfContained Condition="'$(PublishAotPackageSmoke)' == 'true'">true</SelfContained>
     <DefineConstants Condition="'$(UseLocalNextUnitPackage)' == 'true'">$(DefineConstants);NEXTUNIT_LOCAL_PACKAGE</DefineConstants>
+    <!-- The default must stay a version already published to nuget.org: GitHub's
+         automatic dependency submission restores this project without the local
+         package feed, so referencing the in-repo $(NextUnitVersion) unconditionally
+         breaks that job between a release merge and NuGet indexing. CI opts into
+         the freshly packed version via -p:UseLocalNextUnitPackage=true. -->
     <NextUnitPackageSmokeVersion Condition="'$(UseLocalNextUnitPackage)' == 'true'">$(NextUnitVersion)</NextUnitPackageSmokeVersion>
     <NextUnitPackageSmokeVersion Condition="'$(NextUnitPackageSmokeVersion)' == ''">1.16.0</NextUnitPackageSmokeVersion>
   </PropertyGroup>

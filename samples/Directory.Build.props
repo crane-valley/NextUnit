@@ -4,7 +4,7 @@
   
   <PropertyGroup>
     <!-- Suppress XML documentation warnings, duplicate entry point, and accessibility modifier warnings for sample code -->
-    <NoWarn>CS1591;CS7022;IDE0040</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;CS7022;IDE0040</NoWarn>
   </PropertyGroup>
   
   <!-- Relax documentation requirements in Debug builds only -->

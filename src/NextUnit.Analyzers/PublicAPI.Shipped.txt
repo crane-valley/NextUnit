@@ -1,0 +1,55 @@
+#nullable enable
+NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer
+NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer.ArgumentsCountAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer
+NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer.AsyncVoidTestAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.DependsOnAnalyzer
+NextUnit.Analyzers.Analyzers.DependsOnAnalyzer.DependsOnAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.LifecycleMethodAnalyzer
+NextUnit.Analyzers.Analyzers.LifecycleMethodAnalyzer.LifecycleMethodAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer
+NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer.MatrixExclusionAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer
+NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer.MissingTestAttributeAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.TestDataMemberAnalyzer
+NextUnit.Analyzers.Analyzers.TestDataMemberAnalyzer.TestDataMemberAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.TestDataRowAnalyzer
+NextUnit.Analyzers.Analyzers.TestDataRowAnalyzer.TestDataRowAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.TestMethodVisibilityAnalyzer
+NextUnit.Analyzers.Analyzers.TestMethodVisibilityAnalyzer.TestMethodVisibilityAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.TimeoutValueAnalyzer
+NextUnit.Analyzers.Analyzers.TimeoutValueAnalyzer.TimeoutValueAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.UnsupportedMethodReturnTypeAnalyzer
+NextUnit.Analyzers.Analyzers.UnsupportedMethodReturnTypeAnalyzer.UnsupportedMethodReturnTypeAnalyzer() -> void
+NextUnit.Analyzers.CodeFixes.AsyncVoidTestCodeFixProvider
+NextUnit.Analyzers.CodeFixes.AsyncVoidTestCodeFixProvider.AsyncVoidTestCodeFixProvider() -> void
+NextUnit.Analyzers.CodeFixes.TestMethodVisibilityCodeFixProvider
+NextUnit.Analyzers.CodeFixes.TestMethodVisibilityCodeFixProvider.TestMethodVisibilityCodeFixProvider() -> void
+override NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.DependsOnAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.DependsOnAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.LifecycleMethodAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.LifecycleMethodAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.TestDataMemberAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.TestDataMemberAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.TestDataRowAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.TestDataRowAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.TestMethodVisibilityAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.TestMethodVisibilityAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.TimeoutValueAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.TimeoutValueAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.UnsupportedMethodReturnTypeAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.UnsupportedMethodReturnTypeAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.CodeFixes.AsyncVoidTestCodeFixProvider.FixableDiagnosticIds.get -> System.Collections.Immutable.ImmutableArray<string!>
+override NextUnit.Analyzers.CodeFixes.AsyncVoidTestCodeFixProvider.GetFixAllProvider() -> Microsoft.CodeAnalysis.CodeFixes.FixAllProvider!
+override NextUnit.Analyzers.CodeFixes.AsyncVoidTestCodeFixProvider.RegisterCodeFixesAsync(Microsoft.CodeAnalysis.CodeFixes.CodeFixContext context) -> System.Threading.Tasks.Task!
+override NextUnit.Analyzers.CodeFixes.TestMethodVisibilityCodeFixProvider.FixableDiagnosticIds.get -> System.Collections.Immutable.ImmutableArray<string!>
+override NextUnit.Analyzers.CodeFixes.TestMethodVisibilityCodeFixProvider.GetFixAllProvider() -> Microsoft.CodeAnalysis.CodeFixes.FixAllProvider!
+override NextUnit.Analyzers.CodeFixes.TestMethodVisibilityCodeFixProvider.RegisterCodeFixesAsync(Microsoft.CodeAnalysis.CodeFixes.CodeFixContext context) -> System.Threading.Tasks.Task!
