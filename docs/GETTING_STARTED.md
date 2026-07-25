@@ -203,7 +203,7 @@ Assert.Contains("substring", text);    // Text contains substring
 
 ```csharp
 Assert.InRange(value, min, max);       // Value in range [min, max]
-Assert.NotInRange(value, min, max);    // Value outside range
+Assert.NotInRange(value, min, max);    // Value outside range [min, max]; min and max are inside
 ```
 
 ### Exception Assertions
@@ -212,9 +212,12 @@ Assert.NotInRange(value, min, max);    // Value outside range
 Assert.Throws<Exception>(() => { ... });              // Sync code throws
 Assert.ThrowsAsync<Exception>(async () => { ... });   // Async code throws
 
-// New in v1.6: Exception message matching
-Assert.Throws<Exception>(() => { ... }, "Expected message");
-Assert.ThrowsAsync<Exception>(async () => { ... }, "Expected message");
+// The second string argument is a custom failure message, not an expected exception message.
+Assert.Throws<Exception>(() => { ... }, "Custom failure message");
+
+// To check the exception message, assert on the returned exception.
+var ex = Assert.Throws<ArgumentException>(() => { ... });
+Assert.Equal("Expected message", ex.Message);
 ```
 
 ### Approximate Equality Assertions (New in v1.6)

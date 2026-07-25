@@ -598,105 +598,10 @@ public static class Assert
             message ?? $"Expected {typeof(TException).Name} but no exception was thrown.");
     }
 
-    /// <summary>
-    /// Verifies that an action throws a specific type of exception with a message matching the expected message.
-    /// </summary>
-    /// <typeparam name="TException">The expected exception type.</typeparam>
-    /// <param name="action">The action to execute.</param>
-    /// <param name="expectedMessage">The expected exception message.</param>
-    /// <param name="message">Optional custom message to display if the assertion fails.</param>
-    /// <returns>The exception that was thrown.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> or <paramref name="expectedMessage"/> is null.</exception>
-    /// <exception cref="AssertionFailedException">Thrown when no exception is thrown, a different exception type is thrown, or the message doesn't match.</exception>
-    public static TException Throws<TException>(Action action, string expectedMessage, string? message = null)
-        where TException : Exception
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        ArgumentNullException.ThrowIfNull(expectedMessage);
-
-        try
-        {
-            action();
-        }
-        catch (TException ex)
-        {
-            if (ex.Message != expectedMessage)
-            {
-                throw new AssertionFailedException(
-                    message ?? $"Expected exception message: \"{expectedMessage}\"\nActual exception message: \"{ex.Message}\"",
-                    ex);
-            }
-            return ex;
-        }
-        catch (Exception ex)
-        {
-            throw new AssertionFailedException(
-                message ?? $"Expected {typeof(TException).Name} but got {ex.GetType().Name}.",
-                ex);
-        }
-
-        throw new AssertionFailedException(
-            message ?? $"Expected {typeof(TException).Name} but no exception was thrown.");
-    }
-
-    /// <summary>
-    /// Verifies that an asynchronous action throws a specific type of exception with a message matching the expected message.
-    /// </summary>
-    /// <typeparam name="TException">The expected exception type.</typeparam>
-    /// <param name="action">The asynchronous action to execute.</param>
-    /// <param name="expectedMessage">The expected exception message.</param>
-    /// <param name="message">Optional custom message to display if the assertion fails.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the exception that was thrown.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> or <paramref name="expectedMessage"/> is null.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="action"/> returns a null task.</exception>
-    /// <exception cref="AssertionFailedException">Thrown when no exception is thrown, a different exception type is thrown, or the message doesn't match.</exception>
-    public static async Task<TException> ThrowsAsync<TException>(
-        Func<Task> action,
-        string expectedMessage,
-        string? message = null)
-        where TException : Exception
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        ArgumentNullException.ThrowIfNull(expectedMessage);
-
-        Task? task = null;
-        try
-        {
-            task = action();
-
-            // Awaiting inside the try keeps synchronously thrown expected exceptions matching,
-            // while the null task is reported after the try so the misuse is not reclassified
-            // as an assertion failure by the catch clauses below.
-            if (task is not null)
-            {
-                await task.ConfigureAwait(false);
-            }
-        }
-        catch (TException ex)
-        {
-            if (ex.Message != expectedMessage)
-            {
-                throw new AssertionFailedException(
-                    message ?? $"Expected exception message: \"{expectedMessage}\"\nActual exception message: \"{ex.Message}\"",
-                    ex);
-            }
-            return ex;
-        }
-        catch (Exception ex)
-        {
-            throw new AssertionFailedException(
-                message ?? $"Expected {typeof(TException).Name} but got {ex.GetType().Name}.",
-                ex);
-        }
-
-        if (task is null)
-        {
-            throw new ArgumentException(NullTaskMessage, nameof(action));
-        }
-
-        throw new AssertionFailedException(
-            message ?? $"Expected {typeof(TException).Name} but no exception was thrown.");
-    }
+    // Throws/ThrowsAsync(action, expectedMessage, message) overloads once existed here and were
+    // removed: a two-argument call always bound to the (action, message) overload instead, so the
+    // message-validating behavior was unreachable without an explicit third argument. Do not
+    // reintroduce them; assert on the returned exception's Message instead.
 
     /// <summary>
     /// Verifies that an action does not throw any exception.
@@ -1221,14 +1126,15 @@ public static class Assert
     }
 
     /// <summary>
-    /// Verifies that a value is not within a specified range (exclusive).
+    /// Verifies that a value is outside a specified range whose bounds are inclusive.
+    /// A value equal to <paramref name="min"/> or <paramref name="max"/> is inside the range and fails the assertion.
     /// </summary>
     /// <typeparam name="T">The type of the value to verify.</typeparam>
     /// <param name="actual">The value to verify.</param>
     /// <param name="min">The minimum value (inclusive).</param>
     /// <param name="max">The maximum value (inclusive).</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
-    /// <exception cref="AssertionFailedException">Thrown when the value is within the specified range.</exception>
+    /// <exception cref="AssertionFailedException">Thrown when the value is within the specified inclusive range.</exception>
     public static void NotInRange<T>(T actual, T min, T max, string? message = null)
         where T : IComparable<T>
     {

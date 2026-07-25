@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Remove the `Assert.Throws<TException>(Action, string expectedMessage, string? message)` and
+  `Assert.ThrowsAsync<TException>(Func<Task>, string expectedMessage, string? message)` overloads.
+  A two-argument call always bound to the custom-message overload, so the message validation was
+  unreachable unless a third argument was passed explicitly. Assert on the returned exception's
+  `Message` instead.
+
+### Fixed
+
+- Correct the `Assert.NotInRange` XML documentation, which described the range bounds as exclusive
+  while the implementation has always treated them as inclusive. Behavior is unchanged.
+
 ## [1.16.0] - 2026-07-25
 
 ### Added

@@ -3,7 +3,7 @@ namespace NextUnit.Core.Tests;
 /// <summary>
 /// Behavioral tests for Assert.Throws and Assert.ThrowsAsync, covering the correct
 /// exception type, wrong type, no exception, derived-exception matching, and the
-/// expected-message overloads.
+/// binding of the optional custom-message argument.
 /// </summary>
 public class AssertThrowsTests
 {
@@ -63,29 +63,11 @@ public class AssertThrowsTests
     }
 
     [Test]
-    public void Throws_WithExpectedMessage_MatchingMessage_ReturnsException()
-    {
-        // Three arguments are required to reach the expected-message validation overload.
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => throw new InvalidOperationException("exact"), "exact", null);
-        Assert.Equal("exact", ex.Message);
-    }
-
-    [Test]
-    public void Throws_WithExpectedMessage_MismatchedMessage_Throws()
+    public void Throws_TwoArgStringOverload_UsesStringAsFailureMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(
-            () => Assert.Throws<InvalidOperationException>(
-                () => throw new InvalidOperationException("actual"), "expected", null));
-        Assert.Contains("expected", ex.Message);
-        Assert.Contains("actual", ex.Message);
-    }
-
-    [Test]
-    public void Throws_WithNullExpectedMessage_ThrowsArgumentNull()
-    {
-        Assert.Throws<ArgumentNullException>(
-            () => Assert.Throws<InvalidOperationException>(() => { }, (string)null!, null));
+            () => Assert.Throws<InvalidOperationException>(() => { }, "custom failure"));
+        Assert.Equal("custom failure", ex.Message);
     }
 
     [Test]
@@ -125,20 +107,12 @@ public class AssertThrowsTests
     }
 
     [Test]
-    public async Task ThrowsAsync_WithExpectedMessage_MatchingMessage_ReturnsExceptionAsync()
+    public async Task ThrowsAsync_TwoArgStringOverload_TreatsStringAsCustomMessageAsync()
     {
-        // Three arguments are required to reach the expected-message validation overload.
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => throw new InvalidOperationException("exact async"), "exact async", null);
-        Assert.Equal("exact async", ex.Message);
-    }
-
-    [Test]
-    public async Task ThrowsAsync_WithExpectedMessage_MismatchedMessage_ThrowsAsync()
-    {
-        await Assert.ThrowsAsync<AssertionFailedException>(
+        var ex = await Assert.ThrowsAsync<AssertionFailedException>(
             () => Assert.ThrowsAsync<InvalidOperationException>(
-                () => throw new InvalidOperationException("actual async"), "expected async", null));
+                () => Task.CompletedTask, "custom async failure"));
+        Assert.Equal("custom async failure", ex.Message);
     }
 
     [Test]
@@ -151,26 +125,10 @@ public class AssertThrowsTests
     }
 
     [Test]
-    public void Throws_WithExpectedMessage_NullAction_ThrowsArgumentNull()
-    {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Assert.Throws<InvalidOperationException>((Action)null!, "expected", null));
-        Assert.Equal("action", ex.ParamName);
-    }
-
-    [Test]
     public async Task ThrowsAsync_NullAction_ThrowsArgumentNullAsync()
     {
         var ex = await Assert.ThrowsAsync<ArgumentNullException>(
             () => Assert.ThrowsAsync<InvalidOperationException>((Func<Task>)null!));
-        Assert.Equal("action", ex.ParamName);
-    }
-
-    [Test]
-    public async Task ThrowsAsync_WithExpectedMessage_NullAction_ThrowsArgumentNullAsync()
-    {
-        var ex = await Assert.ThrowsAsync<ArgumentNullException>(
-            () => Assert.ThrowsAsync<InvalidOperationException>((Func<Task>)null!, "expected", null));
         Assert.Equal("action", ex.ParamName);
     }
 
@@ -181,15 +139,6 @@ public class AssertThrowsTests
         // against the tested code, so the delegate misuse is named instead.
         var ex = await Assert.ThrowsAsync<ArgumentException>(
             () => Assert.ThrowsAsync<InvalidOperationException>(() => null!));
-        Assert.Contains("null Task", ex.Message);
-        Assert.Equal("action", ex.ParamName);
-    }
-
-    [Test]
-    public async Task ThrowsAsync_WithExpectedMessage_ActionReturnsNullTask_ThrowsArgumentExceptionAsync()
-    {
-        var ex = await Assert.ThrowsAsync<ArgumentException>(
-            () => Assert.ThrowsAsync<InvalidOperationException>(() => null!, "expected", null));
         Assert.Contains("null Task", ex.Message);
         Assert.Equal("action", ex.ParamName);
     }
