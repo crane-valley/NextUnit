@@ -65,17 +65,14 @@ public static class CombinedDataSourceExpander
         // Compute Cartesian product
         var combinations = ComputeCartesianProduct(parameterValues);
 
-        var testMethod = descriptor.TestMethodWithArguments ??
-            ReflectionTestInvokerFactory.Create(
-                descriptor.TestClass,
-                descriptor.MethodName,
-                descriptor.ParameterTypes);
+        var seed = new TestCaseSeed(descriptor);
+        var testMethod = seed.ResolveTestInvoker();
 
         // Create test cases
         var index = 0;
         foreach (var combination in combinations)
         {
-            yield return CreateTestCase(descriptor, combination, testMethod, index);
+            yield return seed.CreateTestCase($"{descriptor.BaseId}:Combined[{index}]", combination, index, testMethod);
             index++;
         }
     }
@@ -336,52 +333,6 @@ public static class CombinedDataSourceExpander
         }
 
         return result;
-    }
-
-    private static TestCaseDescriptor CreateTestCase(
-        CombinedDataSourceDescriptor descriptor,
-        object?[] arguments,
-        TestMethodWithArgumentsDelegate? testMethod,
-        int index)
-    {
-        // Build unique test ID
-        var testId = $"{descriptor.BaseId}:Combined[{index}]";
-
-        var displayName = DisplayNameBuilder.Build(
-            descriptor.MethodName,
-            descriptor.CustomDisplayNameTemplate,
-            descriptor.DisplayNameFormatterType,
-            descriptor.TestClass,
-            arguments,
-            index);
-
-        return new TestCaseDescriptor
-        {
-            Id = new TestCaseId(testId),
-            DisplayName = displayName,
-            TestClass = descriptor.TestClass,
-            MethodName = descriptor.MethodName,
-            TestMethodWithArguments = testMethod,
-            TestClassFactory = descriptor.TestClassFactory,
-            Lifecycle = descriptor.Lifecycle,
-            Parallel = descriptor.Parallel,
-            Dependencies = descriptor.Dependencies,
-            DependencyInfos = descriptor.DependencyInfos,
-            IsSkipped = descriptor.IsSkipped,
-            SkipReason = descriptor.SkipReason,
-            IsExplicit = descriptor.IsExplicit,
-            ExplicitReason = descriptor.ExplicitReason,
-            Arguments = arguments,
-            Categories = descriptor.Categories,
-            Tags = descriptor.Tags,
-            RequiresTestOutput = descriptor.RequiresTestOutput,
-            RequiresTestContext = descriptor.RequiresTestContext,
-            TimeoutMs = descriptor.TimeoutMs,
-            Retry = descriptor.Retry,
-            CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate,
-            DisplayNameFormatterType = descriptor.DisplayNameFormatterType,
-            Priority = descriptor.Priority
-        };
     }
 
 }

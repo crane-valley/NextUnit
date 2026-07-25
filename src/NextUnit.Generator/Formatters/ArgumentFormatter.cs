@@ -1,8 +1,8 @@
-using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using NextUnit.Generator.Helpers;
+using NextUnit.Generator.Models;
 
 namespace NextUnit.Generator.Formatters;
 
@@ -11,6 +11,23 @@ namespace NextUnit.Generator.Formatters;
 /// </summary>
 internal static class ArgumentFormatter
 {
+    /// <summary>
+    /// Formats an already-resolved argument value for use in generated code.
+    /// </summary>
+    /// <remarks>
+    /// The target parameter only matters for <c>null</c>: a null literal assigned to a value-typed
+    /// parameter has to be emitted as <c>default(T)</c>.
+    /// </remarks>
+    public static string FormatArgumentValue(ConstantValue argument, ParameterDescriptor? targetParameter)
+    {
+        if (argument.IsNull && targetParameter is { IsValueType: true })
+        {
+            return $"default({targetParameter.FullyQualifiedTypeName})";
+        }
+
+        return argument.CodeLiteral;
+    }
+
     /// <summary>
     /// Formats an argument value for use in generated code.
     /// </summary>
@@ -102,9 +119,9 @@ internal static class ArgumentFormatter
     /// <summary>
     /// Builds an arguments literal for object array initialization.
     /// </summary>
-    public static string BuildArgumentsLiteral(ImmutableArray<TypedConstant> arguments)
+    public static string BuildArgumentsLiteral(EquatableArray<ConstantValue> arguments)
     {
-        if (arguments.IsEmpty)
+        if (arguments.IsDefaultOrEmpty)
         {
             return "global::System.Array.Empty<object?>()";
         }
@@ -119,15 +136,7 @@ internal static class ArgumentFormatter
                 builder.Append(", ");
             }
 
-            var arg = arguments[i];
-            if (arg.IsNull)
-            {
-                builder.Append("null");
-            }
-            else
-            {
-                builder.Append(FormatArgumentValue(arg, null));
-            }
+            builder.Append(arguments[i].CodeLiteral);
         }
 
         builder.Append(" }");

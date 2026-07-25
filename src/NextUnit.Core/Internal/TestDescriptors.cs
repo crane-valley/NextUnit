@@ -209,6 +209,45 @@ public sealed class RetryInfo
 public sealed class TestCaseDescriptor
 {
     /// <summary>
+    /// Initializes a new instance of the <see cref="TestCaseDescriptor"/> class.
+    /// </summary>
+    public TestCaseDescriptor()
+    {
+    }
+
+    // Single source of truth for copying a descriptor: a "with"-style helper that forgets a property
+    // silently drops metadata, so every copy path goes through this constructor.
+    private TestCaseDescriptor(TestCaseDescriptor other)
+    {
+        Id = other.Id;
+        DisplayName = other.DisplayName;
+        TestClass = other.TestClass;
+        MethodName = other.MethodName;
+        TestMethod = other.TestMethod;
+        TestMethodWithArguments = other.TestMethodWithArguments;
+        TestClassFactory = other.TestClassFactory;
+        Lifecycle = other.Lifecycle;
+        Parallel = other.Parallel;
+        Dependencies = other.Dependencies;
+        DependencyInfos = other.DependencyInfos;
+        IsSkipped = other.IsSkipped;
+        SkipReason = other.SkipReason;
+        IsExplicit = other.IsExplicit;
+        ExplicitReason = other.ExplicitReason;
+        Arguments = other.Arguments;
+        Categories = other.Categories;
+        Tags = other.Tags;
+        RequiresTestOutput = other.RequiresTestOutput;
+        RequiresTestContext = other.RequiresTestContext;
+        TimeoutMs = other.TimeoutMs;
+        RepeatIndex = other.RepeatIndex;
+        Retry = other.Retry;
+        CustomDisplayNameTemplate = other.CustomDisplayNameTemplate;
+        DisplayNameFormatterType = other.DisplayNameFormatterType;
+        Priority = other.Priority;
+    }
+
+    /// <summary>
     /// Gets or initializes the unique identifier for the test case.
     /// </summary>
     public TestCaseId Id { get; init; } = new("");
@@ -359,34 +398,10 @@ public sealed class TestCaseDescriptor
     /// <see cref="IsSkipped"/> set to <c>true</c> and <see cref="SkipReason"/> set to
     /// the specified <paramref name="reason"/>.
     /// </returns>
-    public TestCaseDescriptor WithSkipReason(string reason) => new()
+    public TestCaseDescriptor WithSkipReason(string reason) => new(this)
     {
-        Id = Id,
-        DisplayName = DisplayName,
-        TestClass = TestClass,
-        MethodName = MethodName,
-        TestMethod = TestMethod,
-        TestMethodWithArguments = TestMethodWithArguments,
-        TestClassFactory = TestClassFactory,
-        Lifecycle = Lifecycle,
-        Parallel = Parallel,
-        Dependencies = Dependencies,
-        DependencyInfos = DependencyInfos,
         IsSkipped = true,
-        SkipReason = reason,
-        IsExplicit = IsExplicit,
-        ExplicitReason = ExplicitReason,
-        Arguments = Arguments,
-        Categories = Categories,
-        Tags = Tags,
-        RequiresTestOutput = RequiresTestOutput,
-        RequiresTestContext = RequiresTestContext,
-        TimeoutMs = TimeoutMs,
-        RepeatIndex = RepeatIndex,
-        Retry = Retry,
-        CustomDisplayNameTemplate = CustomDisplayNameTemplate,
-        DisplayNameFormatterType = DisplayNameFormatterType,
-        Priority = Priority
+        SkipReason = reason
     };
 }
 

@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -17,8 +16,8 @@ internal static class DisplayNameFormatter
     public static string BuildMatrixDisplayName(
         string methodName,
         string? customDisplayName,
-        ImmutableArray<MatrixParameterDescriptor> matrixParameters,
-        ImmutableArray<TypedConstant> combination)
+        EquatableArray<MatrixParameterDescriptor> matrixParameters,
+        EquatableArray<ConstantValue> combination)
     {
         if (customDisplayName is not null)
         {
@@ -38,7 +37,7 @@ internal static class DisplayNameFormatter
 
             builder.Append(matrixParameters[i].ParameterName);
             builder.Append(": ");
-            builder.Append(FormatArgumentForDisplay(combination[i]));
+            builder.Append(combination[i].DisplayLiteral);
         }
 
         builder.Append(')');
@@ -48,7 +47,7 @@ internal static class DisplayNameFormatter
     /// <summary>
     /// Builds a display name for a parameterized test.
     /// </summary>
-    public static string BuildParameterizedDisplayName(string methodName, string? customDisplayName, ImmutableArray<TypedConstant> arguments)
+    public static string BuildParameterizedDisplayName(string methodName, string? customDisplayName, EquatableArray<ConstantValue> arguments)
     {
         if (customDisplayName is not null)
         {
@@ -66,7 +65,7 @@ internal static class DisplayNameFormatter
                 argsBuilder.Append(", ");
             }
 
-            argsBuilder.Append(FormatArgumentForDisplay(arguments[i]));
+            argsBuilder.Append(arguments[i].DisplayLiteral);
         }
 
         argsBuilder.Append(')');
@@ -76,7 +75,7 @@ internal static class DisplayNameFormatter
     /// <summary>
     /// Formats a display name template with placeholder values.
     /// </summary>
-    public static string FormatDisplayNameWithPlaceholders(string template, ImmutableArray<TypedConstant> arguments)
+    public static string FormatDisplayNameWithPlaceholders(string template, EquatableArray<ConstantValue> arguments)
     {
         var result = template;
         for (var i = 0; i < arguments.Length; i++)
@@ -84,7 +83,7 @@ internal static class DisplayNameFormatter
             var placeholder = $"{{{i}}}";
             if (result.Contains(placeholder))
             {
-                result = result.Replace(placeholder, FormatArgumentForDisplay(arguments[i]));
+                result = result.Replace(placeholder, arguments[i].DisplayLiteral);
             }
         }
         return result;

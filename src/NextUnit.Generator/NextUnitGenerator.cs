@@ -23,34 +23,40 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
     /// <param name="context">The initialization context for the generator.</param>
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var methodCandidates = context.SyntaxProvider
-            .CreateSyntaxProvider(
+        var testMethods = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                AttributeHelper.TestAttributeLookupName,
                 predicate: static (node, _) => IsCandidate(node),
-                transform: static (ctx, _) => TransformCandidate(ctx))
-            .Where(static candidate => candidate is not null)!;
+                transform: static (ctx, _) => TransformTestMethod(ctx))
+            .Where(static test => test is not null)
+            .Select(static (test, _) => test!);
 
-        var testMethods = methodCandidates
-            .Where(static candidate => candidate!.Test is not null)
-            .Select(static (candidate, _) => candidate!.Test!);
+        var beforeMethods = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                AttributeHelper.BeforeAttributeLookupName,
+                predicate: static (node, _) => IsCandidate(node),
+                transform: static (ctx, _) => TransformLifecycleMethod(ctx, isBefore: true))
+            .Where(static method => method is not null)
+            .Select(static (method, _) => method!);
 
-        var lifecycleMethods = methodCandidates
-            .Where(static candidate => candidate!.Lifecycle is not null)
-            .Select(static (candidate, _) => candidate!.Lifecycle!);
+        var afterMethods = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                AttributeHelper.AfterAttributeLookupName,
+                predicate: static (node, _) => IsCandidate(node),
+                transform: static (ctx, _) => TransformLifecycleMethod(ctx, isBefore: false))
+            .Where(static method => method is not null)
+            .Select(static (method, _) => method!);
 
-        var testMethodsGrouped = testMethods
-            .Collect()
-            .Select(static (methods, _) => methods.GroupBy(m => m.FullyQualifiedTypeName).ToImmutableArray());
-
-        var lifecycleMethodsGrouped = lifecycleMethods
-            .Collect()
-            .Select(static (methods, _) => methods.GroupBy(m => m.FullyQualifiedTypeName).ToImmutableArray());
-
-        var combined = testMethodsGrouped.Combine(lifecycleMethodsGrouped);
+        // Collect() compares the batched arrays element-wise, and the descriptors are value models,
+        // so an edit that leaves the discovered tests unchanged leaves this input cached.
+        var combined = testMethods.Collect()
+            .Combine(beforeMethods.Collect())
+            .Combine(afterMethods.Collect());
 
         context.RegisterSourceOutput(combined, static (spc, source) =>
         {
-            var (testGroups, lifecycleGroups) = source;
-            EmitRegistry(spc, testGroups, lifecycleGroups);
+            var ((tests, beforeLifecycle), afterLifecycle) = source;
+            EmitRegistry(spc, tests, beforeLifecycle, afterLifecycle);
         });
 
         var requiresEntryPoint = context.CompilationProvider
@@ -71,35 +77,20 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return node is MethodDeclarationSyntax { AttributeLists.Count: > 0 };
     }
 
-    private static MethodCandidate? TransformCandidate(GeneratorSyntaxContext context)
+    private static TestMethodDescriptor? TransformTestMethod(GeneratorAttributeSyntaxContext context)
     {
-        if (context.Node is not MethodDeclarationSyntax methodSyntax)
+        if (context.TargetSymbol is not IMethodSymbol methodSymbol)
         {
             return null;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(methodSyntax) is not IMethodSymbol methodSymbol)
-        {
-            return null;
-        }
-
-        var knownTypes = KnownTypes.Create(context.SemanticModel.Compilation);
-        var test = TransformMethod(methodSymbol, knownTypes);
-        var lifecycle = TransformLifecycleMethod(methodSymbol, knownTypes);
-        return test is null && lifecycle is null
-            ? null
-            : new MethodCandidate(test, lifecycle);
+        return TransformMethod(methodSymbol, KnownTypes.Create(context.SemanticModel.Compilation));
     }
 
     private static TestMethodDescriptor? TransformMethod(
         IMethodSymbol methodSymbol,
         KnownTypes knownTypes)
     {
-        if (!AttributeHelper.HasAttribute(methodSymbol, AttributeHelper.TestAttributeMetadataName))
-        {
-            return null;
-        }
-
         var typeSymbol = methodSymbol.ContainingType;
         var fullyQualifiedTypeName = AttributeHelper.GetFullyQualifiedTypeName(typeSymbol);
         var id = AttributeHelper.CreateTestId(methodSymbol);
@@ -118,7 +109,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var argumentSets = AttributeHelper.GetArgumentSets(methodSymbol);
         var testDataSources = AttributeHelper.GetTestDataSources(methodSymbol);
         var classDataSources = AttributeHelper.GetClassDataSources(methodSymbol);
-        var parameters = methodSymbol.Parameters;
+        var parameters = AttributeHelper.GetParameters(methodSymbol);
         var categories = AttributeHelper.GetCategories(methodSymbol, typeSymbol);
         var tags = AttributeHelper.GetTags(methodSymbol, typeSymbol);
         var requiresTestOutput = AttributeHelper.RequiresTestOutput(typeSymbol);
@@ -155,7 +146,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             tags,
             methodSymbol.IsStatic,
             GetMethodReturnKind(methodSymbol, knownTypes),
-            HasTrailingCancellationToken(methodSymbol),
+            HasTrailingCancellationToken(parameters),
             constructorKind,
             requiresTestOutput,
             requiresTestContext,
@@ -173,29 +164,40 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             priority);
     }
 
+    /// <summary>
+    /// Builds the descriptor for one lifecycle attribute kind.
+    /// </summary>
+    /// <remarks>
+    /// [Before] and [After] arrive from separate providers, so a method carrying both yields two
+    /// descriptors. Every consumer selects methods by scope, and a scope is only ever filled from
+    /// one of the two providers, so the emitted arrays keep their declaration order.
+    /// </remarks>
     private static LifecycleMethodDescriptor? TransformLifecycleMethod(
-        IMethodSymbol methodSymbol,
-        KnownTypes knownTypes)
+        GeneratorAttributeSyntaxContext context,
+        bool isBefore)
     {
-        var typeSymbol = methodSymbol.ContainingType;
-        var fullyQualifiedTypeName = AttributeHelper.GetFullyQualifiedTypeName(typeSymbol);
+        if (context.TargetSymbol is not IMethodSymbol methodSymbol)
+        {
+            return null;
+        }
 
-        var beforeScopes = AttributeHelper.GetLifecycleScopes(methodSymbol, AttributeHelper.BeforeAttributeMetadataName);
-        var afterScopes = AttributeHelper.GetLifecycleScopes(methodSymbol, AttributeHelper.AfterAttributeMetadataName);
+        var scopes = AttributeHelper.GetLifecycleScopes(
+            methodSymbol,
+            isBefore ? AttributeHelper.BeforeAttributeMetadataName : AttributeHelper.AfterAttributeMetadataName);
 
-        if (beforeScopes.IsEmpty && afterScopes.IsEmpty)
+        if (scopes.IsDefaultOrEmpty)
         {
             return null;
         }
 
         return new LifecycleMethodDescriptor(
-            fullyQualifiedTypeName,
+            AttributeHelper.GetFullyQualifiedTypeName(methodSymbol.ContainingType),
             methodSymbol.Name,
-            beforeScopes,
-            afterScopes,
+            isBefore ? scopes : EquatableArray<int>.Empty,
+            isBefore ? EquatableArray<int>.Empty : scopes,
             methodSymbol.IsStatic,
-            GetMethodReturnKind(methodSymbol, knownTypes),
-            HasTrailingCancellationToken(methodSymbol));
+            GetMethodReturnKind(methodSymbol, KnownTypes.Create(context.SemanticModel.Compilation)),
+            HasTrailingCancellationToken(AttributeHelper.GetParameters(methodSymbol)));
     }
 
     private static MethodReturnKind GetMethodReturnKind(
@@ -273,32 +275,19 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
                 compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask`1"));
     }
 
-    private sealed class MethodCandidate
-    {
-        public MethodCandidate(
-            TestMethodDescriptor? test,
-            LifecycleMethodDescriptor? lifecycle)
-        {
-            Test = test;
-            Lifecycle = lifecycle;
-        }
-
-        public TestMethodDescriptor? Test { get; }
-
-        public LifecycleMethodDescriptor? Lifecycle { get; }
-    }
-
-    private static bool HasTrailingCancellationToken(IMethodSymbol methodSymbol) =>
-        methodSymbol.Parameters.Length > 0 &&
-        methodSymbol.Parameters[methodSymbol.Parameters.Length - 1].Type.ToDisplayString() == "System.Threading.CancellationToken";
+    private static bool HasTrailingCancellationToken(EquatableArray<ParameterDescriptor> parameters) =>
+        parameters.Length > 0 &&
+        parameters[parameters.Length - 1].DisplayTypeName == "System.Threading.CancellationToken";
 
     private static void EmitRegistry(
         SourceProductionContext context,
-        ImmutableArray<IGrouping<string, TestMethodDescriptor>> testGroups,
-        ImmutableArray<IGrouping<string, LifecycleMethodDescriptor>> lifecycleGroups)
+        ImmutableArray<TestMethodDescriptor> tests,
+        ImmutableArray<LifecycleMethodDescriptor> beforeLifecycle,
+        ImmutableArray<LifecycleMethodDescriptor> afterLifecycle)
     {
-        var lifecycleByType = lifecycleGroups
-            .SelectMany(g => g)
+        var lifecycleMethods = beforeLifecycle.Concat(afterLifecycle).ToList();
+
+        var lifecycleByType = lifecycleMethods
             .GroupBy(l => l.FullyQualifiedTypeName)
             .ToDictionary(g => g.Key, g => g.ToList());
 
@@ -306,7 +295,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         // Only static methods are included - instance methods with Assembly/Session scope
         // don't make semantic sense as they would require creating an arbitrary instance
         var globalLifecycle = new GlobalLifecycleMethods();
-        foreach (var method in lifecycleGroups.SelectMany(g => g))
+        foreach (var method in lifecycleMethods)
         {
             // Only collect static methods for global lifecycle
             if (!method.IsStatic)
@@ -335,8 +324,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             }
         }
 
-        var allTests = testGroups
-            .SelectMany(g => g)
+        var allTests = tests
             .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
             .ToImmutableArray();
 

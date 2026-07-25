@@ -1,7 +1,5 @@
-using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
-using Microsoft.CodeAnalysis;
 using NextUnit.Generator.Builders;
 using NextUnit.Generator.Formatters;
 using NextUnit.Generator.Helpers;
@@ -21,7 +19,7 @@ internal static class TestCaseEmitter
         StringBuilder builder,
         TestMethodDescriptor test,
         List<LifecycleMethodDescriptor> lifecycleMethods,
-        ImmutableArray<TypedConstant>? arguments,
+        EquatableArray<ConstantValue>? arguments,
         int argumentSetIndex,
         int? repeatIndex = null)
     {
@@ -109,7 +107,7 @@ internal static class TestCaseEmitter
         StringBuilder builder,
         TestMethodDescriptor test,
         List<LifecycleMethodDescriptor> lifecycleMethods,
-        ImmutableArray<TypedConstant> combination,
+        EquatableArray<ConstantValue> combination,
         int matrixIndex,
         int? repeatIndex = null)
     {
@@ -227,7 +225,7 @@ internal static class TestCaseEmitter
         StringBuilder builder,
         TestMethodDescriptor test,
         List<LifecycleMethodDescriptor> lifecycleMethods,
-        ImmutableArray<ClassDataSource> classDataSources)
+        EquatableArray<ClassDataSource> classDataSources)
     {
         // Build the DataSourceTypes array literal
         var typesList = string.Join(", ", classDataSources.Select(s => $"typeof({s.TypeName})"));

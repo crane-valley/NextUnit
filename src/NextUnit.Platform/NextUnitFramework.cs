@@ -153,41 +153,23 @@ internal sealed class NextUnitFramework :
 
         allTestCases.AddRange(generatedRegistry.TestCases);
 
-        if (generatedRegistry.TestDataDescriptors.Count > 0)
-        {
-            // Filter TestDataDescriptors BEFORE expansion to avoid executing data providers for excluded tests
-            var filteredDescriptors = generatedRegistry.TestDataDescriptors
-                .Where(td => _filterConfig.ShouldExpandDynamicTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit))
-                .ToList();
+        AddFilteredExpansion(
+            generatedRegistry.TestDataDescriptors,
+            td => _filterConfig.ShouldExpandDynamicTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit),
+            TestDataExpander.Expand,
+            allTestCases);
 
-            // Expand only the filtered TestDataDescriptors into TestCaseDescriptors at runtime
-            var expandedTests = TestDataExpander.Expand(filteredDescriptors);
-            allTestCases.AddRange(expandedTests);
-        }
+        AddFilteredExpansion(
+            generatedRegistry.ClassDataSourceDescriptors,
+            cd => _filterConfig.ShouldExpandDynamicTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit),
+            ClassDataSourceExpander.Expand,
+            allTestCases);
 
-        if (generatedRegistry.ClassDataSourceDescriptors.Count > 0)
-        {
-            // Filter ClassDataSourceDescriptors BEFORE expansion to avoid instantiating data sources for excluded tests
-            var filteredDescriptors = generatedRegistry.ClassDataSourceDescriptors
-                .Where(cd => _filterConfig.ShouldExpandDynamicTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
-                .ToList();
-
-            // Expand only the filtered ClassDataSourceDescriptors into TestCaseDescriptors at runtime
-            var expandedTests = ClassDataSourceExpander.Expand(filteredDescriptors);
-            allTestCases.AddRange(expandedTests);
-        }
-
-        if (generatedRegistry.CombinedDataSourceDescriptors.Count > 0)
-        {
-            // Filter CombinedDataSourceDescriptors BEFORE expansion to avoid resolving data sources for excluded tests
-            var filteredDescriptors = generatedRegistry.CombinedDataSourceDescriptors
-                .Where(cd => _filterConfig.ShouldExpandDynamicTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit))
-                .ToList();
-
-            // Expand only the filtered CombinedDataSourceDescriptors into TestCaseDescriptors at runtime
-            var expandedTests = CombinedDataSourceExpander.Expand(filteredDescriptors);
-            allTestCases.AddRange(expandedTests);
-        }
+        AddFilteredExpansion(
+            generatedRegistry.CombinedDataSourceDescriptors,
+            cd => _filterConfig.ShouldExpandDynamicTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit),
+            CombinedDataSourceExpander.Expand,
+            allTestCases);
 
         // Apply category and tag filtering to static test cases
         var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags, tc.DisplayName, tc.IsExplicit)).ToList();
@@ -206,6 +188,25 @@ internal sealed class NextUnitFramework :
 
         _testCases = filteredTestCases;
         return _testCases;
+    }
+
+    /// <summary>
+    /// Filters descriptors before expanding them, so data providers are never executed for tests the
+    /// current filter excludes, and appends the expansion result.
+    /// </summary>
+    private static void AddFilteredExpansion<TDescriptor>(
+        IReadOnlyList<TDescriptor> descriptors,
+        Func<TDescriptor, bool> shouldExpand,
+        Func<IEnumerable<TDescriptor>, IEnumerable<TestCaseDescriptor>> expand,
+        List<TestCaseDescriptor> destination)
+    {
+        if (descriptors.Count == 0)
+        {
+            return;
+        }
+
+        var filteredDescriptors = descriptors.Where(shouldExpand).ToList();
+        destination.AddRange(expand(filteredDescriptors));
     }
 
     private static TestFilterConfiguration LoadFilterConfiguration(IServiceProvider services)

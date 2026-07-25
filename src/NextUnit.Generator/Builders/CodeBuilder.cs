@@ -1,6 +1,4 @@
-using System.Collections.Immutable;
 using System.Text;
-using Microsoft.CodeAnalysis;
 using NextUnit.Generator.Formatters;
 using NextUnit.Generator.Helpers;
 using NextUnit.Generator.Models;
@@ -42,8 +40,8 @@ internal static class CodeBuilder
     public static string BuildParameterizedTestMethodDelegate(
         string typeName,
         string methodName,
-        ImmutableArray<IParameterSymbol> parameters,
-        ImmutableArray<TypedConstant> arguments,
+        EquatableArray<ParameterDescriptor> parameters,
+        EquatableArray<ConstantValue> arguments,
         bool isStatic,
         MethodReturnKind returnKind,
         bool acceptsCancellationToken)
@@ -59,7 +57,7 @@ internal static class CodeBuilder
             var arg = arguments[i];
             var param = i < parameters.Length ? parameters[i] : null;
 
-            argsBuilder.Append(ArgumentFormatter.FormatArgumentValue(arg, param?.Type));
+            argsBuilder.Append(ArgumentFormatter.FormatArgumentValue(arg, param));
         }
 
         if (acceptsCancellationToken)
@@ -108,7 +106,7 @@ internal static class CodeBuilder
                 continue;
             }
 
-            var typeName = parameter.Type.ToDisplayString(AttributeHelper.TypeofCompatibleFormat);
+            var typeName = parameter.TypeofName;
             arguments.Append(
                 $"global::NextUnit.Internal.ArgumentConverter.Convert<{typeName}>(arguments[{runtimeArgumentIndex}], {AttributeHelper.ToLiteral(parameter.Name)}, {AttributeHelper.ToLiteral(test.MethodName)})");
             runtimeArgumentIndex++;
@@ -275,7 +273,7 @@ internal static class CodeBuilder
     /// <summary>
     /// Builds a dependencies literal.
     /// </summary>
-    public static string BuildDependenciesLiteral(ImmutableArray<string> dependencies)
+    public static string BuildDependenciesLiteral(EquatableArray<string> dependencies)
     {
         if (dependencies.IsDefaultOrEmpty)
         {
@@ -302,7 +300,7 @@ internal static class CodeBuilder
     /// <summary>
     /// Builds a string array literal.
     /// </summary>
-    public static string BuildStringArrayLiteral(ImmutableArray<string> strings)
+    public static string BuildStringArrayLiteral(EquatableArray<string> strings)
     {
         if (strings.IsDefaultOrEmpty)
         {
@@ -329,7 +327,7 @@ internal static class CodeBuilder
     /// <summary>
     /// Builds a parameter types literal.
     /// </summary>
-    public static string BuildParameterTypesLiteral(ImmutableArray<IParameterSymbol> parameters)
+    public static string BuildParameterTypesLiteral(EquatableArray<ParameterDescriptor> parameters)
     {
         if (parameters.IsDefaultOrEmpty)
         {
@@ -346,7 +344,7 @@ internal static class CodeBuilder
                 builder.Append(", ");
             }
 
-            builder.Append($"typeof({parameters[i].Type.ToDisplayString(AttributeHelper.TypeofCompatibleFormat)})");
+            builder.Append($"typeof({parameters[i].TypeofName})");
         }
 
         builder.Append(" }");
@@ -356,7 +354,7 @@ internal static class CodeBuilder
     /// <summary>
     /// Builds a dependency infos literal array.
     /// </summary>
-    public static string BuildDependencyInfosLiteral(ImmutableArray<DependencyDescriptor> dependencyInfos)
+    public static string BuildDependencyInfosLiteral(EquatableArray<DependencyDescriptor> dependencyInfos)
     {
         if (dependencyInfos.IsDefaultOrEmpty)
         {

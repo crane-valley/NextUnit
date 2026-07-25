@@ -78,15 +78,17 @@ public static class ClassDataSourceExpander
             }
         }
 
-        var testMethod = descriptor.TestMethodWithArguments ??
-            ReflectionTestInvokerFactory.Create(
-                descriptor.TestClass,
-                descriptor.MethodName,
-                descriptor.ParameterTypes);
+        var seed = new TestCaseSeed(descriptor);
+        var testMethod = seed.ResolveTestInvoker();
+
+        // Build unique test ID including all source type names
+        var combinedSourceTypesName = string.Join("+", descriptor.DataSourceTypes.Select(t => t.Name));
+        var idPrefix = $"{descriptor.BaseId}:ClassData:{combinedSourceTypesName}";
+
         var index = 0;
         foreach (var row in allData)
         {
-            yield return CreateTestCase(descriptor, row, testMethod, index);
+            yield return seed.CreateTestCase($"{idPrefix}[{index}]", row.Arguments, index, testMethod, row);
             index++;
         }
     }
@@ -191,53 +193,6 @@ public static class ClassDataSourceExpander
                 $"Failed to create instance of '{sourceType.FullName}'",
                 ex);
         }
-    }
-
-    private static TestCaseDescriptor CreateTestCase(
-        ClassDataSourceDescriptor descriptor,
-        ResolvedTestDataRow row,
-        TestMethodWithArgumentsDelegate? testMethod,
-        int index)
-    {
-        // Build unique test ID including all source type names
-        var combinedSourceTypesName = string.Join("+", descriptor.DataSourceTypes.Select(t => t.Name));
-        var testId = $"{descriptor.BaseId}:ClassData:{combinedSourceTypesName}[{index}]";
-
-        var displayName = row.DisplayName ?? DisplayNameBuilder.Build(
-            descriptor.MethodName,
-            descriptor.CustomDisplayNameTemplate,
-            descriptor.DisplayNameFormatterType,
-            descriptor.TestClass,
-            row.Arguments,
-            index);
-
-        return new TestCaseDescriptor
-        {
-            Id = new TestCaseId(testId),
-            DisplayName = displayName,
-            TestClass = descriptor.TestClass,
-            MethodName = descriptor.MethodName,
-            TestMethodWithArguments = testMethod,
-            TestClassFactory = descriptor.TestClassFactory,
-            Lifecycle = descriptor.Lifecycle,
-            Parallel = descriptor.Parallel,
-            Dependencies = descriptor.Dependencies,
-            DependencyInfos = descriptor.DependencyInfos,
-            IsSkipped = descriptor.IsSkipped || row.SkipReason is not null,
-            SkipReason = descriptor.SkipReason ?? row.SkipReason,
-            IsExplicit = descriptor.IsExplicit,
-            ExplicitReason = descriptor.ExplicitReason,
-            Arguments = row.Arguments,
-            Categories = TestDataRowResolver.MergeLabels(descriptor.Categories, row.Categories),
-            Tags = TestDataRowResolver.MergeLabels(descriptor.Tags, row.Tags),
-            RequiresTestOutput = descriptor.RequiresTestOutput,
-            RequiresTestContext = descriptor.RequiresTestContext,
-            TimeoutMs = descriptor.TimeoutMs,
-            Retry = descriptor.Retry,
-            CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate,
-            DisplayNameFormatterType = descriptor.DisplayNameFormatterType,
-            Priority = descriptor.Priority
-        };
     }
 
 }

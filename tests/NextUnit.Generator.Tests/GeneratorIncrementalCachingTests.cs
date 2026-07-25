@@ -42,7 +42,7 @@ public class GeneratorIncrementalCachingTests
         }
         """;
 
-    [Fact(Skip = "Expected to fail until TD-10 is fixed in Phase 7: the pipeline models are non-equatable classes that hold Roslyn symbols, so an edit anywhere in the file invalidates the whole pipeline. Verified locally to fail with reason 'Modified'. Un-skip in Phase 7.")]
+    [Fact]
     public async Task UnrelatedEditInSameFile_KeepsSourceOutputCachedAsync()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
