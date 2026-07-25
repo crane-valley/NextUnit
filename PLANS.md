@@ -136,8 +136,8 @@ need a deliberate compatibility decision rather than a drive-by fix.
 
 - [x] `Assert.Throws<T>(action, string)` and the async equivalent always bind to the
   custom-message overload, so the expectedMessage validation overload is unreachable with two
-  arguments; resolved by deleting the sync and async expectedMessage-validation overloads, leaving
-  the custom-message overloads as the only two-argument binding.
+  arguments; resolved by marking the sync and async expectedMessage-validation overloads
+  `[Obsolete]` in 1.x, with removal planned for 2.0 so the published API stays compatible.
 - [x] `Assert.NotInRange` XML doc says the range is exclusive, but the implementation treats the
   bounds as inclusive; resolved by aligning the doc (and the getting-started reference) with the
   existing inclusive-bounds behavior, with no runtime change.
