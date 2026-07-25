@@ -27,6 +27,8 @@
     <Project Path="samples/Console.Sample/Console.Sample/Console.Sample.csproj" />
     <Project Path="samples/Console.Sample.Tests/Console.Sample.Tests/Console.Sample.Tests.csproj" />
     <Project Path="samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj" Id="cc1ced14-e28b-41b6-be0f-9e4536c6225a" />
+    <Project Path="samples/WebApi.Sample/WebApi.Sample.csproj" />
+    <Project Path="samples/WebApi.Sample.Tests/WebApi.Sample.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/NextUnit.Analyzers.Tests/NextUnit.Analyzers.Tests.csproj" />

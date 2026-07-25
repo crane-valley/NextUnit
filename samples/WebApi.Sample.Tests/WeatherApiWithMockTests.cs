@@ -19,7 +19,7 @@ public class WeatherApiWithMockTests : WebApiTestBase
     }
 
     [Test]
-    public async Task GetWeatherForecast_WithMock_ReturnsMockedData()
+    public async Task GetWeatherForecast_WithMock_ReturnsMockedDataAsync()
     {
         var forecasts = await Client.GetFromJsonAsync<WeatherForecast[]>("/weatherforecast");
 
@@ -31,7 +31,7 @@ public class WeatherApiWithMockTests : WebApiTestBase
     }
 
     [Test]
-    public async Task GetWeatherForecastByCity_WithMock_ReturnsOkForMockCity()
+    public async Task GetWeatherForecastByCity_WithMock_ReturnsOkForMockCityAsync()
     {
         var response = await Client.GetAsync("/weatherforecast/MockCity");
 
@@ -39,7 +39,7 @@ public class WeatherApiWithMockTests : WebApiTestBase
     }
 
     [Test]
-    public async Task GetWeatherForecastByCity_WithMock_ReturnsNotFoundForOtherCities()
+    public async Task GetWeatherForecastByCity_WithMock_ReturnsNotFoundForOtherCitiesAsync()
     {
         var response = await Client.GetAsync("/weatherforecast/Tokyo");
 
@@ -52,13 +52,13 @@ public class WeatherApiWithMockTests : WebApiTestBase
 /// </summary>
 public class MockWeatherService : IWeatherService
 {
-    private static readonly DateOnly FixedDate = new(2026, 1, 25);
+    private static readonly DateOnly _fixedDate = new(2026, 1, 25);
 
     public IEnumerable<WeatherForecast> GetForecast()
     {
         return
         [
-            new WeatherForecast("MockCity", FixedDate, 25, "Sunny")
+            new WeatherForecast("MockCity", _fixedDate, 25, "Sunny")
         ];
     }
 
@@ -66,7 +66,7 @@ public class MockWeatherService : IWeatherService
     {
         if (city.Equals("MockCity", StringComparison.OrdinalIgnoreCase))
         {
-            return new WeatherForecast("MockCity", FixedDate, 25, "Sunny");
+            return new WeatherForecast("MockCity", _fixedDate, 25, "Sunny");
         }
         return null;
     }
