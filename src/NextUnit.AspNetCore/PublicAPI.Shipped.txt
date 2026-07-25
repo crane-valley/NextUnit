@@ -1,0 +1,33 @@
+#nullable enable
+NextUnit.AspNetCore.ServiceCollectionExtensions
+NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint>
+NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint>.CreateAsyncScope() -> Microsoft.Extensions.DependencyInjection.AsyncServiceScope
+NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint>.CreateScope() -> Microsoft.Extensions.DependencyInjection.IServiceScope!
+NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint>.GetRequiredService<TService>() -> TService
+NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint>.GetService<TService>() -> TService?
+NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint>.TestWebApplicationFactory() -> void
+NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint>.WithTestServices(System.Action<Microsoft.Extensions.DependencyInjection.IServiceCollection!>! configuration) -> NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint!>!
+NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint>.WithWebHostBuilder(System.Action<Microsoft.AspNetCore.Hosting.IWebHostBuilder!>! configuration) -> NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint!>!
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.Client.get -> System.Net.Http.HttpClient!
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.CreateAsyncScope() -> Microsoft.Extensions.DependencyInjection.AsyncServiceScope
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.CreateScope() -> Microsoft.Extensions.DependencyInjection.IServiceScope!
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.Dispose() -> void
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.DisposeAsync() -> System.Threading.Tasks.ValueTask
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.Factory.get -> NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint!>!
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.GetRequiredService<TService>() -> TService
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.GetService<TService>() -> TService?
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.IsClientInitialized.get -> bool
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.IsFactoryInitialized.get -> bool
+NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.WebApplicationTest() -> void
+override NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint>.ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder! builder) -> void
+static NextUnit.AspNetCore.ServiceCollectionExtensions.RemoveAll<TService>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static NextUnit.AspNetCore.ServiceCollectionExtensions.Replace<TService, TImplementation>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime = Microsoft.Extensions.DependencyInjection.ServiceLifetime.Scoped) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static NextUnit.AspNetCore.ServiceCollectionExtensions.Replace<TService>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Func<System.IServiceProvider!, TService!>! implementationFactory, Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime = Microsoft.Extensions.DependencyInjection.ServiceLifetime.Scoped) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static NextUnit.AspNetCore.ServiceCollectionExtensions.Replace<TService>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, TService! instance) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+virtual NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.ConfigureClient(System.Net.Http.HttpClient! client) -> void
+virtual NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.ConfigureTestServices(Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> void
+virtual NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder! builder) -> void
+virtual NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.CreateClient() -> System.Net.Http.HttpClient!
+virtual NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.CreateFactory() -> NextUnit.AspNetCore.TestWebApplicationFactory<TEntryPoint!>!
+virtual NextUnit.AspNetCore.WebApplicationTest<TEntryPoint>.DisposeAsyncCore() -> System.Threading.Tasks.ValueTask

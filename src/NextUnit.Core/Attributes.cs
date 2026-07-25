@@ -36,6 +36,11 @@ public enum LifecycleScope
     /// <summary>
     /// Executes during the test discovery phase.
     /// </summary>
+    /// <remarks>
+    /// Reserved and not implemented. The source generator does not emit hooks for this scope and the
+    /// runtime never invokes them, so <c>[Before(LifecycleScope.Discovery)]</c> and
+    /// <c>[After(LifecycleScope.Discovery)]</c> are silently ignored.
+    /// </remarks>
     Discovery,
 }
 

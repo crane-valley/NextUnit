@@ -836,6 +836,137 @@ public sealed class TestExecutionEngineTests
         }
     }
 
+    [Test]
+    public async Task ClassSetupFailure_AbortsRunWithoutRetryingSetupAsync()
+    {
+        // Characterization: class setup runs in the pre-execution skip check, outside the retry loop,
+        // so [Retry] never re-runs a failing BeforeClass hook. The failure is not attributed to a test
+        // node either - it aborts the run and surfaces from RunAsync.
+        var setupInvocations = 0;
+        var testInvocations = 0;
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("class.setup.failure"),
+            DisplayName = "class.setup.failure",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Retry = new RetryInfo { Count = 3 },
+            TestMethod = (_, _) =>
+            {
+                Interlocked.Increment(ref testInvocations);
+                return Task.CompletedTask;
+            },
+            Lifecycle = new LifecycleInfo
+            {
+                BeforeClassMethods =
+                [
+                    (_, _) =>
+                    {
+                        Interlocked.Increment(ref setupInvocations);
+                        throw new InvalidOperationException("class setup boom");
+                    }
+                ]
+            }
+        };
+
+        var sink = new RecordingSink();
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None));
+
+        Assert.Contains("class setup boom", error.Message);
+        Assert.Equal(1, setupInvocations);
+        Assert.Equal(0, testInvocations);
+        Assert.Empty(sink.Passed);
+        Assert.Empty(sink.Errors);
+        Assert.Empty(sink.Skipped);
+    }
+
+    [Test]
+    public async Task ClassSetupSkip_SkipsEveryTestInClassAndRunsSetupOnceAsync()
+    {
+        // Characterization: TestSkippedException is the one class-setup exception that is caught;
+        // it marks the class context so every test in the class is reported skipped with that reason,
+        // and the setup is not attempted again for the second test.
+        var setupInvocations = 0;
+        var lifecycle = new LifecycleInfo
+        {
+            BeforeClassMethods =
+            [
+                (_, _) =>
+                {
+                    Interlocked.Increment(ref setupInvocations);
+                    throw new TestSkippedException("environment unavailable");
+                }
+            ]
+        };
+
+        TestCaseDescriptor CreateTest(string id) => new()
+        {
+            Id = new TestCaseId(id),
+            DisplayName = id,
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            Parallel = new ParallelInfo { NotInParallel = true },
+            TestMethod = static (_, _) => Task.CompletedTask,
+            Lifecycle = lifecycle
+        };
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync(
+            [CreateTest("class.setup.skip.1"), CreateTest("class.setup.skip.2")],
+            sink,
+            CancellationToken.None);
+
+        Assert.Equal(1, setupInvocations);
+        Assert.Equal(2, sink.Skipped.Count);
+        Assert.All(sink.Skipped, static test => Assert.Equal("environment unavailable", test.SkipReason));
+        Assert.Empty(sink.Passed);
+        Assert.Empty(sink.Errors);
+    }
+
+    [Test]
+    public async Task ClassAndAssemblyTeardownFailures_ReportOnSeparateScopeNodesAsync()
+    {
+        // Characterization: both cleanup scopes report through the sink on synthetic nodes - a class
+        // teardown failure on a [ClassTeardown] node and an assembly teardown failure on an
+        // [AssemblyTeardown] node. Neither swallows the other, and neither fails the passing test.
+        var engine = new TestExecutionEngine();
+        engine.SetGlobalAssemblyLifecycle(
+            beforeMethods: null,
+            afterMethods: [static (_, _) => throw new InvalidOperationException("assembly teardown boom")]);
+
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("teardown.both.scopes"),
+            DisplayName = "teardown.both.scopes",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            TestMethod = static (_, _) => Task.CompletedTask,
+            Lifecycle = new LifecycleInfo
+            {
+                AfterClassMethods =
+                [
+                    static (_, _) => throw new InvalidOperationException("class teardown boom")
+                ]
+            }
+        };
+
+        var sink = new RecordingSink();
+        await engine.RunAsync([test], sink, CancellationToken.None);
+
+        Assert.Single(sink.Passed);
+        Assert.Equal(2, sink.Errors.Count);
+        Assert.Contains(sink.Errors, static error =>
+            error.Test.Id.Value.EndsWith("[ClassTeardown]", StringComparison.Ordinal)
+            && error.Exception.Message.Contains("class teardown boom"));
+        Assert.Contains(sink.Errors, static error =>
+            error.Test.Id.Value.EndsWith("[AssemblyTeardown]", StringComparison.Ordinal)
+            && error.Exception.Message.Contains("assembly teardown boom"));
+    }
+
     /// <summary>
     /// Narrows an exception to <see cref="AggregateException"/> without a null-forgiving dereference.
     /// </summary>

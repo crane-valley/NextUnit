@@ -1,0 +1,10 @@
+#nullable enable
+const NextUnit.TestAdapter.NextUnitTestExecutor.ExecutorUri = "executor://NextUnitTestExecutor/v1" -> string!
+NextUnit.TestAdapter.NextUnitTestDiscoverer
+NextUnit.TestAdapter.NextUnitTestDiscoverer.DiscoverTests(System.Collections.Generic.IEnumerable<string!>! sources, Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter.IDiscoveryContext! discoveryContext, Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging.IMessageLogger! logger, Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter.ITestCaseDiscoverySink! discoverySink) -> void
+NextUnit.TestAdapter.NextUnitTestDiscoverer.NextUnitTestDiscoverer() -> void
+NextUnit.TestAdapter.NextUnitTestExecutor
+NextUnit.TestAdapter.NextUnitTestExecutor.Cancel() -> void
+NextUnit.TestAdapter.NextUnitTestExecutor.NextUnitTestExecutor() -> void
+NextUnit.TestAdapter.NextUnitTestExecutor.RunTests(System.Collections.Generic.IEnumerable<Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase!>? tests, Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter.IRunContext? runContext, Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter.IFrameworkHandle? frameworkHandle) -> void
+NextUnit.TestAdapter.NextUnitTestExecutor.RunTests(System.Collections.Generic.IEnumerable<string!>? sources, Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter.IRunContext? runContext, Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter.IFrameworkHandle? frameworkHandle) -> void

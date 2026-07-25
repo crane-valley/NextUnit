@@ -1,0 +1,627 @@
+#nullable enable
+NextUnit.AfterAttribute
+NextUnit.AfterAttribute.AfterAttribute(NextUnit.LifecycleScope scope) -> void
+NextUnit.AfterAttribute.Scope.get -> NextUnit.LifecycleScope
+NextUnit.ArgumentsAttribute
+NextUnit.ArgumentsAttribute.Arguments.get -> object?[]!
+NextUnit.ArgumentsAttribute.ArgumentsAttribute(params object?[]! args) -> void
+NextUnit.Artifact
+NextUnit.Artifact.Artifact() -> void
+NextUnit.Artifact.Description.get -> string?
+NextUnit.Artifact.Description.init -> void
+NextUnit.Artifact.FilePath.get -> string!
+NextUnit.Artifact.FilePath.init -> void
+NextUnit.Artifact.MimeType.get -> string?
+NextUnit.Artifact.MimeType.init -> void
+NextUnit.Assert
+NextUnit.AssertionFailedException
+NextUnit.AssertionFailedException.AssertionFailedException() -> void
+NextUnit.AssertionFailedException.AssertionFailedException(string! message, System.Exception! inner) -> void
+NextUnit.AssertionFailedException.AssertionFailedException(string! message) -> void
+NextUnit.BeforeAttribute
+NextUnit.BeforeAttribute.BeforeAttribute(NextUnit.LifecycleScope scope) -> void
+NextUnit.BeforeAttribute.Scope.get -> NextUnit.LifecycleScope
+NextUnit.CategoryAttribute
+NextUnit.CategoryAttribute.CategoryAttribute(string! name) -> void
+NextUnit.CategoryAttribute.Name.get -> string!
+NextUnit.ClassDataSourceAttribute<T>
+NextUnit.ClassDataSourceAttribute<T>.ClassDataSourceAttribute() -> void
+NextUnit.ClassDataSourceAttribute<T>.Key.get -> string?
+NextUnit.ClassDataSourceAttribute<T>.Key.set -> void
+NextUnit.ClassDataSourceAttribute<T>.Shared.get -> NextUnit.SharedType
+NextUnit.ClassDataSourceAttribute<T>.Shared.set -> void
+NextUnit.ClassDataSourceAttribute<T1, T2, T3, T4>
+NextUnit.ClassDataSourceAttribute<T1, T2, T3, T4>.ClassDataSourceAttribute() -> void
+NextUnit.ClassDataSourceAttribute<T1, T2, T3, T4>.Key.get -> string?
+NextUnit.ClassDataSourceAttribute<T1, T2, T3, T4>.Key.set -> void
+NextUnit.ClassDataSourceAttribute<T1, T2, T3, T4>.Shared.get -> NextUnit.SharedType
+NextUnit.ClassDataSourceAttribute<T1, T2, T3, T4>.Shared.set -> void
+NextUnit.ClassDataSourceAttribute<T1, T2, T3>
+NextUnit.ClassDataSourceAttribute<T1, T2, T3>.ClassDataSourceAttribute() -> void
+NextUnit.ClassDataSourceAttribute<T1, T2, T3>.Key.get -> string?
+NextUnit.ClassDataSourceAttribute<T1, T2, T3>.Key.set -> void
+NextUnit.ClassDataSourceAttribute<T1, T2, T3>.Shared.get -> NextUnit.SharedType
+NextUnit.ClassDataSourceAttribute<T1, T2, T3>.Shared.set -> void
+NextUnit.ClassDataSourceAttribute<T1, T2>
+NextUnit.ClassDataSourceAttribute<T1, T2>.ClassDataSourceAttribute() -> void
+NextUnit.ClassDataSourceAttribute<T1, T2>.Key.get -> string?
+NextUnit.ClassDataSourceAttribute<T1, T2>.Key.set -> void
+NextUnit.ClassDataSourceAttribute<T1, T2>.Shared.get -> NextUnit.SharedType
+NextUnit.ClassDataSourceAttribute<T1, T2>.Shared.set -> void
+NextUnit.Core.ITestContext
+NextUnit.Core.ITestContext.Arguments.get -> object?[]?
+NextUnit.Core.ITestContext.Artifacts.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Artifact!>!
+NextUnit.Core.ITestContext.AssemblyName.get -> string!
+NextUnit.Core.ITestContext.AttachArtifact(NextUnit.Artifact! artifact) -> void
+NextUnit.Core.ITestContext.AttachArtifact(string! filePath, string? description = null) -> void
+NextUnit.Core.ITestContext.CancellationToken.get -> System.Threading.CancellationToken
+NextUnit.Core.ITestContext.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Core.ITestContext.ClassName.get -> string!
+NextUnit.Core.ITestContext.FullyQualifiedName.get -> string!
+NextUnit.Core.ITestContext.Output.get -> NextUnit.Core.ITestOutput!
+NextUnit.Core.ITestContext.RepeatIndex.get -> int?
+NextUnit.Core.ITestContext.StateBag.get -> System.Collections.Generic.IDictionary<string!, object?>!
+NextUnit.Core.ITestContext.Tags.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Core.ITestContext.TestName.get -> string!
+NextUnit.Core.ITestContext.TimeoutMs.get -> int?
+NextUnit.Core.ITestOutput
+NextUnit.Core.ITestOutput.WriteLine(string! format, params object?[]! args) -> void
+NextUnit.Core.ITestOutput.WriteLine(string! message) -> void
+NextUnit.Core.TestContext
+NextUnit.DependsOnAttribute
+NextUnit.DependsOnAttribute.DependsOnAttribute(params string![]! methodNames) -> void
+NextUnit.DependsOnAttribute.MethodNames.get -> string![]!
+NextUnit.DependsOnAttribute.ProceedOnFailure.get -> bool
+NextUnit.DependsOnAttribute.ProceedOnFailure.set -> void
+NextUnit.DisplayNameAttribute
+NextUnit.DisplayNameAttribute.DisplayNameAttribute(string! name) -> void
+NextUnit.DisplayNameAttribute.Name.get -> string!
+NextUnit.DisplayNameContext
+NextUnit.DisplayNameContext.Arguments.get -> object?[]?
+NextUnit.DisplayNameContext.Arguments.init -> void
+NextUnit.DisplayNameContext.ArgumentSetIndex.get -> int
+NextUnit.DisplayNameContext.ArgumentSetIndex.init -> void
+NextUnit.DisplayNameContext.DisplayNameContext() -> void
+NextUnit.DisplayNameContext.MethodName.get -> string!
+NextUnit.DisplayNameContext.MethodName.init -> void
+NextUnit.DisplayNameContext.TestClass.get -> System.Type!
+NextUnit.DisplayNameContext.TestClass.init -> void
+NextUnit.DisplayNameFormatterAttribute
+NextUnit.DisplayNameFormatterAttribute.DisplayNameFormatterAttribute(System.Type! formatterType) -> void
+NextUnit.DisplayNameFormatterAttribute.FormatterType.get -> System.Type!
+NextUnit.DisplayNameFormatterAttribute<TFormatter>
+NextUnit.DisplayNameFormatterAttribute<TFormatter>.DisplayNameFormatterAttribute() -> void
+NextUnit.DisplayNameFormatterAttribute<TFormatter>.FormatterType.get -> System.Type!
+NextUnit.ExecutionPriorityAttribute
+NextUnit.ExecutionPriorityAttribute.ExecutionPriorityAttribute(int priority) -> void
+NextUnit.ExecutionPriorityAttribute.Priority.get -> int
+NextUnit.ExplicitAttribute
+NextUnit.ExplicitAttribute.ExplicitAttribute() -> void
+NextUnit.ExplicitAttribute.ExplicitAttribute(string! reason) -> void
+NextUnit.ExplicitAttribute.Reason.get -> string?
+NextUnit.FlakyAttribute
+NextUnit.FlakyAttribute.FlakyAttribute() -> void
+NextUnit.FlakyAttribute.FlakyAttribute(string! reason) -> void
+NextUnit.FlakyAttribute.Reason.get -> string?
+NextUnit.IDisplayNameFormatter
+NextUnit.IDisplayNameFormatter.Format(NextUnit.DisplayNameContext context) -> string!
+NextUnit.Internal.ArgumentConverter
+NextUnit.Internal.ClassDataSourceDescriptor
+NextUnit.Internal.ClassDataSourceDescriptor.BaseId.get -> string!
+NextUnit.Internal.ClassDataSourceDescriptor.BaseId.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.ClassDataSourceDescriptor.Categories.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.ClassDataSourceDescriptor() -> void
+NextUnit.Internal.ClassDataSourceDescriptor.CustomDisplayNameTemplate.get -> string?
+NextUnit.Internal.ClassDataSourceDescriptor.CustomDisplayNameTemplate.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.DataSourceFactories.get -> NextUnit.Internal.DataSourceProviderDelegate?[]!
+NextUnit.Internal.ClassDataSourceDescriptor.DataSourceFactories.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.DataSourceTypes.get -> System.Type![]!
+NextUnit.Internal.ClassDataSourceDescriptor.DataSourceTypes.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.Dependencies.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseId!>!
+NextUnit.Internal.ClassDataSourceDescriptor.Dependencies.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.DependencyInfos.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.DependencyInfo!>!
+NextUnit.Internal.ClassDataSourceDescriptor.DependencyInfos.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.DisplayName.get -> string!
+NextUnit.Internal.ClassDataSourceDescriptor.DisplayName.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.DisplayNameFormatterType.get -> System.Type?
+NextUnit.Internal.ClassDataSourceDescriptor.DisplayNameFormatterType.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.ExplicitReason.get -> string?
+NextUnit.Internal.ClassDataSourceDescriptor.ExplicitReason.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.IsExplicit.get -> bool
+NextUnit.Internal.ClassDataSourceDescriptor.IsExplicit.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.IsSkipped.get -> bool
+NextUnit.Internal.ClassDataSourceDescriptor.IsSkipped.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.Lifecycle.get -> NextUnit.Internal.LifecycleInfo!
+NextUnit.Internal.ClassDataSourceDescriptor.Lifecycle.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.MethodName.get -> string!
+NextUnit.Internal.ClassDataSourceDescriptor.MethodName.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.Parallel.get -> NextUnit.Internal.ParallelInfo!
+NextUnit.Internal.ClassDataSourceDescriptor.Parallel.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.ParameterTypes.get -> System.Type![]!
+NextUnit.Internal.ClassDataSourceDescriptor.ParameterTypes.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.Priority.get -> int
+NextUnit.Internal.ClassDataSourceDescriptor.Priority.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.RequiresTestContext.get -> bool
+NextUnit.Internal.ClassDataSourceDescriptor.RequiresTestContext.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.RequiresTestOutput.get -> bool
+NextUnit.Internal.ClassDataSourceDescriptor.RequiresTestOutput.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.Retry.get -> NextUnit.Internal.RetryInfo!
+NextUnit.Internal.ClassDataSourceDescriptor.Retry.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.SharedKey.get -> string?
+NextUnit.Internal.ClassDataSourceDescriptor.SharedKey.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.SharedType.get -> NextUnit.SharedType
+NextUnit.Internal.ClassDataSourceDescriptor.SharedType.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.SkipReason.get -> string?
+NextUnit.Internal.ClassDataSourceDescriptor.SkipReason.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.Tags.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.ClassDataSourceDescriptor.Tags.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.TestClass.get -> System.Type!
+NextUnit.Internal.ClassDataSourceDescriptor.TestClass.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.TestClassFactory.get -> NextUnit.Internal.TestClassFactoryDelegate?
+NextUnit.Internal.ClassDataSourceDescriptor.TestClassFactory.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.TestMethodWithArguments.get -> NextUnit.Internal.TestMethodWithArgumentsDelegate?
+NextUnit.Internal.ClassDataSourceDescriptor.TestMethodWithArguments.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.TimeoutMs.get -> int?
+NextUnit.Internal.ClassDataSourceDescriptor.TimeoutMs.init -> void
+NextUnit.Internal.ClassDataSourceExpander
+NextUnit.Internal.CombinedDataSourceDescriptor
+NextUnit.Internal.CombinedDataSourceDescriptor.BaseId.get -> string!
+NextUnit.Internal.CombinedDataSourceDescriptor.BaseId.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.CombinedDataSourceDescriptor.Categories.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.CombinedDataSourceDescriptor() -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.CustomDisplayNameTemplate.get -> string?
+NextUnit.Internal.CombinedDataSourceDescriptor.CustomDisplayNameTemplate.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.Dependencies.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseId!>!
+NextUnit.Internal.CombinedDataSourceDescriptor.Dependencies.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.DependencyInfos.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.DependencyInfo!>!
+NextUnit.Internal.CombinedDataSourceDescriptor.DependencyInfos.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.DisplayName.get -> string!
+NextUnit.Internal.CombinedDataSourceDescriptor.DisplayName.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.DisplayNameFormatterType.get -> System.Type?
+NextUnit.Internal.CombinedDataSourceDescriptor.DisplayNameFormatterType.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.ExplicitReason.get -> string?
+NextUnit.Internal.CombinedDataSourceDescriptor.ExplicitReason.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.IsExplicit.get -> bool
+NextUnit.Internal.CombinedDataSourceDescriptor.IsExplicit.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.IsSkipped.get -> bool
+NextUnit.Internal.CombinedDataSourceDescriptor.IsSkipped.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.Lifecycle.get -> NextUnit.Internal.LifecycleInfo!
+NextUnit.Internal.CombinedDataSourceDescriptor.Lifecycle.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.MethodName.get -> string!
+NextUnit.Internal.CombinedDataSourceDescriptor.MethodName.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.Parallel.get -> NextUnit.Internal.ParallelInfo!
+NextUnit.Internal.CombinedDataSourceDescriptor.Parallel.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.ParameterSources.get -> NextUnit.Internal.ParameterDataSource![]!
+NextUnit.Internal.CombinedDataSourceDescriptor.ParameterSources.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.ParameterTypes.get -> System.Type![]!
+NextUnit.Internal.CombinedDataSourceDescriptor.ParameterTypes.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.Priority.get -> int
+NextUnit.Internal.CombinedDataSourceDescriptor.Priority.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.RequiresTestContext.get -> bool
+NextUnit.Internal.CombinedDataSourceDescriptor.RequiresTestContext.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.RequiresTestOutput.get -> bool
+NextUnit.Internal.CombinedDataSourceDescriptor.RequiresTestOutput.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.Retry.get -> NextUnit.Internal.RetryInfo!
+NextUnit.Internal.CombinedDataSourceDescriptor.Retry.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.SkipReason.get -> string?
+NextUnit.Internal.CombinedDataSourceDescriptor.SkipReason.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.Tags.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.CombinedDataSourceDescriptor.Tags.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.TestClass.get -> System.Type!
+NextUnit.Internal.CombinedDataSourceDescriptor.TestClass.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.TestClassFactory.get -> NextUnit.Internal.TestClassFactoryDelegate?
+NextUnit.Internal.CombinedDataSourceDescriptor.TestClassFactory.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.TestMethodWithArguments.get -> NextUnit.Internal.TestMethodWithArgumentsDelegate?
+NextUnit.Internal.CombinedDataSourceDescriptor.TestMethodWithArguments.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.TimeoutMs.get -> int?
+NextUnit.Internal.CombinedDataSourceDescriptor.TimeoutMs.init -> void
+NextUnit.Internal.CombinedDataSourceExpander
+NextUnit.Internal.DataSourceProviderDelegate
+NextUnit.Internal.DependencyGraph
+NextUnit.Internal.DependencyGraph.Node
+NextUnit.Internal.DependencyGraph.Node.Dependents.get -> System.Collections.Generic.List<NextUnit.Internal.DependencyGraph.Node!>!
+NextUnit.Internal.DependencyGraph.Node.Node(NextUnit.Internal.TestCaseDescriptor! test) -> void
+NextUnit.Internal.DependencyGraph.Node.RemainingPrerequisites.get -> int
+NextUnit.Internal.DependencyGraph.Node.RemainingPrerequisites.set -> void
+NextUnit.Internal.DependencyGraph.Node.Test.get -> NextUnit.Internal.TestCaseDescriptor!
+NextUnit.Internal.DependencyGraph.Nodes.get -> System.Collections.Generic.IReadOnlyDictionary<NextUnit.Internal.TestCaseId!, NextUnit.Internal.DependencyGraph.Node!>!
+NextUnit.Internal.DependencyInfo
+NextUnit.Internal.DependencyInfo.DependencyInfo() -> void
+NextUnit.Internal.DependencyInfo.DependsOnId.get -> NextUnit.Internal.TestCaseId!
+NextUnit.Internal.DependencyInfo.DependsOnId.init -> void
+NextUnit.Internal.DependencyInfo.ProceedOnFailure.get -> bool
+NextUnit.Internal.DependencyInfo.ProceedOnFailure.init -> void
+NextUnit.Internal.GeneratedTestRegistryStore
+NextUnit.Internal.IGeneratedTestRegistry
+NextUnit.Internal.IGeneratedTestRegistry.ClassDataSourceDescriptors.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.ClassDataSourceDescriptor!>!
+NextUnit.Internal.IGeneratedTestRegistry.CombinedDataSourceDescriptors.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.CombinedDataSourceDescriptor!>!
+NextUnit.Internal.IGeneratedTestRegistry.GlobalAfterAssemblyMethods.get -> NextUnit.Internal.LifecycleMethodDelegate![]!
+NextUnit.Internal.IGeneratedTestRegistry.GlobalAfterSessionMethods.get -> NextUnit.Internal.LifecycleMethodDelegate![]!
+NextUnit.Internal.IGeneratedTestRegistry.GlobalBeforeAssemblyMethods.get -> NextUnit.Internal.LifecycleMethodDelegate![]!
+NextUnit.Internal.IGeneratedTestRegistry.GlobalBeforeSessionMethods.get -> NextUnit.Internal.LifecycleMethodDelegate![]!
+NextUnit.Internal.IGeneratedTestRegistry.TestCases.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!
+NextUnit.Internal.IGeneratedTestRegistry.TestDataDescriptors.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestDataDescriptor!>!
+NextUnit.Internal.ITestExecutionSink
+NextUnit.Internal.ITestExecutionSink.ReportErrorAsync(NextUnit.Internal.TestCaseDescriptor! test, System.Exception! ex, string? output = null, System.Collections.Generic.IReadOnlyList<NextUnit.Artifact!>? artifacts = null) -> System.Threading.Tasks.Task!
+NextUnit.Internal.ITestExecutionSink.ReportFailedAsync(NextUnit.Internal.TestCaseDescriptor! test, NextUnit.AssertionFailedException! ex, string? output = null, System.Collections.Generic.IReadOnlyList<NextUnit.Artifact!>? artifacts = null) -> System.Threading.Tasks.Task!
+NextUnit.Internal.ITestExecutionSink.ReportPassedAsync(NextUnit.Internal.TestCaseDescriptor! test, string? output = null, System.Collections.Generic.IReadOnlyList<NextUnit.Artifact!>? artifacts = null) -> System.Threading.Tasks.Task!
+NextUnit.Internal.ITestExecutionSink.ReportSkippedAsync(NextUnit.Internal.TestCaseDescriptor! test, System.Collections.Generic.IReadOnlyList<NextUnit.Artifact!>? artifacts = null) -> System.Threading.Tasks.Task!
+NextUnit.Internal.LifecycleInfo
+NextUnit.Internal.LifecycleInfo.AfterAssemblyMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
+NextUnit.Internal.LifecycleInfo.AfterAssemblyMethods.init -> void
+NextUnit.Internal.LifecycleInfo.AfterClassMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
+NextUnit.Internal.LifecycleInfo.AfterClassMethods.init -> void
+NextUnit.Internal.LifecycleInfo.AfterSessionMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
+NextUnit.Internal.LifecycleInfo.AfterSessionMethods.init -> void
+NextUnit.Internal.LifecycleInfo.AfterTestMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
+NextUnit.Internal.LifecycleInfo.AfterTestMethods.init -> void
+NextUnit.Internal.LifecycleInfo.BeforeAssemblyMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
+NextUnit.Internal.LifecycleInfo.BeforeAssemblyMethods.init -> void
+NextUnit.Internal.LifecycleInfo.BeforeClassMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
+NextUnit.Internal.LifecycleInfo.BeforeClassMethods.init -> void
+NextUnit.Internal.LifecycleInfo.BeforeSessionMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
+NextUnit.Internal.LifecycleInfo.BeforeSessionMethods.init -> void
+NextUnit.Internal.LifecycleInfo.BeforeTestMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
+NextUnit.Internal.LifecycleInfo.BeforeTestMethods.init -> void
+NextUnit.Internal.LifecycleInfo.LifecycleInfo() -> void
+NextUnit.Internal.LifecycleMethodDelegate
+NextUnit.Internal.ParallelInfo
+NextUnit.Internal.ParallelInfo.ConstraintKeys.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.ParallelInfo.ConstraintKeys.init -> void
+NextUnit.Internal.ParallelInfo.NotInParallel.get -> bool
+NextUnit.Internal.ParallelInfo.NotInParallel.init -> void
+NextUnit.Internal.ParallelInfo.ParallelGroup.get -> string?
+NextUnit.Internal.ParallelInfo.ParallelGroup.init -> void
+NextUnit.Internal.ParallelInfo.ParallelInfo() -> void
+NextUnit.Internal.ParallelInfo.ParallelLimit.get -> int?
+NextUnit.Internal.ParallelInfo.ParallelLimit.init -> void
+NextUnit.Internal.ParallelScheduler
+NextUnit.Internal.ParallelScheduler.GetExecutionBatchesAsync(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<NextUnit.Internal.TestBatch!>!
+NextUnit.Internal.ParallelScheduler.ParallelScheduler(NextUnit.Internal.DependencyGraph! graph, int? maxDegreeOfParallelism = null) -> void
+NextUnit.Internal.ParallelScheduler.ReportOutcome(NextUnit.Internal.TestCaseId! testId, NextUnit.Internal.TestOutcome outcome) -> void
+NextUnit.Internal.ParameterDataSource
+NextUnit.Internal.ParameterDataSource.ClassDataSourceFactory.get -> NextUnit.Internal.DataSourceProviderDelegate?
+NextUnit.Internal.ParameterDataSource.ClassDataSourceFactory.init -> void
+NextUnit.Internal.ParameterDataSource.ClassDataSourceType.get -> System.Type?
+NextUnit.Internal.ParameterDataSource.ClassDataSourceType.init -> void
+NextUnit.Internal.ParameterDataSource.InlineValues.get -> object?[]?
+NextUnit.Internal.ParameterDataSource.InlineValues.init -> void
+NextUnit.Internal.ParameterDataSource.Kind.get -> NextUnit.Internal.ParameterDataSourceKind
+NextUnit.Internal.ParameterDataSource.Kind.init -> void
+NextUnit.Internal.ParameterDataSource.MemberName.get -> string?
+NextUnit.Internal.ParameterDataSource.MemberName.init -> void
+NextUnit.Internal.ParameterDataSource.MemberProvider.get -> NextUnit.Internal.DataSourceProviderDelegate?
+NextUnit.Internal.ParameterDataSource.MemberProvider.init -> void
+NextUnit.Internal.ParameterDataSource.MemberType.get -> System.Type?
+NextUnit.Internal.ParameterDataSource.MemberType.init -> void
+NextUnit.Internal.ParameterDataSource.ParameterDataSource() -> void
+NextUnit.Internal.ParameterDataSource.ParameterIndex.get -> int
+NextUnit.Internal.ParameterDataSource.ParameterIndex.init -> void
+NextUnit.Internal.ParameterDataSource.ParameterName.get -> string!
+NextUnit.Internal.ParameterDataSource.ParameterName.init -> void
+NextUnit.Internal.ParameterDataSource.SharedKey.get -> string?
+NextUnit.Internal.ParameterDataSource.SharedKey.init -> void
+NextUnit.Internal.ParameterDataSource.SharedType.get -> NextUnit.SharedType
+NextUnit.Internal.ParameterDataSource.SharedType.init -> void
+NextUnit.Internal.ParameterDataSourceKind
+NextUnit.Internal.ParameterDataSourceKind.Class = 2 -> NextUnit.Internal.ParameterDataSourceKind
+NextUnit.Internal.ParameterDataSourceKind.Inline = 0 -> NextUnit.Internal.ParameterDataSourceKind
+NextUnit.Internal.ParameterDataSourceKind.Member = 1 -> NextUnit.Internal.ParameterDataSourceKind
+NextUnit.Internal.RetryInfo
+NextUnit.Internal.RetryInfo.Count.get -> int?
+NextUnit.Internal.RetryInfo.Count.init -> void
+NextUnit.Internal.RetryInfo.DelayMs.get -> int
+NextUnit.Internal.RetryInfo.DelayMs.init -> void
+NextUnit.Internal.RetryInfo.FlakyReason.get -> string?
+NextUnit.Internal.RetryInfo.FlakyReason.init -> void
+NextUnit.Internal.RetryInfo.IsFlaky.get -> bool
+NextUnit.Internal.RetryInfo.IsFlaky.init -> void
+NextUnit.Internal.RetryInfo.RetryInfo() -> void
+NextUnit.Internal.TestBatch
+NextUnit.Internal.TestBatch.ConstraintKeys.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.TestBatch.ConstraintKeys.init -> void
+NextUnit.Internal.TestBatch.IsSerial.get -> bool
+NextUnit.Internal.TestBatch.IsSerial.init -> void
+NextUnit.Internal.TestBatch.IsSkipBatch.get -> bool
+NextUnit.Internal.TestBatch.IsSkipBatch.init -> void
+NextUnit.Internal.TestBatch.MaxDegreeOfParallelism.get -> int
+NextUnit.Internal.TestBatch.MaxDegreeOfParallelism.init -> void
+NextUnit.Internal.TestBatch.ParallelGroup.get -> string?
+NextUnit.Internal.TestBatch.ParallelGroup.init -> void
+NextUnit.Internal.TestBatch.TestBatch() -> void
+NextUnit.Internal.TestBatch.Tests.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!
+NextUnit.Internal.TestBatch.Tests.init -> void
+NextUnit.Internal.TestCaseDescriptor
+NextUnit.Internal.TestCaseDescriptor.Arguments.get -> object?[]?
+NextUnit.Internal.TestCaseDescriptor.Arguments.init -> void
+NextUnit.Internal.TestCaseDescriptor.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.TestCaseDescriptor.Categories.init -> void
+NextUnit.Internal.TestCaseDescriptor.CustomDisplayNameTemplate.get -> string?
+NextUnit.Internal.TestCaseDescriptor.CustomDisplayNameTemplate.init -> void
+NextUnit.Internal.TestCaseDescriptor.Dependencies.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseId!>!
+NextUnit.Internal.TestCaseDescriptor.Dependencies.init -> void
+NextUnit.Internal.TestCaseDescriptor.DependencyInfos.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.DependencyInfo!>!
+NextUnit.Internal.TestCaseDescriptor.DependencyInfos.init -> void
+NextUnit.Internal.TestCaseDescriptor.DisplayName.get -> string!
+NextUnit.Internal.TestCaseDescriptor.DisplayName.init -> void
+NextUnit.Internal.TestCaseDescriptor.DisplayNameFormatterType.get -> System.Type?
+NextUnit.Internal.TestCaseDescriptor.DisplayNameFormatterType.init -> void
+NextUnit.Internal.TestCaseDescriptor.ExplicitReason.get -> string?
+NextUnit.Internal.TestCaseDescriptor.ExplicitReason.init -> void
+NextUnit.Internal.TestCaseDescriptor.Id.get -> NextUnit.Internal.TestCaseId!
+NextUnit.Internal.TestCaseDescriptor.Id.init -> void
+NextUnit.Internal.TestCaseDescriptor.IsExplicit.get -> bool
+NextUnit.Internal.TestCaseDescriptor.IsExplicit.init -> void
+NextUnit.Internal.TestCaseDescriptor.IsSkipped.get -> bool
+NextUnit.Internal.TestCaseDescriptor.IsSkipped.init -> void
+NextUnit.Internal.TestCaseDescriptor.Lifecycle.get -> NextUnit.Internal.LifecycleInfo!
+NextUnit.Internal.TestCaseDescriptor.Lifecycle.init -> void
+NextUnit.Internal.TestCaseDescriptor.MethodName.get -> string!
+NextUnit.Internal.TestCaseDescriptor.MethodName.init -> void
+NextUnit.Internal.TestCaseDescriptor.Parallel.get -> NextUnit.Internal.ParallelInfo!
+NextUnit.Internal.TestCaseDescriptor.Parallel.init -> void
+NextUnit.Internal.TestCaseDescriptor.Priority.get -> int
+NextUnit.Internal.TestCaseDescriptor.Priority.init -> void
+NextUnit.Internal.TestCaseDescriptor.RepeatIndex.get -> int?
+NextUnit.Internal.TestCaseDescriptor.RepeatIndex.init -> void
+NextUnit.Internal.TestCaseDescriptor.RequiresTestContext.get -> bool
+NextUnit.Internal.TestCaseDescriptor.RequiresTestContext.init -> void
+NextUnit.Internal.TestCaseDescriptor.RequiresTestOutput.get -> bool
+NextUnit.Internal.TestCaseDescriptor.RequiresTestOutput.init -> void
+NextUnit.Internal.TestCaseDescriptor.Retry.get -> NextUnit.Internal.RetryInfo!
+NextUnit.Internal.TestCaseDescriptor.Retry.init -> void
+NextUnit.Internal.TestCaseDescriptor.SkipReason.get -> string?
+NextUnit.Internal.TestCaseDescriptor.SkipReason.init -> void
+NextUnit.Internal.TestCaseDescriptor.Tags.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.TestCaseDescriptor.Tags.init -> void
+NextUnit.Internal.TestCaseDescriptor.TestCaseDescriptor() -> void
+NextUnit.Internal.TestCaseDescriptor.TestClass.get -> System.Type!
+NextUnit.Internal.TestCaseDescriptor.TestClass.init -> void
+NextUnit.Internal.TestCaseDescriptor.TestClassFactory.get -> NextUnit.Internal.TestClassFactoryDelegate?
+NextUnit.Internal.TestCaseDescriptor.TestClassFactory.init -> void
+NextUnit.Internal.TestCaseDescriptor.TestMethod.get -> NextUnit.Internal.TestMethodDelegate?
+NextUnit.Internal.TestCaseDescriptor.TestMethod.init -> void
+NextUnit.Internal.TestCaseDescriptor.TestMethodWithArguments.get -> NextUnit.Internal.TestMethodWithArgumentsDelegate?
+NextUnit.Internal.TestCaseDescriptor.TestMethodWithArguments.init -> void
+NextUnit.Internal.TestCaseDescriptor.TimeoutMs.get -> int?
+NextUnit.Internal.TestCaseDescriptor.TimeoutMs.init -> void
+NextUnit.Internal.TestCaseDescriptor.WithSkipReason(string! reason) -> NextUnit.Internal.TestCaseDescriptor!
+NextUnit.Internal.TestCaseId
+NextUnit.Internal.TestCaseId.<Clone>$() -> NextUnit.Internal.TestCaseId!
+NextUnit.Internal.TestCaseId.Deconstruct(out string! Value) -> void
+NextUnit.Internal.TestCaseId.Equals(NextUnit.Internal.TestCaseId? other) -> bool
+NextUnit.Internal.TestCaseId.TestCaseId(string! Value) -> void
+NextUnit.Internal.TestCaseId.Value.get -> string!
+NextUnit.Internal.TestCaseId.Value.init -> void
+NextUnit.Internal.TestClassFactoryDelegate
+NextUnit.Internal.TestDataDescriptor
+NextUnit.Internal.TestDataDescriptor.BaseId.get -> string!
+NextUnit.Internal.TestDataDescriptor.BaseId.init -> void
+NextUnit.Internal.TestDataDescriptor.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.TestDataDescriptor.Categories.init -> void
+NextUnit.Internal.TestDataDescriptor.CustomDisplayNameTemplate.get -> string?
+NextUnit.Internal.TestDataDescriptor.CustomDisplayNameTemplate.init -> void
+NextUnit.Internal.TestDataDescriptor.DataSourceName.get -> string!
+NextUnit.Internal.TestDataDescriptor.DataSourceName.init -> void
+NextUnit.Internal.TestDataDescriptor.DataSourceProvider.get -> NextUnit.Internal.DataSourceProviderDelegate?
+NextUnit.Internal.TestDataDescriptor.DataSourceProvider.init -> void
+NextUnit.Internal.TestDataDescriptor.DataSourceType.get -> System.Type?
+NextUnit.Internal.TestDataDescriptor.DataSourceType.init -> void
+NextUnit.Internal.TestDataDescriptor.Dependencies.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseId!>!
+NextUnit.Internal.TestDataDescriptor.Dependencies.init -> void
+NextUnit.Internal.TestDataDescriptor.DependencyInfos.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.DependencyInfo!>!
+NextUnit.Internal.TestDataDescriptor.DependencyInfos.init -> void
+NextUnit.Internal.TestDataDescriptor.DisplayName.get -> string!
+NextUnit.Internal.TestDataDescriptor.DisplayName.init -> void
+NextUnit.Internal.TestDataDescriptor.DisplayNameFormatterType.get -> System.Type?
+NextUnit.Internal.TestDataDescriptor.DisplayNameFormatterType.init -> void
+NextUnit.Internal.TestDataDescriptor.ExplicitReason.get -> string?
+NextUnit.Internal.TestDataDescriptor.ExplicitReason.init -> void
+NextUnit.Internal.TestDataDescriptor.IsExplicit.get -> bool
+NextUnit.Internal.TestDataDescriptor.IsExplicit.init -> void
+NextUnit.Internal.TestDataDescriptor.IsSkipped.get -> bool
+NextUnit.Internal.TestDataDescriptor.IsSkipped.init -> void
+NextUnit.Internal.TestDataDescriptor.Lifecycle.get -> NextUnit.Internal.LifecycleInfo!
+NextUnit.Internal.TestDataDescriptor.Lifecycle.init -> void
+NextUnit.Internal.TestDataDescriptor.MethodName.get -> string!
+NextUnit.Internal.TestDataDescriptor.MethodName.init -> void
+NextUnit.Internal.TestDataDescriptor.Parallel.get -> NextUnit.Internal.ParallelInfo!
+NextUnit.Internal.TestDataDescriptor.Parallel.init -> void
+NextUnit.Internal.TestDataDescriptor.ParameterTypes.get -> System.Type![]!
+NextUnit.Internal.TestDataDescriptor.ParameterTypes.init -> void
+NextUnit.Internal.TestDataDescriptor.Priority.get -> int
+NextUnit.Internal.TestDataDescriptor.Priority.init -> void
+NextUnit.Internal.TestDataDescriptor.RequiresTestContext.get -> bool
+NextUnit.Internal.TestDataDescriptor.RequiresTestContext.init -> void
+NextUnit.Internal.TestDataDescriptor.RequiresTestOutput.get -> bool
+NextUnit.Internal.TestDataDescriptor.RequiresTestOutput.init -> void
+NextUnit.Internal.TestDataDescriptor.Retry.get -> NextUnit.Internal.RetryInfo!
+NextUnit.Internal.TestDataDescriptor.Retry.init -> void
+NextUnit.Internal.TestDataDescriptor.SkipReason.get -> string?
+NextUnit.Internal.TestDataDescriptor.SkipReason.init -> void
+NextUnit.Internal.TestDataDescriptor.Tags.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.Internal.TestDataDescriptor.Tags.init -> void
+NextUnit.Internal.TestDataDescriptor.TestClass.get -> System.Type!
+NextUnit.Internal.TestDataDescriptor.TestClass.init -> void
+NextUnit.Internal.TestDataDescriptor.TestClassFactory.get -> NextUnit.Internal.TestClassFactoryDelegate?
+NextUnit.Internal.TestDataDescriptor.TestClassFactory.init -> void
+NextUnit.Internal.TestDataDescriptor.TestDataDescriptor() -> void
+NextUnit.Internal.TestDataDescriptor.TestMethodWithArguments.get -> NextUnit.Internal.TestMethodWithArgumentsDelegate?
+NextUnit.Internal.TestDataDescriptor.TestMethodWithArguments.init -> void
+NextUnit.Internal.TestDataDescriptor.TimeoutMs.get -> int?
+NextUnit.Internal.TestDataDescriptor.TimeoutMs.init -> void
+NextUnit.Internal.TestDataExpander
+NextUnit.Internal.TestExecutionEngine
+NextUnit.Internal.TestExecutionEngine.RunAsync(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>! testCases, NextUnit.Internal.ITestExecutionSink! sink, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+NextUnit.Internal.TestExecutionEngine.SetGlobalAssemblyLifecycle(System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>? beforeMethods, System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>? afterMethods) -> void
+NextUnit.Internal.TestExecutionEngine.TestExecutionEngine() -> void
+NextUnit.Internal.TestMethodDelegate
+NextUnit.Internal.TestMethodWithArgumentsDelegate
+NextUnit.Internal.TestOutcome
+NextUnit.Internal.TestOutcome.Error = 4 -> NextUnit.Internal.TestOutcome
+NextUnit.Internal.TestOutcome.Failed = 3 -> NextUnit.Internal.TestOutcome
+NextUnit.Internal.TestOutcome.NotRun = 0 -> NextUnit.Internal.TestOutcome
+NextUnit.Internal.TestOutcome.Passed = 2 -> NextUnit.Internal.TestOutcome
+NextUnit.Internal.TestOutcome.Skipped = 1 -> NextUnit.Internal.TestOutcome
+NextUnit.ITestDataRow
+NextUnit.ITestDataRow.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.ITestDataRow.Data.get -> object?
+NextUnit.ITestDataRow.DisplayName.get -> string?
+NextUnit.ITestDataRow.SkipReason.get -> string?
+NextUnit.ITestDataRow.Tags.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.LifecycleScope
+NextUnit.LifecycleScope.Assembly = 2 -> NextUnit.LifecycleScope
+NextUnit.LifecycleScope.Class = 1 -> NextUnit.LifecycleScope
+NextUnit.LifecycleScope.Discovery = 4 -> NextUnit.LifecycleScope
+NextUnit.LifecycleScope.Session = 3 -> NextUnit.LifecycleScope
+NextUnit.LifecycleScope.Test = 0 -> NextUnit.LifecycleScope
+NextUnit.MatrixAttribute
+NextUnit.MatrixAttribute.MatrixAttribute(params object?[]! values) -> void
+NextUnit.MatrixAttribute.Values.get -> object?[]!
+NextUnit.MatrixExclusionAttribute
+NextUnit.MatrixExclusionAttribute.MatrixExclusionAttribute(params object?[]! values) -> void
+NextUnit.MatrixExclusionAttribute.Values.get -> object?[]!
+NextUnit.NotInParallelAttribute
+NextUnit.NotInParallelAttribute.ConstraintKeys.get -> string![]!
+NextUnit.NotInParallelAttribute.NotInParallelAttribute() -> void
+NextUnit.NotInParallelAttribute.NotInParallelAttribute(params string![]! constraintKeys) -> void
+NextUnit.ParallelGroupAttribute
+NextUnit.ParallelGroupAttribute.GroupName.get -> string!
+NextUnit.ParallelGroupAttribute.ParallelGroupAttribute(string! groupName) -> void
+NextUnit.ParallelLimitAttribute
+NextUnit.ParallelLimitAttribute.MaxDegreeOfParallelism.get -> int
+NextUnit.ParallelLimitAttribute.ParallelLimitAttribute(int maxDegreeOfParallelism) -> void
+NextUnit.RepeatAttribute
+NextUnit.RepeatAttribute.Count.get -> int
+NextUnit.RepeatAttribute.RepeatAttribute(int count) -> void
+NextUnit.RetryAttribute
+NextUnit.RetryAttribute.Count.get -> int
+NextUnit.RetryAttribute.DelayMs.get -> int
+NextUnit.RetryAttribute.RetryAttribute(int count, int delayMs) -> void
+NextUnit.RetryAttribute.RetryAttribute(int count) -> void
+NextUnit.SharedType
+NextUnit.SharedType.Keyed = 1 -> NextUnit.SharedType
+NextUnit.SharedType.None = 0 -> NextUnit.SharedType
+NextUnit.SharedType.PerAssembly = 3 -> NextUnit.SharedType
+NextUnit.SharedType.PerClass = 2 -> NextUnit.SharedType
+NextUnit.SharedType.PerSession = 4 -> NextUnit.SharedType
+NextUnit.SkipAttribute
+NextUnit.SkipAttribute.Reason.get -> string!
+NextUnit.SkipAttribute.SkipAttribute(string! reason) -> void
+NextUnit.TagAttribute
+NextUnit.TagAttribute.Name.get -> string!
+NextUnit.TagAttribute.TagAttribute(string! name) -> void
+NextUnit.TestAttribute
+NextUnit.TestAttribute.TestAttribute() -> void
+NextUnit.TestDataAttribute
+NextUnit.TestDataAttribute.MemberName.get -> string!
+NextUnit.TestDataAttribute.MemberType.get -> System.Type?
+NextUnit.TestDataAttribute.MemberType.set -> void
+NextUnit.TestDataAttribute.TestDataAttribute(string! memberName) -> void
+NextUnit.TestDataRow<T>
+NextUnit.TestDataRow<T>.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.TestDataRow<T>.Data.get -> T
+NextUnit.TestDataRow<T>.DisplayName.get -> string?
+NextUnit.TestDataRow<T>.SkipReason.get -> string?
+NextUnit.TestDataRow<T>.Tags.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NextUnit.TestDataRow<T>.TestDataRow(T data, string? displayName = null, System.Collections.Generic.IEnumerable<string!>? categories = null, System.Collections.Generic.IEnumerable<string!>? tags = null, string? skipReason = null) -> void
+NextUnit.TestSkippedException
+NextUnit.TestSkippedException.TestSkippedException() -> void
+NextUnit.TestSkippedException.TestSkippedException(string! message, System.Exception! inner) -> void
+NextUnit.TestSkippedException.TestSkippedException(string! message) -> void
+NextUnit.TestTimeoutException
+NextUnit.TestTimeoutException.TestTimeoutException() -> void
+NextUnit.TestTimeoutException.TestTimeoutException(int timeoutMs) -> void
+NextUnit.TestTimeoutException.TestTimeoutException(string! message, System.Exception! innerException) -> void
+NextUnit.TestTimeoutException.TestTimeoutException(string! message) -> void
+NextUnit.TestTimeoutException.TimeoutMs.get -> int
+NextUnit.TimeoutAttribute
+NextUnit.TimeoutAttribute.Milliseconds.get -> int
+NextUnit.TimeoutAttribute.TimeoutAttribute(int milliseconds) -> void
+NextUnit.ValuesAttribute
+NextUnit.ValuesAttribute.Values.get -> object?[]!
+NextUnit.ValuesAttribute.ValuesAttribute(params object?[]! values) -> void
+NextUnit.ValuesFromAttribute<T>
+NextUnit.ValuesFromAttribute<T>.Key.get -> string?
+NextUnit.ValuesFromAttribute<T>.Key.set -> void
+NextUnit.ValuesFromAttribute<T>.Shared.get -> NextUnit.SharedType
+NextUnit.ValuesFromAttribute<T>.Shared.set -> void
+NextUnit.ValuesFromAttribute<T>.ValuesFromAttribute() -> void
+NextUnit.ValuesFromMemberAttribute
+NextUnit.ValuesFromMemberAttribute.MemberName.get -> string!
+NextUnit.ValuesFromMemberAttribute.MemberType.get -> System.Type?
+NextUnit.ValuesFromMemberAttribute.MemberType.set -> void
+NextUnit.ValuesFromMemberAttribute.ValuesFromMemberAttribute(string! memberName) -> void
+override NextUnit.Internal.TestCaseId.Equals(object? obj) -> bool
+override NextUnit.Internal.TestCaseId.GetHashCode() -> int
+override NextUnit.Internal.TestCaseId.ToString() -> string!
+static NextUnit.Assert.All<T>(System.Collections.Generic.IEnumerable<T>! collection, System.Action<T>! action) -> void
+static NextUnit.Assert.Contains(string! expectedSubstring, string? actual, string? message = null) -> void
+static NextUnit.Assert.Contains<T>(System.Collections.Generic.IEnumerable<T>! collection, System.Predicate<T>! filter, string? message = null) -> T
+static NextUnit.Assert.Contains<T>(T expected, System.Collections.Generic.IEnumerable<T>! collection, string? message = null) -> void
+static NextUnit.Assert.Disjoint<T>(System.Collections.Generic.IEnumerable<T>! collection1, System.Collections.Generic.IEnumerable<T>! collection2, string? message = null) -> void
+static NextUnit.Assert.DoesNotContain<T>(System.Collections.Generic.IEnumerable<T>! collection, System.Predicate<T>! filter, string? message = null) -> void
+static NextUnit.Assert.DoesNotContain<T>(T notExpected, System.Collections.Generic.IEnumerable<T>! collection, string? message = null) -> void
+static NextUnit.Assert.DoesNotThrow(System.Action! action, string? message = null) -> void
+static NextUnit.Assert.DoesNotThrowAsync(System.Func<System.Threading.Tasks.Task!>! action, string? message = null) -> System.Threading.Tasks.Task!
+static NextUnit.Assert.Empty(System.Collections.IEnumerable! collection, string? message = null) -> void
+static NextUnit.Assert.EndsWith(string! expectedEnd, string? actual, string? message = null) -> void
+static NextUnit.Assert.Equal(decimal expected, decimal actual, int precision, string? message = null) -> void
+static NextUnit.Assert.Equal(double expected, double actual, double tolerance, string? message = null) -> void
+static NextUnit.Assert.Equal(double expected, double actual, int precision, string? message = null) -> void
+static NextUnit.Assert.Equal<T>(T expected, T actual, string? message = null) -> void
+static NextUnit.Assert.Equal<T>(T expected, T actual, System.Collections.Generic.IEqualityComparer<T>! comparer, string? message = null) -> void
+static NextUnit.Assert.Equivalent<T>(System.Collections.Generic.IEnumerable<T>! expected, System.Collections.Generic.IEnumerable<T>! actual, string? message = null) -> void
+static NextUnit.Assert.Fail(string? message = null) -> void
+static NextUnit.Assert.False(bool condition, string? message = null) -> void
+static NextUnit.Assert.InRange<T>(T actual, T min, T max, string? message = null) -> void
+static NextUnit.Assert.NotEmpty(System.Collections.IEnumerable! collection, string? message = null) -> void
+static NextUnit.Assert.NotEqual(decimal notExpected, decimal actual, int precision, string? message = null) -> void
+static NextUnit.Assert.NotEqual(double notExpected, double actual, double tolerance, string? message = null) -> void
+static NextUnit.Assert.NotEqual(double notExpected, double actual, int precision, string? message = null) -> void
+static NextUnit.Assert.NotEqual<T>(T notExpected, T actual, string? message = null) -> void
+static NextUnit.Assert.NotInRange<T>(T actual, T min, T max, string? message = null) -> void
+static NextUnit.Assert.NotNull(object? value, string? message = null) -> void
+static NextUnit.Assert.NotSame(object? expected, object? actual, string? message = null) -> void
+static NextUnit.Assert.Null(object? value, string? message = null) -> void
+static NextUnit.Assert.Same(object? expected, object? actual, string? message = null) -> void
+static NextUnit.Assert.Single<T>(System.Collections.Generic.IEnumerable<T>! collection, string? message = null) -> T
+static NextUnit.Assert.Single<T>(System.Collections.Generic.IEnumerable<T>! collection, System.Predicate<T>! filter, string? message = null) -> T
+static NextUnit.Assert.Skip(string! reason) -> void
+static NextUnit.Assert.SkipOnFreeBSD(string? reason = null) -> void
+static NextUnit.Assert.SkipOnLinux(string? reason = null) -> void
+static NextUnit.Assert.SkipOnMacOS(string? reason = null) -> void
+static NextUnit.Assert.SkipOnWindows(string? reason = null) -> void
+static NextUnit.Assert.SkipUnless(bool condition, string! reason) -> void
+static NextUnit.Assert.SkipWhen(bool condition, string! reason) -> void
+static NextUnit.Assert.StartsWith(string! expectedStart, string? actual, string? message = null) -> void
+static NextUnit.Assert.Subset<T>(System.Collections.Generic.IEnumerable<T>! subset, System.Collections.Generic.IEnumerable<T>! superset, string? message = null) -> void
+static NextUnit.Assert.Throws<TException>(System.Action! action, string! expectedMessage, string? message = null) -> TException!
+static NextUnit.Assert.Throws<TException>(System.Action! action, string? message = null) -> TException!
+static NextUnit.Assert.ThrowsAsync<TException>(System.Func<System.Threading.Tasks.Task!>! action, string! expectedMessage, string? message = null) -> System.Threading.Tasks.Task<TException!>!
+static NextUnit.Assert.ThrowsAsync<TException>(System.Func<System.Threading.Tasks.Task!>! action, string? message = null) -> System.Threading.Tasks.Task<TException!>!
+static NextUnit.Assert.True(bool condition, string? message = null) -> void
+static NextUnit.Core.TestContext.Current.get -> NextUnit.Core.ITestContext?
+static NextUnit.Internal.ArgumentConverter.Convert<T>(object? value, string! parameterName, string! methodName) -> T
+static NextUnit.Internal.ClassDataSourceExpander.ClearClassInstances(System.Type! testClass) -> void
+static NextUnit.Internal.ClassDataSourceExpander.ClearSharedInstances() -> void
+static NextUnit.Internal.ClassDataSourceExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.ClassDataSourceDescriptor!>! descriptors) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+static NextUnit.Internal.ClassDataSourceExpander.ExpandSingle(NextUnit.Internal.ClassDataSourceDescriptor! descriptor) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+static NextUnit.Internal.CombinedDataSourceExpander.ClearClassInstances(System.Type! testClass) -> void
+static NextUnit.Internal.CombinedDataSourceExpander.ClearSharedInstances() -> void
+static NextUnit.Internal.CombinedDataSourceExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.CombinedDataSourceDescriptor!>! descriptors) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+static NextUnit.Internal.CombinedDataSourceExpander.ExpandSingle(NextUnit.Internal.CombinedDataSourceDescriptor! descriptor) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+static NextUnit.Internal.DependencyGraph.Build(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>! tests) -> NextUnit.Internal.DependencyGraph!
+static NextUnit.Internal.GeneratedTestRegistryStore.Current.get -> NextUnit.Internal.IGeneratedTestRegistry?
+static NextUnit.Internal.GeneratedTestRegistryStore.Register(NextUnit.Internal.IGeneratedTestRegistry! registry) -> void
+static NextUnit.Internal.TestCaseId.operator !=(NextUnit.Internal.TestCaseId? left, NextUnit.Internal.TestCaseId? right) -> bool
+static NextUnit.Internal.TestCaseId.operator ==(NextUnit.Internal.TestCaseId? left, NextUnit.Internal.TestCaseId? right) -> bool
+static NextUnit.Internal.TestDataExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestDataDescriptor!>! testDataDescriptors) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+static NextUnit.Internal.TestDataExpander.ExpandSingle(NextUnit.Internal.TestDataDescriptor! descriptor) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+virtual NextUnit.Internal.DataSourceProviderDelegate.Invoke() -> object?
+virtual NextUnit.Internal.LifecycleMethodDelegate.Invoke(object! instance, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+virtual NextUnit.Internal.TestClassFactoryDelegate.Invoke(NextUnit.Core.ITestOutput! output, NextUnit.Core.ITestContext! context) -> object!
+virtual NextUnit.Internal.TestMethodDelegate.Invoke(object! instance, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+virtual NextUnit.Internal.TestMethodWithArgumentsDelegate.Invoke(object! instance, object?[]! arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!

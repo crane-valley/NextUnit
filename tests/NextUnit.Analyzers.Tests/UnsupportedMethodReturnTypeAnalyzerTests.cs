@@ -195,12 +195,7 @@ public sealed class UnsupportedMethodReturnTypeAnalyzerTests
                 aliases: ImmutableArray.Create("FakeTasks")));
         var compilation = CSharpCompilation.Create(
             "ImpostorReturnTypes",
-            [
-                CSharpSyntaxTree.ParseText(
-                    CSharpAnalyzerVerifier<UnsupportedMethodReturnTypeAnalyzer>.AttributeDefinitions,
-                    cancellationToken: cancellationToken),
-                CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)
-            ],
+            [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
             platformReferences.Append(fakeTasksReference),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var diagnostics = await compilation
