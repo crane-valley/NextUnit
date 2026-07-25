@@ -10,7 +10,6 @@ namespace NextUnit.Generator.Helpers;
 /// </summary>
 internal static class AttributeHelper
 {
-    public const string TestAttributeMetadataName = "global::NextUnit.TestAttribute";
     public const string BeforeAttributeMetadataName = "global::NextUnit.BeforeAttribute";
     public const string AfterAttributeMetadataName = "global::NextUnit.AfterAttribute";
     public const string NotInParallelMetadataName = "global::NextUnit.NotInParallelAttribute";
@@ -39,6 +38,12 @@ internal static class AttributeHelper
     public const string ITestContextMetadataName = "global::NextUnit.Core.ITestContext";
     public const string ExecutionPriorityAttributeMetadataName = "global::NextUnit.ExecutionPriorityAttribute";
 
+    // ForAttributeWithMetadataName matches the attribute type's metadata name, which carries no
+    // global:: prefix, unlike the ToDisplayString comparisons the constants above are used for.
+    public const string TestAttributeLookupName = "NextUnit.TestAttribute";
+    public const string BeforeAttributeLookupName = "NextUnit.BeforeAttribute";
+    public const string AfterAttributeLookupName = "NextUnit.AfterAttribute";
+
     public static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
@@ -62,11 +67,6 @@ internal static class AttributeHelper
             miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                                    SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
-    public static bool HasAttribute(ISymbol symbol, string metadataName)
-    {
-        return symbol.GetAttributes().Any(attribute => IsAttribute(attribute, metadataName));
-    }
-
     public static bool IsAttribute(AttributeData attribute, string metadataName)
     {
         return attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == metadataName;
@@ -88,7 +88,7 @@ internal static class AttributeHelper
         return SymbolDisplay.FormatLiteral(value, true);
     }
 
-    public static ImmutableArray<string> GetDependencies(IMethodSymbol methodSymbol)
+    public static EquatableArray<string> GetDependencies(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<string>();
         var containingType = methodSymbol.ContainingType;
@@ -129,7 +129,7 @@ internal static class AttributeHelper
         return builder.ToImmutable();
     }
 
-    public static ImmutableArray<DependencyDescriptor> GetDependencyInfos(IMethodSymbol methodSymbol)
+    public static EquatableArray<DependencyDescriptor> GetDependencyInfos(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<DependencyDescriptor>();
         var containingType = methodSymbol.ContainingType;
@@ -242,9 +242,9 @@ internal static class AttributeHelper
         return (true, null);
     }
 
-    public static ImmutableArray<ImmutableArray<TypedConstant>> GetArgumentSets(IMethodSymbol methodSymbol)
+    public static EquatableArray<EquatableArray<ConstantValue>> GetArgumentSets(IMethodSymbol methodSymbol)
     {
-        var builder = ImmutableArray.CreateBuilder<ImmutableArray<TypedConstant>>();
+        var builder = ImmutableArray.CreateBuilder<EquatableArray<ConstantValue>>();
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
@@ -261,14 +261,14 @@ internal static class AttributeHelper
             var argsArray = attribute.ConstructorArguments[0];
             if (argsArray.Kind == TypedConstantKind.Array)
             {
-                builder.Add(argsArray.Values);
+                builder.Add(ConstantValueFactory.CreateRange(argsArray.Values));
             }
         }
 
         return builder.ToImmutable();
     }
 
-    public static ImmutableArray<TestDataSource> GetTestDataSources(IMethodSymbol methodSymbol)
+    public static EquatableArray<TestDataSource> GetTestDataSources(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<TestDataSource>();
 
@@ -307,7 +307,7 @@ internal static class AttributeHelper
         return builder.ToImmutable();
     }
 
-    public static ImmutableArray<ClassDataSource> GetClassDataSources(IMethodSymbol methodSymbol)
+    public static EquatableArray<ClassDataSource> GetClassDataSources(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<ClassDataSource>();
 
@@ -357,7 +357,7 @@ internal static class AttributeHelper
         return builder.ToImmutable();
     }
 
-    public static ImmutableArray<string> GetCategories(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    public static EquatableArray<string> GetCategories(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<string>();
 
@@ -394,7 +394,7 @@ internal static class AttributeHelper
         return builder.ToImmutable();
     }
 
-    public static ImmutableArray<string> GetTags(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    public static EquatableArray<string> GetTags(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<string>();
 
@@ -456,7 +456,7 @@ internal static class AttributeHelper
         return null;
     }
 
-    public static (bool notInParallel, ImmutableArray<string> constraintKeys) GetNotInParallelInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    public static (bool notInParallel, EquatableArray<string> constraintKeys) GetNotInParallelInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
         // Method-level takes precedence
         var methodInfo = GetNotInParallelFromSymbol(methodSymbol);
@@ -542,7 +542,7 @@ internal static class AttributeHelper
         return null;
     }
 
-    public static ImmutableArray<int> GetLifecycleScopes(IMethodSymbol methodSymbol, string attributeMetadataName)
+    public static EquatableArray<int> GetLifecycleScopes(IMethodSymbol methodSymbol, string attributeMetadataName)
     {
         var builder = ImmutableArray.CreateBuilder<int>();
 
@@ -685,7 +685,7 @@ internal static class AttributeHelper
         return null;
     }
 
-    public static ImmutableArray<MatrixParameterDescriptor> GetMatrixParameters(IMethodSymbol methodSymbol)
+    public static EquatableArray<MatrixParameterDescriptor> GetMatrixParameters(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<MatrixParameterDescriptor>();
 
@@ -708,7 +708,7 @@ internal static class AttributeHelper
                 var valuesArg = attribute.ConstructorArguments[0];
                 if (valuesArg.Kind == TypedConstantKind.Array)
                 {
-                    builder.Add(new MatrixParameterDescriptor(i, parameter.Name, valuesArg.Values));
+                    builder.Add(new MatrixParameterDescriptor(i, parameter.Name, ConstantValueFactory.CreateRange(valuesArg.Values)));
                 }
             }
         }
@@ -716,7 +716,7 @@ internal static class AttributeHelper
         return builder.ToImmutable();
     }
 
-    public static ImmutableArray<MatrixExclusionDescriptor> GetMatrixExclusions(IMethodSymbol methodSymbol)
+    public static EquatableArray<MatrixExclusionDescriptor> GetMatrixExclusions(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<MatrixExclusionDescriptor>();
 
@@ -735,7 +735,7 @@ internal static class AttributeHelper
             var valuesArg = attribute.ConstructorArguments[0];
             if (valuesArg.Kind == TypedConstantKind.Array)
             {
-                builder.Add(new MatrixExclusionDescriptor(valuesArg.Values));
+                builder.Add(new MatrixExclusionDescriptor(ConstantValueFactory.CreateRange(valuesArg.Values)));
             }
         }
 
@@ -746,7 +746,7 @@ internal static class AttributeHelper
     /// Extracts combined parameter sources from method parameters.
     /// Returns non-empty array only if at least one parameter has [Values], [ValuesFromMember], or [ValuesFrom&lt;T&gt;].
     /// </summary>
-    public static ImmutableArray<ParameterDataSourceDescriptor> GetCombinedParameterSources(IMethodSymbol methodSymbol)
+    public static EquatableArray<ParameterDataSourceDescriptor> GetCombinedParameterSources(IMethodSymbol methodSymbol)
     {
         var builder = ImmutableArray.CreateBuilder<ParameterDataSourceDescriptor>();
         var hasAnySource = false;
@@ -764,7 +764,9 @@ internal static class AttributeHelper
         }
 
         // Only return sources if at least one parameter has a data source attribute
-        return hasAnySource ? builder.ToImmutable() : ImmutableArray<ParameterDataSourceDescriptor>.Empty;
+        return hasAnySource
+            ? new EquatableArray<ParameterDataSourceDescriptor>(builder.ToImmutable())
+            : EquatableArray<ParameterDataSourceDescriptor>.Empty;
     }
 
     private static ParameterDataSourceDescriptor? TryGetParameterDataSource(IParameterSymbol parameter, int index)
@@ -780,7 +782,7 @@ internal static class AttributeHelper
                     parameterIndex: index,
                     parameterName: parameter.Name,
                     kind: ParameterDataSourceKind.Inline,
-                    inlineValues: attribute.ConstructorArguments[0].Values,
+                    inlineValues: ConstantValueFactory.CreateRange(attribute.ConstructorArguments[0].Values),
                     memberName: null,
                     memberTypeName: null,
                     memberKind: DataSourceMemberKind.Unknown,
@@ -807,7 +809,7 @@ internal static class AttributeHelper
                     parameterIndex: index,
                     parameterName: parameter.Name,
                     kind: ParameterDataSourceKind.Member,
-                    inlineValues: ImmutableArray<TypedConstant>.Empty,
+                    inlineValues: EquatableArray<ConstantValue>.Empty,
                     memberName: memberName,
                     memberTypeName: memberTypeName,
                     memberKind: GetDataSourceMemberKind(memberType, memberName),
@@ -849,7 +851,7 @@ internal static class AttributeHelper
                         parameterIndex: index,
                         parameterName: parameter.Name,
                         kind: ParameterDataSourceKind.Class,
-                        inlineValues: ImmutableArray<TypedConstant>.Empty,
+                        inlineValues: EquatableArray<ConstantValue>.Empty,
                         memberName: null,
                         memberTypeName: null,
                         memberKind: DataSourceMemberKind.Unknown,
@@ -861,6 +863,31 @@ internal static class AttributeHelper
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Resolves the method parameters into value models so the pipeline never carries parameter symbols.
+    /// </summary>
+    public static EquatableArray<ParameterDescriptor> GetParameters(IMethodSymbol methodSymbol)
+    {
+        if (methodSymbol.Parameters.Length == 0)
+        {
+            return EquatableArray<ParameterDescriptor>.Empty;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ParameterDescriptor>(methodSymbol.Parameters.Length);
+
+        foreach (var parameter in methodSymbol.Parameters)
+        {
+            builder.Add(new ParameterDescriptor(
+                parameter.Name,
+                parameter.Type.ToDisplayString(TypeofCompatibleFormat),
+                parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                parameter.Type.ToDisplayString(),
+                parameter.Type.IsValueType));
+        }
+
+        return new EquatableArray<ParameterDescriptor>(builder.ToImmutable());
     }
 
     public static TestClassConstructorKind GetTestClassConstructorKind(INamedTypeSymbol typeSymbol)

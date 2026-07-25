@@ -1,6 +1,3 @@
-using System.Collections.Immutable;
-using Microsoft.CodeAnalysis;
-
 namespace NextUnit.Generator.Models;
 
 internal enum MethodReturnKind
@@ -14,7 +11,7 @@ internal enum MethodReturnKind
 /// <summary>
 /// Describes a test method discovered by the source generator.
 /// </summary>
-internal sealed class TestMethodDescriptor
+internal sealed record TestMethodDescriptor
 {
     public TestMethodDescriptor(
         string id,
@@ -22,21 +19,21 @@ internal sealed class TestMethodDescriptor
         string fullyQualifiedTypeName,
         string methodName,
         bool notInParallel,
-        ImmutableArray<string> constraintKeys,
+        EquatableArray<string> constraintKeys,
         string? parallelGroup,
         int? parallelLimit,
-        ImmutableArray<string> dependencies,
-        ImmutableArray<DependencyDescriptor> dependencyInfos,
+        EquatableArray<string> dependencies,
+        EquatableArray<DependencyDescriptor> dependencyInfos,
         bool isSkipped,
         string? skipReason,
         bool isExplicit,
         string? explicitReason,
-        ImmutableArray<ImmutableArray<TypedConstant>> argumentSets,
-        ImmutableArray<TestDataSource> testDataSources,
-        ImmutableArray<ClassDataSource> classDataSources,
-        ImmutableArray<IParameterSymbol> parameters,
-        ImmutableArray<string> categories,
-        ImmutableArray<string> tags,
+        EquatableArray<EquatableArray<ConstantValue>> argumentSets,
+        EquatableArray<TestDataSource> testDataSources,
+        EquatableArray<ClassDataSource> classDataSources,
+        EquatableArray<ParameterDescriptor> parameters,
+        EquatableArray<string> categories,
+        EquatableArray<string> tags,
         bool isStatic,
         MethodReturnKind returnKind,
         bool acceptsCancellationToken,
@@ -51,9 +48,9 @@ internal sealed class TestMethodDescriptor
         string? customDisplayName,
         string? displayNameFormatterType,
         int? repeatCount,
-        ImmutableArray<MatrixParameterDescriptor> matrixParameters,
-        ImmutableArray<MatrixExclusionDescriptor> matrixExclusions,
-        ImmutableArray<ParameterDataSourceDescriptor> combinedParameterSources,
+        EquatableArray<MatrixParameterDescriptor> matrixParameters,
+        EquatableArray<MatrixExclusionDescriptor> matrixExclusions,
+        EquatableArray<ParameterDataSourceDescriptor> combinedParameterSources,
         int priority)
     {
         Id = id;
@@ -101,21 +98,21 @@ internal sealed class TestMethodDescriptor
     public string FullyQualifiedTypeName { get; }
     public string MethodName { get; }
     public bool NotInParallel { get; }
-    public ImmutableArray<string> ConstraintKeys { get; }
+    public EquatableArray<string> ConstraintKeys { get; }
     public string? ParallelGroup { get; }
     public int? ParallelLimit { get; }
-    public ImmutableArray<string> Dependencies { get; }
-    public ImmutableArray<DependencyDescriptor> DependencyInfos { get; }
+    public EquatableArray<string> Dependencies { get; }
+    public EquatableArray<DependencyDescriptor> DependencyInfos { get; }
     public bool IsSkipped { get; }
     public string? SkipReason { get; }
     public bool IsExplicit { get; }
     public string? ExplicitReason { get; }
-    public ImmutableArray<ImmutableArray<TypedConstant>> ArgumentSets { get; }
-    public ImmutableArray<TestDataSource> TestDataSources { get; }
-    public ImmutableArray<ClassDataSource> ClassDataSources { get; }
-    public ImmutableArray<IParameterSymbol> Parameters { get; }
-    public ImmutableArray<string> Categories { get; }
-    public ImmutableArray<string> Tags { get; }
+    public EquatableArray<EquatableArray<ConstantValue>> ArgumentSets { get; }
+    public EquatableArray<TestDataSource> TestDataSources { get; }
+    public EquatableArray<ClassDataSource> ClassDataSources { get; }
+    public EquatableArray<ParameterDescriptor> Parameters { get; }
+    public EquatableArray<string> Categories { get; }
+    public EquatableArray<string> Tags { get; }
     public bool IsStatic { get; }
     public MethodReturnKind ReturnKind { get; }
     public bool AcceptsCancellationToken { get; }
@@ -130,22 +127,22 @@ internal sealed class TestMethodDescriptor
     public string? CustomDisplayName { get; }
     public string? DisplayNameFormatterType { get; }
     public int? RepeatCount { get; }
-    public ImmutableArray<MatrixParameterDescriptor> MatrixParameters { get; }
-    public ImmutableArray<MatrixExclusionDescriptor> MatrixExclusions { get; }
-    public ImmutableArray<ParameterDataSourceDescriptor> CombinedParameterSources { get; }
+    public EquatableArray<MatrixParameterDescriptor> MatrixParameters { get; }
+    public EquatableArray<MatrixExclusionDescriptor> MatrixExclusions { get; }
+    public EquatableArray<ParameterDataSourceDescriptor> CombinedParameterSources { get; }
     public int Priority { get; }
 }
 
 /// <summary>
 /// Describes a lifecycle method (Before/After) discovered by the source generator.
 /// </summary>
-internal sealed class LifecycleMethodDescriptor
+internal sealed record LifecycleMethodDescriptor
 {
     public LifecycleMethodDescriptor(
         string fullyQualifiedTypeName,
         string methodName,
-        ImmutableArray<int> beforeScopes,
-        ImmutableArray<int> afterScopes,
+        EquatableArray<int> beforeScopes,
+        EquatableArray<int> afterScopes,
         bool isStatic,
         MethodReturnKind returnKind,
         bool acceptsCancellationToken)
@@ -161,8 +158,8 @@ internal sealed class LifecycleMethodDescriptor
 
     public string FullyQualifiedTypeName { get; }
     public string MethodName { get; }
-    public ImmutableArray<int> BeforeScopes { get; }
-    public ImmutableArray<int> AfterScopes { get; }
+    public EquatableArray<int> BeforeScopes { get; }
+    public EquatableArray<int> AfterScopes { get; }
     public bool IsStatic { get; }
     public MethodReturnKind ReturnKind { get; }
     public bool AcceptsCancellationToken { get; }
@@ -189,7 +186,7 @@ internal enum DataSourceMemberKind
 /// <summary>
 /// Describes a test data source for parameterized tests.
 /// </summary>
-internal sealed class TestDataSource
+internal sealed record TestDataSource
 {
     public TestDataSource(
         string memberName,
@@ -209,7 +206,7 @@ internal sealed class TestDataSource
 /// <summary>
 /// Describes a test dependency including proceed-on-failure setting.
 /// </summary>
-internal sealed class DependencyDescriptor
+internal sealed record DependencyDescriptor
 {
     public DependencyDescriptor(string dependsOnId, bool proceedOnFailure)
     {
@@ -224,9 +221,9 @@ internal sealed class DependencyDescriptor
 /// <summary>
 /// Describes a matrix parameter with its possible values for Cartesian product generation.
 /// </summary>
-internal sealed class MatrixParameterDescriptor
+internal sealed record MatrixParameterDescriptor
 {
-    public MatrixParameterDescriptor(int parameterIndex, string parameterName, ImmutableArray<TypedConstant> values)
+    public MatrixParameterDescriptor(int parameterIndex, string parameterName, EquatableArray<ConstantValue> values)
     {
         ParameterIndex = parameterIndex;
         ParameterName = parameterName;
@@ -235,26 +232,26 @@ internal sealed class MatrixParameterDescriptor
 
     public int ParameterIndex { get; }
     public string ParameterName { get; }
-    public ImmutableArray<TypedConstant> Values { get; }
+    public EquatableArray<ConstantValue> Values { get; }
 }
 
 /// <summary>
 /// Describes a combination of values to exclude from matrix test generation.
 /// </summary>
-internal sealed class MatrixExclusionDescriptor
+internal sealed record MatrixExclusionDescriptor
 {
-    public MatrixExclusionDescriptor(ImmutableArray<TypedConstant> values)
+    public MatrixExclusionDescriptor(EquatableArray<ConstantValue> values)
     {
         Values = values;
     }
 
-    public ImmutableArray<TypedConstant> Values { get; }
+    public EquatableArray<ConstantValue> Values { get; }
 }
 
 /// <summary>
 /// Describes a class-based data source for parameterized tests.
 /// </summary>
-internal sealed class ClassDataSource
+internal sealed record ClassDataSource
 {
     public ClassDataSource(string typeName, int sharedType, string? key)
     {
@@ -303,13 +300,13 @@ internal enum ParameterDataSourceKind
 /// <summary>
 /// Describes a data source for a single parameter in a combined data source test.
 /// </summary>
-internal sealed class ParameterDataSourceDescriptor
+internal sealed record ParameterDataSourceDescriptor
 {
     public ParameterDataSourceDescriptor(
         int parameterIndex,
         string parameterName,
         ParameterDataSourceKind kind,
-        ImmutableArray<TypedConstant> inlineValues,
+        EquatableArray<ConstantValue> inlineValues,
         string? memberName,
         string? memberTypeName,
         DataSourceMemberKind memberKind,
@@ -348,7 +345,7 @@ internal sealed class ParameterDataSourceDescriptor
     /// Gets the inline values for [Values] attribute.
     /// Empty for other kinds.
     /// </summary>
-    public ImmutableArray<TypedConstant> InlineValues { get; }
+    public EquatableArray<ConstantValue> InlineValues { get; }
 
     /// <summary>
     /// Gets the member name for [ValuesFromMember] attribute.

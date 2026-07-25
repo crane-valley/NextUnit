@@ -234,7 +234,7 @@ internal static class TestMethodValidator
         // All parameters must have a data source (except trailing CancellationToken)
         var expectedSourceCount = test.Parameters.Length;
         if (test.Parameters.Length > 0 &&
-            test.Parameters[test.Parameters.Length - 1].Type.ToDisplayString() == "System.Threading.CancellationToken")
+            test.Parameters[test.Parameters.Length - 1].DisplayTypeName == "System.Threading.CancellationToken")
         {
             expectedSourceCount = test.Parameters.Length - 1;
         }

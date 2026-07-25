@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using Microsoft.CodeAnalysis;
 using NextUnit.Generator.Models;
 
 namespace NextUnit.Generator.Helpers;
@@ -14,20 +13,20 @@ internal static class MatrixHelper
     /// </summary>
     /// <param name="matrixParameters">The matrix parameters with their values.</param>
     /// <returns>All combinations as an array of value arrays.</returns>
-    public static ImmutableArray<ImmutableArray<TypedConstant>> ComputeCartesianProduct(
-        ImmutableArray<MatrixParameterDescriptor> matrixParameters)
+    public static ImmutableArray<EquatableArray<ConstantValue>> ComputeCartesianProduct(
+        EquatableArray<MatrixParameterDescriptor> matrixParameters)
     {
         if (matrixParameters.IsDefaultOrEmpty)
         {
-            return ImmutableArray<ImmutableArray<TypedConstant>>.Empty;
+            return ImmutableArray<EquatableArray<ConstantValue>>.Empty;
         }
 
         // Start with an empty combination
-        var combinations = ImmutableArray.Create(ImmutableArray<TypedConstant>.Empty);
+        var combinations = new List<ImmutableArray<ConstantValue>> { ImmutableArray<ConstantValue>.Empty };
 
         foreach (var parameter in matrixParameters)
         {
-            var newCombinations = ImmutableArray.CreateBuilder<ImmutableArray<TypedConstant>>();
+            var newCombinations = new List<ImmutableArray<ConstantValue>>();
 
             foreach (var existingCombination in combinations)
             {
@@ -37,10 +36,12 @@ internal static class MatrixHelper
                 }
             }
 
-            combinations = newCombinations.ToImmutable();
+            combinations = newCombinations;
         }
 
-        return combinations;
+        return combinations
+            .Select(static combination => new EquatableArray<ConstantValue>(combination))
+            .ToImmutableArray();
     }
 
     /// <summary>
@@ -49,9 +50,9 @@ internal static class MatrixHelper
     /// <param name="combinations">All combinations from the Cartesian product.</param>
     /// <param name="exclusions">The exclusion patterns to filter out.</param>
     /// <returns>The filtered combinations.</returns>
-    public static ImmutableArray<ImmutableArray<TypedConstant>> ApplyExclusions(
-        ImmutableArray<ImmutableArray<TypedConstant>> combinations,
-        ImmutableArray<MatrixExclusionDescriptor> exclusions)
+    public static ImmutableArray<EquatableArray<ConstantValue>> ApplyExclusions(
+        ImmutableArray<EquatableArray<ConstantValue>> combinations,
+        EquatableArray<MatrixExclusionDescriptor> exclusions)
     {
         if (exclusions.IsDefaultOrEmpty)
         {
@@ -64,15 +65,15 @@ internal static class MatrixHelper
     }
 
     private static bool IsExcluded(
-        ImmutableArray<TypedConstant> combination,
-        ImmutableArray<MatrixExclusionDescriptor> exclusions)
+        EquatableArray<ConstantValue> combination,
+        EquatableArray<MatrixExclusionDescriptor> exclusions)
     {
         return exclusions.Any(exclusion => MatchesExclusion(combination, exclusion.Values));
     }
 
     private static bool MatchesExclusion(
-        ImmutableArray<TypedConstant> combination,
-        ImmutableArray<TypedConstant> exclusionValues)
+        EquatableArray<ConstantValue> combination,
+        EquatableArray<ConstantValue> exclusionValues)
     {
         // Exclusion must have the same number of values as the combination
         if (combination.Length != exclusionValues.Length)
@@ -82,51 +83,13 @@ internal static class MatrixHelper
 
         for (var i = 0; i < combination.Length; i++)
         {
-            if (!TypedConstantsEqual(combination[i], exclusionValues[i]))
+            // EqualityKey reproduces the value-based comparison this matcher ran on TypedConstant.Value.
+            if (!string.Equals(combination[i].EqualityKey, exclusionValues[i].EqualityKey, StringComparison.Ordinal))
             {
                 return false;
             }
         }
 
         return true;
-    }
-
-    private static bool TypedConstantsEqual(TypedConstant a, TypedConstant b)
-    {
-        // Handle null values
-        if (a.IsNull && b.IsNull)
-        {
-            return true;
-        }
-
-        if (a.IsNull || b.IsNull)
-        {
-            return false;
-        }
-
-        // Handle array-typed constants element-wise
-        if (a.Kind == TypedConstantKind.Array && b.Kind == TypedConstantKind.Array)
-        {
-            var aValues = a.Values;
-            var bValues = b.Values;
-
-            if (aValues.Length != bValues.Length)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < aValues.Length; i++)
-            {
-                if (!TypedConstantsEqual(aValues[i], bValues[i]))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        // Compare values directly for non-array types
-        return Equals(a.Value, b.Value);
     }
 }
