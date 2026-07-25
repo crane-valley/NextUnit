@@ -14,15 +14,12 @@ public sealed class TestExecutionEngineTests
         // Each attempt stays under the timeout, but their cumulative duration exceeds it.
         // A per-test shared timeout source would report TimedOut; a per-attempt source lets the test pass.
         var attempts = 0;
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("timeout.per.attempt"),
-            DisplayName = "timeout.per.attempt",
-            TestClass = typeof(TestExecutionEngineTests),
-            MethodName = "PerAttempt",
-            TimeoutMs = 1000,
-            Retry = new RetryInfo { Count = 3 },
-            TestMethod = async (_, ct) =>
+        var test = TestCaseDescriptorBuilder
+            .ForReflectionActivation("timeout.per.attempt", typeof(TestExecutionEngineTests))
+            .WithMethodName("PerAttempt")
+            .WithTimeout(1000)
+            .WithRetry(3)
+            .WithMethod(async (_, ct) =>
             {
                 var current = Interlocked.Increment(ref attempts);
                 await Task.Delay(400, ct);
@@ -30,8 +27,8 @@ public sealed class TestExecutionEngineTests
                 {
                     throw new InvalidOperationException("transient failure");
                 }
-            }
-        };
+            })
+            .Build();
 
         var sink = new RecordingSink();
         await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
@@ -46,21 +43,18 @@ public sealed class TestExecutionEngineTests
     {
         using var cts = new CancellationTokenSource();
         var attempts = 0;
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("cancel.no.retry"),
-            DisplayName = "cancel.no.retry",
-            TestClass = typeof(TestExecutionEngineTests),
-            MethodName = "Cancel",
-            Retry = new RetryInfo { Count = 3 },
-            TestMethod = (_, ct) =>
+        var test = TestCaseDescriptorBuilder
+            .ForReflectionActivation("cancel.no.retry", typeof(TestExecutionEngineTests))
+            .WithMethodName("Cancel")
+            .WithRetry(3)
+            .WithMethod((_, ct) =>
             {
                 Interlocked.Increment(ref attempts);
                 cts.Cancel();
                 ct.ThrowIfCancellationRequested();
                 return Task.CompletedTask;
-            }
-        };
+            })
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -75,22 +69,10 @@ public sealed class TestExecutionEngineTests
     [Test]
     public async Task ClassTeardownException_IsReportedAgainstClassScopeAsync()
     {
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("teardown.reported"),
-            DisplayName = "teardown.reported",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            TestMethod = static (_, _) => Task.CompletedTask,
-            Lifecycle = new LifecycleInfo
-            {
-                AfterClassMethods =
-                [
-                    static (_, _) => throw new InvalidOperationException("teardown boom")
-                ]
-            }
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("teardown.reported")
+            .WithAfterClass(static (_, _) => throw new InvalidOperationException("teardown boom"))
+            .Build();
 
         var sink = new RecordingSink();
         await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
@@ -105,22 +87,10 @@ public sealed class TestExecutionEngineTests
     [Test]
     public async Task ClassTeardownAndDisposeFailures_ReportDistinctNodesAsync()
     {
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("teardown.and.dispose"),
-            DisplayName = "teardown.and.dispose",
-            TestClass = typeof(ThrowingDisposeClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new ThrowingDisposeClass(),
-            TestMethod = static (_, _) => Task.CompletedTask,
-            Lifecycle = new LifecycleInfo
-            {
-                AfterClassMethods =
-                [
-                    static (_, _) => throw new InvalidOperationException("teardown boom")
-                ]
-            }
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<ThrowingDisposeClass>("teardown.and.dispose")
+            .WithAfterClass(static (_, _) => throw new InvalidOperationException("teardown boom"))
+            .Build();
 
         var sink = new RecordingSink();
         await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
@@ -135,34 +105,23 @@ public sealed class TestExecutionEngineTests
     public async Task ClassTeardownObservingCancellation_IsNotReportedAsErrorAsync()
     {
         using var cts = new CancellationTokenSource();
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("teardown.cancelled"),
-            DisplayName = "teardown.cancelled",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("teardown.cancelled")
             // Serial execution keeps the parallel loop from observing the token, so the AfterClass
             // teardown is the only place cancellation is first seen (the case that was being lost).
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = (_, _) =>
+            .Serial()
+            .WithMethod((_, _) =>
             {
                 cts.Cancel();
                 return Task.CompletedTask;
-            },
-            Lifecycle = new LifecycleInfo
+            })
+            .WithAfterClass(static (_, ct) =>
             {
-                AfterClassMethods =
-                [
-                    static (_, ct) =>
-                    {
-                        // Teardown observes the cancelled run token; this is not a teardown failure.
-                        ct.ThrowIfCancellationRequested();
-                        return Task.CompletedTask;
-                    }
-                ]
-            }
-        };
+                // Teardown observes the cancelled run token; this is not a teardown failure.
+                ct.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            })
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -178,36 +137,26 @@ public sealed class TestExecutionEngineTests
     {
         using var cts = new CancellationTokenSource();
         var secondHookRan = false;
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("teardown.multi.hook"),
-            DisplayName = "teardown.multi.hook",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = (_, _) =>
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("teardown.multi.hook")
+            .Serial()
+            .WithMethod((_, _) =>
             {
                 cts.Cancel();
                 return Task.CompletedTask;
-            },
-            Lifecycle = new LifecycleInfo
-            {
-                AfterClassMethods =
-                [
-                    static (_, ct) =>
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        return Task.CompletedTask;
-                    },
-                    (_, _) =>
-                    {
-                        secondHookRan = true;
-                        return Task.CompletedTask;
-                    }
-                ]
-            }
-        };
+            })
+            .WithAfterClass(
+                static (_, ct) =>
+                {
+                    ct.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                },
+                (_, _) =>
+                {
+                    secondHookRan = true;
+                    return Task.CompletedTask;
+                })
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -241,20 +190,15 @@ public sealed class TestExecutionEngineTests
                 }
             ]);
 
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("assembly.teardown.multi"),
-            DisplayName = "assembly.teardown.multi",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = (_, _) =>
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("assembly.teardown.multi")
+            .Serial()
+            .WithMethod((_, _) =>
             {
                 cts.Cancel();
                 return Task.CompletedTask;
-            }
-        };
+            })
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -271,23 +215,18 @@ public sealed class TestExecutionEngineTests
         using var cts = new CancellationTokenSource();
         var executions = 0;
 
-        TestCaseDescriptor MakeTest(string id, int priority) => new()
-        {
-            Id = new TestCaseId(id),
-            DisplayName = id,
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Priority = priority,
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = (_, _) =>
+        TestCaseDescriptor MakeTest(string id, int priority) => TestCaseDescriptorBuilder
+            .For<SampleTestClass>(id)
+            .WithPriority(priority)
+            .Serial()
+            .WithMethod((_, _) =>
             {
                 Interlocked.Increment(ref executions);
                 // Ignore the token and return normally; the batch loop must still stop.
                 cts.Cancel();
                 return Task.CompletedTask;
-            }
-        };
+            })
+            .Build();
 
         var tests = new[] { MakeTest("serial.a", 10), MakeTest("serial.b", 0) };
         var sink = new RecordingSink();
@@ -303,21 +242,16 @@ public sealed class TestExecutionEngineTests
     public async Task Run_SurfacesCancellationWhenOnlyTestIgnoresTokenAsync()
     {
         using var cts = new CancellationTokenSource();
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("only.ignores.token"),
-            DisplayName = "only.ignores.token",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = (_, _) =>
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("only.ignores.token")
+            .Serial()
+            .WithMethod((_, _) =>
             {
                 // The only test ignores the token and completes normally.
                 cts.Cancel();
                 return Task.CompletedTask;
-            }
-        };
+            })
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -331,23 +265,12 @@ public sealed class TestExecutionEngineTests
     [Test]
     public async Task MultipleClassTeardownFailures_AggregateIntoSingleNodeAsync()
     {
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("teardown.multi.fail"),
-            DisplayName = "teardown.multi.fail",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            TestMethod = static (_, _) => Task.CompletedTask,
-            Lifecycle = new LifecycleInfo
-            {
-                AfterClassMethods =
-                [
-                    static (_, _) => throw new InvalidOperationException("first boom"),
-                    static (_, _) => throw new InvalidOperationException("second boom")
-                ]
-            }
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("teardown.multi.fail")
+            .WithAfterClass(
+                static (_, _) => throw new InvalidOperationException("first boom"),
+                static (_, _) => throw new InvalidOperationException("second boom"))
+            .Build();
 
         var sink = new RecordingSink();
         await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
@@ -369,31 +292,20 @@ public sealed class TestExecutionEngineTests
             beforeMethods: null,
             afterMethods: [static (_, _) => throw new InvalidOperationException("assembly boom")]);
 
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("cancel.plus.failure"),
-            DisplayName = "cancel.plus.failure",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = (_, _) =>
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("cancel.plus.failure")
+            .Serial()
+            .WithMethod((_, _) =>
             {
                 cts.Cancel();
                 return Task.CompletedTask;
-            },
-            Lifecycle = new LifecycleInfo
+            })
+            .WithAfterClass(static (_, ct) =>
             {
-                AfterClassMethods =
-                [
-                    static (_, ct) =>
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        return Task.CompletedTask;
-                    }
-                ]
-            }
-        };
+                ct.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            })
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -415,15 +327,9 @@ public sealed class TestExecutionEngineTests
             beforeMethods: null,
             afterMethods: [static (_, _) => throw new InvalidOperationException("assembly boom")]);
 
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("assembly.teardown.node"),
-            DisplayName = "assembly.teardown.node",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            TestMethod = static (_, _) => Task.CompletedTask
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("assembly.teardown.node")
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -449,15 +355,9 @@ public sealed class TestExecutionEngineTests
                 static (_, _) => throw new InvalidOperationException("second assembly boom")
             ]);
 
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("assembly.teardown.multi.fail"),
-            DisplayName = "assembly.teardown.multi.fail",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            TestMethod = static (_, _) => Task.CompletedTask
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("assembly.teardown.multi.fail")
+            .Build();
 
         var sink = new RecordingSink();
         await engine.RunAsync([test], sink, CancellationToken.None);
@@ -476,15 +376,9 @@ public sealed class TestExecutionEngineTests
             beforeMethods: null,
             afterMethods: [static (_, _) => throw new InvalidOperationException("assembly boom")]);
 
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("assembly.teardown.sink.fail"),
-            DisplayName = "assembly.teardown.sink.fail",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            TestMethod = static (_, _) => Task.CompletedTask
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("assembly.teardown.sink.fail")
+            .Build();
 
         var sink = new ThrowingReportSink();
 
@@ -500,15 +394,9 @@ public sealed class TestExecutionEngineTests
     [Test]
     public async Task PassingTestWithThrowingDispose_IsReportedAsTestScopedErrorAsync()
     {
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("dispose.after.pass"),
-            DisplayName = "dispose.after.pass",
-            TestClass = typeof(ThrowingDisposeClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new ThrowingDisposeClass(),
-            TestMethod = static (_, _) => Task.CompletedTask
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<ThrowingDisposeClass>("dispose.after.pass")
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -525,20 +413,16 @@ public sealed class TestExecutionEngineTests
     public async Task FailingTestWithThrowingDispose_KeepsOriginalFailureAsync()
     {
         var attempts = 0;
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("dispose.after.failure"),
-            DisplayName = "dispose.after.failure",
-            TestClass = typeof(ThrowingDisposeClass),
-            MethodName = "Boom",
-            TestClassFactory = static (_, _) => new ThrowingDisposeClass(),
-            Retry = new RetryInfo { Count = 3, DelayMs = 0 },
-            TestMethod = (_, _) =>
+        var test = TestCaseDescriptorBuilder
+            .For<ThrowingDisposeClass>("dispose.after.failure")
+            .WithMethodName("Boom")
+            .WithRetry(3, delayMs: 0)
+            .WithMethod((_, _) =>
             {
                 Interlocked.Increment(ref attempts);
                 throw new InvalidOperationException("test boom");
-            }
-        };
+            })
+            .Build();
 
         var sink = new RecordingSink();
         await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
@@ -557,15 +441,9 @@ public sealed class TestExecutionEngineTests
     [Test]
     public async Task DisposalFailureReportFailure_SurfacesBothErrorsAsync()
     {
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("dispose.sink.fail"),
-            DisplayName = "dispose.sink.fail",
-            TestClass = typeof(ThrowingDisposeClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new ThrowingDisposeClass(),
-            TestMethod = static (_, _) => Task.CompletedTask
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<ThrowingDisposeClass>("dispose.sink.fail")
+            .Build();
 
         var sink = new ThrowingReportSink();
 
@@ -582,15 +460,9 @@ public sealed class TestExecutionEngineTests
     [Test]
     public async Task PassingTestWithThrowingAsyncDispose_IsReportedAsTestScopedErrorAsync()
     {
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("async.dispose.after.pass"),
-            DisplayName = "async.dispose.after.pass",
-            TestClass = typeof(ThrowingAsyncDisposeClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new ThrowingAsyncDisposeClass(),
-            TestMethod = static (_, _) => Task.CompletedTask
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<ThrowingAsyncDisposeClass>("async.dispose.after.pass")
+            .Build();
 
         var sink = new RecordingSink();
         await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
@@ -610,16 +482,10 @@ public sealed class TestExecutionEngineTests
             beforeMethods: [static (_, _) => throw new OperationCanceledException(new CancellationToken(canceled: true))],
             afterMethods: null);
 
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("assembly.setup.foreign.oce"),
-            DisplayName = "assembly.setup.foreign.oce",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = static (_, _) => Task.CompletedTask
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("assembly.setup.foreign.oce")
+            .Serial()
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -635,28 +501,16 @@ public sealed class TestExecutionEngineTests
     public async Task ClassTeardownCancelsRunAndReturnsNormally_SurfacesCancellationAsync()
     {
         using var cts = new CancellationTokenSource();
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("teardown.cancels.run"),
-            DisplayName = "teardown.cancels.run",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = static (_, _) => Task.CompletedTask,
-            Lifecycle = new LifecycleInfo
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("teardown.cancels.run")
+            .Serial()
+            .WithAfterClass((_, _) =>
             {
-                AfterClassMethods =
-                [
-                    (_, _) =>
-                    {
-                        // Cancellation first fires during cleanup, and the hook returns normally.
-                        cts.Cancel();
-                        return Task.CompletedTask;
-                    }
-                ]
-            }
-        };
+                // Cancellation first fires during cleanup, and the hook returns normally.
+                cts.Cancel();
+                return Task.CompletedTask;
+            })
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -671,24 +525,19 @@ public sealed class TestExecutionEngineTests
     public async Task TimeoutWithOuterCancellation_PropagatesCancellationNotErrorAsync()
     {
         using var cts = new CancellationTokenSource();
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("timeout.plus.cancel"),
-            DisplayName = "timeout.plus.cancel",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("timeout.plus.cancel")
+            .Serial()
             // Large timeout so the timeout CTS does not fire; the outer run token is what cancels.
-            TimeoutMs = 60_000,
-            TestMethod = async (_, ct) =>
+            .WithTimeout(60_000)
+            .WithMethod(async (_, ct) =>
             {
                 // ct is the linked (timeout + run) token; cancelling the run makes the delay throw an
                 // OCE that carries the linked token, not the run token.
                 cts.Cancel();
                 await Task.Delay(Timeout.Infinite, ct);
-            }
-        };
+            })
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -704,23 +553,18 @@ public sealed class TestExecutionEngineTests
     {
         using var cts = new CancellationTokenSource();
         var attempts = 0;
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("retry.after.cancel"),
-            DisplayName = "retry.after.cancel",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
-            Retry = new RetryInfo { Count = 3, DelayMs = 0 },
-            TestMethod = (_, _) =>
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("retry.after.cancel")
+            .Serial()
+            .WithRetry(3, delayMs: 0)
+            .WithMethod((_, _) =>
             {
                 Interlocked.Increment(ref attempts);
                 // Cancel the run, then fail with a normal (non-OCE) exception.
                 cts.Cancel();
                 throw new InvalidOperationException("boom after cancel");
-            }
-        };
+            })
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -736,28 +580,17 @@ public sealed class TestExecutionEngineTests
     public async Task ClassTeardownForeignCancellation_IsReportedAsFailureNotRunCancellationAsync()
     {
         using var cts = new CancellationTokenSource();
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("teardown.foreign.oce"),
-            DisplayName = "teardown.foreign.oce",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = (_, _) =>
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("teardown.foreign.oce")
+            .Serial()
+            .WithMethod((_, _) =>
             {
                 cts.Cancel();
                 return Task.CompletedTask;
-            },
-            Lifecycle = new LifecycleInfo
-            {
-                AfterClassMethods =
-                [
-                    // An OCE carrying a token that is NOT the run token is the hook's own cancellation.
-                    static (_, _) => throw new OperationCanceledException(new CancellationToken(canceled: true))
-                ]
-            }
-        };
+            })
+            // An OCE carrying a token that is NOT the run token is the hook's own cancellation.
+            .WithAfterClass(static (_, _) => throw new OperationCanceledException(new CancellationToken(canceled: true)))
+            .Build();
 
         var sink = new RecordingSink();
 
@@ -775,33 +608,15 @@ public sealed class TestExecutionEngineTests
     [Test]
     public async Task SinkFailureDuringCleanupReport_DoesNotAbortRemainingReportsAsync()
     {
-        var firstClass = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("sink.fail.a"),
-            DisplayName = "sink.fail.a",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            TestMethod = static (_, _) => Task.CompletedTask,
-            Lifecycle = new LifecycleInfo
-            {
-                AfterClassMethods = [static (_, _) => throw new InvalidOperationException("teardown boom")]
-            }
-        };
+        var firstClass = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("sink.fail.a")
+            .WithAfterClass(static (_, _) => throw new InvalidOperationException("teardown boom"))
+            .Build();
 
-        var secondClass = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("sink.fail.b"),
-            DisplayName = "sink.fail.b",
-            TestClass = typeof(SecondSampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SecondSampleTestClass(),
-            TestMethod = static (_, _) => Task.CompletedTask,
-            Lifecycle = new LifecycleInfo
-            {
-                AfterClassMethods = [static (_, _) => throw new InvalidOperationException("teardown boom")]
-            }
-        };
+        var secondClass = TestCaseDescriptorBuilder
+            .For<SecondSampleTestClass>("sink.fail.b")
+            .WithAfterClass(static (_, _) => throw new InvalidOperationException("teardown boom"))
+            .Build();
 
         var sink = new ThrowingReportSink();
 
@@ -822,18 +637,10 @@ public sealed class TestExecutionEngineTests
     [Test]
     public void InvalidTestNameRegex_SurfacesErrorInsteadOfRunningEverything()
     {
-        const string envVar = "NEXTUNIT_TEST_NAME_REGEX";
-        var original = Environment.GetEnvironmentVariable(envVar);
-        Environment.SetEnvironmentVariable(envVar, "(unclosed");
-        try
-        {
-            Assert.Throws<ArgumentException>(
-                () => new NextUnitFramework(null!, new NullServiceProvider()));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(envVar, original);
-        }
+        using var envVar = EnvironmentVariableGuard.Set("NEXTUNIT_TEST_NAME_REGEX", "(unclosed");
+
+        Assert.Throws<ArgumentException>(
+            () => new NextUnitFramework(null!, new NullServiceProvider()));
     }
 
     [Test]
@@ -844,31 +651,20 @@ public sealed class TestExecutionEngineTests
         // node either - it aborts the run and surfaces from RunAsync.
         var setupInvocations = 0;
         var testInvocations = 0;
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("class.setup.failure"),
-            DisplayName = "class.setup.failure",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Retry = new RetryInfo { Count = 3 },
-            TestMethod = (_, _) =>
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("class.setup.failure")
+            .WithRetry(3)
+            .WithMethod((_, _) =>
             {
                 Interlocked.Increment(ref testInvocations);
                 return Task.CompletedTask;
-            },
-            Lifecycle = new LifecycleInfo
+            })
+            .WithBeforeClass((_, _) =>
             {
-                BeforeClassMethods =
-                [
-                    (_, _) =>
-                    {
-                        Interlocked.Increment(ref setupInvocations);
-                        throw new InvalidOperationException("class setup boom");
-                    }
-                ]
-            }
-        };
+                Interlocked.Increment(ref setupInvocations);
+                throw new InvalidOperationException("class setup boom");
+            })
+            .Build();
 
         var sink = new RecordingSink();
         var error = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -901,17 +697,11 @@ public sealed class TestExecutionEngineTests
             ]
         };
 
-        TestCaseDescriptor CreateTest(string id) => new()
-        {
-            Id = new TestCaseId(id),
-            DisplayName = id,
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            Parallel = new ParallelInfo { NotInParallel = true },
-            TestMethod = static (_, _) => Task.CompletedTask,
-            Lifecycle = lifecycle
-        };
+        TestCaseDescriptor CreateTest(string id) => TestCaseDescriptorBuilder
+            .For<SampleTestClass>(id)
+            .Serial()
+            .WithLifecycle(lifecycle)
+            .Build();
 
         var sink = new RecordingSink();
         await new TestExecutionEngine().RunAsync(
@@ -937,22 +727,10 @@ public sealed class TestExecutionEngineTests
             beforeMethods: null,
             afterMethods: [static (_, _) => throw new InvalidOperationException("assembly teardown boom")]);
 
-        var test = new TestCaseDescriptor
-        {
-            Id = new TestCaseId("teardown.both.scopes"),
-            DisplayName = "teardown.both.scopes",
-            TestClass = typeof(SampleTestClass),
-            MethodName = "Ok",
-            TestClassFactory = static (_, _) => new SampleTestClass(),
-            TestMethod = static (_, _) => Task.CompletedTask,
-            Lifecycle = new LifecycleInfo
-            {
-                AfterClassMethods =
-                [
-                    static (_, _) => throw new InvalidOperationException("class teardown boom")
-                ]
-            }
-        };
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("teardown.both.scopes")
+            .WithAfterClass(static (_, _) => throw new InvalidOperationException("class teardown boom"))
+            .Build();
 
         var sink = new RecordingSink();
         await engine.RunAsync([test], sink, CancellationToken.None);
@@ -975,97 +753,5 @@ public sealed class TestExecutionEngineTests
         return exception as AggregateException
             ?? throw new AssertionFailedException(
                 $"Expected an AggregateException but got {exception.GetType().Name}: {exception.Message}");
-    }
-
-    private sealed class SampleTestClass
-    {
-    }
-
-    private sealed class SecondSampleTestClass
-    {
-    }
-
-    private sealed class ThrowingDisposeClass : IDisposable
-    {
-        public void Dispose() => throw new InvalidOperationException("dispose boom");
-    }
-
-    private sealed class ThrowingAsyncDisposeClass : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync() => throw new InvalidOperationException("async dispose boom");
-    }
-
-    private sealed class NullServiceProvider : IServiceProvider
-    {
-        public object? GetService(Type serviceType) => null;
-    }
-
-    private sealed class ThrowingReportSink : ITestExecutionSink
-    {
-        private int _errorReportAttempts;
-
-        public int ErrorReportAttempts => Volatile.Read(ref _errorReportAttempts);
-
-        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null) => Task.CompletedTask;
-
-        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null) => Task.CompletedTask;
-
-        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            Interlocked.Increment(ref _errorReportAttempts);
-            throw new InvalidOperationException("sink is down");
-        }
-
-        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null) => Task.CompletedTask;
-    }
-
-    private sealed class RecordingSink : ITestExecutionSink
-    {
-        private readonly object _lock = new();
-
-        public List<TestCaseDescriptor> Passed { get; } = [];
-        public List<TestCaseDescriptor> Skipped { get; } = [];
-        public List<(TestCaseDescriptor Test, Exception Exception)> Errors { get; } = [];
-        public List<(TestCaseDescriptor Test, AssertionFailedException Exception)> Failed { get; } = [];
-
-        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            lock (_lock)
-            {
-                Passed.Add(test);
-            }
-
-            return Task.CompletedTask;
-        }
-
-        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            lock (_lock)
-            {
-                Failed.Add((test, ex));
-            }
-
-            return Task.CompletedTask;
-        }
-
-        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            lock (_lock)
-            {
-                Errors.Add((test, ex));
-            }
-
-            return Task.CompletedTask;
-        }
-
-        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            lock (_lock)
-            {
-                Skipped.Add(test);
-            }
-
-            return Task.CompletedTask;
-        }
     }
 }

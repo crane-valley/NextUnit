@@ -11,7 +11,7 @@ namespace WebApi.Sample.Tests;
 public class WeatherApiTests : WebApiTestBase
 {
     [Test]
-    public async Task GetWeatherForecast_ReturnsOk()
+    public async Task GetWeatherForecast_ReturnsOkAsync()
     {
         var response = await Client.GetAsync("/weatherforecast");
 
@@ -19,7 +19,7 @@ public class WeatherApiTests : WebApiTestBase
     }
 
     [Test]
-    public async Task GetWeatherForecast_ReturnsFiveForecastItems()
+    public async Task GetWeatherForecast_ReturnsFiveForecastItemsAsync()
     {
         var forecasts = await Client.GetFromJsonAsync<WeatherForecast[]>("/weatherforecast");
 
@@ -28,7 +28,7 @@ public class WeatherApiTests : WebApiTestBase
     }
 
     [Test]
-    public async Task GetWeatherForecastByCity_ValidCity_ReturnsOk()
+    public async Task GetWeatherForecastByCity_ValidCity_ReturnsOkAsync()
     {
         var response = await Client.GetAsync("/weatherforecast/Tokyo");
 
@@ -36,7 +36,7 @@ public class WeatherApiTests : WebApiTestBase
     }
 
     [Test]
-    public async Task GetWeatherForecastByCity_InvalidCity_ReturnsNotFound()
+    public async Task GetWeatherForecastByCity_InvalidCity_ReturnsNotFoundAsync()
     {
         var response = await Client.GetAsync("/weatherforecast/UnknownCity");
 
@@ -47,7 +47,7 @@ public class WeatherApiTests : WebApiTestBase
     [Arguments("Tokyo")]
     [Arguments("New York")]
     [Arguments("London")]
-    public async Task GetWeatherForecastByCity_ValidCities_ReturnsCorrectCity(string city)
+    public async Task GetWeatherForecastByCity_ValidCities_ReturnsCorrectCityAsync(string city)
     {
         var forecast = await Client.GetFromJsonAsync<WeatherForecast>($"/weatherforecast/{city}");
 

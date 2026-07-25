@@ -36,29 +36,29 @@ public interface IWeatherService
 
 public class WeatherService : IWeatherService
 {
-    private static readonly string[] Summaries =
+    private static readonly string[] _summaries =
     [
         "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
     ];
 
-    private static readonly string[] Cities = ["Tokyo", "New York", "London", "Paris", "Sydney"];
+    private static readonly string[] _cities = ["Tokyo", "New York", "London", "Paris", "Sydney"];
 
     public IEnumerable<WeatherForecast> GetForecast()
     {
         return Enumerable.Range(1, 5).Select(index =>
             new WeatherForecast
             (
-                Cities[index - 1],
+                _cities[index - 1],
                 DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
                 Random.Shared.Next(-20, 55),
-                Summaries[Random.Shared.Next(Summaries.Length)]
+                _summaries[Random.Shared.Next(_summaries.Length)]
             ))
             .ToArray();
     }
 
     public WeatherForecast? GetForecastForCity(string city)
     {
-        if (!Cities.Contains(city, StringComparer.OrdinalIgnoreCase))
+        if (!_cities.Contains(city, StringComparer.OrdinalIgnoreCase))
         {
             return null;
         }
@@ -67,7 +67,7 @@ public class WeatherService : IWeatherService
             city,
             DateOnly.FromDateTime(DateTime.Now),
             Random.Shared.Next(-20, 55),
-            Summaries[Random.Shared.Next(Summaries.Length)]);
+            _summaries[Random.Shared.Next(_summaries.Length)]);
     }
 }
 

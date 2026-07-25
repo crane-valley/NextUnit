@@ -75,21 +75,17 @@ public sealed class ParallelSchedulerTests
         int? parallelLimit = null,
         bool notInParallel = false,
         IReadOnlyList<string>? constraintKeys = null) =>
-        new()
-        {
-            Id = new TestCaseId(id),
-            DisplayName = id,
-            TestClass = typeof(ParallelSchedulerTests),
-            MethodName = nameof(CreateTest),
-            TestMethod = static (_, _) => Task.CompletedTask,
-            Priority = priority,
-            Parallel = new ParallelInfo
+        TestCaseDescriptorBuilder
+            .ForReflectionActivation(id, typeof(ParallelSchedulerTests))
+            .WithMethodName(nameof(CreateTest))
+            .WithPriority(priority)
+            .WithParallel(new ParallelInfo
             {
                 ParallelLimit = parallelLimit,
                 NotInParallel = notInParallel || constraintKeys is { Count: > 0 },
                 ConstraintKeys = constraintKeys ?? Array.Empty<string>()
-            }
-        };
+            })
+            .Build();
 
     private static async Task<List<TestBatch>> CollectBatchesAsync(ParallelScheduler scheduler)
     {
