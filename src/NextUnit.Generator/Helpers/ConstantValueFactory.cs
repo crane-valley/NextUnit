@@ -138,10 +138,21 @@ internal static class ConstantValueFactory
 
             case INamedTypeSymbol named:
                 builder.Append("nt");
-                AppendNameAndAssembly(
-                    builder,
-                    named.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                    named);
+
+                // A nested type is encoded through its containing type: the constructed outer type
+                // carries type arguments that neither the nested type's own name nor its own type
+                // arguments mention, so Outer<int>.Inner and Outer<string>.Inner must not collapse.
+                if (named.ContainingType is { } containingType)
+                {
+                    builder.Append("n;");
+                    AppendTypeKey(builder, containingType);
+                }
+                else
+                {
+                    builder.Append("t;");
+                }
+
+                AppendNameAndAssembly(builder, GetTypeKeyName(named), named);
                 builder.Append(named.TypeArguments.Length).Append(';');
 
                 foreach (var typeArgument in named.TypeArguments)
@@ -159,6 +170,26 @@ internal static class ConstantValueFactory
                     type);
                 return;
         }
+    }
+
+    /// <summary>
+    /// Returns the part of a named type's identity that its containing type does not already carry.
+    /// </summary>
+    /// <remarks>
+    /// The metadata name is used because it encodes generic arity, so <c>Handler</c> and
+    /// <c>Handler{T}</c> stay distinct.
+    /// </remarks>
+    private static string GetTypeKeyName(INamedTypeSymbol type)
+    {
+        if (type.ContainingType is not null)
+        {
+            return type.MetadataName;
+        }
+
+        var containingNamespace = type.ContainingNamespace;
+        return containingNamespace is null || containingNamespace.IsGlobalNamespace
+            ? type.MetadataName
+            : containingNamespace.ToDisplayString() + "." + type.MetadataName;
     }
 
     private static void AppendNameAndAssembly(StringBuilder builder, string name, ISymbol symbol)

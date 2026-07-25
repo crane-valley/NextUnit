@@ -103,6 +103,44 @@ public class MatrixExclusionMatchingTests
     }
 
     /// <summary>
+    /// A nested type is identified by the constructed type that contains it.
+    /// </summary>
+    [Fact]
+    public async Task NestedTypeValues_KeepTheirContainingTypeArgumentsAsync()
+    {
+        var source = """
+            using System;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class Outer<T>
+            {
+                public class Inner
+                {
+                }
+            }
+
+            public class MatrixTests
+            {
+                [Test]
+                [MatrixExclusion(typeof(Outer<int>.Inner))]
+                public void Single(
+                    [Matrix(typeof(Outer<int>.Inner), typeof(Outer<string>.Inner))] Type value)
+                {
+                }
+            }
+            """;
+
+        var generated = await GenerateRegistryAsync(source);
+
+        Assert.Equal(1, CountTestCases(generated));
+        Assert.True(
+            generated.Contains("Outer<string>.Inner", StringComparison.Ordinal),
+            "Only the excluded Outer<int>.Inner combination must be removed.");
+    }
+
+    /// <summary>
     /// A matching exclusion still removes its combination.
     /// </summary>
     [Fact]
