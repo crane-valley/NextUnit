@@ -43,7 +43,22 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
             return _values.IsDefault && other._values.IsDefault;
         }
 
-        return _values.SequenceEqual(other._values, EqualityComparer<T>.Default);
+        if (_values.Length != other._values.Length)
+        {
+            return false;
+        }
+
+        // Indexed loop instead of SequenceEqual: this comparison runs for every cached pipeline
+        // model on every incremental pass, and the enumerable-based path allocates enumerator boxes.
+        for (var i = 0; i < _values.Length; i++)
+        {
+            if (!_values[i].Equals(other._values[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public override bool Equals(object? obj) => obj is EquatableArray<T> other && Equals(other);
@@ -67,8 +82,13 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
         }
     }
 
-    public IEnumerator<T> GetEnumerator() =>
+    // The struct enumerator keeps foreach allocation-free; the interface implementations below
+    // exist only for LINQ consumers, which pay for the box regardless.
+    public ImmutableArray<T>.Enumerator GetEnumerator() =>
+        (_values.IsDefault ? ImmutableArray<T>.Empty : _values).GetEnumerator();
+
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() =>
         ((IEnumerable<T>)(_values.IsDefault ? ImmutableArray<T>.Empty : _values)).GetEnumerator();
 
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<T>)this).GetEnumerator();
 }
