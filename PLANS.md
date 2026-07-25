@@ -126,8 +126,10 @@ decision rather than more schedules or report formats.
 - [x] Assert API gaps found dogfooding 1.15.1 in an NUnit migration: added Same/NotSame, Fail,
   DoesNotThrow/DoesNotThrowAsync, and tolerance-based Equal/NotEqual double overloads (additive
   only; int third argument still binds to the precision overload, proven by test).
-- [ ] ThrowsAsync overloads share the unguarded `await action().ConfigureAwait(false)` null-task
-  flaw fixed in DoesNotThrowAsync (PR #165 review); add the same clear-failure guard there.
+- [x] ThrowsAsync overloads shared the unguarded `await action().ConfigureAwait(false)` null-task
+  flaw fixed in DoesNotThrowAsync (PR #165 review); the whole Throws family now rejects a null
+  delegate with `ArgumentNullException` and a null returned task with `ArgumentException`, and
+  DoesNotThrowAsync reports the null task the same way instead of as an assertion failure.
 
 Found while adding behavioral tests for the Assert API; both change the public surface, so they
 need a deliberate compatibility decision rather than a drive-by fix.
