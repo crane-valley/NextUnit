@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
-
+using NextUnit.CodeAnalysis.Shared;
 namespace NextUnit.Analyzers.Analyzers;
 
 /// <summary>
@@ -10,8 +10,6 @@ namespace NextUnit.Analyzers.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class TestMethodVisibilityAnalyzer : DiagnosticAnalyzer
 {
-    private const string TestAttributeFullName = "NextUnit.TestAttribute";
-
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.TestMethodNotPublic);
 
@@ -41,5 +39,5 @@ public sealed class TestMethodVisibilityAnalyzer : DiagnosticAnalyzer
     }
 
     private static bool HasTestAttribute(IMethodSymbol method) =>
-        method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == TestAttributeFullName);
+        method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.Test);
 }

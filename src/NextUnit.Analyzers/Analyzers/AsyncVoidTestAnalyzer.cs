@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using NextUnit.CodeAnalysis.Shared;
 
 namespace NextUnit.Analyzers.Analyzers;
 
@@ -10,12 +11,6 @@ namespace NextUnit.Analyzers.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class AsyncVoidTestAnalyzer : DiagnosticAnalyzer
 {
-    private static readonly ImmutableHashSet<string> _supportedAttributeNames =
-        ImmutableHashSet.Create(
-            "NextUnit.TestAttribute",
-            "NextUnit.BeforeAttribute",
-            "NextUnit.AfterAttribute");
-
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.AsyncVoidTest);
 
@@ -46,5 +41,5 @@ public sealed class AsyncVoidTestAnalyzer : DiagnosticAnalyzer
 
     private static bool HasSupportedAttribute(IMethodSymbol method) =>
         method.GetAttributes().Any(
-            attribute => _supportedAttributeNames.Contains(attribute.AttributeClass?.ToDisplayString() ?? ""));
+            attribute => NextUnitAttributeNames.TestAndLifecycle.Contains(attribute.AttributeClass?.ToDisplayString() ?? ""));
 }

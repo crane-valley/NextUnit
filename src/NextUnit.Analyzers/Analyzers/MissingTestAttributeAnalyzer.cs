@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
-
+using NextUnit.CodeAnalysis.Shared;
 namespace NextUnit.Analyzers.Analyzers;
 
 /// <summary>
@@ -10,16 +10,6 @@ namespace NextUnit.Analyzers.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
 {
-    private const string NextUnitNamespaceName = "NextUnit";
-    private const string TestAttributeName = "TestAttribute";
-    private const string ArgumentsAttributeName = "ArgumentsAttribute";
-    private const string TestDataAttributeName = "TestDataAttribute";
-    private const string ClassDataSourceAttributeName = "ClassDataSourceAttribute";
-    private const string MatrixAttributeName = "MatrixAttribute";
-    private const string ValuesAttributeName = "ValuesAttribute";
-    private const string ValuesFromMemberAttributeName = "ValuesFromMemberAttribute";
-    private const string ValuesFromAttributeName = "ValuesFromAttribute";
-
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.DataSourceWithoutTest);
 
@@ -93,7 +83,7 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
     {
         foreach (var attribute in methodAttributes)
         {
-            if (IsNextUnitAttribute(attribute.AttributeClass, TestAttributeName))
+            if (IsNextUnitAttribute(attribute.AttributeClass, NextUnitAttributeNames.SimpleNames.Test))
             {
                 return true;
             }
@@ -145,9 +135,9 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
 
         return attributeClass!.Name switch
         {
-            ArgumentsAttributeName => "Arguments",
-            TestDataAttributeName => "TestData",
-            ClassDataSourceAttributeName when attributeClass.IsGenericType => "ClassDataSource",
+            NextUnitAttributeNames.SimpleNames.Arguments => "Arguments",
+            NextUnitAttributeNames.SimpleNames.TestData => "TestData",
+            NextUnitAttributeNames.SimpleNames.ClassDataSource when attributeClass.IsGenericType => "ClassDataSource",
             _ => null
         };
     }
@@ -161,10 +151,10 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
 
         return attributeClass!.Name switch
         {
-            MatrixAttributeName => "Matrix",
-            ValuesAttributeName => "Values",
-            ValuesFromMemberAttributeName => "ValuesFromMember",
-            ValuesFromAttributeName when attributeClass.IsGenericType => "ValuesFrom",
+            NextUnitAttributeNames.SimpleNames.Matrix => "Matrix",
+            NextUnitAttributeNames.SimpleNames.Values => "Values",
+            NextUnitAttributeNames.SimpleNames.ValuesFromMember => "ValuesFromMember",
+            NextUnitAttributeNames.SimpleNames.ValuesFrom when attributeClass.IsGenericType => "ValuesFrom",
             _ => null
         };
     }
@@ -188,7 +178,7 @@ public sealed class MissingTestAttributeAnalyzer : DiagnosticAnalyzer
         }
 
         var containingNamespace = attributeClass.ContainingNamespace;
-        return containingNamespace is { Name: NextUnitNamespaceName } &&
+        return containingNamespace is { Name: NextUnitAttributeNames.Namespace } &&
             containingNamespace.ContainingNamespace?.IsGlobalNamespace == true;
     }
 }

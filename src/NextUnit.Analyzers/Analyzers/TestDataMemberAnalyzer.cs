@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-
+using NextUnit.CodeAnalysis.Shared;
 namespace NextUnit.Analyzers.Analyzers;
 
 /// <summary>
@@ -12,11 +12,6 @@ namespace NextUnit.Analyzers.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
 {
-    private const string TestDataAttributeFullName = "NextUnit.TestDataAttribute";
-    private const string ValuesFromMemberAttributeFullName = "NextUnit.ValuesFromMemberAttribute";
-    private const string ClassDataSourceAttributePrefix = "ClassDataSourceAttribute`";
-    private const string TestDataRowMetadataName = "TestDataRow`1";
-
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
             DiagnosticDescriptors.TestDataMemberNotFound,
@@ -36,7 +31,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         // Check method-level [TestData] attributes
         foreach (var attribute in method.GetAttributes())
         {
-            if (attribute.AttributeClass?.ToDisplayString() == TestDataAttributeFullName)
+            if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.TestData)
             {
                 ValidateMemberReference(context, method, attribute, validateRowType: true);
             }
@@ -51,7 +46,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         {
             foreach (var attribute in parameter.GetAttributes())
             {
-                if (attribute.AttributeClass?.ToDisplayString() == ValuesFromMemberAttributeFullName)
+                if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.ValuesFromMember)
                 {
                     ValidateMemberReference(context, method, attribute, validateRowType: false);
                 }
@@ -137,7 +132,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         var attributeClass = attribute.AttributeClass;
         return attributeClass is { IsGenericType: true } &&
             attributeClass.ConstructedFrom.MetadataName.StartsWith(
-                ClassDataSourceAttributePrefix,
+                NextUnitAttributeNames.MetadataNames.ClassDataSourceAttributePrefix,
                 StringComparison.Ordinal) &&
             attributeClass.ContainingNamespace.ToDisplayString() == "NextUnit";
     }
@@ -191,7 +186,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         var targetParameters = method.Parameters
             .Where((parameter, index) =>
                 index != method.Parameters.Length - 1 ||
-                parameter.Type.ToDisplayString() != "System.Threading.CancellationToken")
+                parameter.Type.ToDisplayString() != WellKnownTypeNames.CancellationToken)
             .ToImmutableArray();
 
         var isCompatible = suppliedTypes.Length == targetParameters.Length;
@@ -257,7 +252,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         if (elementType is INamedTypeSymbol
             {
                 IsGenericType: true,
-                MetadataName: TestDataRowMetadataName
+                MetadataName: NextUnitAttributeNames.MetadataNames.TestDataRow
             } namedType &&
             namedType.ContainingNamespace.ToDisplayString() == "NextUnit")
         {

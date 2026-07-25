@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
-
+using NextUnit.CodeAnalysis.Shared;
 namespace NextUnit.Analyzers.Analyzers;
 
 /// <summary>
@@ -11,9 +11,6 @@ namespace NextUnit.Analyzers.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class MatrixExclusionAnalyzer : DiagnosticAnalyzer
 {
-    private const string MatrixAttributeFullName = "NextUnit.MatrixAttribute";
-    private const string MatrixExclusionAttributeFullName = "NextUnit.MatrixExclusionAttribute";
-
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.MatrixExclusionCountMismatch);
 
@@ -30,7 +27,7 @@ public sealed class MatrixExclusionAnalyzer : DiagnosticAnalyzer
 
         // Count parameters with [Matrix] attribute using LINQ
         var matrixParameterCount = method.Parameters
-            .Count(p => p.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == MatrixAttributeFullName));
+            .Count(p => p.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.Matrix));
 
         // If no matrix parameters, nothing to check
         if (matrixParameterCount == 0)
@@ -41,7 +38,7 @@ public sealed class MatrixExclusionAnalyzer : DiagnosticAnalyzer
         // Check each [MatrixExclusion] attribute
         foreach (var attribute in method.GetAttributes())
         {
-            if (attribute.AttributeClass?.ToDisplayString() != MatrixExclusionAttributeFullName)
+            if (attribute.AttributeClass?.ToDisplayString() != NextUnitAttributeNames.MatrixExclusion)
             {
                 continue;
             }

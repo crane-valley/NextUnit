@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
-
+using NextUnit.CodeAnalysis.Shared;
 namespace NextUnit.Analyzers.Analyzers;
 
 /// <summary>
@@ -10,8 +10,6 @@ namespace NextUnit.Analyzers.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class TimeoutValueAnalyzer : DiagnosticAnalyzer
 {
-    private const string TimeoutAttributeFullName = "NextUnit.TimeoutAttribute";
-
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.InvalidTimeout);
 
@@ -27,7 +25,7 @@ public sealed class TimeoutValueAnalyzer : DiagnosticAnalyzer
     {
         foreach (var attribute in context.Symbol.GetAttributes())
         {
-            if (attribute.AttributeClass?.ToDisplayString() != TimeoutAttributeFullName)
+            if (attribute.AttributeClass?.ToDisplayString() != NextUnitAttributeNames.Timeout)
             {
                 continue;
             }

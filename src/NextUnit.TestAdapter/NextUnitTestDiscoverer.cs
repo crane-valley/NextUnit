@@ -40,9 +40,7 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
 
                 // Intentionally catch broadly to prevent a single bad assembly from
                 // aborting discovery of all test sources, but preserve full diagnostics
-                logger.SendMessage(
-                    TestMessageLevel.Error,
-                    $"NextUnit: Error discovering tests in {source}: {ex.GetType().FullName}: {ex}");
+                AdapterDiagnostics.ReportSourceFailure(logger, "discovering tests", source, ex);
             }
         }
     }
@@ -52,30 +50,16 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
         IMessageLogger logger,
         ITestCaseDiscoverySink discoverySink)
     {
-        var loadResult = AssemblyLoader.TryLoadAssembly(source);
-        if (!loadResult.Success)
-        {
-            if (loadResult.ErrorMessage is not null)
-            {
-                logger.SendMessage(
-                    TestMessageLevel.Warning,
-                    $"NextUnit: Could not load assembly {source} ({loadResult.ErrorCategory}): {loadResult.ErrorMessage}");
-            }
-            return;
-        }
-
-        // Look for NextUnit.Generated.GeneratedTestRegistry
-        var registryType = AssemblyLoader.GetTestRegistryType(loadResult.Assembly!);
+        var registryType = RegistryDescriptorReader.TryResolveRegistryType(source, logger);
         if (registryType is null)
         {
-            // Not a NextUnit test assembly
             return;
         }
 
         logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found test registry in {Path.GetFileName(source)}");
 
         // Get TestCases property
-        var testCases = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestCaseDescriptor>>(registryType, "TestCases");
+        var testCases = RegistryDescriptorReader.ReadDescriptors<TestCaseDescriptor>(registryType, "TestCases");
         if (testCases is null)
         {
             logger.SendMessage(TestMessageLevel.Warning, "NextUnit: TestCases property not found or returned null");
@@ -83,52 +67,48 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
         }
 
         logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {testCases.Count} static test cases");
+        SendTestCases(testCases, source, discoverySink);
 
+        // Discovery reports every descriptor, unfiltered: VSTest asks for the full list once and
+        // applies its own filtering when the user later selects tests to run.
+        DiscoverExpandedTests<TestDataDescriptor>(
+            registryType, "TestDataDescriptors", "test data", TestDataExpander.Expand, source, logger, discoverySink);
+
+        DiscoverExpandedTests<ClassDataSourceDescriptor>(
+            registryType, "ClassDataSourceDescriptors", "class data source", ClassDataSourceExpander.Expand, source, logger, discoverySink);
+
+        DiscoverExpandedTests<CombinedDataSourceDescriptor>(
+            registryType, "CombinedDataSourceDescriptors", "combined data source", CombinedDataSourceExpander.Expand, source, logger, discoverySink);
+    }
+
+    private static void DiscoverExpandedTests<TDescriptor>(
+        Type registryType,
+        string propertyName,
+        string descriptorLabel,
+        Func<IEnumerable<TDescriptor>, IEnumerable<TestCaseDescriptor>> expand,
+        string source,
+        IMessageLogger logger,
+        ITestCaseDiscoverySink discoverySink)
+    {
+        var descriptors = RegistryDescriptorReader.ReadDescriptors<TDescriptor>(registryType, propertyName);
+        if (descriptors is null || descriptors.Count == 0)
+        {
+            return;
+        }
+
+        logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {descriptors.Count} {descriptorLabel} descriptors");
+
+        SendTestCases(expand(descriptors), source, discoverySink);
+    }
+
+    private static void SendTestCases(
+        IEnumerable<TestCaseDescriptor> testCases,
+        string source,
+        ITestCaseDiscoverySink discoverySink)
+    {
         foreach (var vsTestCase in testCases.Select(tc => VSTestCaseFactory.Create(tc, source)))
         {
             discoverySink.SendTestCase(vsTestCase);
-        }
-
-        // Get TestDataDescriptors property for parameterized tests
-        var testDataDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestDataDescriptor>>(registryType, "TestDataDescriptors");
-        if (testDataDescriptors is not null && testDataDescriptors.Count > 0)
-        {
-            logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {testDataDescriptors.Count} test data descriptors");
-
-            // Expand TestDataDescriptors into TestCaseDescriptors
-            var expandedTests = TestDataExpander.Expand(testDataDescriptors);
-            foreach (var vsTestCase in expandedTests.Select(tc => VSTestCaseFactory.Create(tc, source)))
-            {
-                discoverySink.SendTestCase(vsTestCase);
-            }
-        }
-
-        // Get ClassDataSourceDescriptors property for class-based data sources
-        var classDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<ClassDataSourceDescriptor>>(registryType, "ClassDataSourceDescriptors");
-        if (classDataSourceDescriptors is not null && classDataSourceDescriptors.Count > 0)
-        {
-            logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {classDataSourceDescriptors.Count} class data source descriptors");
-
-            // Expand ClassDataSourceDescriptors into TestCaseDescriptors
-            var expandedTests = ClassDataSourceExpander.Expand(classDataSourceDescriptors);
-            foreach (var vsTestCase in expandedTests.Select(tc => VSTestCaseFactory.Create(tc, source)))
-            {
-                discoverySink.SendTestCase(vsTestCase);
-            }
-        }
-
-        // Get CombinedDataSourceDescriptors property for combined parameter-level data sources
-        var combinedDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<CombinedDataSourceDescriptor>>(registryType, "CombinedDataSourceDescriptors");
-        if (combinedDataSourceDescriptors is not null && combinedDataSourceDescriptors.Count > 0)
-        {
-            logger.SendMessage(TestMessageLevel.Informational, $"NextUnit: Found {combinedDataSourceDescriptors.Count} combined data source descriptors");
-
-            // Expand CombinedDataSourceDescriptors into TestCaseDescriptors
-            var expandedTests = CombinedDataSourceExpander.Expand(combinedDataSourceDescriptors);
-            foreach (var vsTestCase in expandedTests.Select(tc => VSTestCaseFactory.Create(tc, source)))
-            {
-                discoverySink.SendTestCase(vsTestCase);
-            }
         }
     }
 }

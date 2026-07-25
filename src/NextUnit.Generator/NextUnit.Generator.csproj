@@ -17,7 +17,13 @@
     <!-- Source Generator Settings -->
     <DevelopmentDependency>true</DevelopmentDependency>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
-    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!-- RS1032 (diagnostic message punctuation) and RS2008 (analyzer release tracking) start
+         applying only because the NEXTUNIT descriptors now live in a static table instead of
+         being constructed inline at each report site. Both are suppressed rather than obeyed:
+         the message texts are a published suppression contract that must stay byte-identical, and
+         backfilling release-tracking entries would require asserting which package version first
+         shipped each rule, which the repository does not record. -->
+    <NoWarn>$(NoWarn);NU5128;RS1032;RS2008</NoWarn>
     <!-- Disable AOT for netstandard2.0 analyzer project -->
     <PublishAot>false</PublishAot>
   </PropertyGroup>
@@ -27,6 +33,12 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <!-- Linked source, not a project reference: the generator ships as a single self-contained
+       analyzer assembly, so the shared code is compiled into it rather than added as a dependency. -->
+  <ItemGroup>
+    <Compile Include="..\NextUnit.CodeAnalysis.Shared\*.cs" LinkBase="CodeAnalysisShared" />
   </ItemGroup>
 
   <ItemGroup>

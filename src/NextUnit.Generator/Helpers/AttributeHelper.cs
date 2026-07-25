@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using NextUnit.CodeAnalysis.Shared;
 using NextUnit.Generator.Models;
 
 namespace NextUnit.Generator.Helpers;
@@ -10,39 +11,13 @@ namespace NextUnit.Generator.Helpers;
 /// </summary>
 internal static class AttributeHelper
 {
-    public const string BeforeAttributeMetadataName = "global::NextUnit.BeforeAttribute";
-    public const string AfterAttributeMetadataName = "global::NextUnit.AfterAttribute";
-    public const string NotInParallelMetadataName = "global::NextUnit.NotInParallelAttribute";
-    public const string ParallelGroupMetadataName = "global::NextUnit.ParallelGroupAttribute";
-    public const string ParallelLimitMetadataName = "global::NextUnit.ParallelLimitAttribute";
-    public const string DependsOnMetadataName = "global::NextUnit.DependsOnAttribute";
-    public const string SkipAttributeMetadataName = "global::NextUnit.SkipAttribute";
-    public const string ExplicitAttributeMetadataName = "global::NextUnit.ExplicitAttribute";
-    public const string ArgumentsAttributeMetadataName = "global::NextUnit.ArgumentsAttribute";
-    public const string TestDataAttributeMetadataName = "global::NextUnit.TestDataAttribute";
-    public const string CategoryAttributeMetadataName = "global::NextUnit.CategoryAttribute";
-    public const string TagAttributeMetadataName = "global::NextUnit.TagAttribute";
-    public const string TimeoutAttributeMetadataName = "global::NextUnit.TimeoutAttribute";
-    public const string RetryAttributeMetadataName = "global::NextUnit.RetryAttribute";
-    public const string FlakyAttributeMetadataName = "global::NextUnit.FlakyAttribute";
-    public const string RepeatAttributeMetadataName = "global::NextUnit.RepeatAttribute";
-    public const string DisplayNameAttributeMetadataName = "global::NextUnit.DisplayNameAttribute";
-    public const string DisplayNameFormatterAttributeMetadataName = "global::NextUnit.DisplayNameFormatterAttribute";
-    public const string MatrixAttributeMetadataName = "global::NextUnit.MatrixAttribute";
-    public const string MatrixExclusionAttributeMetadataName = "global::NextUnit.MatrixExclusionAttribute";
-    public const string ClassDataSourceAttributePrefix = "ClassDataSourceAttribute`";
-    public const string ValuesAttributeMetadataName = "global::NextUnit.ValuesAttribute";
-    public const string ValuesFromMemberAttributeMetadataName = "global::NextUnit.ValuesFromMemberAttribute";
-    public const string ValuesFromAttributePrefix = "ValuesFromAttribute`";
-    public const string ITestOutputMetadataName = "global::NextUnit.Core.ITestOutput";
-    public const string ITestContextMetadataName = "global::NextUnit.Core.ITestContext";
-    public const string ExecutionPriorityAttributeMetadataName = "global::NextUnit.ExecutionPriorityAttribute";
+    // Constructor parameter types are matched against FullyQualifiedFormat display strings
+    // directly rather than through IsAttribute, so these two carry the global:: prefix.
+    public const string ITestOutputTypeName =
+        NextUnitAttributeNames.GlobalPrefix + NextUnitAttributeNames.ITestOutput;
 
-    // ForAttributeWithMetadataName matches the attribute type's metadata name, which carries no
-    // global:: prefix, unlike the ToDisplayString comparisons the constants above are used for.
-    public const string TestAttributeLookupName = "NextUnit.TestAttribute";
-    public const string BeforeAttributeLookupName = "NextUnit.BeforeAttribute";
-    public const string AfterAttributeLookupName = "NextUnit.AfterAttribute";
+    public const string ITestContextTypeName =
+        NextUnitAttributeNames.GlobalPrefix + NextUnitAttributeNames.ITestContext;
 
     public static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
@@ -67,9 +42,20 @@ internal static class AttributeHelper
             miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                                    SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
-    public static bool IsAttribute(AttributeData attribute, string metadataName)
+    /// <summary>
+    /// Matches an attribute against a fully qualified NextUnit attribute name.
+    /// </summary>
+    /// <param name="attribute">The attribute to test.</param>
+    /// <param name="fullName">
+    /// The fully qualified name without the <c>global::</c> prefix, as declared in
+    /// <see cref="NextUnitAttributeNames"/>.
+    /// </param>
+    public static bool IsAttribute(AttributeData attribute, string fullName)
     {
-        return attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == metadataName;
+        // FullyQualifiedFormat emits the global:: prefix, so it is prepended here instead of
+        // storing a second, separately drifting spelling of every attribute name.
+        return attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            == NextUnitAttributeNames.GlobalPrefix + fullName;
     }
 
     public static string CreateTestId(IMethodSymbol methodSymbol)
@@ -96,7 +82,7 @@ internal static class AttributeHelper
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, DependsOnMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.DependsOn))
             {
                 continue;
             }
@@ -141,7 +127,7 @@ internal static class AttributeHelper
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, DependsOnMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.DependsOn))
             {
                 continue;
             }
@@ -182,7 +168,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, SkipAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Skip))
             {
                 continue;
             }
@@ -226,7 +212,7 @@ internal static class AttributeHelper
     private static (bool isExplicit, string? explicitReason) GetExplicitFromSymbol(ISymbol symbol)
     {
         var explicitAttribute = symbol.GetAttributes()
-            .FirstOrDefault(attr => IsAttribute(attr, ExplicitAttributeMetadataName));
+            .FirstOrDefault(attr => IsAttribute(attr, NextUnitAttributeNames.Explicit));
 
         if (explicitAttribute is null)
         {
@@ -248,7 +234,7 @@ internal static class AttributeHelper
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, ArgumentsAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Arguments))
             {
                 continue;
             }
@@ -274,7 +260,7 @@ internal static class AttributeHelper
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, TestDataAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.TestData))
             {
                 continue;
             }
@@ -323,8 +309,8 @@ internal static class AttributeHelper
             var metadataName = constructedFrom.MetadataName;
 
             // Check if it's a ClassDataSourceAttribute<T> variant (T1 through T4)
-            if (!metadataName.StartsWith(ClassDataSourceAttributePrefix, StringComparison.Ordinal) ||
-                constructedFrom.ContainingNamespace.ToDisplayString() != "NextUnit")
+            if (!metadataName.StartsWith(NextUnitAttributeNames.MetadataNames.ClassDataSourceAttributePrefix, StringComparison.Ordinal) ||
+                constructedFrom.ContainingNamespace.ToDisplayString() != NextUnitAttributeNames.Namespace)
             {
                 continue;
             }
@@ -363,7 +349,7 @@ internal static class AttributeHelper
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, CategoryAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Category))
             {
                 continue;
             }
@@ -378,7 +364,7 @@ internal static class AttributeHelper
 
         foreach (var attribute in typeSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, CategoryAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Category))
             {
                 continue;
             }
@@ -400,7 +386,7 @@ internal static class AttributeHelper
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, TagAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Tag))
             {
                 continue;
             }
@@ -415,7 +401,7 @@ internal static class AttributeHelper
 
         foreach (var attribute in typeSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, TagAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Tag))
             {
                 continue;
             }
@@ -435,7 +421,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, ParallelLimitMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.ParallelLimit))
             {
                 continue;
             }
@@ -479,7 +465,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, NotInParallelMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.NotInParallel))
             {
                 continue;
             }
@@ -526,7 +512,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, ParallelGroupMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.ParallelGroup))
             {
                 continue;
             }
@@ -591,7 +577,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, TimeoutAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Timeout))
             {
                 continue;
             }
@@ -626,7 +612,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, ExecutionPriorityAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.ExecutionPriority))
             {
                 continue;
             }
@@ -666,7 +652,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, RepeatAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Repeat))
             {
                 continue;
             }
@@ -695,7 +681,7 @@ internal static class AttributeHelper
 
             foreach (var attribute in parameter.GetAttributes())
             {
-                if (!IsAttribute(attribute, MatrixAttributeMetadataName))
+                if (!IsAttribute(attribute, NextUnitAttributeNames.Matrix))
                 {
                     continue;
                 }
@@ -722,7 +708,7 @@ internal static class AttributeHelper
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, MatrixExclusionAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.MatrixExclusion))
             {
                 continue;
             }
@@ -774,7 +760,7 @@ internal static class AttributeHelper
         foreach (var attribute in parameter.GetAttributes())
         {
             // Check for [Values]
-            if (IsAttribute(attribute, ValuesAttributeMetadataName) &&
+            if (IsAttribute(attribute, NextUnitAttributeNames.Values) &&
                 attribute.ConstructorArguments.Length > 0 &&
                 attribute.ConstructorArguments[0].Kind == TypedConstantKind.Array)
             {
@@ -792,7 +778,7 @@ internal static class AttributeHelper
             }
 
             // Check for [ValuesFromMember]
-            if (IsAttribute(attribute, ValuesFromMemberAttributeMetadataName) &&
+            if (IsAttribute(attribute, NextUnitAttributeNames.ValuesFromMember) &&
                 attribute.ConstructorArguments.Length > 0 &&
                 attribute.ConstructorArguments[0].Value is string memberName &&
                 !string.IsNullOrEmpty(memberName))
@@ -825,8 +811,8 @@ internal static class AttributeHelper
                 var constructedFrom = attrClass.ConstructedFrom;
                 var metadataName = constructedFrom.MetadataName;
 
-                if (metadataName.StartsWith(ValuesFromAttributePrefix, StringComparison.Ordinal) &&
-                    constructedFrom.ContainingNamespace.ToDisplayString() == "NextUnit")
+                if (metadataName.StartsWith(NextUnitAttributeNames.MetadataNames.ValuesFromAttributePrefix, StringComparison.Ordinal) &&
+                    constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace)
                 {
                     var typeArg = attrClass.TypeArguments[0];
                     var classTypeName = typeArg.ToDisplayString(TypeofCompatibleFormat);
@@ -913,8 +899,8 @@ internal static class AttributeHelper
             if (parameters.Length == 1)
             {
                 var parameterType = parameters[0].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                hasContext |= parameterType == ITestContextMetadataName;
-                hasOutput |= parameterType == ITestOutputMetadataName;
+                hasContext |= parameterType == ITestContextTypeName;
+                hasOutput |= parameterType == ITestOutputTypeName;
                 continue;
             }
 
@@ -922,12 +908,12 @@ internal static class AttributeHelper
             {
                 var first = parameters[0].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                 var second = parameters[1].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                if (first == ITestContextMetadataName && second == ITestOutputMetadataName)
+                if (first == ITestContextTypeName && second == ITestOutputTypeName)
                 {
                     return TestClassConstructorKind.ContextAndOutput;
                 }
 
-                if (first == ITestOutputMetadataName && second == ITestContextMetadataName)
+                if (first == ITestOutputTypeName && second == ITestContextTypeName)
                 {
                     return TestClassConstructorKind.OutputAndContext;
                 }
@@ -988,7 +974,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, RetryAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Retry))
             {
                 continue;
             }
@@ -1013,7 +999,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, FlakyAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.Flaky))
             {
                 continue;
             }
@@ -1032,7 +1018,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, DisplayNameAttributeMetadataName))
+            if (!IsAttribute(attribute, NextUnitAttributeNames.DisplayName))
             {
                 continue;
             }
@@ -1062,7 +1048,7 @@ internal static class AttributeHelper
     {
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (IsAttribute(attribute, DisplayNameFormatterAttributeMetadataName) &&
+            if (IsAttribute(attribute, NextUnitAttributeNames.DisplayNameFormatter) &&
                 attribute.ConstructorArguments.Length > 0 &&
                 attribute.ConstructorArguments[0].Value is INamedTypeSymbol formatterType)
             {
@@ -1074,7 +1060,7 @@ internal static class AttributeHelper
             {
                 var constructedFrom = attrClass.ConstructedFrom;
                 if (constructedFrom.MetadataName == "DisplayNameFormatterAttribute`1" &&
-                    constructedFrom.ContainingNamespace.ToDisplayString() == "NextUnit")
+                    constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace)
                 {
                     var typeArg = attrClass.TypeArguments[0];
                     return typeArg.ToDisplayString(FullyQualifiedTypeFormat);
@@ -1097,7 +1083,7 @@ internal static class AttributeHelper
             foreach (var parameter in constructor.Parameters)
             {
                 var parameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                if (parameterType == ITestOutputMetadataName)
+                if (parameterType == ITestOutputTypeName)
                 {
                     return true;
                 }
@@ -1119,7 +1105,7 @@ internal static class AttributeHelper
             foreach (var parameter in constructor.Parameters)
             {
                 var parameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                if (parameterType == ITestContextMetadataName)
+                if (parameterType == ITestContextTypeName)
                 {
                     return true;
                 }

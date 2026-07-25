@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
-
+using NextUnit.CodeAnalysis.Shared;
 namespace NextUnit.Analyzers.Analyzers;
 
 /// <summary>
@@ -11,9 +11,6 @@ namespace NextUnit.Analyzers.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class DependsOnAnalyzer : DiagnosticAnalyzer
 {
-    private const string DependsOnAttributeFullName = "NextUnit.DependsOnAttribute";
-    private const string TestAttributeFullName = "NextUnit.TestAttribute";
-
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.DependsOnNotFound);
 
@@ -50,7 +47,7 @@ public sealed class DependsOnAnalyzer : DiagnosticAnalyzer
             {
                 foreach (var attribute in method.GetAttributes())
                 {
-                    if (attribute.AttributeClass?.ToDisplayString() == TestAttributeFullName)
+                    if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.Test)
                     {
                         builder.Add(method.Name);
                         break;
@@ -73,7 +70,7 @@ public sealed class DependsOnAnalyzer : DiagnosticAnalyzer
         // Check each [DependsOn] attribute
         foreach (var attribute in method.GetAttributes())
         {
-            if (attribute.AttributeClass?.ToDisplayString() != DependsOnAttributeFullName)
+            if (attribute.AttributeClass?.ToDisplayString() != NextUnitAttributeNames.DependsOn)
             {
                 continue;
             }

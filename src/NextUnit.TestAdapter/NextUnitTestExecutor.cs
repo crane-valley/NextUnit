@@ -1,6 +1,5 @@
 using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter;
-using Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging;
 using NextUnit.Internal;
 
 namespace NextUnit.TestAdapter;
@@ -59,9 +58,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
                 // Intentionally catch broadly to prevent a single bad assembly from
                 // aborting execution of all test sources, but preserve full diagnostics
-                frameworkHandle.SendMessage(
-                    TestMessageLevel.Error,
-                    $"NextUnit: Error running tests in {source}: {ex.GetType().FullName}: {ex}");
+                AdapterDiagnostics.ReportSourceFailure(frameworkHandle, "running tests", source, ex);
             }
         }
     }
@@ -111,9 +108,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
                 // Intentionally catch broadly to prevent a single bad assembly from
                 // aborting execution of all test sources, but preserve full diagnostics
-                frameworkHandle.SendMessage(
-                    TestMessageLevel.Error,
-                    $"NextUnit: Error running tests in {sourceGroup.Key}: {ex.GetType().FullName}: {ex}");
+                AdapterDiagnostics.ReportSourceFailure(frameworkHandle, "running tests", sourceGroup.Key, ex);
             }
         }
     }
@@ -132,20 +127,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         IFrameworkHandle frameworkHandle,
         CancellationToken cancellationToken)
     {
-        var loadResult = AssemblyLoader.TryLoadAssembly(source);
-        if (!loadResult.Success)
-        {
-            if (loadResult.ErrorMessage is not null)
-            {
-                frameworkHandle.SendMessage(
-                    TestMessageLevel.Warning,
-                    $"NextUnit: Could not load assembly {source} ({loadResult.ErrorCategory}): {loadResult.ErrorMessage}");
-            }
-            return;
-        }
-
-        // Look for NextUnit.Generated.GeneratedTestRegistry
-        var registryType = AssemblyLoader.GetTestRegistryType(loadResult.Assembly!);
+        var registryType = RegistryDescriptorReader.TryResolveRegistryType(source, frameworkHandle);
         if (registryType is null)
         {
             return;
@@ -158,71 +140,38 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             : BuildSelectedDescriptorIds(testIdsToRun);
 
         // Get static TestCases
-        var testCases = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestCaseDescriptor>>(registryType, "TestCases");
+        var testCases = RegistryDescriptorReader.ReadDescriptors<TestCaseDescriptor>(registryType, "TestCases");
         if (testCases is not null)
         {
             allTestCases.AddRange(testCases);
         }
 
-        // Get TestDataDescriptors and expand them
-        var testDataDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TestDataDescriptor>>(registryType, "TestDataDescriptors");
-        if (testDataDescriptors is not null)
-        {
-            // Filter descriptors before expansion to avoid invoking expensive data sources for unrelated tests
-            IEnumerable<TestDataDescriptor> descriptorsToExpand = testDataDescriptors;
-            if (testIdsToRun is not null)
-            {
-                descriptorsToExpand = testDataDescriptors.Where(d => selectedDescriptorIds!.Contains(d.BaseId));
-            }
-            else
-            {
-                // When running all tests (no specific selection), exclude explicit tests by default
-                descriptorsToExpand = testDataDescriptors.Where(d => !d.IsExplicit);
-            }
+        AddExpandedTests<TestDataDescriptor>(
+            registryType,
+            "TestDataDescriptors",
+            selectedDescriptorIds,
+            descriptor => descriptor.BaseId,
+            descriptor => descriptor.IsExplicit,
+            TestDataExpander.Expand,
+            allTestCases);
 
-            var expandedTests = TestDataExpander.Expand(descriptorsToExpand.ToList());
-            allTestCases.AddRange(expandedTests);
-        }
+        AddExpandedTests<ClassDataSourceDescriptor>(
+            registryType,
+            "ClassDataSourceDescriptors",
+            selectedDescriptorIds,
+            descriptor => descriptor.BaseId,
+            descriptor => descriptor.IsExplicit,
+            ClassDataSourceExpander.Expand,
+            allTestCases);
 
-        // Get ClassDataSourceDescriptors and expand them
-        var classDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<ClassDataSourceDescriptor>>(registryType, "ClassDataSourceDescriptors");
-        if (classDataSourceDescriptors is not null)
-        {
-            // Filter descriptors before expansion to avoid instantiating expensive data sources for unrelated tests
-            IEnumerable<ClassDataSourceDescriptor> descriptorsToExpand = classDataSourceDescriptors;
-            if (testIdsToRun is not null)
-            {
-                descriptorsToExpand = classDataSourceDescriptors.Where(d => selectedDescriptorIds!.Contains(d.BaseId));
-            }
-            else
-            {
-                // When running all tests (no specific selection), exclude explicit tests by default
-                descriptorsToExpand = classDataSourceDescriptors.Where(d => !d.IsExplicit);
-            }
-
-            var expandedTests = ClassDataSourceExpander.Expand(descriptorsToExpand.ToList());
-            allTestCases.AddRange(expandedTests);
-        }
-
-        // Get CombinedDataSourceDescriptors and expand them
-        var combinedDataSourceDescriptors = AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<CombinedDataSourceDescriptor>>(registryType, "CombinedDataSourceDescriptors");
-        if (combinedDataSourceDescriptors is not null)
-        {
-            // Filter descriptors before expansion to avoid resolving expensive data sources for unrelated tests
-            IEnumerable<CombinedDataSourceDescriptor> descriptorsToExpand = combinedDataSourceDescriptors;
-            if (testIdsToRun is not null)
-            {
-                descriptorsToExpand = combinedDataSourceDescriptors.Where(d => selectedDescriptorIds!.Contains(d.BaseId));
-            }
-            else
-            {
-                // When running all tests (no specific selection), exclude explicit tests by default
-                descriptorsToExpand = combinedDataSourceDescriptors.Where(d => !d.IsExplicit);
-            }
-
-            var expandedTests = CombinedDataSourceExpander.Expand(descriptorsToExpand.ToList());
-            allTestCases.AddRange(expandedTests);
-        }
+        AddExpandedTests<CombinedDataSourceDescriptor>(
+            registryType,
+            "CombinedDataSourceDescriptors",
+            selectedDescriptorIds,
+            descriptor => descriptor.BaseId,
+            descriptor => descriptor.IsExplicit,
+            CombinedDataSourceExpander.Expand,
+            allTestCases);
 
         // Filter tests if specific tests were requested
         if (testIdsToRun != null)
@@ -250,6 +199,27 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         // Run tests synchronously (VSTest expects this)
         engine.RunAsync(allTestCases, sink, cancellationToken).GetAwaiter().GetResult();
+    }
+
+    private static void AddExpandedTests<TDescriptor>(
+        Type registryType,
+        string propertyName,
+        HashSet<string>? selectedDescriptorIds,
+        Func<TDescriptor, string> baseIdSelector,
+        Func<TDescriptor, bool> isExplicitSelector,
+        Func<IEnumerable<TDescriptor>, IEnumerable<TestCaseDescriptor>> expand,
+        List<TestCaseDescriptor> destination)
+    {
+        var descriptors = RegistryDescriptorReader.ReadDescriptors<TDescriptor>(registryType, propertyName);
+        if (descriptors is null)
+        {
+            return;
+        }
+
+        var descriptorsToExpand = RegistryDescriptorReader.SelectDescriptorsToExpand(
+            descriptors, selectedDescriptorIds, baseIdSelector, isExplicitSelector);
+
+        destination.AddRange(expand(descriptorsToExpand.ToList()));
     }
 
     internal static HashSet<string> BuildSelectedDescriptorIds(IEnumerable<string> selectedTestIds)
@@ -281,12 +251,44 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             _source = source;
         }
 
-        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
+        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null) =>
+            RecordResult(test, Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Passed, output, artifacts);
+
+        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null) =>
+            RecordResult(test, Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Failed, output, artifacts, ex.Message, ex.StackTrace);
+
+        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null) =>
+            RecordResult(test, Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Failed, output, artifacts, ex.Message, ex.StackTrace);
+
+        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null) =>
+            RecordResult(
+                test,
+                Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Skipped,
+                output: null,
+                artifacts,
+                errorMessage: test.SkipReason ?? "Test was skipped");
+
+        /// <summary>
+        /// Records one outcome against the VSTest framework handle.
+        /// </summary>
+        /// <remarks>
+        /// Duration is always zero: the engine owns timing and does not report it through this
+        /// sink, so reporting anything else here would be invented data.
+        /// </remarks>
+        private Task RecordResult(
+            TestCaseDescriptor test,
+            Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome outcome,
+            string? output,
+            IReadOnlyList<Artifact>? artifacts,
+            string? errorMessage = null,
+            string? errorStackTrace = null)
         {
             var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
             var result = new TestResult(vsTestCase)
             {
-                Outcome = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Passed,
+                Outcome = outcome,
+                ErrorMessage = errorMessage,
+                ErrorStackTrace = errorStackTrace,
                 Duration = TimeSpan.Zero
             };
 
@@ -294,63 +296,6 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             {
                 result.Messages.Add(new TestResultMessage(TestResultMessage.StandardOutCategory, output));
             }
-
-            AttachArtifacts(result, artifacts);
-            _frameworkHandle.RecordResult(result);
-            return Task.CompletedTask;
-        }
-
-        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
-            var result = new TestResult(vsTestCase)
-            {
-                Outcome = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Failed,
-                ErrorMessage = ex.Message,
-                ErrorStackTrace = ex.StackTrace,
-                Duration = TimeSpan.Zero
-            };
-
-            if (!string.IsNullOrEmpty(output))
-            {
-                result.Messages.Add(new TestResultMessage(TestResultMessage.StandardOutCategory, output));
-            }
-
-            AttachArtifacts(result, artifacts);
-            _frameworkHandle.RecordResult(result);
-            return Task.CompletedTask;
-        }
-
-        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
-            var result = new TestResult(vsTestCase)
-            {
-                Outcome = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Failed,
-                ErrorMessage = ex.Message,
-                ErrorStackTrace = ex.StackTrace,
-                Duration = TimeSpan.Zero
-            };
-
-            if (!string.IsNullOrEmpty(output))
-            {
-                result.Messages.Add(new TestResultMessage(TestResultMessage.StandardOutCategory, output));
-            }
-
-            AttachArtifacts(result, artifacts);
-            _frameworkHandle.RecordResult(result);
-            return Task.CompletedTask;
-        }
-
-        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
-            var result = new TestResult(vsTestCase)
-            {
-                Outcome = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Skipped,
-                ErrorMessage = test.SkipReason ?? "Test was skipped",
-                Duration = TimeSpan.Zero
-            };
 
             AttachArtifacts(result, artifacts);
             _frameworkHandle.RecordResult(result);

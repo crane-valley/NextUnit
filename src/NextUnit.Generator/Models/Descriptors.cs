@@ -1,12 +1,6 @@
-namespace NextUnit.Generator.Models;
+using NextUnit.CodeAnalysis.Shared;
 
-internal enum MethodReturnKind
-{
-    Void,
-    Task,
-    ValueTask,
-    Unsupported
-}
+namespace NextUnit.Generator.Models;
 
 /// <summary>
 /// Describes a test method discovered by the source generator.
