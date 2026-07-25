@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deprecated
+
+- Mark the `Assert.Throws<TException>(Action, string expectedMessage, string? message)` and
+  `Assert.ThrowsAsync<TException>(Func<Task>, string expectedMessage, string? message)` overloads
+  `[Obsolete]`. A two-argument call always binds to the custom-message overload, so the message
+  validation is unreachable unless a third or a named argument is passed explicitly. Assert on the
+  returned exception's `Message` instead. The overloads keep working in 1.x and are scheduled for
+  removal in NextUnit 2.0. The deprecation is a warning (`CS0618`), not an error; projects that
+  build with `TreatWarningsAsErrors` and cannot migrate yet can suppress `CS0618` at the call site
+  until 2.0.
+
+### Fixed
+
+- Correct the `Assert.NotInRange` XML documentation, which described the range bounds as exclusive
+  while the implementation has always treated them as inclusive. Behavior is unchanged.
+
 ## [1.16.0] - 2026-07-25
 
 ### Added

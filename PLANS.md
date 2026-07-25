@@ -134,11 +134,13 @@ decision rather than more schedules or report formats.
 Found while adding behavioral tests for the Assert API; both change the public surface, so they
 need a deliberate compatibility decision rather than a drive-by fix.
 
-- [ ] `Assert.Throws<T>(action, string)` and the async equivalent always bind to the
+- [x] `Assert.Throws<T>(action, string)` and the async equivalent always bind to the
   custom-message overload, so the expectedMessage validation overload is unreachable with two
-  arguments; decide whether to rename, collapse, or annotate the overloads.
-- [ ] `Assert.NotInRange` XML doc says the range is exclusive, but the implementation treats the
-  bounds as inclusive; align the doc or the behavior.
+  arguments; resolved by marking the sync and async expectedMessage-validation overloads
+  `[Obsolete]` in 1.x, with removal planned for 2.0 so the published API stays compatible.
+- [x] `Assert.NotInRange` XML doc says the range is exclusive, but the implementation treats the
+  bounds as inclusive; resolved by aligning the doc (and the getting-started reference) with the
+  existing inclusive-bounds behavior, with no runtime change.
 
 ### Priority 2 — Engine follow-ups from the 2026-07-24 cancellation review
 
