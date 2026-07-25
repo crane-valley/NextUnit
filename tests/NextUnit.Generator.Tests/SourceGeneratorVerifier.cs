@@ -12,21 +12,11 @@ namespace NextUnit.Generator.Tests;
 public static class CSharpSourceGeneratorVerifier<TSourceGenerator>
     where TSourceGenerator : IIncrementalGenerator, new()
 {
-    private static readonly Lazy<ReferenceAssemblies> _net10ReferenceAssemblies = new(CreateNet10ReferenceAssemblies);
-
-    private static ReferenceAssemblies CreateNet10ReferenceAssemblies()
-    {
-        return new ReferenceAssemblies(
-            "net10.0",
-            new PackageIdentity("Microsoft.NETCore.App.Ref", "10.0.0"),
-            Path.Combine("ref", "net10.0"));
-    }
-
     public class Test : CSharpSourceGeneratorTest<EmptySourceGeneratorProvider, DefaultVerifier>
     {
         public Test()
         {
-            ReferenceAssemblies = _net10ReferenceAssemblies.Value;
+            ReferenceAssemblies = TestReferenceAssemblies.Net10;
 
             // Add required assembly references
             TestState.AdditionalReferences.Add(typeof(TestAttribute).Assembly);

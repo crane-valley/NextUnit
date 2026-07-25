@@ -38,10 +38,6 @@ public static class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
             FixedCode = fixedSource,
         };
 
-        // Add attribute definitions as a separate source file
-        test.TestState.Sources.Add(("Attributes.cs", CSharpAnalyzerVerifier<TAnalyzer>.AttributeDefinitions));
-        test.FixedState.Sources.Add(("Attributes.cs", CSharpAnalyzerVerifier<TAnalyzer>.AttributeDefinitions));
-
         test.ExpectedDiagnostics.Add(expected);
         await test.RunAsync(CancellationToken.None);
     }
@@ -57,10 +53,6 @@ public static class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
             FixedCode = fixedSource,
         };
 
-        // Add attribute definitions as a separate source file
-        test.TestState.Sources.Add(("Attributes.cs", CSharpAnalyzerVerifier<TAnalyzer>.AttributeDefinitions));
-        test.FixedState.Sources.Add(("Attributes.cs", CSharpAnalyzerVerifier<TAnalyzer>.AttributeDefinitions));
-
         test.ExpectedDiagnostics.AddRange(expected);
         await test.RunAsync(CancellationToken.None);
     }
@@ -68,11 +60,16 @@ public static class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
     /// <summary>
     /// Custom test class for code fix verification.
     /// </summary>
+    /// <remarks>
+    /// Compiles against the real NextUnit.Core assembly rather than a hand-written attribute
+    /// stub, so the analyzers cannot pass against attribute shapes the product does not have.
+    /// </remarks>
     public class Test : CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
     {
         public Test()
         {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
+            ReferenceAssemblies = TestReferenceAssemblies.Net10;
+            TestState.AdditionalReferences.Add(typeof(TestAttribute).Assembly);
         }
     }
 }
