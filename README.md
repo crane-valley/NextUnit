@@ -9,7 +9,8 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 ## Features
 
 - **Zero-reflection execution** - Source generators produce delegate-based test registry
-- **Familiar assertions** - `Assert.Equal`, `Assert.True`, `Assert.Throws`, etc.
+- **Familiar assertions** - `Assert.Equal`, `Assert.True`, `Assert.Throws`, `Assert.Same`, `Assert.DoesNotThrow`, etc.
+- **Async tests** - `Task`, `Task<T>`, `ValueTask`, and `ValueTask<T>` return types for tests and lifecycle hooks
 - **Multi-scope lifecycle** - `[Before]`/`[After]` at Test, Class, Assembly, or Session level
 - **Fine-grained parallelism** - `[ParallelLimit(N)]`, `[NotInParallel("key")]`, `[ParallelGroup]`
 - **Execution priority** - `[ExecutionPriority(N)]` for controlling test execution order
@@ -40,7 +41,7 @@ dotnet add package NextUnit
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.15.1" />
+    <PackageReference Include="NextUnit" Version="1.16.0" />
   </ItemGroup>
 </Project>
 ```

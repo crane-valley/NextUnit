@@ -7,11 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-07-25
+
 ### Added
 
 - Add typed `TestDataRow<T>` metadata for `[TestData]` and class data sources, including per-row
   display names, categories, tags, and skip reasons across Microsoft.Testing.Platform and VSTest.
 - Diagnose statically knowable row-shape and metadata errors at build time.
+- Support `ValueTask` and `ValueTask<T>` return types for test and lifecycle methods on both the
+  generated and the reflection execution paths.
+- Add `Assert.Same` and `Assert.NotSame` for reference identity; both reject value-type arguments,
+  which boxing would otherwise make near-always unequal.
+- Add `Assert.Fail` for unconditional failure.
+- Add `Assert.DoesNotThrow` and `Assert.DoesNotThrowAsync`, which report the caught exception and
+  let skip, cancellation, and critical fail-fast exceptions propagate unwrapped.
+- Add absolute-tolerance `Assert.Equal` and `Assert.NotEqual` overloads for `double`, following
+  xUnit NaN and infinity semantics. An `int` third argument still binds to the precision overload.
+- Add `NU0011`, which reports unsupported test and lifecycle return types at build time instead of
+  letting generated code fail to compile.
+- Add `NU0013`, which warns when a method carries a data-source attribute but no `[Test]` and is
+  therefore silently ignored by the generator.
+- Extend `NU0001` to `[Before]` and `[After]` methods so async void lifecycle hooks are diagnosed.
+- Add behavioral unit tests for the `Assert` API and runtime behavior tests for the execution
+  engine.
 
 ### Changed
 
@@ -21,6 +39,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   context and output storage only when needed.
 - Cache analyzer and VSTest lookup data, and replace synthetic benchmarks with engine, scheduler,
   and complete sample-suite measurements up to 10,000 tests.
+- Restrict `NU0009` to the conversions the runtime argument converter can actually perform, so
+  user-defined and tuple conversions fail at build time instead of at run time.
+- Cross-check `NextUnitVersion` in `Directory.Packages.props` against `Version` in
+  `Directory.Build.props` in the release version gate.
+
+### Fixed
+
+- Await `ValueTask` and `ValueTask<T>` test bodies instead of discarding them, so an asynchronous
+  test that fails after its first await no longer reports a false pass.
+- Emit valid C# literals for `float` and `double` arguments that are NaN, infinity, or at the
+  type's range limits, instead of generated code that fails to compile.
+- Convert runtime data-source arguments with C#'s implicit numeric widening rules, including
+  `nint` and `nuint`, instead of a hard cast that threw `InvalidCastException`.
+- Give `[Timeout]` a per-attempt budget under `[Retry]` instead of one budget for the whole retry
+  loop.
+- Propagate `OperationCanceledException` for a cancelled run, and classify it by token provenance
+  so an unrelated cancellation is reported as a failure rather than swallowed as run cancellation.
+- Stop starting serial tests and stop retrying once the run is cancelled, and surface cancellation
+  that first fires during cleanup instead of completing the run successfully.
+- Report `[After(Class)]` and instance disposal failures through the result sink on distinct
+  `[ClassTeardown]` and `[ClassDispose]` nodes, aggregating multiple hook failures per class.
+- Run every class and assembly teardown hook to completion, and surface the collected cleanup
+  failures instead of losing them, including when reporting to the sink itself fails.
+- Fail the run with an explicit error when `--test-name-regex` or `NEXTUNIT_TEST_NAME_REGEX` is not
+  a valid regular expression, instead of silently running every test.
+- Route display-name formatter failures to stderr so they survive Release builds, and warn once per
+  formatter type instead of once per expanded data row.
+- Make `TestContext` artifact and state-bag mutation thread-safe.
+- Guard the `Assert.Throws`, `Assert.ThrowsAsync`, `Assert.DoesNotThrow`, and
+  `Assert.DoesNotThrowAsync` families against caller mistakes: a null delegate now throws
+  `ArgumentNullException`, and an asynchronous delegate that returns a null `Task` throws
+  `ArgumentException` instead of an opaque `NullReferenceException` reclassified as an assertion
+  failure.
+
+### Security
+
+- Pass the pull request title and the release tag name into workflow shell steps through `env:`
+  instead of inline expressions, closing a shell injection vector on the publish path.
+- Pin the `NuGet/login` action to its resolved commit SHA instead of the mutable `v1` tag.
 
 ## [1.15.1] - 2026-07-22
 
@@ -1094,6 +1151,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.16.0 | 2026-07-25 | 945 | Reflection-free generated execution, ValueTask support, Assert API additions, engine cancellation and teardown fixes | Released |
 | 1.15.1 | 2026-07-22 | 683 | MTP package integration, Native AOT fixes, complete six-package release | Released |
 | 1.15.0 | 2026-01-25 | 395+ | ASP.NET Core Integration | Released |
 | 1.14.0 | 2026-01-25 | 380+ | ExecutionPriority, Roslyn Analyzers Phase 2 | Released |
