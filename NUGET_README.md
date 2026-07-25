@@ -36,7 +36,7 @@ This meta-package includes everything you need:
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.15.1" />
+    <PackageReference Include="NextUnit" Version="1.16.0" />
   </ItemGroup>
 </Project>
 ```
@@ -88,7 +88,8 @@ Microsoft.Testing.Platform in the repository's `global.json`:
 ## Key Features
 
 - **Zero-reflection execution** - Fast test discovery via source generators
-- **Rich assertions** - Collections, strings, numerics with great error messages
+- **Rich assertions** - Collections, strings, numerics, reference identity, and tolerance comparisons
+- **Async tests** - `Task`, `Task<T>`, `ValueTask`, and `ValueTask<T>` return types for tests and lifecycle hooks
 - **Test artifacts** - Attach screenshots, logs, videos to test results
 - **Combined data sources** - `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product
 - **Matrix data source** - `[Matrix]` for Cartesian product test generation
