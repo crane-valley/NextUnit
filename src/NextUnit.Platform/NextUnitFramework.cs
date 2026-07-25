@@ -1,10 +1,8 @@
 using Microsoft.Testing.Platform.Capabilities.TestFramework;
-using Microsoft.Testing.Platform.CommandLine;
 using Microsoft.Testing.Platform.Extensions.Messages;
 using Microsoft.Testing.Platform.Extensions.TestFramework;
 using Microsoft.Testing.Platform.Messages;
 using Microsoft.Testing.Platform.Requests;
-using Microsoft.Testing.Platform.Services;
 using Microsoft.Testing.Platform.TestHost;
 using NextUnit.Internal;
 
@@ -44,7 +42,7 @@ internal sealed class NextUnitFramework :
     {
         _services = services;
         _ = capabilities; // Suppress unused parameter warning
-        _filterConfig = LoadFilterConfiguration(services);
+        _filterConfig = TestFilterConfigurationLoader.Load(services);
     }
 
     /// <summary>
@@ -209,129 +207,6 @@ internal sealed class NextUnitFramework :
         destination.AddRange(expand(filteredDescriptors));
     }
 
-    private static TestFilterConfiguration LoadFilterConfiguration(IServiceProvider services)
-    {
-        var config = new TestFilterConfiguration();
-
-        // Try to get command-line options service
-        var commandLineOptions = services.GetService<ICommandLineOptions>();
-
-        // Priority: CLI arguments > Environment variables
-
-        // Load categories from CLI or environment
-        var includeCategories = GetFilterValues(
-            commandLineOptions,
-            NextUnitCommandLineOptionsProvider.CategoryOption,
-            "NEXTUNIT_INCLUDE_CATEGORIES");
-        if (includeCategories.Count > 0)
-        {
-            config.IncludeCategories = includeCategories;
-        }
-
-        var excludeCategories = GetFilterValues(
-            commandLineOptions,
-            NextUnitCommandLineOptionsProvider.ExcludeCategoryOption,
-            "NEXTUNIT_EXCLUDE_CATEGORIES");
-        if (excludeCategories.Count > 0)
-        {
-            config.ExcludeCategories = excludeCategories;
-        }
-
-        // Load tags from CLI or environment
-        var includeTags = GetFilterValues(
-            commandLineOptions,
-            NextUnitCommandLineOptionsProvider.TagOption,
-            "NEXTUNIT_INCLUDE_TAGS");
-        if (includeTags.Count > 0)
-        {
-            config.IncludeTags = includeTags;
-        }
-
-        var excludeTags = GetFilterValues(
-            commandLineOptions,
-            NextUnitCommandLineOptionsProvider.ExcludeTagOption,
-            "NEXTUNIT_EXCLUDE_TAGS");
-        if (excludeTags.Count > 0)
-        {
-            config.ExcludeTags = excludeTags;
-        }
-
-        // Load test name patterns (wildcard support)
-        var testNamePatterns = GetFilterValues(
-            commandLineOptions,
-            NextUnitCommandLineOptionsProvider.TestNameOption,
-            "NEXTUNIT_TEST_NAME");
-        if (testNamePatterns.Count > 0)
-        {
-            config.TestNamePatterns = testNamePatterns;
-        }
-
-        // Load test name regex patterns
-        var testNameRegexPatterns = GetFilterValues(
-            commandLineOptions,
-            NextUnitCommandLineOptionsProvider.TestNameRegexOption,
-            "NEXTUNIT_TEST_NAME_REGEX");
-        if (testNameRegexPatterns.Count > 0)
-        {
-            var regexList = new List<System.Text.RegularExpressions.Regex>();
-            foreach (var pattern in testNameRegexPatterns)
-            {
-                try
-                {
-                    regexList.Add(new System.Text.RegularExpressions.Regex(
-                        pattern,
-                        System.Text.RegularExpressions.RegexOptions.IgnoreCase |
-                        System.Text.RegularExpressions.RegexOptions.Compiled));
-                }
-                catch (ArgumentException ex)
-                {
-                    // Surface invalid patterns explicitly: silently dropping the only include filter
-                    // leaves RequiresDynamicExpansion false, so every test would run unfiltered.
-                    throw new ArgumentException(
-                        $"Invalid --test-name-regex / NEXTUNIT_TEST_NAME_REGEX pattern '{pattern}': {ex.Message}",
-                        ex);
-                }
-            }
-            config.TestNameRegexPatterns = regexList;
-        }
-
-        // Load --explicit flag (CLI takes priority over environment variable)
-        var cliOptionSet = commandLineOptions is not null &&
-            commandLineOptions.IsOptionSet(NextUnitCommandLineOptionsProvider.ExplicitOption);
-
-        var explicitEnv = Environment.GetEnvironmentVariable("NEXTUNIT_INCLUDE_EXPLICIT");
-        var envVarSet = string.Equals(explicitEnv, "true", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(explicitEnv, "1", StringComparison.OrdinalIgnoreCase);
-
-        config.IncludeExplicitTests = cliOptionSet || envVarSet;
-
-        return config;
-    }
-
-    private static IReadOnlyList<string> GetFilterValues(
-        ICommandLineOptions? commandLineOptions,
-        string optionName,
-        string environmentVariableName)
-    {
-        // Try CLI arguments first (higher priority)
-        if (commandLineOptions is not null
-            && commandLineOptions.IsOptionSet(optionName)
-            && commandLineOptions.TryGetOptionArgumentList(optionName, out var arguments)
-            && arguments is not null)
-        {
-            return arguments.ToList();
-        }
-
-        // Fall back to environment variable
-        var envValue = Environment.GetEnvironmentVariable(environmentVariableName);
-        if (!string.IsNullOrWhiteSpace(envValue))
-        {
-            return envValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        }
-
-        return Array.Empty<string>();
-    }
-
     private async Task ExecuteSessionSetupAsync(CancellationToken cancellationToken)
     {
         // Session lifecycle methods MUST be static (enforced by generator/runtime)
@@ -400,49 +275,36 @@ internal sealed class NextUnitFramework :
             _producer = producer;
         }
 
-        public async Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
+        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null) =>
+            PublishStateAsync(test, PassedTestNodeStateProperty.CachedInstance, output, artifacts);
+
+        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null) =>
+            PublishStateAsync(test, new FailedTestNodeStateProperty(ex.Message), output, artifacts);
+
+        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null) =>
+            PublishStateAsync(test, new ErrorTestNodeStateProperty(ex), output, artifacts);
+
+        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null) =>
+            PublishStateAsync(
+                test,
+                new SkippedTestNodeStateProperty(test.SkipReason ?? "Test was skipped"),
+                output: null,
+                artifacts);
+
+        /// <summary>
+        /// Publishes one test node state to the platform message bus.
+        /// </summary>
+        /// <remarks>
+        /// The state property must come first in the list: Microsoft.Testing.Platform reads the
+        /// outcome from the first state property it finds on the node.
+        /// </remarks>
+        private async Task PublishStateAsync(
+            TestCaseDescriptor test,
+            IProperty state,
+            string? output,
+            IReadOnlyList<Artifact>? artifacts)
         {
-            var properties = new List<IProperty> { PassedTestNodeStateProperty.CachedInstance };
-
-            if (!string.IsNullOrEmpty(output))
-            {
-                properties.Add(new TestMetadataProperty("TestOutput", output));
-            }
-
-            AddArtifactProperties(properties, artifacts);
-
-            var testNode = TestNodeFactory.Create(test, properties);
-
-            await _messageBus.PublishAsync(
-                _producer,
-                new TestNodeUpdateMessage(
-                    _sessionUid,
-                    testNode)).ConfigureAwait(false);
-        }
-
-        public async Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            var properties = new List<IProperty> { new FailedTestNodeStateProperty(ex.Message) };
-
-            if (!string.IsNullOrEmpty(output))
-            {
-                properties.Add(new TestMetadataProperty("TestOutput", output));
-            }
-
-            AddArtifactProperties(properties, artifacts);
-
-            var testNode = TestNodeFactory.Create(test, properties);
-
-            await _messageBus.PublishAsync(
-                _producer,
-                new TestNodeUpdateMessage(
-                    _sessionUid,
-                    testNode)).ConfigureAwait(false);
-        }
-
-        public async Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            var properties = new List<IProperty> { new ErrorTestNodeStateProperty(ex) };
+            var properties = new List<IProperty> { state };
 
             if (!string.IsNullOrEmpty(output))
             {
@@ -481,20 +343,5 @@ internal sealed class NextUnitFramework :
             }
         }
 
-        public async Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
-        {
-            var explanation = test.SkipReason ?? "Test was skipped";
-            var properties = new List<IProperty> { new SkippedTestNodeStateProperty(explanation) };
-
-            AddArtifactProperties(properties, artifacts);
-
-            var testNode = TestNodeFactory.Create(test, properties);
-
-            await _messageBus.PublishAsync(
-                _producer,
-                new TestNodeUpdateMessage(
-                    _sessionUid,
-                    testNode)).ConfigureAwait(false);
-        }
     }
 }
