@@ -50,9 +50,11 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
 
         // Indexed loop instead of SequenceEqual: this comparison runs for every cached pipeline
         // model on every incremental pass, and the enumerable-based path allocates enumerator boxes.
+        // The default comparer stays null-safe for reference-type elements without boxing.
+        var comparer = EqualityComparer<T>.Default;
         for (var i = 0; i < _values.Length; i++)
         {
-            if (!_values[i].Equals(other._values[i]))
+            if (!comparer.Equals(_values[i], other._values[i]))
             {
                 return false;
             }
