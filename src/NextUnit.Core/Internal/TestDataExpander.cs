@@ -44,17 +44,18 @@ public static class TestDataExpander
                 $"Test data source '{descriptor.DataSourceName}' not found in type '{dataSourceType.FullName}'");
         }
 
-        var testMethod = descriptor.TestMethodWithArguments ??
-            ReflectionTestInvokerFactory.Create(
-                descriptor.TestClass,
-                descriptor.MethodName,
-                descriptor.ParameterTypes);
+        var seed = new TestCaseSeed(descriptor);
+        var testMethod = seed.ResolveTestInvoker();
+
+        // Include data source type and name in test ID to ensure uniqueness
+        // This handles cases where multiple [TestData] attributes point to identically named members on different classes
+        var idPrefix = $"{descriptor.BaseId}:{dataSourceType.FullName}.{descriptor.DataSourceName}";
+
         var index = 0;
         foreach (var dataRow in data)
         {
             var row = TestDataRowResolver.Resolve(dataRow);
-            var testCase = CreateTestCase(descriptor, row, testMethod, index);
-            yield return testCase;
+            yield return seed.CreateTestCase($"{idPrefix}[{index}]", row.Arguments, index, testMethod, row);
             index++;
         }
     }
@@ -111,53 +112,6 @@ public static class TestDataExpander
                 $"Failed to access test data source '{memberName}' in type '{sourceType.FullName}'",
                 ex);
         }
-    }
-
-    private static TestCaseDescriptor CreateTestCase(
-        TestDataDescriptor descriptor,
-        ResolvedTestDataRow row,
-        TestMethodWithArgumentsDelegate? testMethod,
-        int index)
-    {
-        // Include data source type and name in test ID to ensure uniqueness
-        // This handles cases where multiple [TestData] attributes point to identically named members on different classes
-        var dataSourceType = descriptor.DataSourceType ?? descriptor.TestClass;
-        var testId = $"{descriptor.BaseId}:{dataSourceType.FullName}.{descriptor.DataSourceName}[{index}]";
-        var displayName = row.DisplayName ?? DisplayNameBuilder.Build(
-            descriptor.MethodName,
-            descriptor.CustomDisplayNameTemplate,
-            descriptor.DisplayNameFormatterType,
-            descriptor.TestClass,
-            row.Arguments,
-            index);
-
-        return new TestCaseDescriptor
-        {
-            Id = new TestCaseId(testId),
-            DisplayName = displayName,
-            TestClass = descriptor.TestClass,
-            MethodName = descriptor.MethodName,
-            TestMethodWithArguments = testMethod,
-            TestClassFactory = descriptor.TestClassFactory,
-            Lifecycle = descriptor.Lifecycle,
-            Parallel = descriptor.Parallel,
-            Dependencies = descriptor.Dependencies,
-            DependencyInfos = descriptor.DependencyInfos,
-            IsSkipped = descriptor.IsSkipped || row.SkipReason is not null,
-            SkipReason = descriptor.SkipReason ?? row.SkipReason,
-            IsExplicit = descriptor.IsExplicit,
-            ExplicitReason = descriptor.ExplicitReason,
-            Arguments = row.Arguments,
-            Categories = TestDataRowResolver.MergeLabels(descriptor.Categories, row.Categories),
-            Tags = TestDataRowResolver.MergeLabels(descriptor.Tags, row.Tags),
-            RequiresTestOutput = descriptor.RequiresTestOutput,
-            RequiresTestContext = descriptor.RequiresTestContext,
-            TimeoutMs = descriptor.TimeoutMs,
-            Retry = descriptor.Retry,
-            CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate,
-            DisplayNameFormatterType = descriptor.DisplayNameFormatterType,
-            Priority = descriptor.Priority
-        };
     }
 
 }
