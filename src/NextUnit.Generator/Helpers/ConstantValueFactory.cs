@@ -16,6 +16,11 @@ namespace NextUnit.Generator.Helpers;
 /// </remarks>
 internal static class ConstantValueFactory
 {
+    /// <summary>
+    /// Identifies a <c>typeof()</c> constant, whose boxed value is a symbol rather than a primitive.
+    /// </summary>
+    private const string SymbolTypeMarker = "Microsoft.CodeAnalysis.ISymbol";
+
     public static EquatableArray<ConstantValue> CreateRange(ImmutableArray<TypedConstant> constants)
     {
         if (constants.IsDefaultOrEmpty)
@@ -84,14 +89,54 @@ internal static class ConstantValueFactory
 
         // The runtime type is part of the key because the previous matcher compared boxed values with
         // object.Equals, where an int and a long holding the same number are not equal.
-        var typeName = value.GetType().FullName ?? string.Empty;
-        var text = value is ISymbol symbol
-            ? symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-            : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+        var typeName = value is ISymbol ? SymbolTypeMarker : value.GetType().FullName ?? string.Empty;
+        var text = value is ISymbol symbol ? FormatSymbol(symbol) : FormatScalar(value);
 
         builder
             .Append('v')
             .Append(typeName.Length).Append(':').Append(typeName)
             .Append(text.Length).Append(':').Append(text);
+    }
+
+    private static string FormatSymbol(ISymbol symbol)
+    {
+        // Two types can carry the same fully qualified name in different assemblies (extern alias),
+        // and the symbol comparison this key replaces told them apart.
+        var assembly = symbol.ContainingAssembly?.Identity.GetDisplayName() ?? string.Empty;
+        return $"{symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} in {assembly}";
+    }
+
+    private static string FormatScalar(object value)
+    {
+        return value switch
+        {
+            float number => FormatFloat(number),
+            double number => FormatDouble(number),
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty
+        };
+    }
+
+    // "G9"/"G17" instead of the default format: this generator can run in-proc under .NET Framework
+    // (VBCSCompiler inside Visual Studio), where the default rounds to 7/15 significant digits and
+    // two distinct values would then share a key. NaN and signed zero are normalized because the
+    // Equals comparison this key replaces treats all NaNs, and +0 and -0, as equal.
+    private static string FormatFloat(float value)
+    {
+        if (float.IsNaN(value))
+        {
+            return "NaN";
+        }
+
+        return value == 0f ? "0" : value.ToString("G9", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatDouble(double value)
+    {
+        if (double.IsNaN(value))
+        {
+            return "NaN";
+        }
+
+        return value == 0d ? "0" : value.ToString("G17", CultureInfo.InvariantCulture);
     }
 }
