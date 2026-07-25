@@ -140,4 +140,67 @@ public class AssertThrowsTests
             () => Assert.ThrowsAsync<InvalidOperationException>(
                 () => throw new InvalidOperationException("actual async"), "expected async", null));
     }
+
+    [Test]
+    public void Throws_NullAction_ThrowsArgumentNull()
+    {
+        // A missing delegate is caller misuse, so it must not be reported as a failed assertion.
+        var ex = Assert.Throws<ArgumentNullException>(
+            () => Assert.Throws<InvalidOperationException>((Action)null!));
+        Assert.Equal("action", ex.ParamName);
+    }
+
+    [Test]
+    public void Throws_WithExpectedMessage_NullAction_ThrowsArgumentNull()
+    {
+        var ex = Assert.Throws<ArgumentNullException>(
+            () => Assert.Throws<InvalidOperationException>((Action)null!, "expected", null));
+        Assert.Equal("action", ex.ParamName);
+    }
+
+    [Test]
+    public async Task ThrowsAsync_NullAction_ThrowsArgumentNullAsync()
+    {
+        var ex = await Assert.ThrowsAsync<ArgumentNullException>(
+            () => Assert.ThrowsAsync<InvalidOperationException>((Func<Task>)null!));
+        Assert.Equal("action", ex.ParamName);
+    }
+
+    [Test]
+    public async Task ThrowsAsync_WithExpectedMessage_NullAction_ThrowsArgumentNullAsync()
+    {
+        var ex = await Assert.ThrowsAsync<ArgumentNullException>(
+            () => Assert.ThrowsAsync<InvalidOperationException>((Func<Task>)null!, "expected", null));
+        Assert.Equal("action", ex.ParamName);
+    }
+
+    [Test]
+    public async Task ThrowsAsync_ActionReturnsNullTask_ThrowsArgumentExceptionAsync()
+    {
+        // Awaiting a null Task would surface as an opaque NullReferenceException reported
+        // against the tested code, so the delegate misuse is named instead.
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => Assert.ThrowsAsync<InvalidOperationException>(() => null!));
+        Assert.Contains("null Task", ex.Message);
+        Assert.Equal("action", ex.ParamName);
+    }
+
+    [Test]
+    public async Task ThrowsAsync_WithExpectedMessage_ActionReturnsNullTask_ThrowsArgumentExceptionAsync()
+    {
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => Assert.ThrowsAsync<InvalidOperationException>(() => null!, "expected", null));
+        Assert.Contains("null Task", ex.Message);
+        Assert.Equal("action", ex.ParamName);
+    }
+
+    [Test]
+    public async Task ThrowsAsync_NullReturningActionExpectedExceptionType_StillReportsMisuseAsync()
+    {
+        // The misuse guard must win even when the expected type would swallow it: expecting
+        // ArgumentException must not let a null Task masquerade as the expected exception.
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => Assert.ThrowsAsync<ArgumentException>(() => null!));
+        Assert.Contains("null Task", ex.Message);
+    }
 }

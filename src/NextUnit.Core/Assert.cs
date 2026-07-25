@@ -522,10 +522,13 @@ public static class Assert
     /// <param name="action">The action to execute.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <returns>The exception that was thrown.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
     /// <exception cref="AssertionFailedException">Thrown when no exception is thrown or a different exception type is thrown.</exception>
     public static TException Throws<TException>(Action action, string? message = null)
         where TException : Exception
     {
+        ArgumentNullException.ThrowIfNull(action);
+
         try
         {
             action();
@@ -552,15 +555,28 @@ public static class Assert
     /// <param name="action">The asynchronous action to execute.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the exception that was thrown.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="action"/> returns a null task.</exception>
     /// <exception cref="AssertionFailedException">Thrown when no exception is thrown or a different exception type is thrown.</exception>
     public static async Task<TException> ThrowsAsync<TException>(
         Func<Task> action,
         string? message = null)
         where TException : Exception
     {
+        ArgumentNullException.ThrowIfNull(action);
+
+        Task? task = null;
         try
         {
-            await action().ConfigureAwait(false);
+            task = action();
+
+            // Awaiting inside the try keeps synchronously thrown expected exceptions matching,
+            // while the null task is reported after the try so the misuse is not reclassified
+            // as an assertion failure by the catch clauses below.
+            if (task is not null)
+            {
+                await task.ConfigureAwait(false);
+            }
         }
         catch (TException ex)
         {
@@ -571,6 +587,11 @@ public static class Assert
             throw new AssertionFailedException(
                 message ?? $"Expected {typeof(TException).Name} but got {ex.GetType().Name}.",
                 ex);
+        }
+
+        if (task is null)
+        {
+            throw new ArgumentException(NullTaskMessage, nameof(action));
         }
 
         throw new AssertionFailedException(
@@ -585,10 +606,12 @@ public static class Assert
     /// <param name="expectedMessage">The expected exception message.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <returns>The exception that was thrown.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> or <paramref name="expectedMessage"/> is null.</exception>
     /// <exception cref="AssertionFailedException">Thrown when no exception is thrown, a different exception type is thrown, or the message doesn't match.</exception>
     public static TException Throws<TException>(Action action, string expectedMessage, string? message = null)
         where TException : Exception
     {
+        ArgumentNullException.ThrowIfNull(action);
         ArgumentNullException.ThrowIfNull(expectedMessage);
 
         try
@@ -624,6 +647,8 @@ public static class Assert
     /// <param name="expectedMessage">The expected exception message.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the exception that was thrown.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> or <paramref name="expectedMessage"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="action"/> returns a null task.</exception>
     /// <exception cref="AssertionFailedException">Thrown when no exception is thrown, a different exception type is thrown, or the message doesn't match.</exception>
     public static async Task<TException> ThrowsAsync<TException>(
         Func<Task> action,
@@ -631,11 +656,21 @@ public static class Assert
         string? message = null)
         where TException : Exception
     {
+        ArgumentNullException.ThrowIfNull(action);
         ArgumentNullException.ThrowIfNull(expectedMessage);
 
+        Task? task = null;
         try
         {
-            await action().ConfigureAwait(false);
+            task = action();
+
+            // Awaiting inside the try keeps synchronously thrown expected exceptions matching,
+            // while the null task is reported after the try so the misuse is not reclassified
+            // as an assertion failure by the catch clauses below.
+            if (task is not null)
+            {
+                await task.ConfigureAwait(false);
+            }
         }
         catch (TException ex)
         {
@@ -654,6 +689,11 @@ public static class Assert
                 ex);
         }
 
+        if (task is null)
+        {
+            throw new ArgumentException(NullTaskMessage, nameof(action));
+        }
+
         throw new AssertionFailedException(
             message ?? $"Expected {typeof(TException).Name} but no exception was thrown.");
     }
@@ -663,6 +703,7 @@ public static class Assert
     /// </summary>
     /// <param name="action">The action to execute.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
     /// <exception cref="AssertionFailedException">Thrown when the action throws a non-control-flow exception.</exception>
     /// <remarks>
     /// Exceptions that the test engine handles specially are excluded by the catch filter, so
@@ -701,6 +742,8 @@ public static class Assert
     /// <param name="action">The asynchronous action to execute.</param>
     /// <param name="message">Optional custom message to display if the assertion fails.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="action"/> returns a null task.</exception>
     /// <exception cref="AssertionFailedException">Thrown when the action throws a non-control-flow exception.</exception>
     /// <remarks>
     /// Exceptions that the test engine handles specially are excluded by the catch filter, so
@@ -719,19 +762,18 @@ public static class Assert
     {
         ArgumentNullException.ThrowIfNull(action);
 
+        Task? task = null;
         try
         {
-            var task = action();
-            if (task is null)
-            {
-                // A null Task would make ConfigureAwait throw an opaque NullReferenceException;
-                // report the delegate misuse clearly instead. The catch filter excludes
-                // AssertionFailedException, so this propagates unwrapped.
-                throw new AssertionFailedException(
-                    "Expected no exception, but the asynchronous action returned a null Task.");
-            }
+            task = action();
 
-            await task.ConfigureAwait(false);
+            // Awaiting inside the try keeps synchronously thrown exceptions wrapped as before,
+            // while the null task is reported after the try so the misuse is not turned into an
+            // assertion failure by the catch clause below.
+            if (task is not null)
+            {
+                await task.ConfigureAwait(false);
+            }
         }
         catch (Exception ex) when (IsUnexpectedFailure(ex))
         {
@@ -741,7 +783,16 @@ public static class Assert
                 message ?? $"Expected no exception but got {ex.GetType().Name}: {ex.Message}",
                 ex);
         }
+
+        if (task is null)
+        {
+            throw new ArgumentException(NullTaskMessage, nameof(action));
+        }
     }
+
+    // Awaiting a null Task raises an opaque NullReferenceException that the assertion would
+    // otherwise report as the tested code failing, so the delegate misuse is named explicitly.
+    private const string NullTaskMessage = "The action delegate returned a null Task.";
 
     // Determines whether an exception raised inside a DoesNotThrow action is a genuine
     // failure to wrap, versus one that must reach the test engine untouched. Excluded:
