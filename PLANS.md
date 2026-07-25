@@ -147,10 +147,15 @@ need a deliberate compatibility decision rather than a drive-by fix.
 Pre-existing behaviors surfaced while hardening cancellation and teardown reporting; both need a
 deliberate design decision rather than a drive-by fix.
 
-- [ ] A per-test instance whose `Dispose` throws propagates the exception out of `RunAsync`
+- [x] A per-test instance whose `Dispose` throws propagates the exception out of `RunAsync`
   uncaught; decide whether to report it as a test-scoped error like class-level disposal.
-- [ ] Assembly-teardown failures surface by throwing from `RunAsync` instead of a dedicated sink
+  Resolved: the disposal failure is reported on the test's own node (the instance belongs to that
+  test), combined after the test's own failure so it never masks it, and terminal so retry cannot
+  discard it.
+- [x] Assembly-teardown failures surface by throwing from `RunAsync` instead of a dedicated sink
   node; decide whether an assembly-scope synthetic node is worth the adapter-visible change.
+  Resolved: added an `[AssemblyTeardown]` synthetic node mirroring the class-scope nodes, so the
+  failure is a test result in both adapters instead of an exception thrown out of `RunAsync`.
 
 ## Explicitly not planned
 

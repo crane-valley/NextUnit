@@ -123,15 +123,7 @@ public sealed class TestExecutionEngineTests
         };
 
         var sink = new RecordingSink();
-        try
-        {
-            await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
-        }
-        catch (InvalidOperationException)
-        {
-            // The per-test instance also throws on dispose; that is incidental here. This test asserts
-            // on the class-scope error nodes captured by the sink, not on the per-test disposal path.
-        }
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
 
         // Teardown and disposal failures must land on distinct node identities so they do not collide.
         var errorIds = sink.Errors.Select(static e => e.Test.Id.Value).ToList();
@@ -405,12 +397,209 @@ public sealed class TestExecutionEngineTests
 
         var sink = new RecordingSink();
 
-        // Run cancellation and a normal teardown failure coexist; neither may be discarded.
-        var error = await Assert.ThrowsAsync<AggregateException>(
+        // Run cancellation and a normal teardown failure coexist; neither may be discarded. Cancellation
+        // still propagates, while the assembly teardown failure now surfaces as a result node.
+        await Assert.ThrowsAsync<OperationCanceledException>(
             () => engine.RunAsync([test], sink, cts.Token));
 
-        Assert.Contains(error.InnerExceptions, static e => e is OperationCanceledException);
-        Assert.Contains(error.InnerExceptions, static e => e is InvalidOperationException && e.Message.Contains("assembly boom"));
+        var error = Assert.Single(sink.Errors);
+        Assert.True(error.Test.Id.Value.EndsWith("[AssemblyTeardown]", StringComparison.Ordinal));
+        Assert.Contains("assembly boom", error.Exception.Message);
+    }
+
+    [Test]
+    public async Task AssemblyTeardownFailure_IsReportedOnAssemblyScopeNodeAsync()
+    {
+        var engine = new TestExecutionEngine();
+        engine.SetGlobalAssemblyLifecycle(
+            beforeMethods: null,
+            afterMethods: [static (_, _) => throw new InvalidOperationException("assembly boom")]);
+
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("assembly.teardown.node"),
+            DisplayName = "assembly.teardown.node",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            TestMethod = static (_, _) => Task.CompletedTask
+        };
+
+        var sink = new RecordingSink();
+
+        // An assembly teardown failure is a result, not an exception the caller must catch: the run
+        // completes and the failure reaches every adapter through the sink.
+        await engine.RunAsync([test], sink, CancellationToken.None);
+
+        Assert.Single(sink.Passed);
+        var error = Assert.Single(sink.Errors);
+        Assert.True(error.Test.Id.Value.EndsWith("[AssemblyTeardown]", StringComparison.Ordinal));
+        Assert.Contains("assembly boom", error.Exception.Message);
+    }
+
+    [Test]
+    public async Task MultipleAssemblyTeardownFailures_AggregateIntoSingleNodeAsync()
+    {
+        var engine = new TestExecutionEngine();
+        engine.SetGlobalAssemblyLifecycle(
+            beforeMethods: null,
+            afterMethods:
+            [
+                static (_, _) => throw new InvalidOperationException("first assembly boom"),
+                static (_, _) => throw new InvalidOperationException("second assembly boom")
+            ]);
+
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("assembly.teardown.multi.fail"),
+            DisplayName = "assembly.teardown.multi.fail",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            TestMethod = static (_, _) => Task.CompletedTask
+        };
+
+        var sink = new RecordingSink();
+        await engine.RunAsync([test], sink, CancellationToken.None);
+
+        // Two failures must not collide on the same node identity.
+        var error = Assert.Single(sink.Errors);
+        Assert.True(error.Test.Id.Value.EndsWith("[AssemblyTeardown]", StringComparison.Ordinal));
+        Assert.Equal(2, AsAggregate(error.Exception).InnerExceptions.Count);
+    }
+
+    [Test]
+    public async Task AssemblyTeardownReportFailure_SurfacesBothErrorsAsync()
+    {
+        var engine = new TestExecutionEngine();
+        engine.SetGlobalAssemblyLifecycle(
+            beforeMethods: null,
+            afterMethods: [static (_, _) => throw new InvalidOperationException("assembly boom")]);
+
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("assembly.teardown.sink.fail"),
+            DisplayName = "assembly.teardown.sink.fail",
+            TestClass = typeof(SampleTestClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new SampleTestClass(),
+            TestMethod = static (_, _) => Task.CompletedTask
+        };
+
+        var sink = new ThrowingReportSink();
+
+        // A teardown failure whose report also fails must not be lost: the run fails with both errors.
+        var error = await Assert.ThrowsAsync<AggregateException>(
+            () => engine.RunAsync([test], sink, CancellationToken.None));
+
+        var flat = error.Flatten();
+        Assert.Contains(flat.InnerExceptions, static e => e.Message.Contains("assembly boom"));
+        Assert.Contains(flat.InnerExceptions, static e => e.Message.Contains("sink is down"));
+    }
+
+    [Test]
+    public async Task PassingTestWithThrowingDispose_IsReportedAsTestScopedErrorAsync()
+    {
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("dispose.after.pass"),
+            DisplayName = "dispose.after.pass",
+            TestClass = typeof(ThrowingDisposeClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new ThrowingDisposeClass(),
+            TestMethod = static (_, _) => Task.CompletedTask
+        };
+
+        var sink = new RecordingSink();
+
+        // A throwing Dispose must not escape RunAsync; it fails the test that owns the instance.
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        Assert.Empty(sink.Passed);
+        var error = Assert.Single(sink.Errors);
+        Assert.Equal("dispose.after.pass", error.Test.Id.Value);
+        Assert.Contains("dispose boom", error.Exception.Message);
+    }
+
+    [Test]
+    public async Task FailingTestWithThrowingDispose_KeepsOriginalFailureAsync()
+    {
+        var attempts = 0;
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("dispose.after.failure"),
+            DisplayName = "dispose.after.failure",
+            TestClass = typeof(ThrowingDisposeClass),
+            MethodName = "Boom",
+            TestClassFactory = static (_, _) => new ThrowingDisposeClass(),
+            Retry = new RetryInfo { Count = 3, DelayMs = 0 },
+            TestMethod = (_, _) =>
+            {
+                Interlocked.Increment(ref attempts);
+                throw new InvalidOperationException("test boom");
+            }
+        };
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        // The disposal failure is terminal, so the test is not retried, and the original test failure
+        // stays first so the disposal failure cannot mask it.
+        Assert.Equal(1, attempts);
+        var error = Assert.Single(sink.Errors);
+        Assert.Equal("dispose.after.failure", error.Test.Id.Value);
+        var aggregate = AsAggregate(error.Exception);
+        Assert.Equal(2, aggregate.InnerExceptions.Count);
+        Assert.Contains("test boom", aggregate.InnerExceptions[0].Message);
+        Assert.Contains("dispose boom", aggregate.InnerExceptions[1].Message);
+    }
+
+    [Test]
+    public async Task DisposalFailureReportFailure_SurfacesBothErrorsAsync()
+    {
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("dispose.sink.fail"),
+            DisplayName = "dispose.sink.fail",
+            TestClass = typeof(ThrowingDisposeClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new ThrowingDisposeClass(),
+            TestMethod = static (_, _) => Task.CompletedTask
+        };
+
+        var sink = new ThrowingReportSink();
+
+        // A disposal failure whose report also fails must not be lost: a sink that is temporarily down
+        // must not erase the actual cleanup error.
+        var error = await Assert.ThrowsAsync<AggregateException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None));
+
+        var flat = error.Flatten();
+        Assert.Contains(flat.InnerExceptions, static e => e.Message.Contains("dispose boom"));
+        Assert.Contains(flat.InnerExceptions, static e => e.Message.Contains("sink is down"));
+    }
+
+    [Test]
+    public async Task PassingTestWithThrowingAsyncDispose_IsReportedAsTestScopedErrorAsync()
+    {
+        var test = new TestCaseDescriptor
+        {
+            Id = new TestCaseId("async.dispose.after.pass"),
+            DisplayName = "async.dispose.after.pass",
+            TestClass = typeof(ThrowingAsyncDisposeClass),
+            MethodName = "Ok",
+            TestClassFactory = static (_, _) => new ThrowingAsyncDisposeClass(),
+            TestMethod = static (_, _) => Task.CompletedTask
+        };
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        // IAsyncDisposable-only instances take the async disposal path; it must be guarded too.
+        Assert.Empty(sink.Passed);
+        var error = Assert.Single(sink.Errors);
+        Assert.Equal("async.dispose.after.pass", error.Test.Id.Value);
+        Assert.Contains("async dispose boom", error.Exception.Message);
     }
 
     [Test]
@@ -647,6 +836,16 @@ public sealed class TestExecutionEngineTests
         }
     }
 
+    /// <summary>
+    /// Narrows an exception to <see cref="AggregateException"/> without a null-forgiving dereference.
+    /// </summary>
+    private static AggregateException AsAggregate(Exception exception)
+    {
+        return exception as AggregateException
+            ?? throw new AssertionFailedException(
+                $"Expected an AggregateException but got {exception.GetType().Name}: {exception.Message}");
+    }
+
     private sealed class SampleTestClass
     {
     }
@@ -658,6 +857,11 @@ public sealed class TestExecutionEngineTests
     private sealed class ThrowingDisposeClass : IDisposable
     {
         public void Dispose() => throw new InvalidOperationException("dispose boom");
+    }
+
+    private sealed class ThrowingAsyncDisposeClass : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => throw new InvalidOperationException("async dispose boom");
     }
 
     private sealed class NullServiceProvider : IServiceProvider

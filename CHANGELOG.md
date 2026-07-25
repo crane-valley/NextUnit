@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Report an assembly teardown failure as a synthetic `[AssemblyTeardown]` test result instead of
+  throwing out of the run, so the failure is visible in Microsoft.Testing.Platform and VSTest
+  results. A run whose only failure is assembly teardown no longer surfaces as a run-level
+  exception.
+
 ### Deprecated
 
 - Mark the `Assert.Throws<TException>(Action, string expectedMessage, string? message)` and
@@ -20,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Report a per-test instance whose `Dispose` or `DisposeAsync` throws as a failure of that test
+  instead of letting the exception escape the run uncaught. When the test itself also failed, both
+  exceptions are reported with the test failure first, and the test is not retried.
 - Correct the `Assert.NotInRange` XML documentation, which described the range bounds as exclusive
   while the implementation has always treated them as inclusive. Behavior is unchanged.
 
