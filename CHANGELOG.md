@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-07-25
+
 ### Changed
 
 - Report an assembly teardown failure as a synthetic `[AssemblyTeardown]` test result instead of
@@ -1177,6 +1179,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.17.0 | 2026-07-25 | 956 | Assert.Throws expectedMessage overload deprecation, per-test disposal and assembly teardown failure reporting | Released |
 | 1.16.0 | 2026-07-25 | 945 | Reflection-free generated execution, ValueTask support, Assert API additions, engine cancellation and teardown fixes | Released |
 | 1.15.1 | 2026-07-22 | 683 | MTP package integration, Native AOT fixes, complete six-package release | Released |
 | 1.15.0 | 2026-01-25 | 395+ | ASP.NET Core Integration | Released |
