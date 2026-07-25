@@ -100,10 +100,74 @@ internal static class ConstantValueFactory
 
     private static string FormatSymbol(ISymbol symbol)
     {
-        // Two types can carry the same fully qualified name in different assemblies (extern alias),
-        // and the symbol comparison this key replaces told them apart.
+        var builder = new StringBuilder();
+
+        if (symbol is ITypeSymbol type)
+        {
+            AppendTypeKey(builder, type);
+        }
+        else
+        {
+            AppendNameAndAssembly(builder, symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), symbol);
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Appends a self-delimiting encoding of a type symbol.
+    /// </summary>
+    /// <remarks>
+    /// Two types can carry the same fully qualified name in different assemblies (extern alias), and
+    /// the symbol comparison this key replaces told them apart - including when they only appear as a
+    /// type argument, so every part of a constructed type is encoded with its own assembly identity.
+    /// </remarks>
+    private static void AppendTypeKey(StringBuilder builder, ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol array:
+                builder.Append("arr").Append(array.Rank).Append(';');
+                AppendTypeKey(builder, array.ElementType);
+                return;
+
+            case IPointerTypeSymbol pointer:
+                builder.Append("ptr;");
+                AppendTypeKey(builder, pointer.PointedAtType);
+                return;
+
+            case INamedTypeSymbol named:
+                builder.Append("nt");
+                AppendNameAndAssembly(
+                    builder,
+                    named.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                    named);
+                builder.Append(named.TypeArguments.Length).Append(';');
+
+                foreach (var typeArgument in named.TypeArguments)
+                {
+                    AppendTypeKey(builder, typeArgument);
+                }
+
+                return;
+
+            default:
+                builder.Append("t");
+                AppendNameAndAssembly(
+                    builder,
+                    type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                    type);
+                return;
+        }
+    }
+
+    private static void AppendNameAndAssembly(StringBuilder builder, string name, ISymbol symbol)
+    {
         var assembly = symbol.ContainingAssembly?.Identity.GetDisplayName() ?? string.Empty;
-        return $"{symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} in {assembly}";
+
+        builder
+            .Append(name.Length).Append(':').Append(name)
+            .Append(assembly.Length).Append(':').Append(assembly);
     }
 
     private static string FormatScalar(object value)

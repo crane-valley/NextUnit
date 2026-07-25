@@ -68,6 +68,41 @@ public class MatrixExclusionMatchingTests
     }
 
     /// <summary>
+    /// typeof values are matched by the type they name, including its type arguments.
+    /// </summary>
+    [Fact]
+    public async Task TypeValues_MatchOnlyTheNamedTypeAsync()
+    {
+        var source = """
+            using System;
+            using System.Collections.Generic;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class MatrixTests
+            {
+                [Test]
+                [MatrixExclusion(typeof(List<int>))]
+                public void Single(
+                    [Matrix(typeof(List<int>), typeof(List<long>), typeof(int))] Type value)
+                {
+                }
+            }
+            """;
+
+        var generated = await GenerateRegistryAsync(source);
+
+        Assert.Equal(2, CountTestCases(generated));
+        Assert.False(
+            generated.Contains("List<int>", StringComparison.Ordinal),
+            "The excluded typeof(List<int>) combination must not be emitted.");
+        Assert.True(
+            generated.Contains("List<long>", StringComparison.Ordinal),
+            "typeof(List<long>) differs from the exclusion and must still be emitted.");
+    }
+
+    /// <summary>
     /// A matching exclusion still removes its combination.
     /// </summary>
     [Fact]
