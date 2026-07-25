@@ -152,7 +152,7 @@ public sealed class TestExecutionEngine
 
             try
             {
-                var (assemblyCancellation, assemblyFailures) = await ExecuteAssemblyTeardownAsync(testCasesList, cancellationToken).ConfigureAwait(false);
+                var (assemblyCancellation, assemblyFailures) = await ExecuteAssemblyTeardownAsync(testCasesList, trackingSink, cancellationToken).ConfigureAwait(false);
                 cleanupCancellation ??= assemblyCancellation;
                 cleanupFailures.AddRange(assemblyFailures);
             }
@@ -358,11 +358,11 @@ public sealed class TestExecutionEngine
     /// Executes assembly-level teardown methods.
     /// </summary>
     /// <returns>
-    /// The run cancellation observed during teardown (if any) and every non-critical teardown failure,
-    /// so the caller can surface both without discarding either.
+    /// The run cancellation observed during teardown (if any) and every sink-reporting failure, so the
+    /// caller can surface a teardown failure even when it could not be delivered to the sink.
     /// </returns>
     private async Task<(OperationCanceledException? Cancellation, List<Exception> Failures)> ExecuteAssemblyTeardownAsync(
-        List<TestCaseDescriptor> testCases, CancellationToken cancellationToken)
+        List<TestCaseDescriptor> testCases, ITestExecutionSink sink, CancellationToken cancellationToken)
     {
         if (_assemblyAfterMethods.Count == 0 || testCases.Count == 0)
         {
@@ -401,9 +401,60 @@ public sealed class TestExecutionEngine
             }
         }
 
-        // Return both so the caller can surface cancellation and teardown failures together; returning
-        // cancellation alone would discard concurrent failures.
-        return (cancellation, failures);
+        if (failures.Count == 0)
+        {
+            return (cancellation, failures);
+        }
+
+        // Aggregate all hook failures into a single node so multiple failures do not collide on the
+        // same "[AssemblyTeardown]" identity.
+        var teardownNode = CreateAssemblyScopeTest(testCases[0], "AssemblyTeardown");
+        var error = failures.Count == 1
+            ? failures[0]
+            : new AggregateException("One or more assembly teardown methods failed.", failures);
+
+        try
+        {
+            await sink.ReportErrorAsync(teardownNode, error).ConfigureAwait(false);
+            return (cancellation, new List<Exception>());
+        }
+        catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+        {
+            Diagnostics.SafeWriteError($"[NextUnit] Failed to report assembly teardown error for '{teardownNode.Id.Value}'", ex);
+
+            // Preserve BOTH the original teardown error and the sink failure; reporting the sink failure
+            // alone would silently lose the teardown exception it was carrying.
+            return (cancellation, new List<Exception>
+            {
+                new AggregateException(
+                    $"Failed to report assembly teardown error for '{teardownNode.Id.Value}'.", error, ex)
+            });
+        }
+    }
+
+    /// <summary>
+    /// Builds a synthetic node describing an assembly-scope cleanup failure.
+    /// </summary>
+    /// <remarks>
+    /// Reporting through the sink makes the failure visible as a test result in every adapter, instead
+    /// of only surfacing as an exception thrown out of <see cref="RunAsync"/> that adapters cannot
+    /// attribute to anything.
+    /// </remarks>
+    private static TestCaseDescriptor CreateAssemblyScopeTest(
+        TestCaseDescriptor representativeTest,
+        string scope)
+    {
+        var assemblyName = _assemblyNames.GetValue(
+            representativeTest.TestClass.Assembly,
+            static assembly => assembly.GetName().Name ?? "");
+
+        return new TestCaseDescriptor
+        {
+            Id = new TestCaseId($"{assemblyName}.[{scope}]"),
+            DisplayName = $"{assemblyName} ({scope})",
+            TestClass = representativeTest.TestClass,
+            MethodName = scope
+        };
     }
 
     /// <summary>
@@ -589,6 +640,63 @@ public sealed class TestExecutionEngine
             ?? throw new InvalidOperationException("TestContext.Current must be initialized before executing a test attempt.");
         var instance = CreateTestInstance(testCase, testOutput, currentContext);
 
+        AttemptResult result;
+        Exception? disposalFailure = null;
+        try
+        {
+            result = await RunAttemptBodyAsync(testCase, instance, effectiveToken, timeoutCts, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                await DisposeInstanceAsync(instance).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            {
+                // Disposal is not passed the run token, so an OCE from a disposer is its own cancellation
+                // rather than run cancellation. The captured failure is consumed only on the normal path
+                // below: when the body is already propagating run cancellation or a critical exception,
+                // that exception wins and the disposal failure is intentionally dropped.
+                disposalFailure = ex;
+            }
+        }
+
+        if (disposalFailure is null)
+        {
+            await ReportAttemptOutcomeAsync(testCase, sink, result, testOutput, currentContext).ConfigureAwait(false);
+            return result;
+        }
+
+        // The instance belongs to this test, so its disposal failure is reported on the test's own node
+        // instead of a synthetic one (unlike class-scope disposal, whose instance is shared). Reporting
+        // happens after disposal so a passing test is not first reported as passed and then failed.
+        await ReportFinalExceptionAsync(
+            testCase,
+            sink,
+            CombineWithDisposalFailure(result, disposalFailure),
+            testOutput.GetOutput(),
+            currentContext.Artifacts).ConfigureAwait(false);
+
+        // Terminal: a disposer that throws is not fixed by retrying, and a later passing attempt would
+        // silently discard the failure already reported here.
+        return AttemptResult.Reported;
+    }
+
+    /// <summary>
+    /// Runs the lifecycle hooks and the test method for a single attempt, without reporting to the sink.
+    /// </summary>
+    /// <remarks>
+    /// Reporting is deferred to the caller so that it happens after instance disposal, which lets a
+    /// disposal failure change the reported outcome instead of arriving after the result was published.
+    /// </remarks>
+    private static async Task<AttemptResult> RunAttemptBodyAsync(
+        TestCaseDescriptor testCase,
+        object instance,
+        CancellationToken effectiveToken,
+        CancellationTokenSource? timeoutCts,
+        CancellationToken cancellationToken)
+    {
         try
         {
             // Execute before lifecycle methods (test-scoped)
@@ -617,9 +725,6 @@ public sealed class TestExecutionEngine
                 await afterMethod(instance, effectiveToken).ConfigureAwait(false);
             }
 
-            // Test passed - report success with artifacts
-            var artifacts = currentContext.Artifacts;
-            await sink.ReportPassedAsync(testCase, testOutput.GetOutput(), artifacts).ConfigureAwait(false);
             return AttemptResult.Passed;
         }
         catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
@@ -636,17 +741,12 @@ public sealed class TestExecutionEngine
         catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true)
         {
             // Timeout occurred - do not retry timeouts
-            var timeoutEx = new TestTimeoutException(testCase.TimeoutMs!.Value);
-            var artifacts = currentContext.Artifacts;
-            await sink.ReportErrorAsync(testCase, timeoutEx, testOutput.GetOutput(), artifacts).ConfigureAwait(false);
-            return AttemptResult.TimedOut;
+            return AttemptResult.TimedOut(new TestTimeoutException(testCase.TimeoutMs!.Value));
         }
         catch (TestSkippedException ex)
         {
-            // Runtime skip - do not retry skips, but preserve artifacts collected before skip
-            var artifacts = currentContext.Artifacts;
-            await sink.ReportSkippedAsync(testCase.WithSkipReason(ex.Message), artifacts).ConfigureAwait(false);
-            return AttemptResult.Skipped;
+            // Runtime skip - do not retry skips
+            return AttemptResult.Skipped(ex);
         }
         catch (OutOfMemoryException)
         {
@@ -662,10 +762,56 @@ public sealed class TestExecutionEngine
         {
             return AttemptResult.Retriable(ex);
         }
-        finally
+    }
+
+    /// <summary>
+    /// Reports a completed attempt whose instance disposed successfully.
+    /// </summary>
+    /// <remarks>
+    /// A retriable result is deliberately not reported here: the retry loop owns that decision and
+    /// reports it only after the final attempt.
+    /// </remarks>
+    private static Task ReportAttemptOutcomeAsync(
+        TestCaseDescriptor testCase,
+        ITestExecutionSink sink,
+        AttemptResult result,
+        TestOutputCapture testOutput,
+        ITestContext currentContext)
+    {
+        // Artifacts collected before a timeout or a runtime skip are preserved.
+        var artifacts = currentContext.Artifacts;
+
+        return result.Outcome switch
         {
-            await DisposeInstanceAsync(instance).ConfigureAwait(false);
+            AttemptOutcome.Passed => sink.ReportPassedAsync(testCase, testOutput.GetOutput(), artifacts),
+            AttemptOutcome.TimedOut => sink.ReportErrorAsync(testCase, result.Exception!, testOutput.GetOutput(), artifacts),
+            AttemptOutcome.Skipped => sink.ReportSkippedAsync(testCase.WithSkipReason(result.Exception!.Message), artifacts),
+            _ => Task.CompletedTask
+        };
+    }
+
+    /// <summary>
+    /// Builds the exception reported when disposing a per-test instance failed.
+    /// </summary>
+    /// <remarks>
+    /// The attempt's own exception stays first so the disposal failure never masks the original
+    /// failure, mirroring how coexisting cleanup failures are combined for the whole run.
+    /// </remarks>
+    private static Exception CombineWithDisposalFailure(AttemptResult result, Exception disposalFailure)
+    {
+        if (result.Exception is null)
+        {
+            return disposalFailure;
         }
+
+        var message = result.Outcome switch
+        {
+            AttemptOutcome.Skipped => "The test was skipped at runtime and disposing the test instance failed.",
+            AttemptOutcome.TimedOut => "The test timed out and disposing the test instance failed.",
+            _ => "The test failed and disposing the test instance failed."
+        };
+
+        return new AggregateException(message, result.Exception, disposalFailure);
     }
 
     /// <summary>
@@ -720,10 +866,13 @@ public sealed class TestExecutionEngine
         public static AttemptResult Passed => new() { Outcome = AttemptOutcome.Passed };
 
         /// <summary>Test was skipped at runtime (terminal, no retry).</summary>
-        public static AttemptResult Skipped => new() { Outcome = AttemptOutcome.Skipped };
+        public static AttemptResult Skipped(TestSkippedException ex) => new() { Outcome = AttemptOutcome.Skipped, Exception = ex };
 
         /// <summary>Test timed out (terminal, no retry).</summary>
-        public static AttemptResult TimedOut => new() { Outcome = AttemptOutcome.TimedOut };
+        public static AttemptResult TimedOut(TestTimeoutException ex) => new() { Outcome = AttemptOutcome.TimedOut, Exception = ex };
+
+        /// <summary>The attempt outcome was already reported to the sink (terminal, no retry).</summary>
+        public static AttemptResult Reported => new() { Outcome = AttemptOutcome.Reported };
 
         /// <summary>Test failed with a retriable exception.</summary>
         public static AttemptResult Retriable(Exception ex) => new() { Outcome = AttemptOutcome.Retriable, Exception = ex };
@@ -742,6 +891,9 @@ public sealed class TestExecutionEngine
 
         /// <summary>Test timed out.</summary>
         TimedOut,
+
+        /// <summary>The result was already reported to the sink and needs no further reporting.</summary>
+        Reported,
 
         /// <summary>Test failed and may be retried.</summary>
         Retriable

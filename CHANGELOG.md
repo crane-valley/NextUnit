@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Report an assembly teardown failure as a synthetic `[AssemblyTeardown]` test result instead of
+  throwing out of the run, so the failure is visible in Microsoft.Testing.Platform and VSTest
+  results. A run whose only failure is assembly teardown no longer surfaces as a run-level
+  exception.
+
+### Fixed
+
+- Report a per-test instance whose `Dispose` or `DisposeAsync` throws as a failure of that test
+  instead of letting the exception escape the run uncaught. When the test itself also failed, both
+  exceptions are reported with the test failure first, and the test is not retried.
+
 ## [1.16.0] - 2026-07-25
 
 ### Added
