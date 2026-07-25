@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-
+using NextUnit.CodeAnalysis.Shared;
 namespace NextUnit.Analyzers.Analyzers;
 
 /// <summary>
@@ -12,8 +12,6 @@ namespace NextUnit.Analyzers.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class TestDataRowAnalyzer : DiagnosticAnalyzer
 {
-    private const string TestDataRowMetadataName = "TestDataRow`1";
-
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(DiagnosticDescriptors.InvalidTestDataRowMetadata);
 
@@ -33,7 +31,7 @@ public sealed class TestDataRowAnalyzer : DiagnosticAnalyzer
             context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is not INamedTypeSymbol
             {
                 IsGenericType: true,
-                MetadataName: TestDataRowMetadataName
+                MetadataName: NextUnitAttributeNames.MetadataNames.TestDataRow
             } type ||
             type.ContainingNamespace.ToDisplayString() != "NextUnit" ||
             creation.ArgumentList is null)

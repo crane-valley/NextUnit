@@ -1,4 +1,5 @@
 using System.Text;
+using NextUnit.CodeAnalysis.Shared;
 using NextUnit.Generator.Formatters;
 using NextUnit.Generator.Helpers;
 using NextUnit.Generator.Models;
@@ -6,8 +7,12 @@ using NextUnit.Generator.Models;
 namespace NextUnit.Generator.Builders;
 
 /// <summary>
-/// Builds code literals and delegates for the generated test registry.
+/// Builds single-line code literals and delegates for the generated test registry.
 /// </summary>
+/// <remarks>
+/// Everything here is layout-free: multi-line, indented output belongs to the emitters, which own
+/// a <see cref="CodeWriter"/> and therefore the nesting context.
+/// </remarks>
 internal static class CodeBuilder
 {
     /// <summary>
@@ -187,69 +192,6 @@ internal static class CodeBuilder
             methodName);
     }
 
-    /// <summary>
-    /// Builds a lifecycle info literal.
-    /// Note: Assembly and Session scoped methods are handled globally via GeneratedTestRegistry
-    /// static properties, so they are always emitted as empty arrays here.
-    /// </summary>
-    public static string BuildLifecycleInfoLiteral(string typeName, List<LifecycleMethodDescriptor> lifecycleMethods)
-    {
-        // Only emit Test and Class scopes - Assembly and Session are handled globally
-        var beforeTest = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Test)).ToList();
-        var afterTest = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Test)).ToList();
-        var beforeClass = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Class)).ToList();
-        var afterClass = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Class)).ToList();
-
-        var builder = new StringBuilder();
-        builder.AppendLine("new global::NextUnit.Internal.LifecycleInfo");
-        builder.AppendLine("                {");
-
-        builder.Append("                    BeforeTestMethods = ");
-        AppendLifecycleMethodArray(builder, typeName, beforeTest);
-        builder.AppendLine(",");
-
-        builder.Append("                    AfterTestMethods = ");
-        AppendLifecycleMethodArray(builder, typeName, afterTest);
-        builder.AppendLine(",");
-
-        builder.Append("                    BeforeClassMethods = ");
-        AppendLifecycleMethodArray(builder, typeName, beforeClass);
-        builder.AppendLine(",");
-
-        builder.Append("                    AfterClassMethods = ");
-        AppendLifecycleMethodArray(builder, typeName, afterClass);
-        builder.AppendLine(",");
-
-        // Assembly and Session scopes are handled globally - always emit empty arrays
-        builder.AppendLine("                    BeforeAssemblyMethods = EmptyLifecycleMethods,");
-        builder.AppendLine("                    AfterAssemblyMethods = EmptyLifecycleMethods,");
-        builder.AppendLine("                    BeforeSessionMethods = EmptyLifecycleMethods,");
-        builder.Append("                    AfterSessionMethods = EmptyLifecycleMethods");
-        builder.AppendLine();
-
-        builder.Append("                }");
-        return builder.ToString();
-    }
-
-    private static void AppendLifecycleMethodArray(StringBuilder builder, string typeName, List<LifecycleMethodDescriptor> methods)
-    {
-        if (methods.Count == 0)
-        {
-            builder.Append("EmptyLifecycleMethods");
-        }
-        else
-        {
-            builder.AppendLine("new global::NextUnit.Internal.LifecycleMethodDelegate[]");
-            builder.AppendLine("                    {");
-            foreach (var method in methods)
-            {
-                builder.AppendLine(
-                    $"                        {BuildLifecycleMethodDelegate(typeName, method.MethodName, method.IsStatic, method.ReturnKind, method.AcceptsCancellationToken)},");
-            }
-            builder.Append("                    }");
-        }
-    }
-
     private static string BuildMethodDelegate(
         string parameters,
         string invocation,
@@ -372,7 +314,7 @@ internal static class CodeBuilder
             }
 
             var dep = dependencyInfos[i];
-            builder.Append($"new global::NextUnit.Internal.DependencyInfo {{ DependsOnId = new global::NextUnit.Internal.TestCaseId({AttributeHelper.ToLiteral(dep.DependsOnId)}), ProceedOnFailure = {dep.ProceedOnFailure.ToString().ToLowerInvariant()} }}");
+            builder.Append($"new global::NextUnit.Internal.DependencyInfo {{ DependsOnId = new global::NextUnit.Internal.TestCaseId({AttributeHelper.ToLiteral(dep.DependsOnId)}), ProceedOnFailure = {LiteralFormatter.Bool(dep.ProceedOnFailure)} }}");
         }
 
         builder.Append(" }");

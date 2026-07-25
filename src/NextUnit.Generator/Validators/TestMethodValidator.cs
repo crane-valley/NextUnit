@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using NextUnit.CodeAnalysis.Shared;
+using NextUnit.Generator.Diagnostics;
 using NextUnit.Generator.Helpers;
 using NextUnit.Generator.Models;
 
@@ -40,6 +42,14 @@ internal static class TestMethodValidator
         return graph;
     }
 
+    // The pipeline models are value objects carrying no syntax references, so no symbol location
+    // is available here; every generator diagnostic is reported at Location.None.
+    private static void Report(
+        SourceProductionContext context,
+        DiagnosticDescriptor descriptor,
+        params object?[] messageArgs) =>
+        context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None, messageArgs));
+
     private static void ValidateDependencies(
         SourceProductionContext context,
         TestMethodDescriptor test,
@@ -48,32 +58,13 @@ internal static class TestMethodValidator
         // Check for dependency cycles
         if (HasCycle(test.Id, new HashSet<string>(), dependencyGraph))
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT001",
-                    "Dependency cycle detected",
-                    "Test '{0}' has a circular dependency",
-                    "NextUnit",
-                    DiagnosticSeverity.Error,
-                    isEnabledByDefault: true),
-                Location.None,
-                test.Id));
+            Report(context, GeneratorDiagnosticDescriptors.DependencyCycle, test.Id);
         }
 
         // Check for unresolved dependencies
         foreach (var depId in test.Dependencies.Where(depId => !dependencyGraph.ContainsKey(depId)))
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT002",
-                    "Unresolved test dependency",
-                    "Test '{0}' depends on '{1}' which does not exist",
-                    "NextUnit",
-                    DiagnosticSeverity.Warning,
-                    isEnabledByDefault: true),
-                Location.None,
-                test.Id,
-                depId));
+            Report(context, GeneratorDiagnosticDescriptors.UnresolvedDependency, test.Id, depId);
         }
     }
 
@@ -82,46 +73,19 @@ internal static class TestMethodValidator
         // [Arguments] and [TestData] conflict
         if (!test.ArgumentSets.IsDefaultOrEmpty && !test.TestDataSources.IsDefaultOrEmpty)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT003",
-                    "Conflicting test data attributes",
-                    "Test '{0}' has both [Arguments] and [TestData] attributes. [Arguments] will be ignored and only [TestData] will be processed. Remove one of them to avoid confusion.",
-                    "NextUnit",
-                    DiagnosticSeverity.Warning,
-                    isEnabledByDefault: true),
-                Location.None,
-                test.Id));
+            Report(context, GeneratorDiagnosticDescriptors.ArgumentsWithTestData, test.Id);
         }
 
         // [Matrix] and [Arguments] conflict
         if (!test.MatrixParameters.IsDefaultOrEmpty && !test.ArgumentSets.IsDefaultOrEmpty)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT004",
-                    "Conflicting test data attributes",
-                    "Test '{0}' has both [Matrix] and [Arguments] attributes. Use only one approach for parameterizing tests.",
-                    "NextUnit",
-                    DiagnosticSeverity.Error,
-                    isEnabledByDefault: true),
-                Location.None,
-                test.Id));
+            Report(context, GeneratorDiagnosticDescriptors.MatrixWithArguments, test.Id);
         }
 
         // [Matrix] and [TestData] conflict
         if (!test.MatrixParameters.IsDefaultOrEmpty && !test.TestDataSources.IsDefaultOrEmpty)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT005",
-                    "Conflicting test data attributes",
-                    "Test '{0}' has both [Matrix] and [TestData] attributes. Use only one approach for parameterizing tests.",
-                    "NextUnit",
-                    DiagnosticSeverity.Error,
-                    isEnabledByDefault: true),
-                Location.None,
-                test.Id));
+            Report(context, GeneratorDiagnosticDescriptors.MatrixWithTestData, test.Id);
         }
     }
 
@@ -135,18 +99,12 @@ internal static class TestMethodValidator
         // All parameters must have [Matrix] if any do
         if (test.MatrixParameters.Length != test.Parameters.Length)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT006",
-                    "Incomplete matrix parameters",
-                    "Test '{0}' has {1} parameters but only {2} have [Matrix] attributes. All parameters must have [Matrix] when using matrix tests.",
-                    "NextUnit",
-                    DiagnosticSeverity.Error,
-                    isEnabledByDefault: true),
-                Location.None,
+            Report(
+                context,
+                GeneratorDiagnosticDescriptors.IncompleteMatrixParameters,
                 test.Id,
                 test.Parameters.Length,
-                test.MatrixParameters.Length));
+                test.MatrixParameters.Length);
         }
 
         // [MatrixExclusion] parameter count validation
@@ -154,18 +112,12 @@ internal static class TestMethodValidator
         {
             foreach (var exclusion in test.MatrixExclusions.Where(e => e.Values.Length != test.MatrixParameters.Length))
             {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    new DiagnosticDescriptor(
-                        "NEXTUNIT007",
-                        "Matrix exclusion parameter count mismatch",
-                        "Test '{0}' has [MatrixExclusion] with {1} values but the test has {2} matrix parameters.",
-                        "NextUnit",
-                        DiagnosticSeverity.Error,
-                        isEnabledByDefault: true),
-                    Location.None,
+                Report(
+                    context,
+                    GeneratorDiagnosticDescriptors.MatrixExclusionValueCountMismatch,
                     test.Id,
                     exclusion.Values.Length,
-                    test.MatrixParameters.Length));
+                    test.MatrixParameters.Length);
             }
         }
     }
@@ -180,31 +132,13 @@ internal static class TestMethodValidator
         // Conflict with other data source attributes
         if (!test.ArgumentSets.IsDefaultOrEmpty || !test.TestDataSources.IsDefaultOrEmpty || !test.MatrixParameters.IsDefaultOrEmpty)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT008",
-                    "Conflicting test data attributes",
-                    "Test '{0}' has [ClassDataSource] with other data source attributes. Only [ClassDataSource] will be processed.",
-                    "NextUnit",
-                    DiagnosticSeverity.Warning,
-                    isEnabledByDefault: true),
-                Location.None,
-                test.Id));
+            Report(context, GeneratorDiagnosticDescriptors.ClassDataSourceWithOtherSources, test.Id);
         }
 
         // Keyed sharing requires Key
         foreach (var _ in test.ClassDataSources.Where(s => s.SharedType == SharedTypeConstants.Keyed && string.IsNullOrEmpty(s.Key)))
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT009",
-                    "Missing Key for Keyed ClassDataSource",
-                    "Test '{0}' uses ClassDataSource with SharedType.Keyed but no Key is specified.",
-                    "NextUnit",
-                    DiagnosticSeverity.Error,
-                    isEnabledByDefault: true),
-                Location.None,
-                test.Id));
+            Report(context, GeneratorDiagnosticDescriptors.MissingKeyForKeyedClassDataSource, test.Id);
         }
     }
 
@@ -219,40 +153,25 @@ internal static class TestMethodValidator
         if (!test.ArgumentSets.IsDefaultOrEmpty || !test.TestDataSources.IsDefaultOrEmpty ||
             !test.MatrixParameters.IsDefaultOrEmpty || !test.ClassDataSources.IsDefaultOrEmpty)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT010",
-                    "Conflicting test data attributes",
-                    "Test '{0}' uses parameter-level data sources ([Values], [ValuesFromMember], [ValuesFrom]) with other data source attributes. Only parameter-level sources will be processed.",
-                    "NextUnit",
-                    DiagnosticSeverity.Warning,
-                    isEnabledByDefault: true),
-                Location.None,
-                test.Id));
+            Report(context, GeneratorDiagnosticDescriptors.ParameterSourcesWithOtherSources, test.Id);
         }
 
         // All parameters must have a data source (except trailing CancellationToken)
         var expectedSourceCount = test.Parameters.Length;
         if (test.Parameters.Length > 0 &&
-            test.Parameters[test.Parameters.Length - 1].DisplayTypeName == "System.Threading.CancellationToken")
+            test.Parameters[test.Parameters.Length - 1].DisplayTypeName == WellKnownTypeNames.CancellationToken)
         {
             expectedSourceCount = test.Parameters.Length - 1;
         }
 
         if (test.CombinedParameterSources.Length != expectedSourceCount)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT011",
-                    "Incomplete parameter data sources",
-                    "Test '{0}' has {1} parameters but only {2} have data source attributes ([Values], [ValuesFromMember], or [ValuesFrom]). All parameters must have a data source when using combined data sources (CancellationToken excluded).",
-                    "NextUnit",
-                    DiagnosticSeverity.Error,
-                    isEnabledByDefault: true),
-                Location.None,
+            Report(
+                context,
+                GeneratorDiagnosticDescriptors.IncompleteParameterDataSources,
                 test.Id,
                 expectedSourceCount,
-                test.CombinedParameterSources.Length));
+                test.CombinedParameterSources.Length);
         }
 
         // Keyed sharing requires Key
@@ -261,17 +180,11 @@ internal static class TestMethodValidator
             s.SharedType == SharedTypeConstants.Keyed &&
             string.IsNullOrEmpty(s.SharedKey)))
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "NEXTUNIT012",
-                    "Missing Key for Keyed ValuesFrom",
-                    "Test '{0}' uses [ValuesFrom] with SharedType.Keyed on parameter '{1}' but no Key is specified.",
-                    "NextUnit",
-                    DiagnosticSeverity.Error,
-                    isEnabledByDefault: true),
-                Location.None,
+            Report(
+                context,
+                GeneratorDiagnosticDescriptors.MissingKeyForKeyedValuesFrom,
                 test.Id,
-                source.ParameterName));
+                source.ParameterName);
         }
     }
 

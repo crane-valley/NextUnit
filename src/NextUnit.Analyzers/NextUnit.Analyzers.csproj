@@ -22,6 +22,12 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
   </ItemGroup>
 
+  <!-- Linked source, not a project reference: the analyzers ship as a single self-contained
+       assembly, so the shared code is compiled into it rather than added as a dependency. -->
+  <ItemGroup>
+    <Compile Include="..\NextUnit.CodeAnalysis.Shared\*.cs" LinkBase="CodeAnalysisShared" />
+  </ItemGroup>
+
   <ItemGroup>
     <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
     <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
