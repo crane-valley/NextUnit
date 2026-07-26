@@ -76,16 +76,16 @@ internal sealed class SessionLifecycleRunner
             await _setupGate.RunOnceAsync(ExecuteSetupAsync, cancellationToken).ConfigureAwait(false);
             return null;
         }
-        catch (OperationCanceledException ex) when (RunCancellationClassifier.IsRunCancellation(ex, cancellationToken))
-        {
-            // Genuine run cancellation is the platform's business, not a framework failure.
-            throw;
-        }
-        catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+        // Genuine run cancellation is the platform's business, not a framework failure, so the filter
+        // leaves it (and any critical exception) uncaught rather than catching it only to rethrow:
+        // an exception no frame catches keeps its original first-chance debugger behavior.
+        catch (Exception ex) when (!IsRunCancellation(ex, cancellationToken) && !ExceptionHelper.IsCriticalException(ex))
         {
             // Deliberately caught outside the gate so the gate still sees a throw and stays open: the
             // session result is failed anyway, and a later caller retrying setup is preferable to it
             // silently proceeding as if the hooks had run.
+            // ToFailure wraps only an OperationCanceledException, so the message names that case and
+            // every ordinary exception passes through untouched.
             var failure = RunCancellationClassifier.ToFailure(
                 ex,
                 "A session setup method threw OperationCanceledException that does not represent run cancellation.");
@@ -193,6 +193,14 @@ internal sealed class SessionLifecycleRunner
 
         return true;
     }
+
+    /// <summary>
+    /// Classifies an arbitrary exception, so an exception filter can exclude genuine run cancellation
+    /// without first narrowing the catch to <see cref="OperationCanceledException"/>.
+    /// </summary>
+    private static bool IsRunCancellation(Exception exception, CancellationToken cancellationToken) =>
+        exception is OperationCanceledException canceled
+        && RunCancellationClassifier.IsRunCancellation(canceled, cancellationToken);
 
     private async Task ExecuteSetupAsync(CancellationToken cancellationToken)
     {
