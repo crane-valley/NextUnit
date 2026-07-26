@@ -91,6 +91,12 @@ public sealed class TestExecutionEngine
     /// <param name="sink">The sink for reporting test results.</param>
     /// <param name="cancellationToken">A cancellation token to observe while waiting for the task to complete.</param>
     /// <returns>A task that represents the asynchronous execution operation.</returns>
+    /// <remarks>
+    /// One engine supports many sequential runs, but not overlapping ones: assembly setup state is
+    /// shared across the instance, so a run starting while another is still executing would see setup
+    /// already done and then tear the assembly down a second time. Callers must await a run before
+    /// starting the next on the same engine.
+    /// </remarks>
     public async Task RunAsync(
         IEnumerable<TestCaseDescriptor> testCases,
         ITestExecutionSink sink,

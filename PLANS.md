@@ -173,6 +173,13 @@ and need a deliberate decision before implementation.
   hook exception propagate out of the platform callback, whereas the other scopes catch, attribute,
   and report it. Closing the gap changes how a failing session hook is reported, so it needs a
   decision on the reported shape rather than a drive-by fix.
+- [ ] Decide whether `TestExecutionEngine` should support overlapping `RunAsync` calls on one
+  instance. Sequential reuse now works and pairs assembly setup with teardown per run, but assembly
+  state (`_assemblySetupExecuted`, `_assemblySkipReason`) is shared across the instance, so a run
+  starting while another is still executing would skip setup and then tear the assembly down twice.
+  Documented as a caller constraint on `RunAsync`. Closing it means either serializing runs per
+  engine or making assembly state run-local, both of which change the execution model, and no
+  evidence yet shows Microsoft.Testing.Platform issuing overlapping run requests.
 - [ ] Decide whether the VSTest adapter should run session-scoped `[Before]`/`[After]` hooks.
   `NextUnitTestExecutor` reads only the assembly-scoped method arrays, so session hooks never run
   under VSTest; they do run under Microsoft.Testing.Platform. VSTest executes per assembly and has
