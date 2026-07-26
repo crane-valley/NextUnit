@@ -23,9 +23,9 @@ internal sealed class NextUnitCommandLineOptionsProvider : ICommandLineOptionsPr
     public string Uid => nameof(NextUnitCommandLineOptionsProvider);
 
     /// <summary>
-    /// Gets the version of this extension.
+    /// Gets the version of this extension, taken from the assembly informational version.
     /// </summary>
-    public string Version => "1.6.2";
+    public string Version => PlatformVersion.Value;
 
     /// <summary>
     /// Gets the display name of this extension.

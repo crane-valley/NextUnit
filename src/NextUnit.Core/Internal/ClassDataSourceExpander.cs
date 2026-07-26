@@ -9,6 +9,13 @@ namespace NextUnit.Internal;
 /// Expands <see cref="ClassDataSourceDescriptor"/> instances into concrete <see cref="TestCaseDescriptor"/> instances
 /// by instantiating data source classes and enumerating their data at runtime.
 /// </summary>
+/// <remarks>
+/// Shared-instance caching is scoped to this expander. <c>[ClassDataSource]</c> and <c>[ValuesFrom]</c>
+/// keep separate caches (the latter in <see cref="CombinedDataSourceExpander"/>), so the same data
+/// source type used through both attributes with <c>SharedType.PerSession</c>, <c>PerAssembly</c>,
+/// <c>PerClass</c>, or <c>Keyed</c> yields one instance per attribute kind, not one overall. Shared
+/// instances live for the process lifetime and are not disposed.
+/// </remarks>
 public static class ClassDataSourceExpander
 {
     // Caches for shared instances by sharing scope

@@ -24,9 +24,15 @@ internal sealed class NextUnitFramework :
     private readonly IServiceProvider _services;
 #pragma warning restore IDE0052
     private readonly TestExecutionEngine _engine = new();
+
+    // One framework instance serves every request the platform issues, and discovery and execution
+    // requests may overlap, so the one-time initialization below has to be guarded rather than relying
+    // on a single caller. _testCasesGate covers both _testCases and _assemblyLifecycleInitialized
+    // because they are published together by the same one-time build in GetTestCases.
+    private readonly Lock _testCasesGate = new();
     private IReadOnlyList<TestCaseDescriptor>? _testCases;
     private readonly TestFilterConfiguration _filterConfig;
-    private bool _sessionSetupExecuted;
+    private int _sessionSetupExecuted;
     private bool _assemblyLifecycleInitialized;
     private readonly List<LifecycleMethodDelegate> _sessionBeforeMethods = new();
     private readonly List<LifecycleMethodDelegate> _sessionAfterMethods = new();
@@ -51,9 +57,9 @@ internal sealed class NextUnitFramework :
     public string Uid => "NextUnit.Framework";
 
     /// <summary>
-    /// Gets the version of the NextUnit framework.
+    /// Gets the version of the NextUnit framework, taken from the assembly informational version.
     /// </summary>
-    public string Version => "1.2.0";
+    public string Version => PlatformVersion.Value;
 
     /// <summary>
     /// Gets the display name of the NextUnit framework.
@@ -88,12 +94,14 @@ internal sealed class NextUnitFramework :
     {
         // Ensure test cases and global lifecycle methods are loaded
         var testCases = GetTestCases();
-        if (testCases.Count > 0 && !_sessionSetupExecuted)
+
+        // Claim the right to run session setup atomically instead of checking a plain flag and setting
+        // it after the await: the gap between the two would let a concurrent caller run the hooks twice.
+        if (testCases.Count > 0 && Interlocked.CompareExchange(ref _sessionSetupExecuted, 1, 0) == 0)
         {
             // Session lifecycle methods are now collected globally via GetTestCases
             // Execute session setup methods
             await ExecuteSessionSetupAsync(context.CancellationToken).ConfigureAwait(false);
-            _sessionSetupExecuted = true;
         }
 
         return new CreateTestSessionResult { IsSuccess = true };
@@ -135,6 +143,25 @@ internal sealed class NextUnitFramework :
 
     private IReadOnlyList<TestCaseDescriptor> GetTestCases()
     {
+        // Volatile read pairs with the Volatile.Write below, so a caller that sees a non-null reference
+        // also sees a fully populated list rather than a partially initialized one.
+        var cached = Volatile.Read(ref _testCases);
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        lock (_testCasesGate)
+        {
+            return BuildTestCases();
+        }
+    }
+
+    /// <summary>
+    /// Builds and memoizes the filtered test case list. Callers must hold <see cref="_testCasesGate"/>.
+    /// </summary>
+    private IReadOnlyList<TestCaseDescriptor> BuildTestCases()
+    {
         if (_testCases is not null)
         {
             return _testCases;
@@ -143,8 +170,9 @@ internal sealed class NextUnitFramework :
         var generatedRegistry = GeneratedTestRegistryStore.Current;
         if (generatedRegistry is null)
         {
-            _testCases = Array.Empty<TestCaseDescriptor>();
-            return _testCases;
+            var empty = Array.Empty<TestCaseDescriptor>();
+            Volatile.Write(ref _testCases, empty);
+            return empty;
         }
 
         var allTestCases = new List<TestCaseDescriptor>();
@@ -184,8 +212,8 @@ internal sealed class NextUnitFramework :
             _assemblyLifecycleInitialized = true;
         }
 
-        _testCases = filteredTestCases;
-        return _testCases;
+        Volatile.Write(ref _testCases, filteredTestCases);
+        return filteredTestCases;
     }
 
     /// <summary>

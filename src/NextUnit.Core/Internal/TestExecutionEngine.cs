@@ -1033,7 +1033,12 @@ public sealed class TestExecutionEngine
         }
 
         _classContexts.Clear();
-        _assemblySetupLock.Dispose();
+
+        // _assemblySetupLock is deliberately NOT disposed here. Its lifetime is the engine's, not a
+        // single run's: NextUnitFramework holds one engine in a readonly field and reuses it for every
+        // request the platform issues, so disposing the lock at the end of a run would make the next
+        // run throw ObjectDisposedException on the assembly-setup gate. Per-class SetupLock instances
+        // above are different - they belong to the class contexts this cleanup discards.
 
         // Report only after all cleanup is complete; guard each report so a sink failure does not
         // prevent the remaining failures from being surfaced. A sink failure is collected (not merely
