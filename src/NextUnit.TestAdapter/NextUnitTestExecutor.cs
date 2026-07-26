@@ -7,6 +7,14 @@ namespace NextUnit.TestAdapter;
 /// <summary>
 /// VSTest adapter for executing NextUnit tests.
 /// </summary>
+/// <remarks>
+/// Session-scoped lifecycle hooks are a known limitation of this adapter: it runs assembly-scoped
+/// <c>[Before]</c> and <c>[After]</c> hooks only, so <c>[Before(LifecycleScope.Session)]</c> and
+/// <c>[After(LifecycleScope.Session)]</c> do not run under VSTest. They do run under
+/// Microsoft.Testing.Platform. VSTest executes per assembly and has no session boundary to map them
+/// onto, so wiring them would require choosing between once-per-session and once-per-assembly
+/// semantics; that choice is deferred until a concrete need defines it.
+/// </remarks>
 [ExtensionUri(ExecutorUri)]
 public sealed class NextUnitTestExecutor : ITestExecutor
 {

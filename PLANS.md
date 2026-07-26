@@ -169,6 +169,47 @@ deliberate design decision rather than a drive-by fix.
   Resolved: added an `[AssemblyTeardown]` synthetic node mirroring the class-scope nodes, so the
   failure is a test result in both adapters instead of an exception thrown out of `RunAsync`.
 
+### Priority 2 — Lifecycle follow-ups deferred by the 2026-07-26 refactor review
+
+These items change observable behavior, so they were excluded from the refactor that surfaced them
+and need a deliberate decision before implementation.
+
+- [ ] Give session-scoped hooks the same `try`/`catch` treatment as assembly- and class-scoped
+  hooks. `ExecuteSessionSetupAsync` and `ExecuteSessionTeardownAsync` in `NextUnitFramework` let a
+  hook exception propagate out of the platform callback, whereas the other scopes catch, attribute,
+  and report it. Closing the gap changes how a failing session hook is reported, so it needs a
+  decision on the reported shape rather than a drive-by fix.
+- [ ] Decide whether `TestExecutionEngine` should support overlapping `RunAsync` calls on one
+  instance. Sequential reuse now works and pairs assembly setup with teardown per run, but assembly
+  state (`_assemblySetupExecuted`, `_assemblySkipReason`) is shared across the instance, so a run
+  starting while another is still executing would skip setup and then tear the assembly down twice.
+  Documented as a caller constraint on `RunAsync`. Closing it means either serializing runs per
+  engine or making assembly state run-local, both of which change the execution model, and no
+  evidence yet shows Microsoft.Testing.Platform issuing overlapping run requests.
+- [ ] Decide whether the VSTest adapter should run session-scoped `[Before]`/`[After]` hooks.
+  `NextUnitTestExecutor` reads only the assembly-scoped method arrays, so session hooks never run
+  under VSTest; they do run under Microsoft.Testing.Platform. VSTest executes per assembly and has
+  no session boundary, so wiring requires first defining whether the hooks mean once-per-session or
+  once-per-assembly. Documented as a limitation on the executor until a concrete need settles it.
+
+## Deferred to the next major version
+
+Breaking changes that are agreed in principle but cannot ship in 1.x. The `PublicAPI.Shipped.txt`
+baselines freeze the current surface until then.
+
+- [ ] Unify the shared-instance caches behind `[ClassDataSource]` and `[ValuesFrom]` and wire
+  disposal to session end. `ClassDataSourceExpander` and `CombinedDataSourceExpander` each keep
+  their own `PerSession`/`PerAssembly`/`PerClass`/`Keyed` caches, so one data source type used
+  through both attributes is instantiated twice, and nothing in the run lifecycle ever clears them:
+  the `ClearSharedInstances`/`ClearClassInstances` methods that would dispose the instances have no
+  caller. Both the instance identity and the disposal timing are user-observable, and those methods
+  are public API, so unification is a breaking change. Documented as-is on both expanders for 1.x.
+- [ ] Demote the public types in the `NextUnit.Internal` namespace (`TestExecutionEngine`,
+  the descriptors, the expanders, the delegates) to `internal`. The namespace name already signals
+  the intent, but the types ship as public API today. Requires adding `NextUnit.Core.Tests` to
+  `InternalsVisibleTo` and carving out the members that must stay public: `ArgumentConverter` (the
+  generated user code calls it) and the expanders (the platform adapter reaches them).
+
 ## Explicitly not planned
 
 These items were considered during the 2026-07-23 audit and are intentionally absent from the

@@ -91,6 +91,12 @@ public sealed class TestExecutionEngine
     /// <param name="sink">The sink for reporting test results.</param>
     /// <param name="cancellationToken">A cancellation token to observe while waiting for the task to complete.</param>
     /// <returns>A task that represents the asynchronous execution operation.</returns>
+    /// <remarks>
+    /// One engine supports many sequential runs, but not overlapping ones: assembly setup state is
+    /// shared across the instance, so a run starting while another is still executing would see setup
+    /// already done and then tear the assembly down a second time. Callers must await a run before
+    /// starting the next on the same engine.
+    /// </remarks>
     public async Task RunAsync(
         IEnumerable<TestCaseDescriptor> testCases,
         ITestExecutionSink sink,
@@ -159,6 +165,12 @@ public sealed class TestExecutionEngine
             {
                 cleanupCritical ??= ExceptionDispatchInfo.Capture(ex);
             }
+
+            // Assembly setup is guarded by a flag while teardown is unguarded and runs at the end of
+            // every run, so the flag has to be released here: a reused engine would otherwise run
+            // teardown a second time with no matching setup. Reset outside the guard above so a failing
+            // teardown cannot strand the flag and silently skip setup for every later run.
+            await ResetAssemblyScopeStateAsync().ConfigureAwait(false);
         }
 
         // A critical run-body exception (OOM, stack overflow, ...) must propagate alone and unmasked.
@@ -334,6 +346,28 @@ public sealed class TestExecutionEngine
             }
 
             _assemblySetupExecuted = true;
+        }
+        finally
+        {
+            _assemblySetupLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Clears the assembly-scope state that belongs to a single run, so the next run on a reused engine
+    /// starts from the same state a fresh engine would have.
+    /// </summary>
+    /// <remarks>
+    /// Taken under the setup lock because that is where the flag is written; the run's own token is not
+    /// used, since a cancelled run must still hand a clean engine to the next one.
+    /// </remarks>
+    private async Task ResetAssemblyScopeStateAsync()
+    {
+        await _assemblySetupLock.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            _assemblySetupExecuted = false;
+            _assemblySkipReason = null;
         }
         finally
         {
@@ -1033,7 +1067,12 @@ public sealed class TestExecutionEngine
         }
 
         _classContexts.Clear();
-        _assemblySetupLock.Dispose();
+
+        // _assemblySetupLock is deliberately NOT disposed here. Its lifetime is the engine's, not a
+        // single run's: NextUnitFramework holds one engine in a readonly field and reuses it for every
+        // request the platform issues, so disposing the lock at the end of a run would make the next
+        // run throw ObjectDisposedException on the assembly-setup gate. Per-class SetupLock instances
+        // above are different - they belong to the class contexts this cleanup discards.
 
         // Report only after all cleanup is complete; guard each report so a sink failure does not
         // prevent the remaining failures from being surfaced. A sink failure is collected (not merely

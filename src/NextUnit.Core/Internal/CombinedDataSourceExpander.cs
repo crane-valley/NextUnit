@@ -9,6 +9,15 @@ namespace NextUnit.Internal;
 /// Expands <see cref="CombinedDataSourceDescriptor"/> instances into concrete <see cref="TestCaseDescriptor"/> instances
 /// by resolving parameter data sources and computing the Cartesian product at runtime.
 /// </summary>
+/// <remarks>
+/// Shared-instance caching is scoped to this expander. <c>[ValuesFrom]</c> and <c>[ClassDataSource]</c>
+/// keep separate caches (the latter in <see cref="ClassDataSourceExpander"/>), so the same data source
+/// type used through both attributes with <c>SharedType.PerSession</c>, <c>PerAssembly</c>,
+/// <c>PerClass</c>, or <c>Keyed</c> yields one instance per attribute kind, not one overall. Nothing
+/// in the run lifecycle clears these caches, so a shared instance lives for the process lifetime
+/// unless a caller invokes <see cref="ClearSharedInstances"/> or <see cref="ClearClassInstances"/>,
+/// which dispose what they remove.
+/// </remarks>
 public static class CombinedDataSourceExpander
 {
     // Caches for shared instances by sharing scope
