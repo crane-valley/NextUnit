@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-07-26
+
+### Added
+
+- Track the generator's `NEXTUNIT` diagnostics through Roslyn analyzer release files. The shipped
+  release history was reconstructed from the release tags by finding, for each rule, the first tag
+  whose tree contains it, so `RS2008` is active instead of suppressed and a new rule cannot ship
+  without a release entry.
+
+### Changed
+
+- Unify the `Assert` tolerance and precision family behind one comparison core. The `double`
+  precision, `double` absolute tolerance, and `decimal` precision overloads of `Equal` and
+  `NotEqual` each carried their own tolerance lookup and comparison, which is how their NaN
+  handling drifted apart; the contract now lives in one place. The frozen semantics are unchanged:
+  precision overloads compare non-finite values exactly, and every `double` comparison tests exact
+  equality before the tolerance, so a NaN difference is never within tolerance.
+- Compare through `EqualityComparer<T>.Default` in the generic `Assert.Equal<T>` and
+  `Assert.NotEqual<T>` overloads, which also removes the boxing of value-type arguments. This is a
+  narrow behavior change: `EqualityComparer<T>.Default` prefers `IEquatable<T>.Equals`, where the
+  previous `object.Equals` call went to the `Equals(object)` override. A type that implements
+  `IEquatable<T>` without overriding `Equals(object)` is therefore now compared by value rather
+  than by reference. .NET requires those two to agree, so only types that break that contract are
+  affected.
+- Harden `TestExecutionEngine` for the long-lived reuse that `NextUnitFramework` already relies on.
+  The assembly setup lock is no longer disposed at the end of a run, and assembly-scope run state
+  is reset after teardown so each run gets a matched assembly setup and teardown pair instead of
+  running setup once per engine and teardown once per run. Single-run behavior is unchanged.
+- Read the reported framework and command-line extension versions from the assembly informational
+  version instead of hardcoded strings. Both had drifted from the package version, reporting
+  `1.2.0` and `1.6.2`, and now track the build automatically.
+- Emit generated sources with LF line endings on every host. The registry previously used
+  `Environment.NewLine` while the entry point inherited whatever bytes its source literal held, so
+  a single compilation could emit two newline conventions depending on the build machine.
+
+### Fixed
+
+- Catch, classify, and report failures from session-scoped `[Before]` and `[After]` hooks, which
+  were the only lifecycle scope whose exceptions escaped unwrapped into the
+  Microsoft.Testing.Platform callback. A setup hook that requests a skip now skips every test in
+  the session with its reason, any other setup failure is surfaced through the test session result,
+  and teardown catches per hook so one failure no longer skips the remaining hooks. Cancellation is
+  classified as it is in assembly teardown, so a hook's unrelated `OperationCanceledException` is
+  reported as a failure rather than swallowed as run cancellation.
+- Throw `InvalidOperationException` when `TestExecutionEngine.RunAsync` is called while another run
+  on the same engine is still in flight. Assembly state is shared across the instance, so an
+  overlapping run previously skipped setup and tore the assembly down twice. Sequential reuse and
+  parallelism within a single run are unaffected.
+- Clarify in the xUnit migration guide that both `Assert.InRange` and `Assert.NotInRange` bounds are
+  inclusive, and that `NotInRange` therefore fails on a value equal to either bound. Behavior is
+  unchanged and matches xUnit.
+
+### Technical Notes
+
+- Complete the four-part tech-debt refactor. The WebApi sample tests join the solution, giving
+  `NextUnit.AspNetCore` real CI coverage; test-helper doubles and descriptor construction are
+  consolidated behind a shared builder; and the 1459-line `Assert.cs` is split into partial files
+  by assertion family with every body moved verbatim.
+- Deduplicate the descriptor projection shared by the runtime data-source expanders, and make the
+  generator's pipeline models equatable records over strings and primitives so incremental caching
+  actually holds and no Roslyn symbol is rooted between runs.
+- Restructure generator emission behind an indent-tracking writer, move the inline diagnostic
+  descriptors into one table, share attribute-name and return-kind constants between the generator
+  and the analyzers, and extract test-instance activation and run-cancellation classification out
+  of the execution engine. Generator snapshots and package layout are byte-identical throughout.
+
 ## [1.17.0] - 2026-07-25
 
 ### Changed
@@ -1179,6 +1245,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.18.0 | 2026-07-26 | 1105 | Session hook failure reporting, engine reuse hardening, Assert tolerance unification, deterministic generator output | Released |
 | 1.17.0 | 2026-07-25 | 956 | Assert.Throws expectedMessage overload deprecation, per-test disposal and assembly teardown failure reporting | Released |
 | 1.16.0 | 2026-07-25 | 945 | Reflection-free generated execution, ValueTask support, Assert API additions, engine cancellation and teardown fixes | Released |
 | 1.15.1 | 2026-07-22 | 683 | MTP package integration, Native AOT fixes, complete six-package release | Released |
