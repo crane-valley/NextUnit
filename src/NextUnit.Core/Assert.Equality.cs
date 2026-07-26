@@ -365,18 +365,25 @@ public static partial class Assert
 
     /// <summary>
     /// The single comparison core shared by the double tolerance and precision overloads.
+    /// The reported <paramref name="difference"/> is only meaningful when this returns false.
     /// </summary>
     /// <remarks>
-    /// Exact equality is tested first because double.Equals (IEquatable&lt;double&gt;, no
-    /// boxing) treats NaN as equal to NaN and each infinity as equal to itself, matching
-    /// xUnit's tolerance-comparison behavior. The distance test is a plain <c>&lt;=</c> whose
-    /// result is used as-is, so a NaN difference such as abs(NaN - 1.0) is never within
-    /// tolerance.
+    /// Exact equality is tested first, before any subtraction, because double.Equals
+    /// (IEquatable&lt;double&gt;, no boxing) treats NaN as equal to NaN and each infinity as
+    /// equal to itself, matching xUnit's tolerance-comparison behavior. The distance test is
+    /// a plain <c>&lt;=</c> whose result is used as-is, so a NaN difference such as
+    /// abs(NaN - 1.0) is never within tolerance.
     /// </remarks>
     private static bool IsWithinTolerance(double expected, double actual, double tolerance, out double difference)
     {
+        if (expected.Equals(actual))
+        {
+            difference = 0d;
+            return true;
+        }
+
         difference = Math.Abs(expected - actual);
-        return expected.Equals(actual) || difference <= tolerance;
+        return difference <= tolerance;
     }
 
     private static bool IsWithinTolerance(decimal expected, decimal actual, decimal tolerance, out decimal difference)

@@ -148,7 +148,11 @@ need a deliberate compatibility decision rather than a drive-by fix.
   on PR #176; deferred there because the Assert file split had to stay behavior- and
   byte-preserving. Resolved together with the tolerance-family unification, which edits the same
   bodies; characterization tests pin the per-overload NaN, infinity, signed-zero and boundary
-  semantics plus the exact failure message texts.
+  semantics plus the exact failure message texts. One narrow semantic consequence is intended and
+  tested: `EqualityComparer<T>.Default` prefers `IEquatable<T>.Equals`, so a type that implements
+  `IEquatable<T>` without overriding `object.Equals` now compares by value instead of by
+  reference. .NET requires those two to agree, and every other assertion library resolves it the
+  same way.
 
 ### Priority 2 — Engine follow-ups from the 2026-07-24 cancellation review
 

@@ -22,6 +22,18 @@ public class AssertEqualityCharacterizationTests
 
     private readonly record struct Cell(int Value);
 
+    /// <summary>
+    /// Implements <see cref="IEquatable{T}"/> without overriding <c>object.Equals</c>, which is
+    /// the only shape where <c>EqualityComparer&lt;T&gt;.Default</c> and the static
+    /// <c>object.Equals</c> disagree.
+    /// </summary>
+    private sealed class EquatableOnly(int value) : IEquatable<EquatableOnly>
+    {
+        public int Value { get; } = value;
+
+        public bool Equals(EquatableOnly? other) => other is not null && other.Value == Value;
+    }
+
     // Assert.Equal(double, double, int precision)
 
     [Test]
@@ -551,5 +563,129 @@ public class AssertEqualityCharacterizationTests
     public void NotEqualGeneric_UnequalValueTypeStructs_Passes()
     {
         Assert.NotEqual(new Cell(1), new Cell(2));
+    }
+
+    // The generic overloads compare through EqualityComparer<T>.Default, which prefers
+    // IEquatable<T>.Equals over object.Equals. .NET requires both to agree, so this is only
+    // observable for types that break that contract, as EquatableOnly deliberately does.
+
+    [Test]
+    public void EqualGeneric_EquatableOnlyType_UsesIEquatable()
+    {
+        Assert.Equal(new EquatableOnly(1), new EquatableOnly(1));
+    }
+
+    [Test]
+    public void NotEqualGeneric_EquatableOnlyType_UsesIEquatable()
+    {
+        Assert.Throws<AssertionFailedException>(
+            () => Assert.NotEqual(new EquatableOnly(1), new EquatableOnly(1)));
+        Assert.NotEqual(new EquatableOnly(1), new EquatableOnly(2));
+    }
+
+    // Extreme tolerance and precision paths: infinite and negative-zero tolerance, differences
+    // that overflow to infinity, and precisions large enough for the tolerance to reach zero.
+
+    [Test]
+    public void EqualDoubleTolerance_InfiniteTolerance_AcceptsOppositeInfinities()
+    {
+        Assert.Equal(double.PositiveInfinity, double.NegativeInfinity, double.PositiveInfinity);
+    }
+
+    [Test]
+    public void EqualDoubleTolerance_InfiniteTolerance_AcceptsOverflowingDifference()
+    {
+        Assert.Equal(double.MaxValue, -double.MaxValue, double.PositiveInfinity);
+    }
+
+    [Test]
+    public void EqualDoubleTolerance_InfiniteTolerance_StillRejectsNaNVersusNumber()
+    {
+        var ex = Assert.Throws<AssertionFailedException>(
+            () => Assert.Equal(double.NaN, 1.0, double.PositiveInfinity));
+        Assert.Equal(
+            $"Expected: {double.NaN} (\u00b1{double.PositiveInfinity}); Actual: 1; "
+            + $"Difference: {double.NaN}",
+            ex.Message);
+    }
+
+    [Test]
+    public void EqualDoubleTolerance_NegativeZeroTolerance_ThrowsArgumentOutOfRange()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => Assert.Equal(1.0, 1.0, -0.0));
+        Assert.Equal("tolerance", ex.ParamName);
+    }
+
+    [Test]
+    public void NotEqualDoubleTolerance_NegativeZeroTolerance_ThrowsArgumentOutOfRange()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => Assert.NotEqual(1.0, 2.0, -0.0));
+        Assert.Equal("tolerance", ex.ParamName);
+    }
+
+    [Test]
+    public void EqualDoublePrecision_OverflowingDifference_ReportsInfiniteDifference()
+    {
+        var ex = Assert.Throws<AssertionFailedException>(
+            () => Assert.Equal(double.MaxValue, -double.MaxValue, 3));
+        Assert.Equal(
+            $"Expected: {double.MaxValue} (\u00b10.001); Actual: {-double.MaxValue}; "
+            + $"Difference: {double.PositiveInfinity}",
+            ex.Message);
+    }
+
+    [Test]
+    public void EqualDoublePrecision_ToleranceUnderflowsToZero_AcceptsOnlyExactValues()
+    {
+        Assert.Equal(1.0, 1.0, 400);
+
+        const double actual = 1.0000000000000002;
+        var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(1.0, actual, 400));
+        Assert.Equal(
+            $"Expected: 1 (\u00b1{Math.Pow(10, -400)}); Actual: {actual}; "
+            + $"Difference: {Math.Abs(1.0 - actual)}",
+            ex.Message);
+    }
+
+    [Test]
+    public void NotEqualDoublePrecision_ToleranceUnderflowsToZero_RejectsExactValues()
+    {
+        Assert.NotEqual(1.0, 1.0000000000000002, 400);
+
+        var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(1.0, 1.0, 400));
+        Assert.Equal(
+            $"Did not expect: 1 (within \u00b1{Math.Pow(10, -400)} of 1)",
+            ex.Message);
+    }
+
+    [Test]
+    public void EqualDecimalPrecision_ToleranceRoundsToZero_AcceptsOnlyExactValues()
+    {
+        Assert.Equal(1m, 1m, 29);
+
+        var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(1m, 2m, 29));
+        // Dividing past decimal's scale limit yields plain zero, not a scaled zero.
+        Assert.Equal("Expected: 1 (\u00b10); Actual: 2; Difference: 1", ex.Message);
+    }
+
+    [Test]
+    public void EqualDecimalPrecision_OverflowingDifference_PropagatesOverflowException()
+    {
+        Assert.Throws<OverflowException>(() => Assert.Equal(decimal.MaxValue, decimal.MinValue, 2));
+    }
+
+    [Test]
+    public void EqualDecimalPrecision_NegativePrecisionWithOverflowingValues_ValidatesFirst()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => Assert.Equal(decimal.MaxValue, decimal.MinValue, -1));
+        Assert.Equal("precision", ex.ParamName);
+    }
+
+    [Test]
+    public void NotEqualDecimalPrecision_OverflowingDifference_PropagatesOverflowException()
+    {
+        Assert.Throws<OverflowException>(
+            () => Assert.NotEqual(decimal.MaxValue, decimal.MinValue, 2));
     }
 }
