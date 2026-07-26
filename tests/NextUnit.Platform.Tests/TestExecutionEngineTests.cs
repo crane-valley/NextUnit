@@ -634,7 +634,11 @@ public sealed class TestExecutionEngineTests
         Assert.Contains(flat.InnerExceptions, static e => e.Message.Contains("sink is down"));
     }
 
+    // Serialized against the other tests that construct a NextUnitFramework: the constructor reads
+    // filter environment variables, so the invalid value this test installs would otherwise leak into
+    // a concurrently constructed framework.
     [Test]
+    [NotInParallel(FilterEnvironmentConstraint.Key)]
     public void InvalidTestNameRegex_SurfacesErrorInsteadOfRunningEverything()
     {
         using var envVar = EnvironmentVariableGuard.Set("NEXTUNIT_TEST_NAME_REGEX", "(unclosed");

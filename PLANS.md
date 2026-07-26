@@ -187,9 +187,10 @@ baselines freeze the current surface until then.
 - [ ] Unify the shared-instance caches behind `[ClassDataSource]` and `[ValuesFrom]` and wire
   disposal to session end. `ClassDataSourceExpander` and `CombinedDataSourceExpander` each keep
   their own `PerSession`/`PerAssembly`/`PerClass`/`Keyed` caches, so one data source type used
-  through both attributes is instantiated twice, and no shared instance is ever disposed. Both the
-  instance identity and the disposal timing are user-observable, and the `Clear*` methods are public
-  API, so unification is a breaking change. Documented as-is on both expanders for 1.x.
+  through both attributes is instantiated twice, and nothing in the run lifecycle ever clears them:
+  the `ClearSharedInstances`/`ClearClassInstances` methods that would dispose the instances have no
+  caller. Both the instance identity and the disposal timing are user-observable, and those methods
+  are public API, so unification is a breaking change. Documented as-is on both expanders for 1.x.
 - [ ] Demote the public types in the `NextUnit.Internal` namespace (`TestExecutionEngine`,
   the descriptors, the expanders, the delegates) to `internal`. The namespace name already signals
   the intent, but the types ship as public API today. Requires adding `NextUnit.Core.Tests` to

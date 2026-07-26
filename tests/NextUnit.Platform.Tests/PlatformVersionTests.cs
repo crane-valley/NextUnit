@@ -7,11 +7,6 @@ namespace NextUnit.Platform.Tests;
 /// two values that used to be hardcoded ("1.2.0" and "1.6.2") cannot drift behind the package version
 /// again.
 /// </summary>
-/// <remarks>
-/// <see cref="NextUnitFramework"/> is covered through <see cref="PlatformVersion"/> rather than by
-/// constructing it: its constructor loads filter configuration from environment variables that another
-/// test mutates, which would make a direct instantiation here order-dependent.
-/// </remarks>
 public sealed class PlatformVersionTests
 {
     private static string ExpectedVersion()
@@ -39,6 +34,16 @@ public sealed class PlatformVersionTests
         var provider = new NextUnitCommandLineOptionsProvider();
 
         Assert.Equal(ExpectedVersion(), provider.Version);
+    }
+
+    // Constructing the framework reads filter environment variables; see FilterEnvironmentConstraint.
+    [Test]
+    [NotInParallel(FilterEnvironmentConstraint.Key)]
+    public void FrameworkVersion_MatchesAssemblyInformationalVersion()
+    {
+        var framework = new NextUnitFramework(null!, new NullServiceProvider());
+
+        Assert.Equal(ExpectedVersion(), framework.Version);
     }
 
     [Test]
