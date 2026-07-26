@@ -57,6 +57,11 @@ public sealed class TestExecutionEngine
     private static readonly ConditionalWeakTable<Assembly, string> _assemblyNames = new();
     private readonly ConcurrentDictionary<Type, ClassExecutionContext> _classContexts = new();
     private readonly SemaphoreSlim _assemblySetupLock = new(1, 1);
+
+    // Claimed for the whole of RunAsync. Deliberately not _assemblySetupLock: that lock is held only
+    // for the brief windows that touch the assembly flags, and holding it for a whole run would make
+    // every setup and reset wait on the run it is part of.
+    private int _runInProgress;
     private bool _assemblySetupExecuted;
     private string? _assemblySkipReason;
     private readonly List<LifecycleMethodDelegate> _assemblyBeforeMethods = new();
@@ -91,13 +96,45 @@ public sealed class TestExecutionEngine
     /// <param name="sink">The sink for reporting test results.</param>
     /// <param name="cancellationToken">A cancellation token to observe while waiting for the task to complete.</param>
     /// <returns>A task that represents the asynchronous execution operation.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when another run is already in progress on this engine instance.
+    /// </exception>
     /// <remarks>
     /// One engine supports many sequential runs, but not overlapping ones: assembly setup state is
     /// shared across the instance, so a run starting while another is still executing would see setup
     /// already done and then tear the assembly down a second time. Callers must await a run before
-    /// starting the next on the same engine.
+    /// starting the next on the same engine; this is enforced, not merely documented, and an
+    /// overlapping call fails fast instead of corrupting the assembly scope of both runs. Parallelism
+    /// within a single run is unaffected.
     /// </remarks>
     public async Task RunAsync(
+        IEnumerable<TestCaseDescriptor> testCases,
+        ITestExecutionSink sink,
+        CancellationToken cancellationToken)
+    {
+        // Claimed before anything else, in particular before enumerating testCases: a claim made after
+        // an argument that throws would never reach a release and would strand the engine forever.
+        if (Interlocked.CompareExchange(ref _runInProgress, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "A test run is already in progress on this TestExecutionEngine instance. " +
+                "Assembly-scope state is shared across the instance, so runs must not overlap; " +
+                "await the previous RunAsync before starting the next, or use a separate engine.");
+        }
+
+        try
+        {
+            await RunCoreAsync(testCases, sink, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Released here rather than in the run body's own finally, so that everything the claim
+            // covers - argument enumeration, graph building, the run, and cleanup - is inside it.
+            Interlocked.Exchange(ref _runInProgress, 0);
+        }
+    }
+
+    private async Task RunCoreAsync(
         IEnumerable<TestCaseDescriptor> testCases,
         ITestExecutionSink sink,
         CancellationToken cancellationToken)

@@ -174,23 +174,50 @@ deliberate design decision rather than a drive-by fix.
 These items change observable behavior, so they were excluded from the refactor that surfaced them
 and need a deliberate decision before implementation.
 
-- [ ] Give session-scoped hooks the same `try`/`catch` treatment as assembly- and class-scoped
+- [x] Give session-scoped hooks the same `try`/`catch` treatment as assembly- and class-scoped
   hooks. `ExecuteSessionSetupAsync` and `ExecuteSessionTeardownAsync` in `NextUnitFramework` let a
   hook exception propagate out of the platform callback, whereas the other scopes catch, attribute,
   and report it. Closing the gap changes how a failing session hook is reported, so it needs a
-  decision on the reported shape rather than a drive-by fix.
-- [ ] Decide whether `TestExecutionEngine` should support overlapping `RunAsync` calls on one
+  decision on the reported shape rather than a drive-by fix. Resolved: the hooks moved into a
+  `SessionLifecycleRunner` that decides the reported shape per phase. A setup hook throwing
+  `TestSkippedException` records a session skip reason and every test in the session is reported
+  skipped with it, mirroring the assembly-scope skip. Any other setup failure is surfaced through
+  `CreateTestSessionResult` (`IsSuccess=false` plus an error message) instead of escaping the
+  callback. Teardown catches per hook so a failure no longer skips the remaining hooks, aggregates
+  multiple failures into an `AggregateException`, and surfaces them through
+  `CloseTestSessionResult`; there is no per-test sink at session close, so the result object is the
+  reporting channel rather than a synthetic node. Both phases classify
+  `OperationCanceledException` with `RunCancellationClassifier`: genuine run cancellation propagates
+  as the exception the platform expects (in teardown, only after the remaining hooks have run), while
+  a hook's own unrelated cancellation is wrapped and reported as a failure.
+- [x] Decide whether `TestExecutionEngine` should support overlapping `RunAsync` calls on one
   instance. Sequential reuse now works and pairs assembly setup with teardown per run, but assembly
   state (`_assemblySetupExecuted`, `_assemblySkipReason`) is shared across the instance, so a run
   starting while another is still executing would skip setup and then tear the assembly down twice.
   Documented as a caller constraint on `RunAsync`. Closing it means either serializing runs per
   engine or making assembly state run-local, both of which change the execution model, and no
-  evidence yet shows Microsoft.Testing.Platform issuing overlapping run requests.
-- [ ] Decide whether the VSTest adapter should run session-scoped `[Before]`/`[After]` hooks.
+  evidence yet shows Microsoft.Testing.Platform issuing overlapping run requests. Resolved: the
+  sequential-only contract is affirmed and is now enforced rather than merely documented. `RunAsync`
+  claims a non-reentrancy flag before it touches its arguments and throws `InvalidOperationException`
+  on an overlapping call, releasing the claim once the run and its cleanup finish. Overlapping-run
+  support is declined for now; parallelism within a single run is unaffected.
+- [x] Decide whether the VSTest adapter should run session-scoped `[Before]`/`[After]` hooks.
   `NextUnitTestExecutor` reads only the assembly-scoped method arrays, so session hooks never run
   under VSTest; they do run under Microsoft.Testing.Platform. VSTest executes per assembly and has
   no session boundary, so wiring requires first defining whether the hooks mean once-per-session or
   once-per-assembly. Documented as a limitation on the executor until a concrete need settles it.
+  Resolved: session hooks stay Microsoft.Testing.Platform-only. VSTest executes per assembly with no
+  session boundary to attach them to, so wiring stays declined and the documented limitation on the
+  executor stands; revisit only if a concrete need arises. No code change.
+- [ ] Decide what session scope means if one framework instance ever serves two sequential sessions.
+  `SessionLifecycleRunner` gates setup with an `AsyncOnceGate` that is never reset, while teardown is
+  ungated and runs on every `CloseTestSessionAsync`, so a second session on the same instance would
+  run teardown without a matching setup and would inherit the first session's skip reason. This is
+  unreachable today: `RegisterTestFramework` builds one `NextUnitFramework` per test application, so
+  the instance lifetime is the session, and running `[Before(Session)]` again would contradict the
+  scope name. Surfaced by review on PR #183, which kept the pre-existing once-per-instance semantics.
+  Closing it means either resetting the gate at close (session hooks re-run) or gating teardown to
+  pair with setup; both change observable hook behavior, so neither is a drive-by fix.
 
 ## Deferred to the next major version
 
@@ -209,6 +236,10 @@ baselines freeze the current surface until then.
   the intent, but the types ship as public API today. Requires adding `NextUnit.Core.Tests` to
   `InternalsVisibleTo` and carving out the members that must stay public: `ArgumentConverter` (the
   generated user code calls it) and the expanders (the platform adapter reaches them).
+- [ ] Remove the two `[Obsolete]` expectedMessage-validation overloads of `Assert.Throws` and
+  `Assert.ThrowsAsync` (`Assert.Throws.cs`). They are unreachable with two arguments, which is why
+  they were obsoleted in 1.x rather than deleted; their removal notice already promises NextUnit 2.0,
+  so it is tracked here.
 
 ## Explicitly not planned
 
