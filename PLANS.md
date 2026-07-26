@@ -165,7 +165,7 @@ deliberate design decision rather than a drive-by fix.
 
 ### Priority 2 — Lifecycle follow-ups deferred by the 2026-07-26 refactor review
 
-Both items change observable behavior, so they were excluded from the refactor that surfaced them
+These items change observable behavior, so they were excluded from the refactor that surfaced them
 and need a deliberate decision before implementation.
 
 - [ ] Give session-scoped hooks the same `try`/`catch` treatment as assembly- and class-scoped
