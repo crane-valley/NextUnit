@@ -40,26 +40,64 @@ public sealed class TestExecutionEngineReuseTests
     }
 
     [Test]
-    public async Task RunAsync_RunsGlobalAssemblySetupOncePerEngineAsync()
+    public async Task RunAsync_PairsGlobalAssemblySetupAndTeardownPerRunAsync()
     {
-        var assemblySetups = 0;
+        var calls = new List<string>();
         var engine = new TestExecutionEngine();
         engine.SetGlobalAssemblyLifecycle(
             [(_, _) =>
             {
-                Interlocked.Increment(ref assemblySetups);
+                lock (calls)
+                {
+                    calls.Add("setup");
+                }
+
                 return Task.CompletedTask;
             }],
-            []);
+            [(_, _) =>
+            {
+                lock (calls)
+                {
+                    calls.Add("teardown");
+                }
+
+                return Task.CompletedTask;
+            }]);
 
         var test = TestCaseDescriptorBuilder.For<SampleTestClass>("engine.reuse.assembly").Build();
 
         await engine.RunAsync([test], new RecordingSink(), CancellationToken.None);
         await engine.RunAsync([test], new RecordingSink(), CancellationToken.None);
 
-        // Characterization: the assembly-scope guard is never reset, so global assembly setup runs
-        // once per engine, not once per run. Reaching the guard at all on the second run is the point:
-        // it is read under the assembly setup lock this change stopped disposing.
-        Assert.Equal(1, assemblySetups);
+        // Teardown is unguarded and runs at the end of every run, so setup must not stay latched from
+        // the first run: a reused engine would otherwise tear down assembly state it never set up.
+        Assert.Equal("setup,teardown,setup,teardown", string.Join(",", calls));
+    }
+
+    [Test]
+    public async Task RunAsync_ClearsAssemblySkipReasonBetweenRunsAsync()
+    {
+        var shouldSkip = true;
+        var engine = new TestExecutionEngine();
+        engine.SetGlobalAssemblyLifecycle(
+            [(_, _) => shouldSkip
+                ? throw new TestSkippedException("assembly not applicable")
+                : Task.CompletedTask],
+            []);
+
+        var test = TestCaseDescriptorBuilder.For<SampleTestClass>("engine.reuse.skip").Build();
+
+        var firstSink = new RecordingSink();
+        await engine.RunAsync([test], firstSink, CancellationToken.None);
+        Assert.Equal(1, firstSink.Skipped.Count);
+
+        // The skip reason belongs to the run that produced it; leaving it latched would skip every
+        // test of every later run on the same engine.
+        shouldSkip = false;
+        var secondSink = new RecordingSink();
+        await engine.RunAsync([test], secondSink, CancellationToken.None);
+
+        Assert.Equal(0, secondSink.Skipped.Count);
+        Assert.Equal(1, secondSink.Passed.Count);
     }
 }

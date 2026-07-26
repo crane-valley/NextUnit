@@ -17,9 +17,14 @@ public sealed class PlatformVersionTests
 
         Assert.NotNull(informational);
 
+        // Assert.NotNull takes object? and carries no flow-analysis annotation, so narrow explicitly
+        // rather than suppressing: these tests are meaningless without the attribute.
+        var version = informational ?? throw new InvalidOperationException(
+            "AssemblyInformationalVersionAttribute is missing from NextUnit.Platform.");
+
         // Build metadata ("+<commit sha>") is not part of the reported version.
-        var metadataStart = informational!.IndexOf('+');
-        return metadataStart < 0 ? informational : informational[..metadataStart];
+        var metadataStart = version.IndexOf('+');
+        return metadataStart < 0 ? version : version[..metadataStart];
     }
 
     [Test]
