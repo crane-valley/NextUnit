@@ -33,11 +33,8 @@ internal sealed class NextUnitFramework :
     private IReadOnlyList<TestCaseDescriptor>? _testCases;
     private readonly TestFilterConfiguration _filterConfig;
 
-    // An async gate rather than a lock, because session setup awaits user hooks. Like the engine's
-    // assembly lock it is never disposed: its lifetime is the framework instance's, and the platform
-    // may still call in after a session closes.
-    private readonly SemaphoreSlim _sessionSetupGate = new(1, 1);
-    private bool _sessionSetupExecuted;
+    // An async gate rather than a lock, because session setup awaits user hooks.
+    private readonly AsyncOnceGate _sessionSetupGate = new();
     private bool _assemblyLifecycleInitialized;
     private readonly List<LifecycleMethodDelegate> _sessionBeforeMethods = new();
     private readonly List<LifecycleMethodDelegate> _sessionAfterMethods = new();
@@ -102,7 +99,9 @@ internal sealed class NextUnitFramework :
         if (testCases.Count > 0)
         {
             // Session lifecycle methods are now collected globally via GetTestCases
-            await EnsureSessionSetupAsync(context.CancellationToken).ConfigureAwait(false);
+            await _sessionSetupGate
+                .RunOnceAsync(ExecuteSessionSetupAsync, context.CancellationToken)
+                .ConfigureAwait(false);
         }
 
         return new CreateTestSessionResult { IsSuccess = true };
@@ -234,38 +233,6 @@ internal sealed class NextUnitFramework :
 
         var filteredDescriptors = descriptors.Where(shouldExpand).ToList();
         destination.AddRange(expand(filteredDescriptors));
-    }
-
-    /// <summary>
-    /// Runs the session setup hooks exactly once, making every concurrent caller wait for that run to
-    /// finish rather than proceeding while it is still in flight.
-    /// </summary>
-    /// <remarks>
-    /// The completion flag is set only after the hooks succeed, so a failing or cancelled setup is not
-    /// recorded as done - which matches the behavior before this method existed.
-    /// </remarks>
-    private async Task EnsureSessionSetupAsync(CancellationToken cancellationToken)
-    {
-        if (Volatile.Read(ref _sessionSetupExecuted))
-        {
-            return;
-        }
-
-        await _sessionSetupGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            if (_sessionSetupExecuted)
-            {
-                return;
-            }
-
-            await ExecuteSessionSetupAsync(cancellationToken).ConfigureAwait(false);
-            Volatile.Write(ref _sessionSetupExecuted, true);
-        }
-        finally
-        {
-            _sessionSetupGate.Release();
-        }
     }
 
     private async Task ExecuteSessionSetupAsync(CancellationToken cancellationToken)
