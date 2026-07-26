@@ -100,4 +100,72 @@ public sealed class TestExecutionEngineReuseTests
         Assert.Equal(0, secondSink.Skipped.Count);
         Assert.Equal(1, secondSink.Passed.Count);
     }
+
+    [Test]
+    public async Task RunAsync_RejectsAnOverlappingRunOnTheSameEngineAsync()
+    {
+        var engine = new TestExecutionEngine();
+        var firstTestStarted = new TaskCompletionSource();
+        var releaseFirstTest = new TaskCompletionSource();
+
+        var blockingTest = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("engine.reentrancy.blocking")
+            .WithMethod(async (_, _) =>
+            {
+                firstTestStarted.TrySetResult();
+                await releaseFirstTest.Task;
+            })
+            .Build();
+
+        var firstRun = engine.RunAsync([blockingTest], new RecordingSink(), CancellationToken.None);
+        await firstTestStarted.Task;
+
+        // Overlapping runs share assembly-scope state, so the second run would skip setup and then tear
+        // the assembly down a second time. It fails fast instead.
+        var overlapping = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => engine.RunAsync(
+                [TestCaseDescriptorBuilder.For<SampleTestClass>("engine.reentrancy.overlapping").Build()],
+                new RecordingSink(),
+                CancellationToken.None));
+        Assert.Contains("already in progress", overlapping.Message);
+
+        releaseFirstTest.SetResult();
+        await firstRun;
+
+        // The guard is released with the run, so the engine stays reusable sequentially.
+        var afterSink = new RecordingSink();
+        await engine.RunAsync(
+            [TestCaseDescriptorBuilder.For<SampleTestClass>("engine.reentrancy.sequential").Build()],
+            afterSink,
+            CancellationToken.None);
+
+        Assert.Equal(1, afterSink.Passed.Count);
+    }
+
+    [Test]
+    public async Task RunAsync_ReleasesTheReentrancyGuardWhenTheTestCaseSourceThrowsAsync()
+    {
+        var engine = new TestExecutionEngine();
+
+        static IEnumerable<TestCaseDescriptor> ThrowingSource()
+        {
+            throw new InvalidOperationException("test case source boom");
+#pragma warning disable CS0162 // Unreachable code: the iterator needs a yield to be an iterator.
+            yield break;
+#pragma warning restore CS0162
+        }
+
+        // The claim is taken before the enumeration, so a throwing source must not strand it.
+        var sourceFailure = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => engine.RunAsync(ThrowingSource(), new RecordingSink(), CancellationToken.None));
+        Assert.Equal("test case source boom", sourceFailure.Message);
+
+        var sink = new RecordingSink();
+        await engine.RunAsync(
+            [TestCaseDescriptorBuilder.For<SampleTestClass>("engine.reentrancy.after-throw").Build()],
+            sink,
+            CancellationToken.None);
+
+        Assert.Equal(1, sink.Passed.Count);
+    }
 }

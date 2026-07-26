@@ -1,8 +1,8 @@
 namespace NextUnit.Platform.Tests;
 
 /// <summary>
-/// Pins the once-only semantics that <see cref="NextUnitFramework"/> relies on for session setup:
-/// the hooks run once, every caller observes them as finished, and a failed run is retried.
+/// Pins the once-only semantics that <see cref="SessionLifecycleRunner"/> relies on for session
+/// setup: the hooks run once, every caller observes them as finished, and a failed run is retried.
 /// </summary>
 public sealed class AsyncOnceGateTests
 {

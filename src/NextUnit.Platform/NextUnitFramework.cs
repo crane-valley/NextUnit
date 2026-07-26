@@ -33,11 +33,8 @@ internal sealed class NextUnitFramework :
     private IReadOnlyList<TestCaseDescriptor>? _testCases;
     private readonly TestFilterConfiguration _filterConfig;
 
-    // An async gate rather than a lock, because session setup awaits user hooks.
-    private readonly AsyncOnceGate _sessionSetupGate = new();
+    private readonly SessionLifecycleRunner _sessionHooks = new();
     private bool _assemblyLifecycleInitialized;
-    private readonly List<LifecycleMethodDelegate> _sessionBeforeMethods = new();
-    private readonly List<LifecycleMethodDelegate> _sessionAfterMethods = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NextUnitFramework"/> class.
@@ -96,15 +93,17 @@ internal sealed class NextUnitFramework :
     {
         // Ensure test cases and global lifecycle methods are loaded
         var testCases = GetTestCases();
-        if (testCases.Count > 0)
+        if (testCases.Count == 0)
         {
-            // Session lifecycle methods are now collected globally via GetTestCases
-            await _sessionSetupGate
-                .RunOnceAsync(ExecuteSessionSetupAsync, context.CancellationToken)
-                .ConfigureAwait(false);
+            return new CreateTestSessionResult { IsSuccess = true };
         }
 
-        return new CreateTestSessionResult { IsSuccess = true };
+        // Session lifecycle methods are now collected globally via GetTestCases
+        var error = await _sessionHooks.RunSetupOnceAsync(context.CancellationToken).ConfigureAwait(false);
+
+        return error is null
+            ? new CreateTestSessionResult { IsSuccess = true }
+            : new CreateTestSessionResult { IsSuccess = false, ErrorMessage = error };
     }
 
     /// <summary>
@@ -136,9 +135,11 @@ internal sealed class NextUnitFramework :
     public async Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
     {
         // Execute session teardown methods
-        await ExecuteSessionTeardownAsync(context.CancellationToken).ConfigureAwait(false);
+        var error = await _sessionHooks.RunTeardownAsync(context.CancellationToken).ConfigureAwait(false);
 
-        return new CloseTestSessionResult { IsSuccess = true };
+        return error is null
+            ? new CloseTestSessionResult { IsSuccess = true }
+            : new CloseTestSessionResult { IsSuccess = false, ErrorMessage = error };
     }
 
     private IReadOnlyList<TestCaseDescriptor> GetTestCases()
@@ -206,8 +207,9 @@ internal sealed class NextUnitFramework :
             _engine.SetGlobalAssemblyLifecycle(
                 generatedRegistry.GlobalBeforeAssemblyMethods,
                 generatedRegistry.GlobalAfterAssemblyMethods);
-            _sessionBeforeMethods.AddRange(generatedRegistry.GlobalBeforeSessionMethods);
-            _sessionAfterMethods.AddRange(generatedRegistry.GlobalAfterSessionMethods);
+            _sessionHooks.AddMethods(
+                generatedRegistry.GlobalBeforeSessionMethods,
+                generatedRegistry.GlobalAfterSessionMethods);
 
             _assemblyLifecycleInitialized = true;
         }
@@ -233,29 +235,6 @@ internal sealed class NextUnitFramework :
 
         var filteredDescriptors = descriptors.Where(shouldExpand).ToList();
         destination.AddRange(expand(filteredDescriptors));
-    }
-
-    private async Task ExecuteSessionSetupAsync(CancellationToken cancellationToken)
-    {
-        // Session lifecycle methods MUST be static (enforced by generator/runtime)
-        // The null! instance parameter is safe because generated delegates for static methods
-        // do not use the instance parameter - they call TypeName.Method() directly
-        foreach (var beforeMethod in _sessionBeforeMethods)
-        {
-            await beforeMethod(null!, cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    private async Task ExecuteSessionTeardownAsync(CancellationToken cancellationToken)
-    {
-        // Session lifecycle methods MUST be static (enforced by generator/runtime)
-        // The null! instance parameter is safe because generated delegates for static methods
-        // do not use the instance parameter - they call TypeName.Method() directly
-        // Execute session teardown methods in reverse order
-        for (int i = _sessionAfterMethods.Count - 1; i >= 0; i--)
-        {
-            await _sessionAfterMethods[i](null!, cancellationToken).ConfigureAwait(false);
-        }
     }
 
     private async Task DiscoverAsync(
@@ -286,6 +265,13 @@ internal sealed class NextUnitFramework :
     {
         var testCases = GetTestCases();
         var sink = new MessageBusSink(messageBus, request.Session.SessionUid, this);
+
+        // A session setup hook that requested a skip disqualifies every test in the session, so the
+        // reason is reported per test instead of the tests running.
+        if (await _sessionHooks.TryReportSessionSkipAsync(testCases, sink, cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
 
         await _engine.RunAsync(testCases, sink, cancellationToken).ConfigureAwait(false);
     }
