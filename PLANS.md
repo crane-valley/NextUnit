@@ -141,12 +141,14 @@ need a deliberate compatibility decision rather than a drive-by fix.
 - [x] `Assert.NotInRange` XML doc says the range is exclusive, but the implementation treats the
   bounds as inclusive; resolved by aligning the doc (and the getting-started reference) with the
   existing inclusive-bounds behavior, with no runtime change.
-- [ ] `Assert.Equal<T>`/`NotEqual<T>` and the exact double overloads compare via the static
+- [x] `Assert.Equal<T>`/`NotEqual<T>` and the exact double overloads compare via the static
   `object.Equals(object, object)`, which boxes value-type arguments on every assertion. Switching
   to `EqualityComparer<T>.Default.Equals` (and `expected.Equals(actual)` for the double overloads)
   preserves semantics, including NaN equality, while removing the allocations. Flagged by review
   on PR #176; deferred there because the Assert file split had to stay behavior- and
-  byte-preserving.
+  byte-preserving. Resolved together with the tolerance-family unification, which edits the same
+  bodies; characterization tests pin the per-overload NaN, infinity, signed-zero and boundary
+  semantics plus the exact failure message texts.
 
 ### Priority 2 — Engine follow-ups from the 2026-07-24 cancellation review
 
