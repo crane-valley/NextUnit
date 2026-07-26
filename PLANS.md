@@ -187,8 +187,9 @@ and need a deliberate decision before implementation.
   multiple failures into an `AggregateException`, and surfaces them through
   `CloseTestSessionResult`; there is no per-test sink at session close, so the result object is the
   reporting channel rather than a synthetic node. Both phases classify
-  `OperationCanceledException` with `RunCancellationClassifier`, so genuine run cancellation stays a
-  normal outcome while a hook's own unrelated cancellation is wrapped and reported as a failure.
+  `OperationCanceledException` with `RunCancellationClassifier`: genuine run cancellation propagates
+  as the exception the platform expects (in teardown, only after the remaining hooks have run), while
+  a hook's own unrelated cancellation is wrapped and reported as a failure.
 - [x] Decide whether `TestExecutionEngine` should support overlapping `RunAsync` calls on one
   instance. Sequential reuse now works and pairs assembly setup with teardown per run, but assembly
   state (`_assemblySetupExecuted`, `_assemblySkipReason`) is shared across the instance, so a run

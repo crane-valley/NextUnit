@@ -211,7 +211,7 @@ public sealed class SessionLifecycleRunnerTests
     }
 
     [Test]
-    public async Task RunTeardownAsync_TreatsGenuineRunCancellationAsANormalOutcomeAsync()
+    public async Task RunTeardownAsync_RunsRemainingHooksThenPropagatesRunCancellationAsync()
     {
         var runner = new SessionLifecycleRunner();
         using var cts = new CancellationTokenSource();
@@ -228,12 +228,36 @@ public sealed class SessionLifecycleRunnerTests
                 }
             ]);
 
+        // Cancellation must not stop the remaining hooks from releasing their resources, but it must
+        // not be dropped either: a cancelled close reporting as a clean session is the bug the engine's
+        // assembly teardown already avoids by handing its cancellation back to the run.
+        await Assert.ThrowsAsync<OperationCanceledException>(() => runner.RunTeardownAsync(cts.Token));
+        Assert.True(laterHookRan);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_PrefersReportingAFailureOverRunCancellationAsync()
+    {
+        var runner = new SessionLifecycleRunner();
+        using var cts = new CancellationTokenSource();
+        runner.AddMethods(
+            null,
+            [
+                (_, _) => throw new InvalidOperationException("teardown boom"),
+                (_, ct) =>
+                {
+                    cts.Cancel();
+                    ct.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }
+            ]);
+
         var error = await runner.RunTeardownAsync(cts.Token);
 
-        // A cancelled run is not a broken session, and cancellation must not stop the remaining hooks
-        // from releasing their resources.
-        Assert.Null(error);
-        Assert.True(laterHookRan);
+        // Adapters swallow cancellation, so rethrowing it here would lose the failure it coexists with.
+        Assert.NotNull(error);
+        Assert.Contains("teardown boom", error!);
+        Assert.Contains("The test run was cancelled", error!);
     }
 
     [Test]

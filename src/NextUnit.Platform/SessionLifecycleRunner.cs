@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using NextUnit.Internal;
 
 namespace NextUnit.Platform;
@@ -19,6 +20,11 @@ namespace NextUnit.Platform;
 /// surfaced through the session result. Close has no sink at all, which is why teardown failures are
 /// aggregated into the session result rather than onto a synthetic node the way assembly teardown
 /// failures are.
+/// </para>
+/// <para>
+/// Genuine run cancellation is never turned into a failure in either phase: it propagates as the
+/// <see cref="OperationCanceledException"/> the platform expects, which is how the engine surfaces
+/// the cancellation its own teardown observes.
 /// </para>
 /// </remarks>
 internal sealed class SessionLifecycleRunner
@@ -95,8 +101,13 @@ internal sealed class SessionLifecycleRunner
     /// <returns>
     /// An error message describing the failures, or <see langword="null"/> when teardown succeeded.
     /// </returns>
+    /// <exception cref="OperationCanceledException">
+    /// Thrown when the run itself was cancelled and no hook failed, which the platform handles as a
+    /// normal outcome.
+    /// </exception>
     public async Task<string?> RunTeardownAsync(CancellationToken cancellationToken)
     {
+        OperationCanceledException? cancellation = null;
         var failures = new List<Exception>();
 
         // Session lifecycle methods MUST be static (enforced by generator/runtime). The null! instance
@@ -111,9 +122,11 @@ internal sealed class SessionLifecycleRunner
             }
             catch (OperationCanceledException ex) when (RunCancellationClassifier.IsRunCancellation(ex, cancellationToken))
             {
-                // Genuine run cancellation (the OCE carries the run token). The platform already knows
-                // the run was cancelled, so it is not turned into a failed session result; the
-                // classification exists only to keep it apart from the case below.
+                // Genuine run cancellation (the OCE carries the run token). Held rather than returned
+                // at once so the remaining hooks still release their resources, and rethrown below:
+                // dropping it would let a cancelled close report as a clean session, which is what
+                // assembly teardown avoids by handing its cancellation back to the run.
+                cancellation ??= ex;
             }
             catch (OperationCanceledException ex)
             {
@@ -131,6 +144,11 @@ internal sealed class SessionLifecycleRunner
 
         if (failures.Count == 0)
         {
+            if (cancellation is not null)
+            {
+                ExceptionDispatchInfo.Capture(cancellation).Throw();
+            }
+
             return null;
         }
 
@@ -138,7 +156,11 @@ internal sealed class SessionLifecycleRunner
             ? failures[0]
             : new AggregateException("One or more session teardown methods failed.", failures);
 
-        return $"Session teardown failed: {error}";
+        // A hook failure outranks cancellation as the reported outcome: adapters swallow cancellation,
+        // so rethrowing it instead of reporting would lose the failure it coexists with.
+        return cancellation is null
+            ? $"Session teardown failed: {error}"
+            : $"The test run was cancelled and session teardown failed: {error}";
     }
 
     /// <summary>
