@@ -93,8 +93,9 @@ public static partial class Assert
             return;
         }
 
-        // For all other types, use standard equality check
-        if (!Equals(expected, actual))
+        // EqualityComparer<T>.Default avoids boxing value-type arguments while keeping the
+        // semantics of object.Equals, including NaN being equal to NaN.
+        if (!EqualityComparer<T>.Default.Equals(expected, actual))
         {
             // For complex objects, use rich formatting
             if (expected != null && actual != null &&
@@ -163,9 +164,11 @@ public static partial class Assert
     {
         ArgumentOutOfRangeException.ThrowIfNegative(precision);
 
-        if (double.IsNaN(expected) || double.IsNaN(actual) || double.IsInfinity(expected) || double.IsInfinity(actual))
+        if (IsNonFinite(expected) || IsNonFinite(actual))
         {
-            if (!Equals(expected, actual))
+            // A distance is meaningless here, so non-finite values are compared exactly and
+            // reported without a tolerance.
+            if (!expected.Equals(actual))
             {
                 throw new AssertionFailedException(
                     message ?? $"Expected: {expected}; Actual: {actual}");
@@ -173,12 +176,9 @@ public static partial class Assert
             return;
         }
 
-        var tolerance = precision < _powersOfTen.Length
-            ? _powersOfTen[precision]
-            : Math.Pow(10, -precision);
-        var difference = Math.Abs(expected - actual);
+        var tolerance = ToleranceForPrecision(precision);
 
-        if (difference > tolerance)
+        if (!IsWithinTolerance(expected, actual, tolerance, out var difference))
         {
             throw new AssertionFailedException(
                 message ?? $"Expected: {expected} (±{tolerance}); Actual: {actual}; Difference: {difference}");
@@ -200,22 +200,9 @@ public static partial class Assert
     /// </remarks>
     public static void Equal(double expected, double actual, double tolerance, string? message = null)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(tolerance);
-        if (double.IsNaN(tolerance))
-        {
-            throw new ArgumentOutOfRangeException(nameof(tolerance), "Tolerance must be a number.");
-        }
+        ValidateTolerance(tolerance);
 
-        // double.Equals (IEquatable<double>, no boxing) treats NaN as equal to NaN and
-        // each infinity as equal to itself, matching xUnit's tolerance-comparison behavior.
-        if (expected.Equals(actual))
-        {
-            return;
-        }
-
-        // Negated <= (rather than >) so a NaN difference, e.g. abs(NaN - 1.0), fails.
-        var difference = Math.Abs(expected - actual);
-        if (!(difference <= tolerance))
+        if (!IsWithinTolerance(expected, actual, tolerance, out var difference))
         {
             throw new AssertionFailedException(
                 message ?? $"Expected: {expected} (±{tolerance}); Actual: {actual}; Difference: {difference}");
@@ -234,24 +221,9 @@ public static partial class Assert
     {
         ArgumentOutOfRangeException.ThrowIfNegative(precision);
 
-        decimal tolerance;
-        if (precision < _powersOfTenDecimal.Length)
-        {
-            tolerance = _powersOfTenDecimal[precision];
-        }
-        else
-        {
-            // Use decimal arithmetic for very high precision values
-            tolerance = 1m;
-            for (int i = 0; i < precision; i++)
-            {
-                tolerance /= 10m;
-            }
-        }
+        var tolerance = DecimalToleranceForPrecision(precision);
 
-        var difference = Math.Abs(expected - actual);
-
-        if (difference > tolerance)
+        if (!IsWithinTolerance(expected, actual, tolerance, out var difference))
         {
             throw new AssertionFailedException(
                 message ?? $"Expected: {expected} (±{tolerance}); Actual: {actual}; Difference: {difference}");
@@ -268,7 +240,9 @@ public static partial class Assert
     /// <exception cref="AssertionFailedException">Thrown when the values are equal.</exception>
     public static void NotEqual<T>(T notExpected, T actual, string? message = null)
     {
-        if (Equals(notExpected, actual))
+        // EqualityComparer<T>.Default avoids boxing value-type arguments while keeping the
+        // semantics of object.Equals, including NaN being equal to NaN.
+        if (EqualityComparer<T>.Default.Equals(notExpected, actual))
         {
             throw new AssertionFailedException(
                 message ?? $"Did not expect: {actual}");
@@ -287,9 +261,11 @@ public static partial class Assert
     {
         ArgumentOutOfRangeException.ThrowIfNegative(precision);
 
-        if (double.IsNaN(notExpected) || double.IsNaN(actual) || double.IsInfinity(notExpected) || double.IsInfinity(actual))
+        if (IsNonFinite(notExpected) || IsNonFinite(actual))
         {
-            if (Equals(notExpected, actual))
+            // A distance is meaningless here, so non-finite values are compared exactly and
+            // reported without a tolerance.
+            if (notExpected.Equals(actual))
             {
                 throw new AssertionFailedException(
                     message ?? $"Did not expect: {actual}");
@@ -297,12 +273,9 @@ public static partial class Assert
             return;
         }
 
-        var tolerance = precision < _powersOfTen.Length
-            ? _powersOfTen[precision]
-            : Math.Pow(10, -precision);
-        var difference = Math.Abs(notExpected - actual);
+        var tolerance = ToleranceForPrecision(precision);
 
-        if (difference <= tolerance)
+        if (IsWithinTolerance(notExpected, actual, tolerance, out _))
         {
             throw new AssertionFailedException(
                 message ?? $"Did not expect: {actual} (within ±{tolerance} of {notExpected})");
@@ -324,22 +297,9 @@ public static partial class Assert
     /// </remarks>
     public static void NotEqual(double notExpected, double actual, double tolerance, string? message = null)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(tolerance);
-        if (double.IsNaN(tolerance))
-        {
-            throw new ArgumentOutOfRangeException(nameof(tolerance), "Tolerance must be a number.");
-        }
+        ValidateTolerance(tolerance);
 
-        // double.Equals (IEquatable<double>, no boxing) treats NaN as equal to NaN and
-        // each infinity as equal to itself, matching xUnit's tolerance-comparison behavior.
-        if (notExpected.Equals(actual))
-        {
-            throw new AssertionFailedException(
-                message ?? $"Did not expect: {actual} (within ±{tolerance} of {notExpected})");
-        }
-
-        var difference = Math.Abs(notExpected - actual);
-        if (difference <= tolerance)
+        if (IsWithinTolerance(notExpected, actual, tolerance, out _))
         {
             throw new AssertionFailedException(
                 message ?? $"Did not expect: {actual} (within ±{tolerance} of {notExpected})");
@@ -358,27 +318,77 @@ public static partial class Assert
     {
         ArgumentOutOfRangeException.ThrowIfNegative(precision);
 
-        decimal tolerance;
-        if (precision < _powersOfTenDecimal.Length)
-        {
-            tolerance = _powersOfTenDecimal[precision];
-        }
-        else
-        {
-            // Use decimal arithmetic for very high precision values
-            tolerance = 1m;
-            for (int i = 0; i < precision; i++)
-            {
-                tolerance /= 10m;
-            }
-        }
+        var tolerance = DecimalToleranceForPrecision(precision);
 
-        var difference = Math.Abs(notExpected - actual);
-
-        if (difference <= tolerance)
+        if (IsWithinTolerance(notExpected, actual, tolerance, out _))
         {
             throw new AssertionFailedException(
                 message ?? $"Did not expect: {actual} (within ±{tolerance} of {notExpected})");
         }
+    }
+
+    private static void ValidateTolerance(double tolerance)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(tolerance);
+
+        // Only a NaN with a clear sign bit reaches this guard: double.NaN has its sign bit
+        // set, so ThrowIfNegative rejects it first.
+        if (double.IsNaN(tolerance))
+        {
+            throw new ArgumentOutOfRangeException(nameof(tolerance), "Tolerance must be a number.");
+        }
+    }
+
+    private static bool IsNonFinite(double value) => double.IsNaN(value) || double.IsInfinity(value);
+
+    private static double ToleranceForPrecision(int precision) =>
+        precision < _powersOfTen.Length
+            ? _powersOfTen[precision]
+            : Math.Pow(10, -precision);
+
+    private static decimal DecimalToleranceForPrecision(int precision)
+    {
+        if (precision < _powersOfTenDecimal.Length)
+        {
+            return _powersOfTenDecimal[precision];
+        }
+
+        // Use decimal arithmetic for very high precision values
+        var tolerance = 1m;
+        for (int i = 0; i < precision; i++)
+        {
+            tolerance /= 10m;
+        }
+
+        return tolerance;
+    }
+
+    /// <summary>
+    /// The single comparison core shared by the double tolerance and precision overloads.
+    /// The reported <paramref name="difference"/> is only meaningful when this returns false.
+    /// </summary>
+    /// <remarks>
+    /// Exact equality is tested first, before any subtraction, because double.Equals
+    /// (IEquatable&lt;double&gt;, no boxing) treats NaN as equal to NaN and each infinity as
+    /// equal to itself, matching xUnit's tolerance-comparison behavior. The distance test is
+    /// a plain <c>&lt;=</c> whose result is used as-is, so a NaN difference such as
+    /// abs(NaN - 1.0) is never within tolerance.
+    /// </remarks>
+    private static bool IsWithinTolerance(double expected, double actual, double tolerance, out double difference)
+    {
+        if (expected.Equals(actual))
+        {
+            difference = 0d;
+            return true;
+        }
+
+        difference = Math.Abs(expected - actual);
+        return difference <= tolerance;
+    }
+
+    private static bool IsWithinTolerance(decimal expected, decimal actual, decimal tolerance, out decimal difference)
+    {
+        difference = Math.Abs(expected - actual);
+        return difference <= tolerance;
     }
 }
