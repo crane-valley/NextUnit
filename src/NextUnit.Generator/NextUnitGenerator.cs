@@ -256,6 +256,14 @@ internal static class Program
         return await app.RunAsync();
     }
 }";
-        context.AddSource("Program.g.cs", SourceText.From(source, Encoding.UTF8));
+
+        // The verbatim literal carries whatever newlines this file had when the generator was
+        // compiled, which depends on the checkout's line-ending normalization. Normalizing to LF
+        // keeps Program.g.cs byte-identical everywhere and matches the registry emitter, so both
+        // generated files share one newline convention.
+        context.AddSource("Program.g.cs", SourceText.From(NormalizeNewlines(source), Encoding.UTF8));
     }
+
+    private static string NormalizeNewlines(string source) =>
+        source.Replace("\r\n", "\n").Replace("\r", "\n");
 }

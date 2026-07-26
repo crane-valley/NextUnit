@@ -340,6 +340,8 @@ Assert.EndsWith(suffix, text);
 Assert.Contains(substring, text);
 
 // Numeric assertions - identical
+// As in xUnit, min and max are both inclusive: InRange passes when value equals
+// either bound, and NotInRange treats those values as inside the range and fails.
 Assert.InRange(value, min, max);
 Assert.NotInRange(value, min, max);
 ```
