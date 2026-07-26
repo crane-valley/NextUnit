@@ -224,9 +224,9 @@ public class MatrixExclusionMatchingTests
 
     private static int CountTestCases(string generated)
     {
-        // The registry is built with StringBuilder.AppendLine, so the declaration ends with the
-        // platform newline; the type name alone also appears in the array type of the property.
-        var marker = "new global::NextUnit.Internal.TestCaseDescriptor" + Environment.NewLine;
+        // The generator always emits LF, on every host OS; the trailing newline is what separates
+        // the descriptor construction from the array type of the property, which reads the same.
+        const string marker = "new global::NextUnit.Internal.TestCaseDescriptor\n";
         var count = 0;
 
         for (var index = generated.IndexOf(marker, StringComparison.Ordinal);

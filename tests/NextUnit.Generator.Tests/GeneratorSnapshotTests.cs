@@ -59,14 +59,14 @@ public class GeneratorSnapshotTests
         test.TestState.GeneratedSources.Add((
             typeof(NextUnitGenerator),
             "GeneratedTestRegistry.g.cs",
-            ReadSnapshot($"{caseName}.GeneratedTestRegistry.g.cs.txt", Environment.NewLine)));
+            ReadSnapshot($"{caseName}.GeneratedTestRegistry.g.cs.txt")));
 
         if (emitsEntryPoint)
         {
             test.TestState.GeneratedSources.Add((
                 typeof(NextUnitGenerator),
                 "Program.g.cs",
-                ReadSnapshot("Program.g.cs.txt", "\n")));
+                ReadSnapshot("Program.g.cs.txt")));
         }
         else
         {
@@ -83,20 +83,15 @@ public class GeneratorSnapshotTests
     }
 
     /// <summary>
-    /// Reads a baseline and rewrites its line endings to <paramref name="newLine"/>.
+    /// Reads a baseline as LF-terminated text.
     /// </summary>
     /// <remarks>
-    /// Baselines are stored with LF because .gitattributes normalizes the working tree, but the
-    /// generator's own newline differs per file: the registry is built with StringBuilder.AppendLine
-    /// (Environment.NewLine, so CRLF on Windows), while Program.g.cs comes from a verbatim string
-    /// literal in an LF-normalized source file. Comparing raw text would therefore fail on Windows
-    /// for reasons unrelated to content.
+    /// Every file the generator emits ends its lines with LF by construction, on every host OS and
+    /// regardless of how the generator's own sources were checked out, so one convention covers all
+    /// baselines. The read still normalizes CRLF because a baseline file can reach the build output
+    /// with CRLF if .gitattributes normalization is bypassed.
     /// </remarks>
-    private static string ReadSnapshot(string fileName, string newLine)
-    {
-        var text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Snapshots", fileName))
+    private static string ReadSnapshot(string fileName) =>
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Snapshots", fileName))
             .Replace("\r\n", "\n");
-
-        return newLine == "\n" ? text : text.Replace("\n", newLine);
-    }
 }

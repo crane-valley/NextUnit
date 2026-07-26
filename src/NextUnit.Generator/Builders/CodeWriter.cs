@@ -11,10 +11,17 @@ namespace NextUnit.Generator.Builders;
 /// reproduces the previous hand-indented layout exactly: four spaces per level, indentation applied
 /// once per line at the first write, and blank separator lines emitted with no indentation so no
 /// line ever carries trailing whitespace.
+/// <para>
+/// Lines end with a literal LF rather than <see cref="StringBuilder.AppendLine()"/>, which would
+/// use <see cref="Environment.NewLine"/>. Host-dependent newlines would make the generated text -
+/// and therefore the incremental generator's cached output and the snapshot baselines - differ
+/// between Windows and Linux for reasons unrelated to the compilation being processed.
+/// </para>
 /// </remarks>
 internal sealed class CodeWriter
 {
     private const string IndentUnit = "    ";
+    private const char LineFeed = '\n';
 
     private readonly StringBuilder _builder = new();
     private int _level;
@@ -45,7 +52,7 @@ internal sealed class CodeWriter
     public void WriteLine(string text)
     {
         WriteIndentIfAtLineStart();
-        _builder.AppendLine(text);
+        _builder.Append(text).Append(LineFeed);
         _atLineStart = true;
     }
 
@@ -54,7 +61,7 @@ internal sealed class CodeWriter
     /// </summary>
     public void WriteLine()
     {
-        _builder.AppendLine();
+        _builder.Append(LineFeed);
         _atLineStart = true;
     }
 
