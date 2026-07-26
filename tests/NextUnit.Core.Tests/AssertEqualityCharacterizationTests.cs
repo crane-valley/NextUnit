@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace NextUnit.Core.Tests;
 
 /// <summary>
@@ -10,9 +12,16 @@ namespace NextUnit.Core.Tests;
 /// The precision overloads compare non-finite values exactly and report a plain
 /// "Expected/Actual" message, while the absolute-tolerance overloads always report the
 /// tolerance and the difference. Both families treat NaN as equal to NaN and each
-/// infinity as equal to itself. Message expectations interpolate non-finite values
-/// instead of hardcoding their symbols, because those symbols are culture dependent;
-/// the literal parts of every message are pinned exactly.
+/// infinity as equal to itself.
+/// <para>
+/// Every number inside an expected message is interpolated from the same value the
+/// assertion under test receives, never written out as a literal. The product formats
+/// messages with the current culture, so a hardcoded "0.5" or "NaN" would pin the message
+/// to one culture and fail under, say, de-DE. Interpolating derives the expectation through
+/// the same formatting the product uses, which leaves only the literal skeleton of each
+/// message pinned. <see cref="Messages_AreFormattedWithTheCurrentCulture"/> guards that
+/// derivation.
+/// </para>
 /// </remarks>
 public class AssertEqualityCharacterizationTests
 {
@@ -46,7 +55,7 @@ public class AssertEqualityCharacterizationTests
     public void EqualDoublePrecision_NaNVersusNumber_ThrowsWithPlainMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(double.NaN, 1.0, 3));
-        Assert.Equal($"Expected: {double.NaN}; Actual: 1", ex.Message);
+        Assert.Equal($"Expected: {double.NaN}; Actual: {1.0}", ex.Message);
     }
 
     [Test]
@@ -88,7 +97,9 @@ public class AssertEqualityCharacterizationTests
     public void EqualDoublePrecision_OutsideTolerance_ThrowsWithToleranceMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(1.0, 2.5, 0));
-        Assert.Equal("Expected: 1 (\u00b11); Actual: 2.5; Difference: 1.5", ex.Message);
+        Assert.Equal(
+            $"Expected: {1.0} (\u00b1{1.0}); Actual: {2.5}; Difference: {1.5}",
+            ex.Message);
     }
 
     [Test]
@@ -96,7 +107,7 @@ public class AssertEqualityCharacterizationTests
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(1.0, 2.0, 16));
         Assert.Equal(
-            $"Expected: 1 (\u00b1{Math.Pow(10, -16)}); Actual: 2; Difference: 1",
+            $"Expected: {1.0} (\u00b1{Math.Pow(10, -16)}); Actual: {2.0}; Difference: {1.0}",
             ex.Message);
     }
 
@@ -135,7 +146,7 @@ public class AssertEqualityCharacterizationTests
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(double.NaN, 1.0, 0.5));
         Assert.Equal(
-            $"Expected: {double.NaN} (\u00b10.5); Actual: 1; Difference: {double.NaN}",
+            $"Expected: {double.NaN} (\u00b1{0.5}); Actual: {1.0}; Difference: {double.NaN}",
             ex.Message);
     }
 
@@ -157,7 +168,7 @@ public class AssertEqualityCharacterizationTests
         var ex = Assert.Throws<AssertionFailedException>(
             () => Assert.Equal(double.PositiveInfinity, double.NegativeInfinity, 0.5));
         Assert.Equal(
-            $"Expected: {double.PositiveInfinity} (\u00b10.5); Actual: {double.NegativeInfinity}; "
+            $"Expected: {double.PositiveInfinity} (\u00b1{0.5}); Actual: {double.NegativeInfinity}; "
             + $"Difference: {double.PositiveInfinity}",
             ex.Message);
     }
@@ -178,7 +189,9 @@ public class AssertEqualityCharacterizationTests
     public void EqualDoubleTolerance_OutsideTolerance_ThrowsWithToleranceMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(1.0, 2.0, 0.5));
-        Assert.Equal("Expected: 1 (\u00b10.5); Actual: 2; Difference: 1", ex.Message);
+        Assert.Equal(
+            $"Expected: {1.0} (\u00b1{0.5}); Actual: {2.0}; Difference: {1.0}",
+            ex.Message);
     }
 
     [Test]
@@ -225,7 +238,9 @@ public class AssertEqualityCharacterizationTests
     public void EqualDecimalPrecision_OutsideTolerance_ThrowsWithToleranceMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(1.0m, 1.5m, 2));
-        Assert.Equal("Expected: 1.0 (\u00b10.01); Actual: 1.5; Difference: 0.5", ex.Message);
+        Assert.Equal(
+            $"Expected: {1.0m} (\u00b1{0.01m}); Actual: {1.5m}; Difference: {0.5m}",
+            ex.Message);
     }
 
     [Test]
@@ -233,7 +248,8 @@ public class AssertEqualityCharacterizationTests
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(1m, 2m, 28));
         Assert.Equal(
-            "Expected: 1 (\u00b10.0000000000000000000000000001); Actual: 2; Difference: 1",
+            $"Expected: {1m} (\u00b1{0.0000000000000000000000000001m}); Actual: {2m}; "
+            + $"Difference: {1m}",
             ex.Message);
     }
 
@@ -286,14 +302,16 @@ public class AssertEqualityCharacterizationTests
     public void NotEqualDoublePrecision_SignedZero_ThrowsWithToleranceMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(0.0, -0.0, 3));
-        Assert.Equal($"Did not expect: {-0.0} (within \u00b10.001 of 0)", ex.Message);
+        Assert.Equal(
+            $"Did not expect: {-0.0} (within \u00b1{0.001} of {0.0})",
+            ex.Message);
     }
 
     [Test]
     public void NotEqualDoublePrecision_DifferenceEqualsTolerance_ThrowsWithToleranceMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(1.0, 2.0, 0));
-        Assert.Equal("Did not expect: 2 (within \u00b11 of 1)", ex.Message);
+        Assert.Equal($"Did not expect: {2.0} (within \u00b1{1.0} of {1.0})", ex.Message);
     }
 
     [Test]
@@ -307,7 +325,7 @@ public class AssertEqualityCharacterizationTests
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(1.0, 1.0, 16));
         Assert.Equal(
-            $"Did not expect: 1 (within \u00b1{Math.Pow(10, -16)} of 1)",
+            $"Did not expect: {1.0} (within \u00b1{Math.Pow(10, -16)} of {1.0})",
             ex.Message);
     }
 
@@ -334,7 +352,7 @@ public class AssertEqualityCharacterizationTests
         var ex = Assert.Throws<AssertionFailedException>(
             () => Assert.NotEqual(double.NaN, double.NaN, 0.5));
         Assert.Equal(
-            $"Did not expect: {double.NaN} (within \u00b10.5 of {double.NaN})",
+            $"Did not expect: {double.NaN} (within \u00b1{0.5} of {double.NaN})",
             ex.Message);
     }
 
@@ -350,7 +368,7 @@ public class AssertEqualityCharacterizationTests
         var ex = Assert.Throws<AssertionFailedException>(
             () => Assert.NotEqual(double.PositiveInfinity, double.PositiveInfinity, 0.5));
         Assert.Equal(
-            $"Did not expect: {double.PositiveInfinity} (within \u00b10.5 of "
+            $"Did not expect: {double.PositiveInfinity} (within \u00b1{0.5} of "
             + $"{double.PositiveInfinity})",
             ex.Message);
     }
@@ -365,14 +383,14 @@ public class AssertEqualityCharacterizationTests
     public void NotEqualDoubleTolerance_SignedZero_ThrowsWithToleranceMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(0.0, -0.0, 0.5));
-        Assert.Equal($"Did not expect: {-0.0} (within \u00b10.5 of 0)", ex.Message);
+        Assert.Equal($"Did not expect: {-0.0} (within \u00b1{0.5} of {0.0})", ex.Message);
     }
 
     [Test]
     public void NotEqualDoubleTolerance_DifferenceEqualsTolerance_ThrowsWithToleranceMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(1.0, 1.5, 0.5));
-        Assert.Equal("Did not expect: 1.5 (within \u00b10.5 of 1)", ex.Message);
+        Assert.Equal($"Did not expect: {1.5} (within \u00b1{0.5} of {1.0})", ex.Message);
     }
 
     [Test]
@@ -419,7 +437,9 @@ public class AssertEqualityCharacterizationTests
     public void NotEqualDecimalPrecision_DifferenceEqualsTolerance_ThrowsWithToleranceMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(1.00m, 1.01m, 2));
-        Assert.Equal("Did not expect: 1.01 (within \u00b10.01 of 1.00)", ex.Message);
+        Assert.Equal(
+            $"Did not expect: {1.01m} (within \u00b1{0.01m} of {1.00m})",
+            ex.Message);
     }
 
     [Test]
@@ -432,7 +452,9 @@ public class AssertEqualityCharacterizationTests
     public void NotEqualDecimalPrecision_SignedZero_ThrowsWithToleranceMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(0.0m, -0.0m, 2));
-        Assert.Equal($"Did not expect: {-0.0m} (within \u00b10.01 of 0.0)", ex.Message);
+        Assert.Equal(
+            $"Did not expect: {-0.0m} (within \u00b1{0.01m} of {0.0m})",
+            ex.Message);
     }
 
     [Test]
@@ -440,7 +462,7 @@ public class AssertEqualityCharacterizationTests
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(1m, 1m, 28));
         Assert.Equal(
-            "Did not expect: 1 (within \u00b10.0000000000000000000000000001 of 1)",
+            $"Did not expect: {1m} (within \u00b1{0.0000000000000000000000000001m} of {1m})",
             ex.Message);
     }
 
@@ -471,7 +493,7 @@ public class AssertEqualityCharacterizationTests
     public void EqualGeneric_NaNVersusNumber_ThrowsWithPlainMessage()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(double.NaN, 1.0));
-        Assert.Equal($"Expected: {double.NaN}; Actual: 1", ex.Message);
+        Assert.Equal($"Expected: {double.NaN}; Actual: {1.0}", ex.Message);
     }
 
     [Test]
@@ -506,7 +528,7 @@ public class AssertEqualityCharacterizationTests
     public void EqualGeneric_NullableWithOneNull_ThrowsWithEmptyExpected()
     {
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal<int?>(null, 1));
-        Assert.Equal("Expected: ; Actual: 1", ex.Message);
+        Assert.Equal($"Expected: ; Actual: {1}", ex.Message);
     }
 
     [Test]
@@ -604,7 +626,7 @@ public class AssertEqualityCharacterizationTests
         var ex = Assert.Throws<AssertionFailedException>(
             () => Assert.Equal(double.NaN, 1.0, double.PositiveInfinity));
         Assert.Equal(
-            $"Expected: {double.NaN} (\u00b1{double.PositiveInfinity}); Actual: 1; "
+            $"Expected: {double.NaN} (\u00b1{double.PositiveInfinity}); Actual: {1.0}; "
             + $"Difference: {double.NaN}",
             ex.Message);
     }
@@ -629,7 +651,7 @@ public class AssertEqualityCharacterizationTests
         var ex = Assert.Throws<AssertionFailedException>(
             () => Assert.Equal(double.MaxValue, -double.MaxValue, 3));
         Assert.Equal(
-            $"Expected: {double.MaxValue} (\u00b10.001); Actual: {-double.MaxValue}; "
+            $"Expected: {double.MaxValue} (\u00b1{0.001}); Actual: {-double.MaxValue}; "
             + $"Difference: {double.PositiveInfinity}",
             ex.Message);
     }
@@ -642,7 +664,7 @@ public class AssertEqualityCharacterizationTests
         const double actual = 1.0000000000000002;
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(1.0, actual, 400));
         Assert.Equal(
-            $"Expected: 1 (\u00b1{Math.Pow(10, -400)}); Actual: {actual}; "
+            $"Expected: {1.0} (\u00b1{Math.Pow(10, -400)}); Actual: {actual}; "
             + $"Difference: {Math.Abs(1.0 - actual)}",
             ex.Message);
     }
@@ -654,7 +676,7 @@ public class AssertEqualityCharacterizationTests
 
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.NotEqual(1.0, 1.0, 400));
         Assert.Equal(
-            $"Did not expect: 1 (within \u00b1{Math.Pow(10, -400)} of 1)",
+            $"Did not expect: {1.0} (within \u00b1{Math.Pow(10, -400)} of {1.0})",
             ex.Message);
     }
 
@@ -665,7 +687,7 @@ public class AssertEqualityCharacterizationTests
 
         var ex = Assert.Throws<AssertionFailedException>(() => Assert.Equal(1m, 2m, 29));
         // Dividing past decimal's scale limit yields plain zero, not a scaled zero.
-        Assert.Equal("Expected: 1 (\u00b10); Actual: 2; Difference: 1", ex.Message);
+        Assert.Equal($"Expected: {1m} (\u00b1{0m}); Actual: {2m}; Difference: {1m}", ex.Message);
     }
 
     [Test]
@@ -687,5 +709,36 @@ public class AssertEqualityCharacterizationTests
     {
         Assert.Throws<OverflowException>(
             () => Assert.NotEqual(decimal.MaxValue, decimal.MinValue, 2));
+    }
+
+    [Test]
+    public void Messages_AreFormattedWithTheCurrentCulture()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+
+            var doubleFailure = Assert.Throws<AssertionFailedException>(
+                () => Assert.Equal(1.0, 2.0, 0.5));
+            var decimalFailure = Assert.Throws<AssertionFailedException>(
+                () => Assert.NotEqual(1.00m, 1.01m, 2));
+
+            // Proves the culture switch reached the product formatting, so the derived
+            // expectations below are not vacuously true.
+            Assert.Contains("0,5", doubleFailure.Message);
+            Assert.Contains("0,01", decimalFailure.Message);
+
+            Assert.Equal(
+                $"Expected: {1.0} (\u00b1{0.5}); Actual: {2.0}; Difference: {1.0}",
+                doubleFailure.Message);
+            Assert.Equal(
+                $"Did not expect: {1.01m} (within \u00b1{0.01m} of {1.00m})",
+                decimalFailure.Message);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
     }
 }
