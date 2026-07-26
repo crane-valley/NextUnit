@@ -209,6 +209,15 @@ and need a deliberate decision before implementation.
   Resolved: session hooks stay Microsoft.Testing.Platform-only. VSTest executes per assembly with no
   session boundary to attach them to, so wiring stays declined and the documented limitation on the
   executor stands; revisit only if a concrete need arises. No code change.
+- [ ] Decide what session scope means if one framework instance ever serves two sequential sessions.
+  `SessionLifecycleRunner` gates setup with an `AsyncOnceGate` that is never reset, while teardown is
+  ungated and runs on every `CloseTestSessionAsync`, so a second session on the same instance would
+  run teardown without a matching setup and would inherit the first session's skip reason. This is
+  unreachable today: `RegisterTestFramework` builds one `NextUnitFramework` per test application, so
+  the instance lifetime is the session, and running `[Before(Session)]` again would contradict the
+  scope name. Surfaced by review on PR #183, which kept the pre-existing once-per-instance semantics.
+  Closing it means either resetting the gate at close (session hooks re-run) or gating teardown to
+  pair with setup; both change observable hook behavior, so neither is a drive-by fix.
 
 ## Deferred to the next major version
 

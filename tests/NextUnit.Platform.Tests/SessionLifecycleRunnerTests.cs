@@ -1,3 +1,5 @@
+using NextUnit.Internal;
+
 namespace NextUnit.Platform.Tests;
 
 /// <summary>
@@ -294,5 +296,48 @@ public sealed class SessionLifecycleRunnerTests
         Assert.True(skipped);
         Assert.Equal(2, sink.Skipped.Count);
         Assert.True(sink.Skipped.All(static t => t.SkipReason == "no database available"));
+    }
+
+    [Test]
+    public async Task TryReportSessionSkipAsync_ObservesCancellationRequestedByTheLastReportAsync()
+    {
+        var runner = new SessionLifecycleRunner();
+        runner.AddMethods([(_, _) => throw new TestSkippedException("no database available")], null);
+        await runner.RunSetupOnceAsync(CancellationToken.None);
+
+        using var cts = new CancellationTokenSource();
+        var sink = new CancellingSink(cts);
+
+        // The final report cancels the token and then returns normally, so no loop iteration is left to
+        // see it. Returning true here would send the caller home without ever reaching the engine, which
+        // is the only other place a run would notice.
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => runner.TryReportSessionSkipAsync(
+                [TestCaseDescriptorBuilder.For<SampleTestClass>("session.skip.cancelled").Build()],
+                sink,
+                cts.Token));
+    }
+
+    /// <summary>
+    /// Cancels the run while reporting, then returns normally, standing in for a sink whose consumer
+    /// stops the run mid-report.
+    /// </summary>
+    private sealed class CancellingSink : ITestExecutionSink
+    {
+        private readonly CancellationTokenSource _cts;
+
+        public CancellingSink(CancellationTokenSource cts) => _cts = cts;
+
+        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null) => Task.CompletedTask;
+
+        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null) => Task.CompletedTask;
+
+        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null) => Task.CompletedTask;
+
+        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null)
+        {
+            _cts.Cancel();
+            return Task.CompletedTask;
+        }
     }
 }

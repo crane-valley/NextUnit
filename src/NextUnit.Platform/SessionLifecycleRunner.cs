@@ -191,6 +191,12 @@ internal sealed class SessionLifecycleRunner
             await sink.ReportSkippedAsync(testCase.WithSkipReason(skipReason)).ConfigureAwait(false);
         }
 
+        // The last (or only) report may complete normally after cancellation was requested, leaving no
+        // further loop iteration to observe it. Returning true here would send the caller home without
+        // ever reaching the engine, which is where a run would otherwise notice; the engine guards its
+        // own batch loop the same way.
+        cancellationToken.ThrowIfCancellationRequested();
+
         return true;
     }
 
