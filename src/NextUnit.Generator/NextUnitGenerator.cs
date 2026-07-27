@@ -102,25 +102,22 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var methodParallelLimit = AttributeHelper.GetParallelLimit(methodSymbol);
         var typeParallelLimit = AttributeHelper.GetParallelLimit(typeSymbol);
         var parallelLimit = methodParallelLimit ?? typeParallelLimit;
-        var dependencies = AttributeHelper.GetDependencies(methodSymbol);
-        var dependencyInfos = AttributeHelper.GetDependencyInfos(methodSymbol);
+        var dependencyMetadata = AttributeHelper.GetDependencyMetadata(methodSymbol);
         var (isSkipped, skipReason) = AttributeHelper.GetSkipInfo(methodSymbol);
         var (isExplicit, explicitReason) = AttributeHelper.GetExplicitInfo(methodSymbol, typeSymbol);
-        var argumentSets = AttributeHelper.GetArgumentSets(methodSymbol);
-        var testDataSources = AttributeHelper.GetTestDataSources(methodSymbol);
-        var classDataSources = AttributeHelper.GetClassDataSources(methodSymbol);
+        var argumentSets = DataSourceAttributeReader.GetArgumentSets(methodSymbol);
+        var testDataSources = DataSourceAttributeReader.GetTestDataSources(methodSymbol);
+        var classDataSources = DataSourceAttributeReader.GetClassDataSources(methodSymbol);
         var parameters = AttributeHelper.GetParameters(methodSymbol);
         var categories = AttributeHelper.GetCategories(methodSymbol, typeSymbol);
         var tags = AttributeHelper.GetTags(methodSymbol, typeSymbol);
-        var requiresTestOutput = AttributeHelper.RequiresTestOutput(typeSymbol);
-        var requiresTestContext = AttributeHelper.RequiresTestContext(typeSymbol);
-        var constructorKind = AttributeHelper.GetTestClassConstructorKind(typeSymbol);
+        var constructorMetadata = AttributeHelper.GetTestClassConstructorMetadata(typeSymbol);
         var timeoutMs = AttributeHelper.GetTimeout(methodSymbol, typeSymbol);
         var (retryCount, retryDelayMs, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol);
         var repeatCount = AttributeHelper.GetRepeatCount(methodSymbol);
-        var matrixParameters = AttributeHelper.GetMatrixParameters(methodSymbol);
-        var matrixExclusions = AttributeHelper.GetMatrixExclusions(methodSymbol);
-        var combinedParameterSources = AttributeHelper.GetCombinedParameterSources(methodSymbol);
+        var matrixParameters = DataSourceAttributeReader.GetMatrixParameters(methodSymbol);
+        var matrixExclusions = DataSourceAttributeReader.GetMatrixExclusions(methodSymbol);
+        var combinedParameterSources = DataSourceAttributeReader.GetCombinedParameterSources(methodSymbol);
         var priority = AttributeHelper.GetExecutionPriority(methodSymbol, typeSymbol);
 
         return new TestMethodDescriptor(
@@ -132,8 +129,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             constraintKeys,
             parallelGroup,
             parallelLimit,
-            dependencies,
-            dependencyInfos,
+            dependencyMetadata.Dependencies,
+            dependencyMetadata.DependencyInfos,
             isSkipped,
             skipReason,
             isExplicit,
@@ -147,9 +144,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             methodSymbol.IsStatic,
             GetMethodReturnKind(methodSymbol, knownTypes),
             HasTrailingCancellationToken(parameters),
-            constructorKind,
-            requiresTestOutput,
-            requiresTestContext,
+            constructorMetadata.Kind,
+            constructorMetadata.RequiresTestOutput,
+            constructorMetadata.RequiresTestContext,
             timeoutMs,
             retryCount,
             retryDelayMs,

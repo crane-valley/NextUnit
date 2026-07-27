@@ -74,57 +74,20 @@ internal static class AttributeHelper
         return SymbolDisplay.FormatLiteral(value, true);
     }
 
-    public static EquatableArray<string> GetDependencies(IMethodSymbol methodSymbol)
+    public static DependencyMetadata GetDependencyMetadata(IMethodSymbol methodSymbol)
     {
-        var builder = ImmutableArray.CreateBuilder<string>();
+        var dependencies = ImmutableArray.CreateBuilder<string>();
+        var dependencyInfos = ImmutableArray.CreateBuilder<DependencyDescriptor>();
         var containingType = methodSymbol.ContainingType;
         var typeName = containingType.ToDisplayString(TestIdTypeFormat);
 
-        foreach (var attribute in methodSymbol.GetAttributes())
+        void AddDependency(string name, bool proceedOnFailure)
         {
-            if (!IsAttribute(attribute, NextUnitAttributeNames.DependsOn))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length == 0)
-            {
-                continue;
-            }
-
-            var argument = attribute.ConstructorArguments[0];
-
-            if (argument.Kind == TypedConstantKind.Array)
-            {
-                foreach (var value in argument.Values)
-                {
-                    if (value.Value is string name && !string.IsNullOrWhiteSpace(name))
-                    {
-                        var dependencyId = name.Contains('.') ? name : $"{typeName}.{name}";
-                        builder.Add(dependencyId);
-                    }
-                }
-            }
-            else if (argument.Value is string singleName && !string.IsNullOrWhiteSpace(singleName))
-            {
-                var dependencyId = singleName.Contains('.') ? singleName : $"{typeName}.{singleName}";
-                builder.Add(dependencyId);
-            }
+            var dependencyId = name.Contains('.') ? name : $"{typeName}.{name}";
+            dependencies.Add(dependencyId);
+            dependencyInfos.Add(new DependencyDescriptor(dependencyId, proceedOnFailure));
         }
 
-        return builder.ToImmutable();
-    }
-
-    public static EquatableArray<DependencyDescriptor> GetDependencyInfos(IMethodSymbol methodSymbol)
-    {
-        var builder = ImmutableArray.CreateBuilder<DependencyDescriptor>();
-        var containingType = methodSymbol.ContainingType;
-        var typeName = containingType.ToDisplayString(TestIdTypeFormat);
-
-        // Build fully-qualified dependency ID from method name
-        string BuildDependencyId(string name) =>
-            name.Contains('.') ? name : $"{typeName}.{name}";
-
         foreach (var attribute in methodSymbol.GetAttributes())
         {
             if (!IsAttribute(attribute, NextUnitAttributeNames.DependsOn))
@@ -137,7 +100,6 @@ internal static class AttributeHelper
                 continue;
             }
 
-            // Get ProceedOnFailure named argument
             var proceedOnFailure = attribute.NamedArguments
                 .Where(arg => arg.Key == "ProceedOnFailure" && arg.Value.Value is bool)
                 .Select(arg => (bool)arg.Value.Value!)
@@ -151,17 +113,17 @@ internal static class AttributeHelper
                 {
                     if (value.Value is string name && !string.IsNullOrWhiteSpace(name))
                     {
-                        builder.Add(new DependencyDescriptor(BuildDependencyId(name), proceedOnFailure));
+                        AddDependency(name, proceedOnFailure);
                     }
                 }
             }
             else if (argument.Value is string singleName && !string.IsNullOrWhiteSpace(singleName))
             {
-                builder.Add(new DependencyDescriptor(BuildDependencyId(singleName), proceedOnFailure));
+                AddDependency(singleName, proceedOnFailure);
             }
         }
 
-        return builder.ToImmutable();
+        return new DependencyMetadata(dependencies.ToImmutable(), dependencyInfos.ToImmutable());
     }
 
     public static (bool isSkipped, string? skipReason) GetSkipInfo(IMethodSymbol methodSymbol)
@@ -226,121 +188,6 @@ internal static class AttributeHelper
         }
 
         return (true, null);
-    }
-
-    public static EquatableArray<EquatableArray<ConstantValue>> GetArgumentSets(IMethodSymbol methodSymbol)
-    {
-        var builder = ImmutableArray.CreateBuilder<EquatableArray<ConstantValue>>();
-
-        foreach (var attribute in methodSymbol.GetAttributes())
-        {
-            if (!IsAttribute(attribute, NextUnitAttributeNames.Arguments))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length == 0)
-            {
-                continue;
-            }
-
-            var argsArray = attribute.ConstructorArguments[0];
-            if (argsArray.Kind == TypedConstantKind.Array)
-            {
-                builder.Add(ConstantValueFactory.CreateRange(argsArray.Values));
-            }
-        }
-
-        return builder.ToImmutable();
-    }
-
-    public static EquatableArray<TestDataSource> GetTestDataSources(IMethodSymbol methodSymbol)
-    {
-        var builder = ImmutableArray.CreateBuilder<TestDataSource>();
-
-        foreach (var attribute in methodSymbol.GetAttributes())
-        {
-            if (!IsAttribute(attribute, NextUnitAttributeNames.TestData))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length == 0)
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments[0].Value is not string memberName ||
-                string.IsNullOrEmpty(memberName))
-            {
-                continue;
-            }
-
-            var memberTypeArg = attribute.NamedArguments
-                .Where(arg => arg.Key == "MemberType" && arg.Value.Value is INamedTypeSymbol)
-                .Select(arg => (INamedTypeSymbol)arg.Value.Value!)
-                .FirstOrDefault();
-
-            var memberType = memberTypeArg ?? methodSymbol.ContainingType;
-            string? memberTypeName = memberTypeArg?.ToDisplayString(FullyQualifiedTypeFormat);
-
-            builder.Add(new TestDataSource(
-                memberName,
-                memberTypeName,
-                GetDataSourceMemberKind(memberType, memberName)));
-        }
-
-        return builder.ToImmutable();
-    }
-
-    public static EquatableArray<ClassDataSource> GetClassDataSources(IMethodSymbol methodSymbol)
-    {
-        var builder = ImmutableArray.CreateBuilder<ClassDataSource>();
-
-        foreach (var attribute in methodSymbol.GetAttributes())
-        {
-            var attrClass = attribute.AttributeClass;
-            if (attrClass is not { IsGenericType: true })
-            {
-                continue;
-            }
-
-            var constructedFrom = attrClass.ConstructedFrom;
-            var metadataName = constructedFrom.MetadataName;
-
-            // Check if it's a ClassDataSourceAttribute<T> variant (T1 through T4)
-            if (!metadataName.StartsWith(NextUnitAttributeNames.MetadataNames.ClassDataSourceAttributePrefix, StringComparison.Ordinal) ||
-                constructedFrom.ContainingNamespace.ToDisplayString() != NextUnitAttributeNames.Namespace)
-            {
-                continue;
-            }
-
-            // Extract Shared and Key named arguments
-            var sharedType = 0; // SharedType.None
-            var key = (string?)null;
-
-            foreach (var namedArg in attribute.NamedArguments)
-            {
-                if (namedArg.Key == "Shared" && namedArg.Value.Value is int sharedValue)
-                {
-                    sharedType = sharedValue;
-                }
-                else if (namedArg.Key == "Key" && namedArg.Value.Value is string keyValue)
-                {
-                    key = keyValue;
-                }
-            }
-
-            // Extract all type arguments from the generic attribute
-            // Use TypeofCompatibleFormat to exclude nullable annotations (typeof() doesn't support them)
-            foreach (var typeArg in attrClass.TypeArguments)
-            {
-                var typeName = typeArg.ToDisplayString(TypeofCompatibleFormat);
-                builder.Add(new ClassDataSource(typeName, sharedType, key));
-            }
-        }
-
-        return builder.ToImmutable();
     }
 
     public static EquatableArray<string> GetCategories(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
@@ -671,186 +518,6 @@ internal static class AttributeHelper
         return null;
     }
 
-    public static EquatableArray<MatrixParameterDescriptor> GetMatrixParameters(IMethodSymbol methodSymbol)
-    {
-        var builder = ImmutableArray.CreateBuilder<MatrixParameterDescriptor>();
-
-        for (var i = 0; i < methodSymbol.Parameters.Length; i++)
-        {
-            var parameter = methodSymbol.Parameters[i];
-
-            foreach (var attribute in parameter.GetAttributes())
-            {
-                if (!IsAttribute(attribute, NextUnitAttributeNames.Matrix))
-                {
-                    continue;
-                }
-
-                if (attribute.ConstructorArguments.Length == 0)
-                {
-                    continue;
-                }
-
-                var valuesArg = attribute.ConstructorArguments[0];
-                if (valuesArg.Kind == TypedConstantKind.Array)
-                {
-                    builder.Add(new MatrixParameterDescriptor(i, parameter.Name, ConstantValueFactory.CreateRange(valuesArg.Values)));
-                }
-            }
-        }
-
-        return builder.ToImmutable();
-    }
-
-    public static EquatableArray<MatrixExclusionDescriptor> GetMatrixExclusions(IMethodSymbol methodSymbol)
-    {
-        var builder = ImmutableArray.CreateBuilder<MatrixExclusionDescriptor>();
-
-        foreach (var attribute in methodSymbol.GetAttributes())
-        {
-            if (!IsAttribute(attribute, NextUnitAttributeNames.MatrixExclusion))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length == 0)
-            {
-                continue;
-            }
-
-            var valuesArg = attribute.ConstructorArguments[0];
-            if (valuesArg.Kind == TypedConstantKind.Array)
-            {
-                builder.Add(new MatrixExclusionDescriptor(ConstantValueFactory.CreateRange(valuesArg.Values)));
-            }
-        }
-
-        return builder.ToImmutable();
-    }
-
-    /// <summary>
-    /// Extracts combined parameter sources from method parameters.
-    /// Returns non-empty array only if at least one parameter has [Values], [ValuesFromMember], or [ValuesFrom&lt;T&gt;].
-    /// </summary>
-    public static EquatableArray<ParameterDataSourceDescriptor> GetCombinedParameterSources(IMethodSymbol methodSymbol)
-    {
-        var builder = ImmutableArray.CreateBuilder<ParameterDataSourceDescriptor>();
-        var hasAnySource = false;
-
-        for (var i = 0; i < methodSymbol.Parameters.Length; i++)
-        {
-            var parameter = methodSymbol.Parameters[i];
-            var descriptor = TryGetParameterDataSource(parameter, i);
-
-            if (descriptor is not null)
-            {
-                hasAnySource = true;
-                builder.Add(descriptor);
-            }
-        }
-
-        // Only return sources if at least one parameter has a data source attribute
-        return hasAnySource
-            ? new EquatableArray<ParameterDataSourceDescriptor>(builder.ToImmutable())
-            : EquatableArray<ParameterDataSourceDescriptor>.Empty;
-    }
-
-    private static ParameterDataSourceDescriptor? TryGetParameterDataSource(IParameterSymbol parameter, int index)
-    {
-        foreach (var attribute in parameter.GetAttributes())
-        {
-            // Check for [Values]
-            if (IsAttribute(attribute, NextUnitAttributeNames.Values) &&
-                attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Kind == TypedConstantKind.Array)
-            {
-                return new ParameterDataSourceDescriptor(
-                    parameterIndex: index,
-                    parameterName: parameter.Name,
-                    kind: ParameterDataSourceKind.Inline,
-                    inlineValues: ConstantValueFactory.CreateRange(attribute.ConstructorArguments[0].Values),
-                    memberName: null,
-                    memberTypeName: null,
-                    memberKind: DataSourceMemberKind.Unknown,
-                    classTypeName: null,
-                    sharedType: 0,
-                    sharedKey: null);
-            }
-
-            // Check for [ValuesFromMember]
-            if (IsAttribute(attribute, NextUnitAttributeNames.ValuesFromMember) &&
-                attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Value is string memberName &&
-                !string.IsNullOrEmpty(memberName))
-            {
-                var memberTypeArg = attribute.NamedArguments
-                    .Where(arg => arg.Key == "MemberType")
-                    .Select(arg => arg.Value.Value as INamedTypeSymbol)
-                    .FirstOrDefault(t => t is not null);
-
-                var memberType = memberTypeArg ?? parameter.ContainingSymbol.ContainingType;
-                string? memberTypeName = memberTypeArg?.ToDisplayString(TypeofCompatibleFormat);
-
-                return new ParameterDataSourceDescriptor(
-                    parameterIndex: index,
-                    parameterName: parameter.Name,
-                    kind: ParameterDataSourceKind.Member,
-                    inlineValues: EquatableArray<ConstantValue>.Empty,
-                    memberName: memberName,
-                    memberTypeName: memberTypeName,
-                    memberKind: GetDataSourceMemberKind(memberType, memberName),
-                    classTypeName: null,
-                    sharedType: 0,
-                    sharedKey: null);
-            }
-
-            // Check for [ValuesFrom<T>]
-            var attrClass = attribute.AttributeClass;
-            if (attrClass is { IsGenericType: true })
-            {
-                var constructedFrom = attrClass.ConstructedFrom;
-                var metadataName = constructedFrom.MetadataName;
-
-                if (metadataName.StartsWith(NextUnitAttributeNames.MetadataNames.ValuesFromAttributePrefix, StringComparison.Ordinal) &&
-                    constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace)
-                {
-                    var typeArg = attrClass.TypeArguments[0];
-                    var classTypeName = typeArg.ToDisplayString(TypeofCompatibleFormat);
-
-                    // Extract Shared and Key named arguments
-                    var sharedType = 0; // SharedType.None
-                    var key = (string?)null;
-
-                    foreach (var namedArg in attribute.NamedArguments)
-                    {
-                        if (namedArg.Key == "Shared" && namedArg.Value.Value is int sharedValue)
-                        {
-                            sharedType = sharedValue;
-                        }
-                        else if (namedArg.Key == "Key" && namedArg.Value.Value is string keyValue)
-                        {
-                            key = keyValue;
-                        }
-                    }
-
-                    return new ParameterDataSourceDescriptor(
-                        parameterIndex: index,
-                        parameterName: parameter.Name,
-                        kind: ParameterDataSourceKind.Class,
-                        inlineValues: EquatableArray<ConstantValue>.Empty,
-                        memberName: null,
-                        memberTypeName: null,
-                        memberKind: DataSourceMemberKind.Unknown,
-                        classTypeName: classTypeName,
-                        sharedType: sharedType,
-                        sharedKey: key);
-                }
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>
     /// Resolves the method parameters into value models so the pipeline never carries parameter symbols.
     /// </summary>
@@ -876,11 +543,14 @@ internal static class AttributeHelper
         return new EquatableArray<ParameterDescriptor>(builder.ToImmutable());
     }
 
-    public static TestClassConstructorKind GetTestClassConstructorKind(INamedTypeSymbol typeSymbol)
+    public static TestClassConstructorMetadata GetTestClassConstructorMetadata(INamedTypeSymbol typeSymbol)
     {
         var hasParameterless = false;
         var hasContext = false;
         var hasOutput = false;
+        var requiresTestContext = false;
+        var requiresTestOutput = false;
+        TestClassConstructorKind? twoParameterKind = null;
 
         foreach (var constructor in typeSymbol.InstanceConstructors)
         {
@@ -890,6 +560,13 @@ internal static class AttributeHelper
             }
 
             var parameters = constructor.Parameters;
+            foreach (var parameter in parameters)
+            {
+                var parameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                requiresTestContext |= parameterType == ITestContextTypeName;
+                requiresTestOutput |= parameterType == ITestOutputTypeName;
+            }
+
             if (parameters.Length == 0)
             {
                 hasParameterless = true;
@@ -908,66 +585,32 @@ internal static class AttributeHelper
             {
                 var first = parameters[0].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                 var second = parameters[1].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                if (first == ITestContextTypeName && second == ITestOutputTypeName)
+                if (twoParameterKind is null &&
+                    first == ITestContextTypeName &&
+                    second == ITestOutputTypeName)
                 {
-                    return TestClassConstructorKind.ContextAndOutput;
+                    twoParameterKind = TestClassConstructorKind.ContextAndOutput;
                 }
 
-                if (first == ITestOutputTypeName && second == ITestContextTypeName)
+                if (twoParameterKind is null &&
+                    first == ITestOutputTypeName &&
+                    second == ITestContextTypeName)
                 {
-                    return TestClassConstructorKind.OutputAndContext;
+                    twoParameterKind = TestClassConstructorKind.OutputAndContext;
                 }
             }
         }
 
-        if (hasContext)
-        {
-            return TestClassConstructorKind.Context;
-        }
+        var kind = twoParameterKind ??
+            (hasContext
+                ? TestClassConstructorKind.Context
+                : hasOutput
+                    ? TestClassConstructorKind.Output
+                    : hasParameterless
+                        ? TestClassConstructorKind.Parameterless
+                        : TestClassConstructorKind.None);
 
-        if (hasOutput)
-        {
-            return TestClassConstructorKind.Output;
-        }
-
-        return hasParameterless
-            ? TestClassConstructorKind.Parameterless
-            : TestClassConstructorKind.None;
-    }
-
-    private static DataSourceMemberKind GetDataSourceMemberKind(
-        INamedTypeSymbol? typeSymbol,
-        string memberName)
-    {
-        if (typeSymbol is null)
-        {
-            return DataSourceMemberKind.Unknown;
-        }
-
-        foreach (var member in typeSymbol.GetMembers(memberName))
-        {
-            if (!member.IsStatic)
-            {
-                continue;
-            }
-
-            if (member is IMethodSymbol { Parameters.Length: 0 })
-            {
-                return DataSourceMemberKind.Method;
-            }
-
-            if (member is IPropertySymbol)
-            {
-                return DataSourceMemberKind.Property;
-            }
-
-            if (member is IFieldSymbol)
-            {
-                return DataSourceMemberKind.Field;
-            }
-        }
-
-        return DataSourceMemberKind.Unknown;
+        return new TestClassConstructorMetadata(kind, requiresTestOutput, requiresTestContext);
     }
 
     private static (int? count, int delayMs) GetRetryFromSymbol(ISymbol symbol)
@@ -1071,47 +714,4 @@ internal static class AttributeHelper
         return null;
     }
 
-    public static bool RequiresTestOutput(INamedTypeSymbol typeSymbol)
-    {
-        foreach (var constructor in typeSymbol.InstanceConstructors)
-        {
-            if (constructor.DeclaredAccessibility != Accessibility.Public)
-            {
-                continue;
-            }
-
-            foreach (var parameter in constructor.Parameters)
-            {
-                var parameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                if (parameterType == ITestOutputTypeName)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public static bool RequiresTestContext(INamedTypeSymbol typeSymbol)
-    {
-        foreach (var constructor in typeSymbol.InstanceConstructors)
-        {
-            if (constructor.DeclaredAccessibility != Accessibility.Public)
-            {
-                continue;
-            }
-
-            foreach (var parameter in constructor.Parameters)
-            {
-                var parameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                if (parameterType == ITestContextTypeName)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
 }
