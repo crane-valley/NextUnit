@@ -181,6 +181,160 @@ internal static class GeneratorSnapshotSources
         }
         """;
 
+    public const string DependencyMetadataTest = """
+        using NextUnit;
+
+        namespace TestProject;
+
+        public class ExternalTests
+        {
+            [Test]
+            public void External()
+            {
+            }
+        }
+
+        public class DependencyTests
+        {
+            [Test]
+            public void First()
+            {
+            }
+
+            [Test]
+            public void Second()
+            {
+            }
+
+            [Test]
+            [DependsOn(nameof(First), nameof(Second))]
+            [DependsOn(nameof(First), ProceedOnFailure = true)]
+            [DependsOn("TestProject.ExternalTests.External", ProceedOnFailure = true)]
+            public void Dependent()
+            {
+            }
+        }
+        """;
+
+    public const string ConstructorInjectionTest = """
+        using NextUnit;
+        using NextUnit.Core;
+
+        namespace TestProject;
+
+        public class ParameterlessTests
+        {
+            [Test]
+            public void Test()
+            {
+            }
+        }
+
+        public class ContextTests
+        {
+            public ContextTests(ITestContext context)
+            {
+            }
+
+            [Test]
+            public void Test()
+            {
+            }
+        }
+
+        public class OutputTests
+        {
+            public OutputTests(ITestOutput output)
+            {
+            }
+
+            [Test]
+            public void Test()
+            {
+            }
+        }
+
+        public class ContextAndOutputTests
+        {
+            public ContextAndOutputTests(ITestContext context, ITestOutput output)
+            {
+            }
+
+            [Test]
+            public void Test()
+            {
+            }
+        }
+
+        public class OutputAndContextTests
+        {
+            public OutputAndContextTests(ITestOutput output, ITestContext context)
+            {
+            }
+
+            [Test]
+            public void Test()
+            {
+            }
+        }
+
+        public class StaticOnlyTests
+        {
+            private StaticOnlyTests()
+            {
+            }
+
+            [Test]
+            public static void Test()
+            {
+            }
+        }
+
+        public class PrivateOnlyTests
+        {
+            private PrivateOnlyTests()
+            {
+            }
+
+            [Test]
+            public void Test()
+            {
+            }
+        }
+
+        public class MultipleOneArgumentConstructorsTests
+        {
+            public MultipleOneArgumentConstructorsTests(ITestOutput output)
+            {
+            }
+
+            public MultipleOneArgumentConstructorsTests(ITestContext context)
+            {
+            }
+
+            [Test]
+            public void Test()
+            {
+            }
+        }
+
+        public class MultipleTwoArgumentConstructorsTests
+        {
+            public MultipleTwoArgumentConstructorsTests(ITestOutput output, ITestContext context)
+            {
+            }
+
+            public MultipleTwoArgumentConstructorsTests(ITestContext context, ITestOutput output)
+            {
+            }
+
+            [Test]
+            public void Test()
+            {
+            }
+        }
+        """;
+
     public const string UserEntryPointTest = """
         using System.Threading.Tasks;
         using NextUnit;
