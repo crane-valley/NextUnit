@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 
 namespace NextUnit.Generator.Tests;
@@ -41,6 +42,43 @@ public class GeneratorSnapshotTests
     public Task LifecycleScopesTest_MatchesSnapshotAsync() =>
         VerifySnapshotAsync("LifecycleScopesTest", GeneratorSnapshotSources.LifecycleScopesTest);
 
+    [Fact]
+    public Task DependencyMetadataTest_MatchesSnapshotAsync() =>
+        VerifySnapshotAsync("DependencyMetadataTest", GeneratorSnapshotSources.DependencyMetadataTest);
+
+    [Fact]
+    public async Task DependencyMetadataTest_EmitsAlignedDependencyViewsAsync()
+    {
+        var registry = await GenerateRegistryAsync(GeneratorSnapshotSources.DependencyMetadataTest);
+        var lines = registry.Split('\n');
+        var dependenciesLine = lines.Single(static line =>
+            line.Contains(
+                "Dependencies = new global::NextUnit.Internal.TestCaseId[]",
+                StringComparison.Ordinal));
+        var dependencyInfosLine = lines.Single(static line =>
+            line.Contains(
+                "DependencyInfos = new global::NextUnit.Internal.DependencyInfo[]",
+                StringComparison.Ordinal));
+
+        var dependencies = ExtractQuotedValues(dependenciesLine);
+        var dependencyInfoIds = ExtractQuotedValues(dependencyInfosLine);
+
+        Assert.Equal(
+            new[]
+            {
+                "TestProject.DependencyTests.First",
+                "TestProject.DependencyTests.Second",
+                "TestProject.DependencyTests.First",
+                "TestProject.ExternalTests.External",
+            },
+            dependencies);
+        Assert.Equal(dependencies, dependencyInfoIds);
+    }
+
+    [Fact]
+    public Task ConstructorInjectionTest_MatchesSnapshotAsync() =>
+        VerifySnapshotAsync("ConstructorInjectionTest", GeneratorSnapshotSources.ConstructorInjectionTest);
+
     /// <summary>
     /// A compilation that already has an entry point must not receive Program.g.cs.
     /// The exact-sources check fails if the generator emits it anyway.
@@ -81,6 +119,27 @@ public class GeneratorSnapshotTests
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
+
+    private static async Task<string> GenerateRegistryAsync(string source)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var compilation = await GeneratorDriverHarness.CreateCompilationAsync(
+            source,
+            OutputKind.DynamicallyLinkedLibrary,
+            cancellationToken);
+        var driver = GeneratorDriverHarness.CreateDriver(trackIncrementalGeneratorSteps: false)
+            .RunGenerators(compilation, cancellationToken);
+
+        return driver.GetRunResult().Results.Single().GeneratedSources
+            .Single(static generated => generated.HintName == "GeneratedTestRegistry.g.cs")
+            .SourceText
+            .ToString();
+    }
+
+    private static string[] ExtractQuotedValues(string line) =>
+        Regex.Matches(line, "\"([^\"]+)\"")
+            .Select(static match => match.Groups[1].Value)
+            .ToArray();
 
     /// <summary>
     /// Reads a baseline as LF-terminated text.
