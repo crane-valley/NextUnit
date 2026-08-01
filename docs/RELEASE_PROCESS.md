@@ -248,11 +248,13 @@ Checking the two packages the smoke projects name directly is not enough. `NextU
 `NextUnit.Core` and `NextUnit.Platform` at the same version, and `NextUnit.AspNetCore` depends on
 `NextUnit.Core`, so the restore still fails while any of those four is unindexed, and the indexes do
 not all become visible at the same moment. The loop below covers all six published packages, which
-also confirms the release itself completed; `NextUnit.Generator` and `NextUnit.TestAdapter` ship as
-assets rather than smoke dependencies, so they are a release check rather than a restore blocker.
+also confirms the release itself completed. The remaining two are a release check rather than a
+restore blocker, for different reasons: `NextUnit.Generator` is bundled into `NextUnit` as an
+analyzer asset instead of being declared as a dependency, while `NextUnit.TestAdapter` is an ordinary
+package that the smoke projects simply do not reference.
 
-Save this as a script and run it rather than pasting it into an interactive shell, since `set -e`
-would close the shell on the first failure:
+Save this as a script and run it rather than pasting it into an interactive shell, where the closing
+`test` would end your session:
 
 ```bash
 set -e
@@ -304,23 +306,26 @@ does not help because the cached transitive dependencies still cover the restore
 caches have to be bypassed at once - the global packages folder, the HTTP cache, and any extra feed
 configured in NuGet.config - so restore explicitly against nuget.org before building:
 
-Run this as a script too, for the same reason:
+Run this as a script too:
 
 ```bash
 set -e
+version=X.Y.Z
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 for proj in tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
             tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj; do
+  test "$(dotnet msbuild "$proj" -getProperty:NextUnitPackageSmokeVersion)" = "$version"
   NUGET_PACKAGES=$tmp dotnet restore "$proj" \
     --source https://api.nuget.org/v3/index.json --no-http-cache
   NUGET_PACKAGES=$tmp dotnet build "$proj" --configuration Release --no-restore
 done
 ```
 
-`set -e` stops the script on the first failing project, so one bad fallback cannot be masked by the
-other project succeeding. The `trap` still runs on that early exit, so the throwaway package
-directory is removed either way.
+The `-getProperty` assertion is what makes this a check on the new version. Without it, a csproj you
+forgot to bump would quietly restore its old fallback and the script would still pass. `set -e` then
+stops on the first failing project, so one bad fallback cannot be masked by the other succeeding, and
+the `trap` still runs on that early exit so the throwaway package directory is removed either way.
 
 `--source` overrides the configured feeds, `--no-http-cache` stops NuGet from replaying a previously
 downloaded response, and `NUGET_PACKAGES` relocates the extracted packages. If this passes, the
