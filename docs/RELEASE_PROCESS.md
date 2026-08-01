@@ -86,6 +86,12 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
    - Location: `/docs/MIGRATION_FROM_XUNIT.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in examples
 
+3. **samples/ClassLibrary.Sample.Tests/README.md**
+   - Location: `/samples/ClassLibrary.Sample.Tests/README.md`
+   - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the standalone-project snippet
+   - Easy to miss because the sample itself resolves versions through `Directory.Packages.props`;
+     only this one snippet is pinned. Releases #169, #175, and #184 all bumped it.
+
 `docs/PERFORMANCE.md` is deliberately absent from this list. It once carried a
 `**NextUnit Version**: X.Y.Z` line, but PR #152 removed it in favor of a per-framework Version
 column in the comparison table, so there is no release-time marker left to bump. Releases #169, #175,
@@ -124,7 +130,8 @@ git checkout -b release/vX.Y.Z main
 
 ### 2. Update All Version References
 
-Follow the Version Update Checklist above and update all eight files.
+Follow the Version Update Checklist above and update all nine files
+(two core version files, four documentation files, three user documentation files).
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -382,7 +389,7 @@ Investigate what other changes were made. Revert to previous version if needed.
 When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
-2. **Use the checklist**: Update all eight files/locations listed above
+2. **Use the checklist**: Update all nine files/locations listed above
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
