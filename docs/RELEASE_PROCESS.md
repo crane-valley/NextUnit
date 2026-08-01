@@ -244,10 +244,12 @@ has to be live on nuget.org first. Recent examples: #172, #179, #195.
 
 #### 1. Wait for nuget.org to index the new version
 
-Check every package, not just the two the smoke projects name directly. `NextUnit` depends on
+Checking the two packages the smoke projects name directly is not enough. `NextUnit` depends on
 `NextUnit.Core` and `NextUnit.Platform` at the same version, and `NextUnit.AspNetCore` depends on
-`NextUnit.Core`, so a consumer restore still fails while any one of them is unindexed. The indexes do
-not all become visible at the same moment.
+`NextUnit.Core`, so the restore still fails while any of those four is unindexed, and the indexes do
+not all become visible at the same moment. The loop below covers all six published packages, which
+also confirms the release itself completed; `NextUnit.Generator` and `NextUnit.TestAdapter` ship as
+assets rather than smoke dependencies, so they are a release check rather than a restore blocker.
 
 ```bash
 for pkg in nextunit nextunit.core nextunit.generator nextunit.testadapter nextunit.platform nextunit.aspnetcore; do
@@ -280,7 +282,9 @@ changed:
 - Every smoke invocation in `.github/workflows/dotnet.yml` and `.github/workflows/release.yml` passes
   `-p:UseLocalNextUnitPackage=true`, which selects the first condition and bypasses the fallback.
 
-A local build with `UseLocalNextUnitPackage` left unset is the only path that exercises the fallback.
+No checked-in workflow exercises the fallback, so this direct build is the only verification you
+control. GitHub's automatic dependency submission does restore through it, but that job runs after the
+merge and is not a pre-merge gate.
 
 **Cold cache caveat**: the builds above prove the fallback line compiles, not that nuget.org actually
 serves the version. A warm cache satisfies them on its own, and deleting a package directory or two
@@ -290,6 +294,7 @@ configured in NuGet.config - so restore explicitly against nuget.org before buil
 
 ```bash
 tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
 for proj in tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
             tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj; do
   NUGET_PACKAGES=$tmp dotnet restore "$proj" \
@@ -297,6 +302,8 @@ for proj in tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
   NUGET_PACKAGES=$tmp dotnet build "$proj" --configuration Release --no-restore
 done
 ```
+
+The `trap` matters: without it each run leaves a full extracted package set behind in the temp area.
 
 `--source` overrides the configured feeds, `--no-http-cache` stops NuGet from replaying a previously
 downloaded response, and `NUGET_PACKAGES` relocates the extracted packages. If this passes, the
