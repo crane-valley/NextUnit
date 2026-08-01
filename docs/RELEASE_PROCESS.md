@@ -70,8 +70,11 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 4. **PLANS.md**
    - Location: `/PLANS.md`
-   - Add new version to the Version History table
-   - Format: `| X.Y.Z | YYYY-MM-DD | ✅ Released | Brief description |`
+   - Update: `**Current version**: X.Y.Z (stable)` in the Current state section
+   - This one line is the whole release-time edit. The Completed summary table below it
+     (`| Version | Shipped capability |`) groups releases into coarse ranges such as `1.15.x`, so it
+     gains a row only when a release ships a capability worth summarizing, not once per version.
+     Releases #169, #175, and #184 each changed the Current version line and nothing else in this file.
 
 ### User Documentation
 
@@ -83,9 +86,10 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
    - Location: `/docs/MIGRATION_FROM_XUNIT.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in examples
 
-3. **docs/PERFORMANCE.md**
-   - Location: `/docs/PERFORMANCE.md`
-   - Update: `**NextUnit Version**: X.Y.Z` in the version information section
+`docs/PERFORMANCE.md` is deliberately absent from this list. It once carried a
+`**NextUnit Version**: X.Y.Z` line, but PR #152 removed it in favor of a per-framework Version
+column in the comparison table, so there is no release-time marker left to bump. Releases #169, #175,
+and #184 did not touch the file. See Tools and Benchmarks below for the versions it does record.
 
 ### Tools and Benchmarks
 
@@ -120,7 +124,7 @@ git checkout -b release/vX.Y.Z main
 
 ### 2. Update All Version References
 
-Follow the Version Update Checklist above and update all nine files.
+Follow the Version Update Checklist above and update all eight files.
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -378,7 +382,7 @@ Investigate what other changes were made. Revert to previous version if needed.
 When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
-2. **Use the checklist**: Update all nine files/locations listed above
+2. **Use the checklist**: Update all eight files/locations listed above
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
