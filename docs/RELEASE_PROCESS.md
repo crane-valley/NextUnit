@@ -89,20 +89,25 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 ### Tools and Benchmarks
 
-1. **tools/speed-comparison/README.md**
-   - Location: `/tools/speed-comparison/README.md`
-   - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
+Nothing under `tools/speed-comparison/` requires a release-time update.
 
-2. **tools/speed-comparison/BENCHMARKS.md**
-   - Location: `/tools/speed-comparison/BENCHMARKS.md`
-   - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
+`tools/speed-comparison/UnifiedTests/UnifiedTests.csproj` reaches NextUnit through `ProjectReference`,
+not `PackageReference`, so the comparison always measures the current checkout. This is deliberate:
+the project carries the guardrail comment "Benchmark the current checkout instead of a stale published
+package." introduced by PR #154. Repointing it at a published package would reintroduce the stale
+measurements that change fixed.
 
-3. **tools/speed-comparison/UnifiedTests/UnifiedTests.csproj**
-   - Location: `/tools/speed-comparison/UnifiedTests/UnifiedTests.csproj`
-   - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the NextUnit configuration
-   - **NOTE**: This file should be updated AFTER the new package version is published to NuGet,
-     since it references the published package for benchmarking.
-     Update this in a separate commit/PR after the release.
+Because the benchmark tracks the checkout rather than a release, its outputs are versioned by the run
+that produced them:
+
+- The comparison table in `docs/PERFORMANCE.md` records its provenance as a checkout - for example,
+  "PR #160 checkout (1.15.1 assembly)" - alongside the SDK and runtime versions used.
+- Raw results live in `tools/speed-comparison/results/`.
+- Refreshes run through `.github/workflows/speed-comparison.yml` (manual `workflow_dispatch`, the
+  scheduled weekly run, or a PR touching the benchmark paths), which uploads the measurements as
+  workflow artifacts.
+
+Refresh the numbers when the methodology or the competitor set changes, not once per release.
 
 ## Release Process Steps
 
@@ -115,8 +120,7 @@ git checkout -b release/vX.Y.Z main
 
 ### 2. Update All Version References
 
-Follow the Version Update Checklist above and update files 1-11.
-Skip file #12 (UnifiedTests.csproj) for now - it will be updated after the package is published.
+Follow the Version Update Checklist above and update all nine files.
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -216,6 +220,70 @@ Creating a release on GitHub automatically triggers the NuGet package publishing
    - Check NuGet download stats
    - Monitor CI/CD for any failures
 
+### Bump the PackageSmoke Fallback Version
+
+The two package smoke projects consume NextUnit as a published package rather than a project
+reference:
+
+- `tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj`
+- `tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj`
+
+Each resolves its version through two conditional properties:
+
+```xml
+<NextUnitPackageSmokeVersion Condition="'$(UseLocalNextUnitPackage)' == 'true'">$(NextUnitVersion)</NextUnitPackageSmokeVersion>
+<NextUnitPackageSmokeVersion Condition="'$(NextUnitPackageSmokeVersion)' == ''">X.Y.Z</NextUnitPackageSmokeVersion>
+```
+
+The second line is the fallback, and it must name a version that is already on nuget.org. GitHub's
+automatic dependency submission restores these projects without the local package feed, so a fallback
+pointing at an unpublished version breaks that job.
+
+This bump belongs in its own chore PR after the release, never in the release PR, because the version
+has to be live on nuget.org first. Recent examples: #172, #179, #195.
+
+#### 1. Wait for nuget.org to index the new version
+
+```bash
+curl -s https://api.nuget.org/v3-flatcontainer/nextunit/index.json | grep X.Y.Z
+curl -s https://api.nuget.org/v3-flatcontainer/nextunit.aspnetcore/index.json | grep X.Y.Z
+```
+
+Indexing lags the GitHub release by several minutes. Do not open the bump PR until both commands
+report the new version.
+
+#### 2. Update the fallback in both projects
+
+Set the fallback line to the released version in both csproj files. Nothing else changes.
+
+#### 3. Verify with a direct build of both smoke projects
+
+```bash
+dotnet build tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj --configuration Release
+dotnet build tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj --configuration Release
+```
+
+Both must finish with 0 warnings and 0 errors.
+
+Do not substitute a solution build or rely on CI here, because neither one compiles the line you
+changed:
+
+- Neither smoke project is a member of `NextUnit.slnx`, so `dotnet build NextUnit.slnx` never touches
+  them.
+- Every smoke invocation in `.github/workflows/dotnet.yml` and `.github/workflows/release.yml` passes
+  `-p:UseLocalNextUnitPackage=true`, which selects the first condition and bypasses the fallback.
+
+A local build with `UseLocalNextUnitPackage` left unset is the only path that exercises the fallback.
+
+**Cold cache caveat**: a warm global package cache lets the build succeed without proving that
+nuget.org has indexed anything. To make the build a genuine indexing check, restore with `--no-cache`
+or clear the cached packages first:
+
+```bash
+dotnet nuget locals global-packages --list # locate the cache
+rm -rf ~/.nuget/packages/nextunit ~/.nuget/packages/nextunit.aspnetcore
+```
+
 ## Version Numbering Guidelines
 
 NextUnit follows [Semantic Versioning](https://semver.org/):
@@ -261,7 +329,7 @@ Investigate what other changes were made. Revert to previous version if needed.
 When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
-2. **Use the checklist**: Update all 12 files/locations listed above
+2. **Use the checklist**: Update all nine files/locations listed above
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
