@@ -282,17 +282,25 @@ changed:
 
 A local build with `UseLocalNextUnitPackage` left unset is the only path that exercises the fallback.
 
-**Cold cache caveat**: a warm global package cache lets the build succeed without proving that
-nuget.org has indexed anything. Deleting a couple of package directories is not enough either, since
-the cached transitive dependencies are what the restore falls back on. Point the build at a throwaway
-package cache instead, so every NextUnit package has to come from nuget.org:
+**Cold cache caveat**: the builds above prove the fallback line compiles, not that nuget.org actually
+serves the version. A warm cache satisfies them on its own, and deleting a package directory or two
+does not help because the cached transitive dependencies still cover the restore. Three separate
+caches have to be bypassed at once - the global packages folder, the HTTP cache, and any extra feed
+configured in NuGet.config - so restore explicitly against nuget.org before building:
 
 ```bash
-NUGET_PACKAGES=$(mktemp -d) \
-  dotnet build tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj --configuration Release
-NUGET_PACKAGES=$(mktemp -d) \
-  dotnet build tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj --configuration Release
+tmp=$(mktemp -d)
+for proj in tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+            tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj; do
+  NUGET_PACKAGES=$tmp dotnet restore "$proj" \
+    --source https://api.nuget.org/v3/index.json --no-http-cache
+  NUGET_PACKAGES=$tmp dotnet build "$proj" --configuration Release --no-restore
+done
 ```
+
+`--source` overrides the configured feeds, `--no-http-cache` stops NuGet from replaying a previously
+downloaded response, and `NUGET_PACKAGES` relocates the extracted packages. If this passes, the
+version is genuinely public.
 
 ## Version Numbering Guidelines
 
