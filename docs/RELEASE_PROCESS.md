@@ -94,8 +94,8 @@ Nothing under `tools/speed-comparison/` requires a release-time update.
 `tools/speed-comparison/UnifiedTests/UnifiedTests.csproj` reaches NextUnit through `ProjectReference`,
 not `PackageReference`, so the comparison always measures the current checkout. This is deliberate:
 the project carries the guardrail comment "Benchmark the current checkout instead of a stale published
-package." introduced by PR #154. Repointing it at a published package would reintroduce the stale
-measurements that change fixed.
+package." Repointing it at a published package would reintroduce the stale measurements that PR #154
+was written to eliminate.
 
 Because the benchmark tracks the checkout rather than a release, its outputs are versioned by the run
 that produced them:
@@ -315,7 +315,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 for proj in tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
             tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj; do
-  test "$(dotnet msbuild "$proj" -getProperty:NextUnitPackageSmokeVersion)" = "$version"
+  test "$(dotnet msbuild "$proj" -getProperty:NextUnitPackageSmokeVersion | tr -d '\r')" = "$version"
   NUGET_PACKAGES=$tmp dotnet restore "$proj" \
     --source https://api.nuget.org/v3/index.json --no-http-cache
   NUGET_PACKAGES=$tmp dotnet build "$proj" --configuration Release --no-restore
@@ -323,7 +323,9 @@ done
 ```
 
 The `-getProperty` assertion is what makes this a check on the new version. Without it, a csproj you
-forgot to bump would quietly restore its old fallback and the script would still pass. `set -e` then
+forgot to bump would quietly restore its old fallback and the script would still pass. The `tr -d
+'\r'` guards the comparison against a CRLF line ending, which some Windows shells leave on the
+captured value. `set -e` then
 stops on the first failing project, so one bad fallback cannot be masked by the other succeeding, and
 the `trap` still runs on that early exit so the throwaway package directory is removed either way.
 
