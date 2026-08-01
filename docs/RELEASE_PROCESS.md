@@ -89,20 +89,25 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 ### Tools and Benchmarks
 
-1. **tools/speed-comparison/README.md**
-   - Location: `/tools/speed-comparison/README.md`
-   - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
+Nothing under `tools/speed-comparison/` requires a release-time update.
 
-2. **tools/speed-comparison/BENCHMARKS.md**
-   - Location: `/tools/speed-comparison/BENCHMARKS.md`
-   - Update: `**NextUnit Version**: X.Y.Z` and `**Last Updated**: YYYY-MM-DD`
+`tools/speed-comparison/UnifiedTests/UnifiedTests.csproj` reaches NextUnit through `ProjectReference`,
+not `PackageReference`, so the comparison always measures the current checkout. This is deliberate:
+the project carries the guardrail comment "Benchmark the current checkout instead of a stale published
+package." Repointing it at a published package would reintroduce the stale measurements that PR #154
+was written to eliminate.
 
-3. **tools/speed-comparison/UnifiedTests/UnifiedTests.csproj**
-   - Location: `/tools/speed-comparison/UnifiedTests/UnifiedTests.csproj`
-   - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the NextUnit configuration
-   - **NOTE**: This file should be updated AFTER the new package version is published to NuGet,
-     since it references the published package for benchmarking.
-     Update this in a separate commit/PR after the release.
+Because the benchmark tracks the checkout rather than a release, its outputs are versioned by the run
+that produced them:
+
+- The comparison table in `docs/PERFORMANCE.md` records its provenance as a checkout - for example,
+  "PR #160 checkout (1.15.1 assembly)" - alongside the SDK and runtime versions used.
+- Raw results live in `tools/speed-comparison/results/`.
+- Refreshes run through `.github/workflows/speed-comparison.yml` (manual `workflow_dispatch`, the
+  scheduled weekly run, or a PR touching the benchmark paths), which uploads the measurements as
+  workflow artifacts.
+
+Refresh the numbers when the methodology or the competitor set changes, not once per release.
 
 ## Release Process Steps
 
@@ -115,8 +120,7 @@ git checkout -b release/vX.Y.Z main
 
 ### 2. Update All Version References
 
-Follow the Version Update Checklist above and update files 1-11.
-Skip file #12 (UnifiedTests.csproj) for now - it will be updated after the package is published.
+Follow the Version Update Checklist above and update all nine files.
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -216,6 +220,119 @@ Creating a release on GitHub automatically triggers the NuGet package publishing
    - Check NuGet download stats
    - Monitor CI/CD for any failures
 
+### Bump the PackageSmoke Fallback Version
+
+The two package smoke projects consume NextUnit as a published package rather than a project
+reference:
+
+- `tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj`
+- `tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj`
+
+Each resolves its version through two conditional properties:
+
+```xml
+<NextUnitPackageSmokeVersion Condition="'$(UseLocalNextUnitPackage)' == 'true'">$(NextUnitVersion)</NextUnitPackageSmokeVersion>
+<NextUnitPackageSmokeVersion Condition="'$(NextUnitPackageSmokeVersion)' == ''">X.Y.Z</NextUnitPackageSmokeVersion>
+```
+
+The second line is the fallback, and it must name a version that is already on nuget.org. GitHub's
+automatic dependency submission restores these projects without the local package feed, so a fallback
+pointing at an unpublished version breaks that job.
+
+This bump belongs in its own chore PR after the release, never in the release PR, because the version
+has to be live on nuget.org first. Recent examples: #172, #179, #195.
+
+#### 1. Wait for nuget.org to index the new version
+
+Checking the two packages the smoke projects name directly is not enough. `NextUnit` depends on
+`NextUnit.Core` and `NextUnit.Platform` at the same version, and `NextUnit.AspNetCore` depends on
+`NextUnit.Core`, so the restore still fails while any of those four is unindexed, and the indexes do
+not all become visible at the same moment. The loop below covers all six published packages, which
+also confirms the release itself completed. The remaining two are a release check rather than a
+restore blocker, for different reasons: `NextUnit.Generator` is bundled into `NextUnit` as an
+analyzer asset instead of being declared as a dependency, while `NextUnit.TestAdapter` is an ordinary
+package that the smoke projects simply do not reference.
+
+Save this as a script and run it rather than pasting it into an interactive shell, where the closing
+`test` would end your session:
+
+```bash
+set -e
+version=X.Y.Z
+missing=0
+for pkg in nextunit nextunit.core nextunit.generator nextunit.testadapter nextunit.platform nextunit.aspnetcore; do
+  if curl -sf "https://api.nuget.org/v3-flatcontainer/$pkg/index.json" | grep -q "\"$version\""; then
+    echo "ok      $pkg"
+  else
+    echo "MISSING $pkg"
+    missing=1
+  fi
+done
+test "$missing" -eq 0
+```
+
+Indexing lags the GitHub release by several minutes. Do not open the bump PR until every line reads
+`ok`; the closing `test` makes the script exit non-zero if any package is still missing, so a partial
+result cannot pass unnoticed.
+
+#### 2. Update the fallback in both projects
+
+Set the fallback line to the released version in both csproj files. Nothing else changes.
+
+#### 3. Verify with a direct build of both smoke projects
+
+```bash
+dotnet build tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj --configuration Release
+dotnet build tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj --configuration Release
+```
+
+Both must finish with 0 warnings and 0 errors.
+
+Do not substitute a solution build or rely on CI here, because neither one compiles the line you
+changed:
+
+- Neither smoke project is a member of `NextUnit.slnx`, so `dotnet build NextUnit.slnx` never touches
+  them.
+- Every smoke invocation in `.github/workflows/dotnet.yml` and `.github/workflows/release.yml` passes
+  `-p:UseLocalNextUnitPackage=true`, which selects the first condition and bypasses the fallback.
+
+No checked-in workflow exercises the fallback, so this direct build is the only verification you
+control. GitHub's automatic dependency submission does restore through it, but that job runs after the
+merge and is not a pre-merge gate.
+
+**Cold cache caveat**: the builds above prove the fallback line compiles, not that nuget.org actually
+serves the version. A warm cache satisfies them on its own, and deleting a package directory or two
+does not help because the cached transitive dependencies still cover the restore. Three separate
+caches have to be bypassed at once - the global packages folder, the HTTP cache, and any extra feed
+configured in NuGet.config - so restore explicitly against nuget.org before building:
+
+Run this as a script too:
+
+```bash
+set -e
+version=X.Y.Z
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+for proj in tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+            tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj; do
+  test "$(dotnet msbuild "$proj" -getProperty:NextUnitPackageSmokeVersion | tr -d '\r')" = "$version"
+  NUGET_PACKAGES=$tmp dotnet restore "$proj" \
+    --source https://api.nuget.org/v3/index.json --no-http-cache
+  NUGET_PACKAGES=$tmp dotnet build "$proj" --configuration Release --no-restore
+done
+```
+
+The `-getProperty` assertion is what makes this a check on the new version. Without it, a csproj you
+forgot to bump would quietly restore its old fallback and the script would still pass. The `tr -d
+'\r'` guards the comparison against a CRLF line ending, which some Windows shells leave on the
+captured value. `set -e` then
+stops on the first failing project, so one bad fallback cannot be masked by the other succeeding, and
+the `trap` still runs on that early exit so the throwaway package directory is removed either way.
+
+`--source` overrides the configured feeds, `--no-http-cache` stops NuGet from replaying a previously
+downloaded response, and `NUGET_PACKAGES` relocates the extracted packages. If this passes, the
+version is genuinely public.
+
 ## Version Numbering Guidelines
 
 NextUnit follows [Semantic Versioning](https://semver.org/):
@@ -261,7 +378,7 @@ Investigate what other changes were made. Revert to previous version if needed.
 When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
-2. **Use the checklist**: Update all 12 files/locations listed above
+2. **Use the checklist**: Update all nine files/locations listed above
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
