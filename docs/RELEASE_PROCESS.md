@@ -251,15 +251,27 @@ not all become visible at the same moment. The loop below covers all six publish
 also confirms the release itself completed; `NextUnit.Generator` and `NextUnit.TestAdapter` ship as
 assets rather than smoke dependencies, so they are a release check rather than a restore blocker.
 
+Save this as a script and run it rather than pasting it into an interactive shell, since `set -e`
+would close the shell on the first failure:
+
 ```bash
+set -e
+version=X.Y.Z
+missing=0
 for pkg in nextunit nextunit.core nextunit.generator nextunit.testadapter nextunit.platform nextunit.aspnetcore; do
-  printf '%s: ' "$pkg"
-  curl -s "https://api.nuget.org/v3-flatcontainer/$pkg/index.json" | grep -c '"X.Y.Z"'
+  if curl -sf "https://api.nuget.org/v3-flatcontainer/$pkg/index.json" | grep -q "\"$version\""; then
+    echo "ok      $pkg"
+  else
+    echo "MISSING $pkg"
+    missing=1
+  fi
 done
+test "$missing" -eq 0
 ```
 
-Indexing lags the GitHub release by several minutes. Do not open the bump PR until all six lines
-report `1`.
+Indexing lags the GitHub release by several minutes. Do not open the bump PR until every line reads
+`ok`; the closing `test` makes the script exit non-zero if any package is still missing, so a partial
+result cannot pass unnoticed.
 
 #### 2. Update the fallback in both projects
 
@@ -292,7 +304,10 @@ does not help because the cached transitive dependencies still cover the restore
 caches have to be bypassed at once - the global packages folder, the HTTP cache, and any extra feed
 configured in NuGet.config - so restore explicitly against nuget.org before building:
 
+Run this as a script too, for the same reason:
+
 ```bash
+set -e
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 for proj in tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
@@ -303,7 +318,9 @@ for proj in tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
 done
 ```
 
-The `trap` matters: without it each run leaves a full extracted package set behind in the temp area.
+`set -e` stops the script on the first failing project, so one bad fallback cannot be masked by the
+other project succeeding. The `trap` still runs on that early exit, so the throwaway package
+directory is removed either way.
 
 `--source` overrides the configured feeds, `--no-http-cache` stops NuGet from replaying a previously
 downloaded response, and `NUGET_PACKAGES` relocates the extracted packages. If this passes, the
