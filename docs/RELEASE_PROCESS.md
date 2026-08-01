@@ -244,13 +244,20 @@ has to be live on nuget.org first. Recent examples: #172, #179, #195.
 
 #### 1. Wait for nuget.org to index the new version
 
+Check every package, not just the two the smoke projects name directly. `NextUnit` depends on
+`NextUnit.Core` and `NextUnit.Platform` at the same version, and `NextUnit.AspNetCore` depends on
+`NextUnit.Core`, so a consumer restore still fails while any one of them is unindexed. The indexes do
+not all become visible at the same moment.
+
 ```bash
-curl -s https://api.nuget.org/v3-flatcontainer/nextunit/index.json | grep X.Y.Z
-curl -s https://api.nuget.org/v3-flatcontainer/nextunit.aspnetcore/index.json | grep X.Y.Z
+for pkg in nextunit nextunit.core nextunit.generator nextunit.testadapter nextunit.platform nextunit.aspnetcore; do
+  printf '%s: ' "$pkg"
+  curl -s "https://api.nuget.org/v3-flatcontainer/$pkg/index.json" | grep -c '"X.Y.Z"'
+done
 ```
 
-Indexing lags the GitHub release by several minutes. Do not open the bump PR until both commands
-report the new version.
+Indexing lags the GitHub release by several minutes. Do not open the bump PR until all six lines
+report `1`.
 
 #### 2. Update the fallback in both projects
 
@@ -276,12 +283,15 @@ changed:
 A local build with `UseLocalNextUnitPackage` left unset is the only path that exercises the fallback.
 
 **Cold cache caveat**: a warm global package cache lets the build succeed without proving that
-nuget.org has indexed anything. To make the build a genuine indexing check, restore with `--no-cache`
-or clear the cached packages first:
+nuget.org has indexed anything. Deleting a couple of package directories is not enough either, since
+the cached transitive dependencies are what the restore falls back on. Point the build at a throwaway
+package cache instead, so every NextUnit package has to come from nuget.org:
 
 ```bash
-dotnet nuget locals global-packages --list # locate the cache
-rm -rf ~/.nuget/packages/nextunit ~/.nuget/packages/nextunit.aspnetcore
+NUGET_PACKAGES=$(mktemp -d) \
+  dotnet build tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj --configuration Release
+NUGET_PACKAGES=$(mktemp -d) \
+  dotnet build tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj --configuration Release
 ```
 
 ## Version Numbering Guidelines
