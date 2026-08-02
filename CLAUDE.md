@@ -11,15 +11,8 @@ markdownlint --config .markdownlint.json <file>.md
 
 ## Release (src/*.cs changes only)
 
-Ask user before release. Update these files in separate commit:
-
-- `Directory.Build.props` - Version
-- `Directory.Packages.props` - NextUnit.* versions
-- `CHANGELOG.md` - Release notes
-- `README.md` - Version number and feature list
-- `NUGET_README.md` - Version number and feature list
-- `docs/GETTING_STARTED.md` - Package version in examples
-- `docs/MIGRATION_FROM_XUNIT.md` - Package version in examples
+Ask user before release. Update the nine release-time files in a separate commit;
+the Version Update Checklist in `docs/RELEASE_PROCESS.md` is the single source of truth.
 
 After PR merge, create GitHub Release → auto-publishes to NuGet
 
