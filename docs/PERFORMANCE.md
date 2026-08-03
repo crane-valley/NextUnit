@@ -76,8 +76,12 @@ Two properties are what the benchmark exists to prove. Deferred discovery is fla
 allocation: 1.3 KB and under twenty microseconds whether the source can produce 100 rows or 10,000,
 because the member is never called. And deferral moves work rather than multiplying it -- the
 execution fan-out costs what eager discovery would have cost, allocating 9,407.74 KB against eager's
-9,407.88 KB at 10,000 rows, so neither path builds an intermediate collection on top of the rows
-themselves.
+9,407.88 KB at 10,000 rows, so the expander holds the rows once rather than materializing them and
+then mapping them into a second collection.
+
+These figures cover the expander, which is where an intermediate collection proportional to the
+source could appear. They do not include the execution engine's merge of an expanded group into the
+run's single test case list, which copies one reference per row into a list the run needs anyway.
 
 The asynchronous fan-out is measured separately because it is the path where a second such collection
 could appear: its rows arrive one at a time through an enumerator rather than as a ready collection,

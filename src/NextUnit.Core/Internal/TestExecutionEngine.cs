@@ -326,6 +326,13 @@ public sealed class TestExecutionEngine
                 continue;
             }
 
+            // The rows are copied into the run's single list rather than the expander writing
+            // straight into it. That leaves the returned list alive for the length of one copy, and
+            // the alternative was considered and rejected: appending in place means a group whose
+            // source fails halfway has already contributed rows that would have to be truncated
+            // back out, trading a short-lived array of references -- eight bytes per row, against
+            // rows that are referenced once and shared -- for a new failure mode on the path where
+            // failures are expected. DependencyGraph.Build needs one list either way.
             expanded.AddRange(rows);
         }
 

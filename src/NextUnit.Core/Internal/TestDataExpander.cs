@@ -126,6 +126,12 @@ public static class TestDataExpander
     /// synchronous sequence is enumerated on the calling thread, so nothing outside this loop can
     /// interrupt one that keeps yielding. During discovery that only delays startup, but here the
     /// user has already asked a running test session to stop.
+    /// <para>
+    /// Enumerated explicitly rather than with <c>foreach</c> so the token is checked before each
+    /// <c>MoveNext</c> instead of after it. Producing the next row is the expensive half of a lazy
+    /// source, and a <c>foreach</c> would always advance the producer once more before the body
+    /// could observe cancellation, making the run pay for a row it will never use.
+    /// </para>
     /// </remarks>
     private static List<TestCaseDescriptor> ProjectSyncRows(
         RowProjector projector,
@@ -134,16 +140,32 @@ public static class TestDataExpander
     {
         var testCases = new List<TestCaseDescriptor>();
         var index = 0;
+        var enumerator = data.GetEnumerator();
 
-        foreach (var dataRow in data)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            testCases.Add(projector.Project(dataRow, index));
-            index++;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!enumerator.MoveNext())
+                {
+                    break;
+                }
+
+                testCases.Add(projector.Project(enumerator.Current, index));
+                index++;
+            }
+        }
+        finally
+        {
+            // IEnumerable.GetEnumerator returns the non-generic IEnumerator, which does not
+            // implement IDisposable, but the compiler-generated iterators this actually receives do.
+            (enumerator as IDisposable)?.Dispose();
         }
 
-        // The loop body never runs for an empty source, and its check never covers the step that
-        // ends the sequence, so a token cancelled during either would otherwise go unobserved.
+        // No check covers the MoveNext that ends the sequence -- the loop breaks on it rather than
+        // coming back round -- so a token cancelled during that step would otherwise go unobserved.
         cancellationToken.ThrowIfCancellationRequested();
         return testCases;
     }
