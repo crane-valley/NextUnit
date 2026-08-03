@@ -61,11 +61,11 @@ the missing work is metadata and scalable asynchronous enumeration.
 The .NET SDK ships MSTest, NUnit, and xUnit project templates, and TUnit publishes its own template.
 NextUnit's package is now self-contained, but users still have to create and edit a project by hand.
 
-- [ ] Publish a small `NextUnit.Templates` package with one C# `dotnet new nextunit` project
+- [x] Publish a small `NextUnit.Templates` package with one C# `dotnet new nextunit` project
   template.
-- [ ] Generate the minimal Microsoft.Testing.Platform project using only the `NextUnit` package and
+- [x] Generate the minimal Microsoft.Testing.Platform project using only the `NextUnit` package and
   one passing example test.
-- [ ] Verify install, creation, restore, build, discovery, execution, and uninstall from a clean
+- [x] Verify install, creation, restore, build, discovery, execution, and uninstall from a clean
   NuGet cache in CI.
 - Guardrail: do not add separate ASP.NET Core, Playwright, or Aspire templates until repeated user demand
   shows that the base template plus normal package references is insufficient.
@@ -120,6 +120,41 @@ decision rather than more schedules or report formats.
   removed immediately.
 - Guardrail: keep Dependabot as the update mechanism; CodeQL and SBOM generation remain demand-triggered,
   not standing roadmap work.
+
+### Priority 2 — The release checklist misdescribes how `Directory.Packages.props` carries the version
+
+Surfaced by the Codex review of the `NextUnit.Templates` change (2026-08-04) and confirmed to
+pre-date it. The Version Update Checklist tells the releaser to update six
+`<PackageVersion ... Version="X.Y.Z" />` entries in `Directory.Packages.props`, and the
+Troubleshooting section repeats the claim. All six entries actually read `$(NextUnitVersion)`, so the
+one value to change is the `<NextUnitVersion>` property. Following the instruction literally replaces
+six indirections with literals and leaves `NextUnitVersion` at the old value, which the release
+workflow's tag-versus-version gate then rejects.
+
+Left as-is here because it is orthogonal to the template package and touches instructions this change
+does not otherwise alter.
+
+- [ ] Rewrite the `Directory.Packages.props` checklist item and its Troubleshooting counterpart around
+  the single `<NextUnitVersion>` property.
+
+### Priority 2 — `--list-tests` reports no tests under Microsoft.Testing.Platform
+
+Surfaced while verifying the `dotnet new nextunit` template (2026-08-04) and confirmed to pre-date it:
+`tests/NextUnit.PackageSmoke`, which runs eight tests successfully, also reports
+`0 tests found` for `--list-tests`. The template is not involved.
+
+`NextUnitFramework.DiscoverAsync` publishes a `TestNodeUpdateMessage` for every discovered test, but
+the node carries no `DiscoveredTestNodeStateProperty`. Microsoft.Testing.Platform counts only nodes
+that carry it, so a discovery-only request reports nothing and exits with code 8 while an ordinary run
+of the same assembly reports and passes every test. Anything that lists before running — a
+`--list-tests` invocation, and any IDE or tool that discovers through the platform rather than the
+VSTest adapter — sees an empty assembly.
+
+Because of this, the `template-smoke` job proves discovery with `--minimum-expected-tests`, which
+fails when fewer tests than expected are reported, rather than with `--list-tests`.
+
+- [ ] Attach `DiscoveredTestNodeStateProperty` to the nodes published by `DiscoverAsync` and cover
+  `--list-tests` for a project that consumes NextUnit as a package.
 
 ### Priority 2 — Assert API defects found in the 2026-07-24 review
 

@@ -29,7 +29,16 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 
 ## Quick Start
 
-### Installation
+### New Project
+
+```bash
+dotnet new install NextUnit.Templates
+dotnet new nextunit -n MyProject.Tests
+```
+
+The generated project references only the `NextUnit` package and contains one passing example test.
+
+### Existing Project
 
 ```bash
 dotnet add package NextUnit

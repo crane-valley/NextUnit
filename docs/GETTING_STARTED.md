@@ -22,6 +22,19 @@ NextUnit is a modern, high-performance test framework for .NET that combines:
 ### Create a New Test Project
 
 ```bash
+# Install the template package once per machine
+dotnet new install NextUnit.Templates
+
+# Create a test project with one passing example test
+dotnet new nextunit -n MyProject.Tests
+cd MyProject.Tests
+```
+
+`dotnet new nextunit` produces the project described below, so you can skip straight to
+[Writing Your First Test](#writing-your-first-test). The remaining steps in this section cover the
+manual setup for an existing project.
+
+```bash
 # Create a new class library
 dotnet new classlib -n MyProject.Tests -f net10.0
 
