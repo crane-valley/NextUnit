@@ -258,7 +258,18 @@ internal sealed class NextUnitFramework :
         // that throws must not leave the source undisposed.
         using (cancellation)
         {
-            cancellation.Cancel();
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            {
+                // This runs from a finally block and from Dispose. A data source is free to register
+                // its own callback on the token it was handed, and letting one that throws escape
+                // here would replace whatever exception was already propagating with an unrelated
+                // cleanup failure -- the original cause of the run failing would simply vanish.
+                // Nothing downstream can act on it either: the build is already being abandoned.
+            }
         }
     }
 
