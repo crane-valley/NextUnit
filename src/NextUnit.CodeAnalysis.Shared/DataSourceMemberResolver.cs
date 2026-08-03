@@ -97,6 +97,28 @@ internal static class DataSourceMemberResolver
         return default;
     }
 
+    /// <summary>
+    /// Matches a by-value <c>System.Threading.CancellationToken</c> parameter.
+    /// </summary>
+    /// <remarks>
+    /// The reference kind is part of the test, not a detail: the generator emits the token as a
+    /// plain value argument, so a <c>ref</c> or <c>out</c> parameter would produce code that does
+    /// not compile. Rejecting it here leaves the member unbound, which is the same outcome as
+    /// before asynchronous sources existed.
+    /// <para>
+    /// Matched on symbol identity rather than <c>ToDisplayString</c> because this runs for every
+    /// candidate member: formatting a display string allocates, and this is an analyzer hot path.
+    /// </para>
+    /// </remarks>
     private static bool IsCancellationToken(IParameterSymbol parameter) =>
-        parameter.Type.ToDisplayString() == WellKnownTypeNames.CancellationToken;
+        parameter.RefKind == RefKind.None &&
+        parameter.Type is INamedTypeSymbol
+        {
+            Name: "CancellationToken",
+            ContainingNamespace:
+            {
+                Name: "Threading",
+                ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+            }
+        };
 }

@@ -166,6 +166,10 @@ internal sealed class NextUnitFramework :
 
         lock (_testCasesGate)
         {
+            // Reading _buildCancellation.Token after disposal throws from deep inside the token
+            // source; failing here instead names the object the caller actually misused.
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             // A build can fail after the caller that started it has already walked away, leaving a
             // faulted task nobody observed. Dropping it on acquisition means the next request
             // rebuilds, rather than being handed a failure that belonged to someone else.

@@ -35,6 +35,15 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
     {
         var method = (IMethodSymbol)context.Symbol;
 
+        // A method symbol action also fires for constructors, accessors, operators, and synthesized
+        // methods, none of which can carry a data source attribute. Skipping them early also keeps
+        // the fallback location safe: a synthesized symbol can have no location at all, and
+        // Locations[0] on one of those would crash the analyzer rather than report a diagnostic.
+        if (method.MethodKind != MethodKind.Ordinary || method.Locations.IsEmpty)
+        {
+            return;
+        }
+
         // Check method-level [TestData] attributes
         foreach (var attribute in method.GetAttributes())
         {
