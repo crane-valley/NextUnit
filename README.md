@@ -16,6 +16,7 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 - **Execution priority** - `[ExecutionPriority(N)]` for controlling test execution order
 - **Parameterized tests** - `[Arguments]`, `[TestData]`, `[Matrix]`, and typed per-row metadata
 - **Async data sources** - `[TestData]` accepts `IAsyncEnumerable<T>` and task-wrapped collection members
+- **Deferred data sources** - opt a very large `[TestData]` source out of discovery-time enumeration
 - **Combined data sources** - `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product
 - **Class data source** - `[ClassDataSource<T>]` with shared instance support
 - **Category/Tag filtering** - `[Category]`, `[Tag]` with CLI and environment variable support

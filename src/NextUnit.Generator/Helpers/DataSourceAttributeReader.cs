@@ -65,6 +65,9 @@ internal static class DataSourceAttributeReader
             var memberType = memberTypeArg ?? methodSymbol.ContainingType;
             string? memberTypeName = memberTypeArg?.ToDisplayString(AttributeHelper.FullyQualifiedTypeFormat);
 
+            var deferredEnumeration = attribute.NamedArguments
+                .Any(arg => arg.Key == "DeferredEnumeration" && arg.Value.Value is true);
+
             var member = ResolveDataSourceMember(memberType, memberName, knownDataSourceTypes);
 
             builder.Add(new TestDataSource(
@@ -72,7 +75,8 @@ internal static class DataSourceAttributeReader
                 memberTypeName,
                 member.Kind,
                 member.Shape,
-                member.AcceptsCancellationToken));
+                member.AcceptsCancellationToken,
+                deferredEnumeration));
         }
 
         return builder.ToImmutable();

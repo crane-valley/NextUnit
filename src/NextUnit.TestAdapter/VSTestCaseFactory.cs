@@ -13,7 +13,7 @@ internal static class VSTestCaseFactory
     /// </summary>
     /// <param name="descriptor">The test case descriptor.</param>
     /// <param name="source">The source assembly path.</param>
-    /// <param name="includeTraits">Whether to include category and tag traits. Default is true for discovery, false for execution results.</param>
+    /// <param name="includeTraits">Whether to include category and tag traits. Both discovery and execution results include them, because a deferred data source's rows are first seen during execution and would otherwise carry none.</param>
     /// <returns>A VSTest TestCase object.</returns>
     public static TestCase Create(TestCaseDescriptor descriptor, string source, bool includeTraits = true)
     {

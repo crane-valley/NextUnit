@@ -157,6 +157,11 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         // The run token is threaded into [TestData] expansion so an asynchronous data source is
         // interruptible; TestDataExpander does the blocking drain that this synchronous contract
         // requires, in one documented place rather than here.
+        //
+        // A deferred source still yields only its placeholder here, which is what makes the
+        // testIdsToRun filter below work: discovery published that same placeholder id, so it is the
+        // id the user can have selected. The execution engine replaces the placeholder with the real
+        // rows once the selection has been applied.
         AddExpandedTests<TestDataDescriptor>(
             registryType,
             "TestDataDescriptors",
@@ -187,7 +192,13 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         // Filter tests if specific tests were requested
         if (testIdsToRun != null)
         {
-            allTestCases = allTestCases.Where(t => testIdsToRun.Contains(t.Id.Value)).ToList();
+            // Derived once rather than rescanned per placeholder: a selection can hold thousands of
+            // ids, and matching each placeholder against all of them would grow with the product.
+            var selectedRowGroupIds = BuildSelectedRowGroupIds(testIdsToRun);
+
+            allTestCases = allTestCases
+                .Where(t => testIdsToRun.Contains(t.Id.Value) || StandsForSelectedRow(t, selectedRowGroupIds))
+                .ToList();
         }
         else
         {
@@ -231,6 +242,53 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             descriptors, selectedDescriptorIds, baseIdSelector, isExplicitSelector);
 
         destination.AddRange(expand(descriptorsToExpand.ToList()));
+    }
+
+    /// <summary>
+    /// Reports whether a deferred placeholder stands for one of the rows the user selected.
+    /// </summary>
+    /// <remarks>
+    /// A deferred row's id comes into existence only when a run produces it, but VSTest remembers
+    /// the test cases it saw in results, so the user can select one of those rows and run it again.
+    /// Discovery still offers nothing but the placeholder, whose id is the row id without its
+    /// <c>[index]</c> suffix, so an exact-id filter would drop it and the run would do nothing at
+    /// all -- a silent no-op in Test Explorer. Selecting a row therefore reruns its whole group,
+    /// which is the documented granularity of a deferred source.
+    /// <para>
+    /// The deferred check comes first so an ordinary test case, which is selected by its exact id,
+    /// can never be pulled into a run by a row id that happens to extend it.
+    /// </para>
+    /// </remarks>
+    internal static bool StandsForSelectedRow(TestCaseDescriptor testCase, HashSet<string> selectedRowGroupIds) =>
+        testCase.DeferredDataSource is not null && selectedRowGroupIds.Contains(testCase.Id.Value);
+
+    /// <summary>
+    /// Maps every selected row id back to the id of the group it was expanded from.
+    /// </summary>
+    /// <remarks>
+    /// A row id is its group's id followed by an <c>[index]</c> suffix, so dropping the suffix
+    /// yields the id discovery published. Selected ids that do not end in such a suffix are not row
+    /// ids and contribute nothing; they are already matched exactly by the caller.
+    /// </remarks>
+    internal static HashSet<string> BuildSelectedRowGroupIds(IEnumerable<string> selectedTestIds)
+    {
+        var groupIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var testId in selectedTestIds)
+        {
+            if (testId.Length == 0 || testId[^1] != ']')
+            {
+                continue;
+            }
+
+            var indexStart = testId.LastIndexOf('[');
+            if (indexStart > 0)
+            {
+                groupIds.Add(testId.Substring(0, indexStart));
+            }
+        }
+
+        return groupIds;
     }
 
     internal static HashSet<string> BuildSelectedDescriptorIds(IEnumerable<string> selectedTestIds)
@@ -285,6 +343,14 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         /// <remarks>
         /// Duration is always zero: the engine owns timing and does not report it through this
         /// sink, so reporting anything else here would be invented data.
+        /// <para>
+        /// Traits are attached to the result's test case even though discovery already sent them for
+        /// every test it reported. A deferred data source's rows are not among those: their ids come
+        /// into existence during the run, so VSTest has no trait information for them at all, and
+        /// omitting traits here would drop their categories and tags entirely. Repeating the traits
+        /// for an already-discovered test costs a handful of properties and keeps every result
+        /// self-describing regardless of when its test case first appeared.
+        /// </para>
         /// </remarks>
         private Task RecordResult(
             TestCaseDescriptor test,
@@ -294,7 +360,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             string? errorMessage = null,
             string? errorStackTrace = null)
         {
-            var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
+            var vsTestCase = VSTestCaseFactory.Create(test, _source);
             var result = new TestResult(vsTestCase)
             {
                 Outcome = outcome,

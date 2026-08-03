@@ -49,11 +49,11 @@ the missing work is metadata and scalable asynchronous enumeration.
 
 - [x] Accept cancellation-aware `IAsyncEnumerable<T>` member data and task/value-task-wrapped
   member collections without runtime reflection in the AOT path.
-- [ ] Add explicit deferred enumeration for very large data sets so discovery can expose one
+- [x] Add explicit deferred enumeration for very large data sets so discovery can expose one
   placeholder and enumerate rows only during execution.
-- [ ] Document the selection/filtering tradeoff of deferred rows and keep eager enumeration as the
+- [x] Document the selection/filtering tradeoff of deferred rows and keep eager enumeration as the
   default.
-- [ ] Benchmark discovery and execution with a 10,000-row source to prevent the feature from
+- [x] Benchmark discovery and execution with a 10,000-row source to prevent the feature from
   regressing startup or allocating an unbounded intermediate list.
 
 ### Priority 0 — One-command project creation
@@ -188,6 +188,38 @@ Running enumeration on a pool thread would close the gap and was rejected:
 
 Revisit only if a concrete report shows a source that cannot avoid blocking, and treat it as its own
 change with its own review rather than a follow-up to the async work.
+
+### Priority 2 — Async data source follow-ups deferred by the PR #202 review
+
+All three were raised in the final review round of the async member data work, replied to on the pull
+request, and deliberately left out of it: each one changes observable behavior or needs a design
+decision, and none of them was introduced by that change.
+
+- [ ] Abandoned work in the async data source path goes unobserved. `TestDataExpander` walks away
+  from a `MoveNextAsync` that lost its race against the cancellation token, and from the matching
+  `DisposeAsync`, on purpose -- awaiting either would reintroduce the hang the race exists to
+  prevent. Nothing observes those tasks afterwards, so a source that later faults raises
+  `TaskScheduler.UnobservedTaskException` from a task nobody owns. `NextUnitFramework.StartBuild`
+  already has the shape this needs: a fault-only continuation whose whole body reads
+  `task.Exception`. Applying it here means deciding whether an abandoned source's failure should stay
+  silent or be logged, which is a reporting decision rather than a drive-by fix.
+- [ ] A cancellation-token-taking member returning a type that implements both `IEnumerable<T>` and
+  `IAsyncEnumerable<T>` binds to nothing, with no diagnostic. `KnownDataSourceTypes.Classify` matches
+  the synchronous interface first, deliberately, so that a type which meant `IEnumerable<T>` before
+  async sources existed keeps meaning it. `DataSourceMemberResolver` then admits a token-taking
+  method only when the classification is asynchronous, so this member falls out of both passes and
+  resolves to nothing. `TestDataMemberAnalyzer` still finds a static member of that name, so `NU0003`
+  does not fire; the generator emits no provider; and the runtime reflection fallback invokes the
+  method with no arguments and reports a parameter-count failure that mentions neither the token nor
+  the reason. Closing it means either widening the resolver or reporting the combination as a
+  diagnostic, and that choice depends on which interface such a type is meant to be read through --
+  which is exactly what the sync-first rule already decided for the parameterless case.
+- [ ] Ambiguous row-type selection when a collection implements more than one `IEnumerable<T>`.
+  `NU0009` validates row values against the first constructed interface it finds, so a source type
+  implementing, say, both `IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>` is validated
+  against whichever the symbol enumeration happens to return first. Pre-existing and not specific to
+  async sources -- it affects synchronous `[TestData]` and `[ClassDataSource<T>]` the same way -- but
+  the fix is a deliberate precedence rule, not a tie-break chosen at random.
 
 ### Priority 2 — Data source member lookup is narrower than C# member access
 

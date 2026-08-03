@@ -12,6 +12,13 @@ namespace NextUnit.Internal;
 /// Rows of an asynchronous source are materialized during discovery exactly as synchronous rows
 /// are, so both kinds of source produce the same observable set of test cases and stay individually
 /// selectable and filterable in an IDE.
+/// <para>
+/// A descriptor with <see cref="TestDataDescriptor.DeferredEnumeration"/> is the exception: every
+/// entry point here yields one placeholder test case for it instead of reading its rows, and
+/// <see cref="ExpandDeferredAsync"/> is the only method that enumerates it. That asymmetry is the
+/// point -- discovery must stay O(1) per deferred source however it is reached, and only the
+/// execution engine is allowed to pay the enumeration cost.
+/// </para>
 /// </remarks>
 public static class TestDataExpander
 {
@@ -61,10 +68,103 @@ public static class TestDataExpander
 
         foreach (var descriptor in testDataDescriptors)
         {
+            if (descriptor.DeferredEnumeration)
+            {
+                testCases.Add(CreateDeferredPlaceholder(descriptor));
+                continue;
+            }
+
             var rows = await ResolveRowsAsync(descriptor, cancellationToken).ConfigureAwait(false);
             testCases.AddRange(ExpandRows(descriptor, rows));
         }
 
+        return testCases;
+    }
+
+    /// <summary>
+    /// Enumerates the rows of one deferred descriptor, ignoring
+    /// <see cref="TestDataDescriptor.DeferredEnumeration"/>.
+    /// </summary>
+    /// <param name="descriptor">The descriptor a placeholder was produced for.</param>
+    /// <param name="cancellationToken">The run token that cancels enumeration.</param>
+    /// <returns>A task producing the test cases the placeholder stands for.</returns>
+    /// <remarks>
+    /// The single place a deferred source is actually read. Called by
+    /// <see cref="TestExecutionEngine"/> before it builds the dependency graph, with the run
+    /// cancellation token rather than a discovery one.
+    /// </remarks>
+    public static async ValueTask<IReadOnlyList<TestCaseDescriptor>> ExpandDeferredAsync(
+        TestDataDescriptor descriptor,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+
+        // Checked before the provider runs. A source is deferred precisely because reading it is
+        // expensive, so a run that was cancelled before its first test must not start reading one.
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var projector = new RowProjector(descriptor);
+
+        if (descriptor.AsyncDataSourceProvider is { } asyncProvider)
+        {
+            // Projected row by row instead of materialized and mapped afterwards: holding the whole
+            // source as raw rows and again as test cases would put two collections proportional to
+            // the source in memory at once, on the one path that exists for sources large enough for
+            // that to matter.
+            return await MaterializeAsync(asyncProvider, cancellationToken, projector.Project)
+                .ConfigureAwait(false);
+        }
+
+        return ProjectSyncRows(projector, ResolveSyncRows(descriptor), cancellationToken);
+    }
+
+    /// <summary>
+    /// Projects a synchronous deferred source into test cases, checking the run token as it goes.
+    /// </summary>
+    /// <remarks>
+    /// The per-row check has no counterpart on the discovery paths, and deliberately so: a lazy
+    /// synchronous sequence is enumerated on the calling thread, so nothing outside this loop can
+    /// interrupt one that keeps yielding. During discovery that only delays startup, but here the
+    /// user has already asked a running test session to stop.
+    /// <para>
+    /// Enumerated explicitly rather than with <c>foreach</c> so the token is checked before each
+    /// <c>MoveNext</c> instead of after it. Producing the next row is the expensive half of a lazy
+    /// source, and a <c>foreach</c> would always advance the producer once more before the body
+    /// could observe cancellation, making the run pay for a row it will never use. Disposal is not
+    /// lost with the <c>foreach</c>: the enumerator is still released by a <c>using</c>.
+    /// </para>
+    /// </remarks>
+    private static List<TestCaseDescriptor> ProjectSyncRows(
+        RowProjector projector,
+        IEnumerable data,
+        CancellationToken cancellationToken)
+    {
+        var testCases = new List<TestCaseDescriptor>();
+        var index = 0;
+        var enumerator = data.GetEnumerator();
+
+        // IEnumerable.GetEnumerator returns the non-generic IEnumerator, which does not implement
+        // IDisposable, so the enumerator cannot be declared with using directly. The compiler
+        // generated iterators this actually receives do implement it, and using on a null-valued
+        // IDisposable is a no-op, so this covers both without a hand-written finally.
+        using var enumeratorDisposal = enumerator as IDisposable;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!enumerator.MoveNext())
+            {
+                break;
+            }
+
+            testCases.Add(projector.Project(enumerator.Current, index));
+            index++;
+        }
+
+        // No check covers the MoveNext that ends the sequence -- the loop breaks on it rather than
+        // coming back round -- so a token cancelled during that step would otherwise go unobserved.
+        cancellationToken.ThrowIfCancellationRequested();
         return testCases;
     }
 
@@ -86,28 +186,80 @@ public static class TestDataExpander
         TestDataDescriptor descriptor,
         CancellationToken cancellationToken)
     {
+        if (descriptor.DeferredEnumeration)
+        {
+            yield return CreateDeferredPlaceholder(descriptor);
+            yield break;
+        }
+
         foreach (var testCase in ExpandRows(descriptor, ResolveRows(descriptor, cancellationToken)))
         {
             yield return testCase;
         }
     }
 
-    private static IEnumerable<TestCaseDescriptor> ExpandRows(TestDataDescriptor descriptor, IEnumerable data)
+    /// <summary>
+    /// Builds the single test case that represents a deferred source before execution expands it.
+    /// </summary>
+    /// <remarks>
+    /// The identifier is the row prefix without a row index, so it is unique per <c>[TestData]</c>
+    /// attribute and still maps back to the descriptor's base id by splitting on the first
+    /// <c>':'</c>, which is how the VSTest adapter turns a selected test back into a descriptor.
+    /// </remarks>
+    private static TestCaseDescriptor CreateDeferredPlaceholder(TestDataDescriptor descriptor) =>
+        new TestCaseSeed(descriptor).CreateDeferredPlaceholder(BuildRowIdPrefix(descriptor), descriptor);
+
+    /// <summary>
+    /// Builds the identifier prefix shared by every row of one data source.
+    /// </summary>
+    /// <remarks>
+    /// The data source type and member name are part of it so that two <c>[TestData]</c> attributes
+    /// naming identically named members on different types cannot collide.
+    /// </remarks>
+    private static string BuildRowIdPrefix(TestDataDescriptor descriptor)
     {
         var dataSourceType = descriptor.DataSourceType ?? descriptor.TestClass;
-        var seed = new TestCaseSeed(descriptor);
-        var testMethod = seed.ResolveTestInvoker();
+        return $"{descriptor.BaseId}:{dataSourceType.FullName}.{descriptor.DataSourceName}";
+    }
 
-        // Include data source type and name in test ID to ensure uniqueness
-        // This handles cases where multiple [TestData] attributes point to identically named members on different classes
-        var idPrefix = $"{descriptor.BaseId}:{dataSourceType.FullName}.{descriptor.DataSourceName}";
+    private static IEnumerable<TestCaseDescriptor> ExpandRows(TestDataDescriptor descriptor, IEnumerable data)
+    {
+        var projector = new RowProjector(descriptor);
 
         var index = 0;
         foreach (var dataRow in data)
         {
-            var row = TestDataRowResolver.Resolve(dataRow);
-            yield return seed.CreateTestCase($"{idPrefix}[{index}]", row.Arguments, index, testMethod, row);
+            yield return projector.Project(dataRow, index);
             index++;
+        }
+    }
+
+    /// <summary>
+    /// Turns one raw data row into the test case it expands to.
+    /// </summary>
+    /// <remarks>
+    /// Split out of <see cref="ExpandRows"/> so the deferred asynchronous path can project each row
+    /// as it arrives rather than materializing the whole source first. The per-descriptor state --
+    /// the seed, the resolved invoker, and the id prefix -- is built once and reused for every row,
+    /// which is why this is an object rather than a closure per call.
+    /// </remarks>
+    private sealed class RowProjector
+    {
+        private readonly TestCaseSeed _seed;
+        private readonly TestMethodWithArgumentsDelegate? _testMethod;
+        private readonly string _idPrefix;
+
+        public RowProjector(TestDataDescriptor descriptor)
+        {
+            _seed = new TestCaseSeed(descriptor);
+            _testMethod = _seed.ResolveTestInvoker();
+            _idPrefix = BuildRowIdPrefix(descriptor);
+        }
+
+        public TestCaseDescriptor Project(object? dataRow, int index)
+        {
+            var row = TestDataRowResolver.Resolve(dataRow);
+            return _seed.CreateTestCase($"{_idPrefix}[{index}]", row.Arguments, index, _testMethod, row);
         }
     }
 
@@ -127,7 +279,7 @@ public static class TestDataExpander
         if (descriptor.AsyncDataSourceProvider is { } asyncProvider)
         {
             return Task
-                .Run(() => MaterializeAsync(asyncProvider, cancellationToken).AsTask())
+                .Run(() => MaterializeAsync(asyncProvider, cancellationToken, KeepRow).AsTask())
                 .GetAwaiter()
                 .GetResult();
         }
@@ -141,14 +293,19 @@ public static class TestDataExpander
     {
         if (descriptor.AsyncDataSourceProvider is { } asyncProvider)
         {
-            return await MaterializeAsync(asyncProvider, cancellationToken).ConfigureAwait(false);
+            return await MaterializeAsync(asyncProvider, cancellationToken, KeepRow).ConfigureAwait(false);
         }
 
         return ResolveSyncRows(descriptor);
     }
 
     /// <summary>
-    /// Drains an asynchronous row sequence into a list.
+    /// The identity projection used by the discovery paths, which map the rows afterwards.
+    /// </summary>
+    private static object? KeepRow(object? row, int index) => row;
+
+    /// <summary>
+    /// Drains an asynchronous row sequence into a list, projecting each row as it arrives.
     /// </summary>
     /// <remarks>
     /// Each pending move is raced against the token instead of simply awaited. Handing a token to
@@ -162,17 +319,25 @@ public static class TestDataExpander
     /// disposed: awaiting <c>DisposeAsync</c> would block on the very operation the race just
     /// walked away from, reintroducing the hang the race exists to prevent.
     /// </para>
+    /// <para>
+    /// The projection exists so the deferred path can build test cases directly and keep exactly one
+    /// collection proportional to the source. The discovery paths pass <see cref="KeepRow"/> and are
+    /// unaffected; routing both through one method keeps the cancellation and disposal handling
+    /// above in a single place rather than duplicating it for the deferred case.
+    /// </para>
     /// </remarks>
-    private static async ValueTask<IReadOnlyList<object?>> MaterializeAsync(
+    private static async ValueTask<List<TResult>> MaterializeAsync<TResult>(
         AsyncDataSourceProviderDelegate asyncProvider,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<object?, int, TResult> project)
     {
         // Checked before the provider runs: invoking it starts the member's work, and a
         // task-wrapped member cannot be called back once started, so an already-cancelled request
         // must not reach it at all.
         cancellationToken.ThrowIfCancellationRequested();
 
-        var rows = new List<object?>();
+        var rows = new List<TResult>();
+        var index = 0;
         var enumerator = asyncProvider(cancellationToken).GetAsyncEnumerator(cancellationToken);
         var enumeratorIsDisposable = true;
         var enumerationSucceeded = false;
@@ -211,7 +376,8 @@ public static class TestDataExpander
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                rows.Add(enumerator.Current);
+                rows.Add(project(enumerator.Current, index));
+                index++;
             }
 
             // The per-row check never runs for the move that ends the sequence, so a token cancelled

@@ -92,6 +92,7 @@ Microsoft.Testing.Platform in the repository's `global.json`:
 - **Async tests** - `Task`, `Task<T>`, `ValueTask`, and `ValueTask<T>` return types for tests and lifecycle hooks
 - **Test artifacts** - Attach screenshots, logs, videos to test results
 - **Async data sources** - `[TestData]` accepts `IAsyncEnumerable<T>` and task-wrapped collection members
+- **Deferred data sources** - opt a very large `[TestData]` source out of discovery-time enumeration
 - **Combined data sources** - `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product
 - **Matrix data source** - `[Matrix]` for Cartesian product test generation
 - **Class data source** - `[ClassDataSource<T>]` with shared instance support

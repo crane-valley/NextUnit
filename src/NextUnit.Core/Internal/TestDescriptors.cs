@@ -256,6 +256,7 @@ public sealed class TestCaseDescriptor
         CustomDisplayNameTemplate = other.CustomDisplayNameTemplate;
         DisplayNameFormatterType = other.DisplayNameFormatterType;
         Priority = other.Priority;
+        DeferredDataSource = other.DeferredDataSource;
     }
 
     /// <summary>
@@ -401,6 +402,18 @@ public sealed class TestCaseDescriptor
     public int Priority { get; init; }
 
     /// <summary>
+    /// Gets or initializes the data source this test case stands in for until execution expands it,
+    /// or <c>null</c> for an ordinary test case.
+    /// </summary>
+    /// <remarks>
+    /// Set only on the single placeholder produced for a <c>[TestData]</c> source declared with
+    /// <see cref="NextUnit.TestDataAttribute.DeferredEnumeration"/>. A placeholder carries no
+    /// invoker and never executes: <see cref="TestExecutionEngine"/> replaces it with the real rows
+    /// before the dependency graph is built, so everything downstream sees ordinary test cases.
+    /// </remarks>
+    public TestDataDescriptor? DeferredDataSource { get; init; }
+
+    /// <summary>
     /// Creates a copy of the current <see cref="TestCaseDescriptor"/> with updated skip-related properties.
     /// </summary>
     /// <param name="reason">The reason for skipping the test.</param>
@@ -481,6 +494,17 @@ public sealed class TestDataDescriptor
     /// synchronous or asynchronous, and the expander prefers this one when both are present.
     /// </remarks>
     public AsyncDataSourceProviderDelegate? AsyncDataSourceProvider { get; init; }
+
+    /// <summary>
+    /// Gets or initializes a value indicating whether the rows are enumerated during execution
+    /// rather than during discovery.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors <see cref="NextUnit.TestDataAttribute.DeferredEnumeration"/>. Discovery reports one
+    /// placeholder test case for the whole source instead of one per row, so the rows are not
+    /// individually selectable or filterable; see the attribute for the full tradeoff.
+    /// </remarks>
+    public bool DeferredEnumeration { get; init; }
 
     /// <summary>
     /// Gets or initializes the lifecycle hooks configuration for the test.

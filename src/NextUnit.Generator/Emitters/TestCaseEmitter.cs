@@ -138,6 +138,14 @@ internal static class TestCaseEmitter
             writer.WriteLine($"AsyncDataSourceProvider = {asyncDataSourceProvider},");
         }
 
+        // Emitted only when opted in, for the same reason as the asynchronous provider above: the
+        // descriptor property already defaults to false, and writing it unconditionally would churn
+        // every existing snapshot baseline for no gain.
+        if (dataSource.DeferredEnumeration)
+        {
+            writer.WriteLine("DeferredEnumeration = true,");
+        }
+
         writer.WriteLine($"ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
         EmitLifecycleAndParallelBlock(writer, test, lifecycleMethods);
         EmitDependencyAndSkipBlock(writer, test);
