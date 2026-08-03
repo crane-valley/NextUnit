@@ -36,8 +36,10 @@ internal sealed class NextUnitFramework :
     private Task<IReadOnlyList<TestCaseDescriptor>>? _testCasesTask;
 
     // The build is shared by every request, so it cannot borrow any single request's token; it gets
-    // its own, cancelled when the framework is disposed.
-    private readonly CancellationTokenSource _buildCancellation = new();
+    // its own. _buildWaiters counts the requests currently awaiting it, which is what lets an
+    // unfinished build be cancelled once its last waiter leaves without disturbing the others.
+    private CancellationTokenSource? _buildCancellation;
+    private int _buildWaiters;
     private readonly TestFilterConfiguration _filterConfig;
 
     private readonly SessionLifecycleRunner _sessionHooks = new();
@@ -155,10 +157,16 @@ internal sealed class NextUnitFramework :
     /// </summary>
     /// <remarks>
     /// The build task is shared, so the data source members run once per process however many
-    /// requests the platform issues. It runs on the framework's own token rather than any single
-    /// request's, and each caller cancels only its own wait, so one cancelled request cannot abort
-    /// another that is merely awaiting the same result. A build that ends in failure is dropped
-    /// rather than memoized, so the next request rebuilds instead of replaying the failure.
+    /// requests the platform issues. It runs on its own token rather than any single request's, and
+    /// each caller cancels only its own wait, so one cancelled request cannot abort another that is
+    /// merely awaiting the same result. A build that ends in failure is dropped rather than
+    /// memoized, so the next request rebuilds instead of replaying the failure.
+    /// <para>
+    /// Waiters are counted so an unfinished build does not outlive its audience. When the last
+    /// waiter walks away from a build that is still running, nothing will ever observe it, so it is
+    /// cancelled and dropped instead of being left cached where every later request would inherit
+    /// the same stuck work and whatever resources its data source is holding.
+    /// </para>
     /// </remarks>
     private async Task<IReadOnlyList<TestCaseDescriptor>> GetTestCasesAsync(CancellationToken cancellationToken)
     {
@@ -166,8 +174,8 @@ internal sealed class NextUnitFramework :
 
         lock (_testCasesGate)
         {
-            // Reading _buildCancellation.Token after disposal throws from deep inside the token
-            // source; failing here instead names the object the caller actually misused.
+            // Starting a build after disposal would hand the data sources an already-cancelled
+            // token; failing here instead names the object the caller actually misused.
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             // A build can fail after the caller that started it has already walked away, leaving a
@@ -175,38 +183,84 @@ internal sealed class NextUnitFramework :
             // rebuilds, rather than being handed a failure that belonged to someone else.
             if (_testCasesTask is { IsCompleted: true, IsCompletedSuccessfully: false })
             {
-                _testCasesTask = null;
+                DetachBuild();
             }
 
-            // BuildTestCasesAsync runs synchronously up to its first await, so the synchronous data
-            // sources are still expanded under the gate exactly as they were before.
-            buildTask = _testCasesTask ??= StartBuild();
+            if (_testCasesTask is null)
+            {
+                _buildCancellation = new CancellationTokenSource();
+
+                // BuildTestCasesAsync runs synchronously up to its first await, so the synchronous
+                // data sources are still expanded under the gate exactly as they were before.
+                _testCasesTask = StartBuild(_buildCancellation.Token);
+            }
+
+            buildTask = _testCasesTask;
+            _buildWaiters++;
         }
 
         try
         {
-            // The shared build runs on the framework's own token, and each caller cancels only its
-            // own wait. Binding the build to whichever request happened to start it would let a
-            // cancelled discovery abort an unrelated run that is merely awaiting the same result.
+            // Each caller cancels only its own wait. Binding the build to whichever request happened
+            // to start it would let a cancelled discovery abort an unrelated run that is merely
+            // awaiting the same result.
             return await buildTask.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch
+        finally
         {
-            // Only a build that actually failed is dropped, so the next request rebuilds instead of
-            // replaying the failure. A caller whose own wait was cancelled leaves the shared build
-            // alone: it may still be serving another request.
-            if (buildTask.IsCompleted && !buildTask.IsCompletedSuccessfully)
-            {
-                lock (_testCasesGate)
-                {
-                    if (ReferenceEquals(_testCasesTask, buildTask))
-                    {
-                        _testCasesTask = null;
-                    }
-                }
-            }
+            ReleaseBuild(buildTask);
+        }
+    }
 
-            throw;
+    /// <summary>
+    /// Records that one waiter has left, cancelling the build if it was the last one.
+    /// </summary>
+    private void ReleaseBuild(Task<IReadOnlyList<TestCaseDescriptor>> buildTask)
+    {
+        CancellationTokenSource? abandoned = null;
+
+        lock (_testCasesGate)
+        {
+            _buildWaiters--;
+
+            if (_buildWaiters == 0 &&
+                !buildTask.IsCompleted &&
+                ReferenceEquals(_testCasesTask, buildTask))
+            {
+                abandoned = _buildCancellation;
+                DetachBuild();
+            }
+        }
+
+        // Cancelled outside the gate: Cancel runs its registered callbacks inline, and running
+        // arbitrary continuation work while holding the lock every request needs is how a
+        // discovery-time stall turns into a deadlock.
+        CancelAndDispose(abandoned);
+    }
+
+    /// <summary>
+    /// Forgets the current build so the next request starts a fresh one. Callers hold the gate.
+    /// </summary>
+    private void DetachBuild()
+    {
+        _testCasesTask = null;
+        _buildCancellation = null;
+    }
+
+    private static void CancelAndDispose(CancellationTokenSource? cancellation)
+    {
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cancellation.Cancel();
+        }
+        finally
+        {
+            cancellation.Dispose();
         }
     }
 
@@ -221,6 +275,8 @@ internal sealed class NextUnitFramework :
     /// </remarks>
     public void Dispose()
     {
+        CancellationTokenSource? abandoned;
+
         // Idempotent: Cancel() on an already-disposed source throws, and a host is free to dispose
         // an extension more than once.
         lock (_testCasesGate)
@@ -231,18 +287,11 @@ internal sealed class NextUnitFramework :
             }
 
             _disposed = true;
+            abandoned = _buildCancellation;
+            DetachBuild();
         }
 
-        // Disposal runs in a finally so a cancellation callback that throws cannot leave the source
-        // undisposed forever: _disposed is already committed, so no later call would retry it.
-        try
-        {
-            _buildCancellation.Cancel();
-        }
-        finally
-        {
-            _buildCancellation.Dispose();
-        }
+        CancelAndDispose(abandoned);
     }
 
     /// <summary>
@@ -254,9 +303,9 @@ internal sealed class NextUnitFramework :
     /// <see cref="TaskScheduler.UnobservedTaskException"/>; the failure still propagates normally to
     /// anyone who does await the task.
     /// </remarks>
-    private Task<IReadOnlyList<TestCaseDescriptor>> StartBuild()
+    private Task<IReadOnlyList<TestCaseDescriptor>> StartBuild(CancellationToken cancellationToken)
     {
-        var buildTask = BuildTestCasesAsync(_buildCancellation.Token);
+        var buildTask = BuildTestCasesAsync(cancellationToken);
 
         _ = buildTask.ContinueWith(
             static failed => _ = failed.Exception,

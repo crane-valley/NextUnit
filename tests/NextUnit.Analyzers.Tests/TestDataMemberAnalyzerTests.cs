@@ -499,6 +499,39 @@ public class TestDataMemberAnalyzerTests
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
+    /// <summary>
+    /// A cancellation-aware member whose awaited value supplies no rows is still reported. Staying
+    /// silent would leave nothing but a parameter-count failure from the runtime reflection
+    /// fallback, since the generator emits no provider for this shape either.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithCancellableBareTask_ReportsUnsupportedAwaitableAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static Task Rows(CancellationToken cancellationToken) => Task.CompletedTask;
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0014")
+            .WithLocation(0)
+            .WithArguments("Rows", "Task");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
     [Fact]
     public async Task TestDataWithTaskWrappedScalar_ReportsUnsupportedAwaitableAsync()
     {

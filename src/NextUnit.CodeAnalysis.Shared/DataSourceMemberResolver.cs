@@ -88,9 +88,20 @@ internal static class DataSourceMemberResolver
                 continue;
             }
 
-            if (knownDataSourceTypes.Classify(method.ReturnType).IsAsync)
+            var classification = knownDataSourceTypes.Classify(method.ReturnType);
+
+            if (classification.IsAsync)
             {
                 return new ResolvedDataSourceMember(method, method.ReturnType, true);
+            }
+
+            // An awaitable that supplies no rows is still returned, without being marked bindable.
+            // Reporting it is the whole point of NU0014, and staying silent here would leave the
+            // user with only a parameter-count failure from the runtime reflection fallback. The
+            // generator emits no provider for this shape, so returning it changes nothing it emits.
+            if (classification.Shape == DataSourceShape.UnsupportedAwaitable)
+            {
+                return new ResolvedDataSourceMember(method, method.ReturnType, false);
             }
         }
 
