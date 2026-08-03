@@ -244,14 +244,18 @@ public static class TestDataExpander
         CancellationToken cancellationToken)
     {
         var dispose = enumerator.DisposeAsync();
-        if (dispose.IsCompleted)
-        {
-            dispose.GetAwaiter().GetResult();
-            return;
-        }
 
         try
         {
+            // Both completion paths share one filter. Splitting them let a synchronously cancelled
+            // DisposeAsync throw straight out of this method, and since it runs from a finally that
+            // cancellation would have replaced the actual data source failure the caller needs.
+            if (dispose.IsCompleted)
+            {
+                dispose.GetAwaiter().GetResult();
+                return;
+            }
+
             await dispose.AsTask().WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

@@ -279,6 +279,21 @@ internal sealed class NextUnitFramework :
         }
     }
 
+    /// <summary>
+    /// Reports whether a failure from cancellation is one that must never be suppressed.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="CancellationTokenSource.Cancel()"/> wraps callback failures in an
+    /// <see cref="AggregateException"/>, which is itself never critical, so testing only the outer
+    /// exception would swallow an <see cref="OutOfMemoryException"/> thrown by a data source's own
+    /// cancellation callback. The aggregate is flattened first because a callback is free to throw
+    /// an aggregate of its own.
+    /// </remarks>
+    private static bool IsCriticalFailure(Exception exception) =>
+        exception is AggregateException aggregate
+            ? aggregate.Flatten().InnerExceptions.Any(ExceptionHelper.IsCriticalException)
+            : ExceptionHelper.IsCriticalException(exception);
+
     private static void CancelAndDispose(CancellationTokenSource? cancellation)
     {
         if (cancellation is null)
@@ -294,7 +309,7 @@ internal sealed class NextUnitFramework :
             {
                 cancellation.Cancel();
             }
-            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            catch (Exception ex) when (!IsCriticalFailure(ex))
             {
                 // This runs from a finally block and from Dispose. A data source is free to register
                 // its own callback on the token it was handed, and letting one that throws escape

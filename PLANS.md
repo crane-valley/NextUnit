@@ -169,19 +169,28 @@ deliberate design decision rather than a drive-by fix.
   Resolved: added an `[AssemblyTeardown]` synthetic node mirroring the class-scope nodes, so the
   failure is a test result in both adapters instead of an exception thrown out of `RunAsync`.
 
-### Priority 2 — Non-public data source members break the generated registry
+### Priority 2 — Data source member lookup is narrower than C# member access
 
-Surfaced by the async data source review (2026-08-03) and verified to pre-date it: the generator
-emits direct member access from `NextUnit.Generated.GeneratedTestRegistry`, so a `[TestData]` member
-that is `private` or `protected` produces `CS0122` in the consumer's build. `TestDataMemberAnalyzer`
-accepts such members because the runtime reflection fallback uses `BindingFlags.NonPublic`, so the
-analyzer and the generator disagree about what is valid. Async sources inherit the behavior
-unchanged rather than widening it.
+Both items were surfaced by the async data source review (2026-08-03) and verified against `main` to
+pre-date it. Async sources inherit each behavior unchanged rather than widening it.
+
+Non-public members break the generated registry. The generator emits direct member access from
+`NextUnit.Generated.GeneratedTestRegistry`, so a `[TestData]` member that is `private` or `protected`
+produces `CS0122` in the consumer's build. `TestDataMemberAnalyzer` accepts such members because the
+runtime reflection fallback uses `BindingFlags.NonPublic`, so the analyzer and the generator disagree
+about what is valid.
+
+Inherited members are not found at all. Member lookup uses `INamedTypeSymbol.GetMembers`, which does
+not walk the base type chain, so a `[TestData]` member declared on a base test class is reported as
+`NU0003` even though C# resolves `Derived.Rows` fine. The runtime reflection fallback misses it the
+same way, because `Type.GetMethod` does not return inherited statics without `FlattenHierarchy`.
 
 - [ ] Decide between emitting an accessibility-safe accessor and reporting non-public data source
   members as a diagnostic, then align `TestDataMemberAnalyzer` with the decision.
-- [ ] Cover `private`, `protected`, and `internal` members on the synchronous and asynchronous paths
-  once the decision is made.
+- [ ] Walk the base type chain during member lookup, preserving the parameterless-overload precedence
+  the generator and the analyzer now share.
+- [ ] Cover `private`, `protected`, `internal`, and inherited members on the synchronous and
+  asynchronous paths once the decisions are made.
 
 ### Priority 2 — Lifecycle follow-ups deferred by the 2026-07-26 refactor review
 
