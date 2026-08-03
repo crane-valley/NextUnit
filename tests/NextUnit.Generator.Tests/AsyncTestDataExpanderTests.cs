@@ -133,6 +133,45 @@ public sealed class AsyncTestDataExpanderTests
             async () => await TestDataExpander.ExpandAsync([descriptor], cancellation.Token));
     }
 
+    /// <summary>
+    /// A source that blocks forever inside <c>MoveNextAsync</c> must still be interruptible.
+    /// Forwarding the token cannot cancel a move that is already in flight, so only the expander's
+    /// race against the token can end this.
+    /// </summary>
+    [Fact]
+    public async Task ExpandAsync_SourceThatNeverYields_IsStillCancellableAsync()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var enumerationStarted = new TaskCompletionSource();
+        var descriptor = CreateDescriptor(
+            "NeverYieldingRows",
+            _ => NeverYieldingRowsAsync(enumerationStarted));
+
+        var expansion = TestDataExpander.ExpandAsync([descriptor], cancellation.Token).AsTask();
+        await enumerationStarted.Task;
+        await cancellation.CancelAsync();
+
+        await Xunit.Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await expansion);
+    }
+
+    /// <summary>
+    /// The same guarantee for a task-wrapped source, which takes no token at all.
+    /// </summary>
+    [Fact]
+    public async Task ExpandAsync_TaskSourceThatNeverCompletes_IsStillCancellableAsync()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var pending = new TaskCompletionSource<IEnumerable<object[]>>();
+        var descriptor = CreateDescriptor(
+            "PendingTaskRows",
+            ct => AsyncDataSourceAdapter.FromTaskAsync(pending.Task, ct));
+
+        var expansion = TestDataExpander.ExpandAsync([descriptor], cancellation.Token).AsTask();
+        await cancellation.CancelAsync();
+
+        await Xunit.Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await expansion);
+    }
+
     [Fact]
     public async Task ExpandAsync_SourceThrows_PropagatesOriginalExceptionAsync()
     {
@@ -234,6 +273,17 @@ public sealed class AsyncTestDataExpanderTests
         yield return [1, 2, 3];
         await cancellation.CancelAsync();
         yield return [4, 5, 9];
+    }
+
+    /// <summary>
+    /// Signals that enumeration reached the source, then never produces a row and never observes
+    /// any token.
+    /// </summary>
+    private static async IAsyncEnumerable<object?> NeverYieldingRowsAsync(TaskCompletionSource enumerationStarted)
+    {
+        enumerationStarted.SetResult();
+        await new TaskCompletionSource().Task;
+        yield return new object[] { 1, 2, 3 };
     }
 
     private static async IAsyncEnumerable<object[]> ThrowingRowsAsync(

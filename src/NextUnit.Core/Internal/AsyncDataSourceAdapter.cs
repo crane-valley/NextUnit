@@ -55,7 +55,11 @@ public static class AsyncDataSourceAdapter
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        var rows = await source.ConfigureAwait(false);
+        // A task-wrapped member takes no token, so awaiting it directly would make discovery
+        // uninterruptible for as long as the member takes. WaitAsync gives the wait back to the
+        // caller on cancellation; the member's own task is left to finish on its own, because
+        // there is no way to reach into it and nothing useful left to do with its result.
+        var rows = await source.WaitAsync(cancellationToken).ConfigureAwait(false);
         if (rows is null)
         {
             throw new InvalidOperationException(

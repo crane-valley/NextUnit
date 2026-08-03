@@ -147,17 +147,73 @@ public static class TestDataExpander
         return ResolveSyncRows(descriptor);
     }
 
+    /// <summary>
+    /// Drains an asynchronous row sequence into a list.
+    /// </summary>
+    /// <remarks>
+    /// Each pending move is raced against the token instead of simply awaited. Handing a token to
+    /// a source does not make it observe one, and forwarding a token cancels neither a
+    /// <c>MoveNextAsync</c> that is already in flight nor the member call behind it, so a plain
+    /// <c>await foreach</c> would let a source that never yields hang discovery with no way out.
+    /// This is the outermost consumer of the row sequence, so racing here also covers whatever the
+    /// provider delegate wraps.
+    /// <para>
+    /// A move abandoned this way leaves the enumerator mid-operation, so it is deliberately not
+    /// disposed: awaiting <c>DisposeAsync</c> would block on the very operation the race just
+    /// walked away from, reintroducing the hang the race exists to prevent.
+    /// </para>
+    /// </remarks>
     private static async ValueTask<IReadOnlyList<object?>> MaterializeAsync(
         AsyncDataSourceProviderDelegate asyncProvider,
         CancellationToken cancellationToken)
     {
         var rows = new List<object?>();
+        var enumerator = asyncProvider(cancellationToken).GetAsyncEnumerator(cancellationToken);
+        var enumeratorIsDisposable = true;
 
-        await foreach (var row in asyncProvider(cancellationToken)
-            .WithCancellation(cancellationToken)
-            .ConfigureAwait(false))
+        try
         {
-            rows.Add(row);
+            while (true)
+            {
+                var move = enumerator.MoveNextAsync();
+
+                bool hasRow;
+                if (move.IsCompleted)
+                {
+                    // The synchronous completion path, which is the common one: taking it avoids
+                    // allocating a Task per row.
+                    hasRow = move.GetAwaiter().GetResult();
+                }
+                else
+                {
+                    var moveTask = move.AsTask();
+                    try
+                    {
+                        hasRow = await moveTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        // Only an abandoned move leaves the enumerator unusable. One that
+                        // completed, successfully or not, can still be disposed normally.
+                        enumeratorIsDisposable = moveTask.IsCompleted;
+                    }
+                }
+
+                if (!hasRow)
+                {
+                    break;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                rows.Add(enumerator.Current);
+            }
+        }
+        finally
+        {
+            if (enumeratorIsDisposable)
+            {
+                await enumerator.DisposeAsync().ConfigureAwait(false);
+            }
         }
 
         return rows;
