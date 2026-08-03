@@ -96,6 +96,12 @@ jobs:
             --output ./artifacts/packages \
             --no-build
 
+          echo "Packing NextUnit.Templates..."
+          dotnet pack src/NextUnit.Templates/NextUnit.Templates.csproj \
+            --configuration Release \
+            --output ./artifacts/packages \
+            --no-build
+
           echo "Packages created:"
           ls -lh ./artifacts/packages/*.nupkg
 
@@ -109,6 +115,7 @@ jobs:
             NextUnit.Platform
             NextUnit.TestAdapter
             NextUnit.AspNetCore
+            NextUnit.Templates
           )
           for package in "${packages[@]}"; do
             path="./artifacts/packages/$package.$PACKAGE_VERSION.nupkg"

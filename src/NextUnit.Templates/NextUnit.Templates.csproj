@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- A template package ships template content only. netstandard2.0 is the target framework the
+         template engine documents for these packages, and it is unrelated to the net10.0 projects
+         the template itself generates. -->
+    <PackageType>Template</PackageType>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- NoDefaultExcludes keeps the dot-prefixed .template.config directory in the package; without
+         it NuGet drops the only files that make the content a template. NU5128 is the missing-lib
+         warning every content-only package produces. -->
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+    <!-- Package Information -->
+    <IsPackable>true</IsPackable>
+    <PackageId>NextUnit.Templates</PackageId>
+    <Description>dotnet new templates for NextUnit. Installs the "nextunit" project template, which creates a Microsoft.Testing.Platform test project referencing only the NextUnit package.</Description>
+    <PackageTags>$(PackageTags);dotnet-new;template;templates;scaffolding</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The generated projects under templates/ are package content, never compilation inputs of
+         this repository: they reference NextUnit as a published package and target net10.0, so
+         building them here would resolve against this repository's central package versions instead
+         of what a consumer gets. -->
+    <Content Include="templates\**\*" Exclude="templates\**\bin\**;templates\**\obj\**" />
+    <Compile Remove="**\*" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

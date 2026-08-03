@@ -5,7 +5,7 @@ This guide is designed to be read by both humans and Copilot agents to ensure co
 
 ## Overview
 
-NextUnit consists of six NuGet packages:
+NextUnit consists of seven NuGet packages:
 
 - **NextUnit** (meta-package) - Aggregates all components
 - **NextUnit.Core** - Core attributes, assertions, execution engine
@@ -13,6 +13,7 @@ NextUnit consists of six NuGet packages:
 - **NextUnit.TestAdapter** - VSTest adapter for Visual Studio Test Explorer
 - **NextUnit.Platform** - Microsoft.Testing.Platform integration (legacy)
 - **NextUnit.AspNetCore** - ASP.NET Core integration testing support
+- **NextUnit.Templates** - `dotnet new nextunit` project template
 
 All packages share the same version number and are released together.
 
@@ -45,6 +46,21 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
      - `<PackageVersion Include="NextUnit.TestAdapter" Version="X.Y.Z" />`
      - `<PackageVersion Include="NextUnit.Platform" Version="X.Y.Z" />`
      - `<PackageVersion Include="NextUnit.AspNetCore" Version="X.Y.Z" />`
+   - `NextUnit.Templates` is deliberately absent. Central package management describes packages this
+     repository *consumes*, and nothing here references the template package; it takes its version
+     from `Directory.Build.props` like every other package.
+
+### Template Content Files
+
+1. **src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj**
+   - Location: `/src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj`
+   - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />`
+   - This file ships as package content and is generated into a project outside this repository, so
+     it cannot resolve its version through `Directory.Packages.props` the way an in-repo project
+     does. The literal is the only place the generated project learns which NextUnit to restore.
+   - The `template-smoke` job in `.github/workflows/dotnet.yml` compares this literal against
+     `Directory.Build.props` and fails the build when they diverge, so a forgotten bump surfaces on
+     the release PR rather than in a user's first `dotnet new nextunit`.
 
 ### Documentation Files
 
@@ -130,8 +146,9 @@ git checkout -b release/vX.Y.Z main
 
 ### 2. Update All Version References
 
-Follow the Version Update Checklist above and update all nine files
-(two core version files, four documentation files, three user documentation files).
+Follow the Version Update Checklist above and update all ten files
+(two core version files, one template content file, four documentation files,
+three user documentation files).
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -175,6 +192,7 @@ dotnet pack src/NextUnit.Platform/NextUnit.Platform.csproj -c Release -o ./artif
 dotnet pack src/NextUnit.TestAdapter/NextUnit.TestAdapter.csproj -c Release -o ./artifacts
 dotnet pack src/NextUnit.AspNetCore/NextUnit.AspNetCore.csproj -c Release -o ./artifacts
 dotnet pack src/NextUnit/NextUnit.csproj -c Release -o ./artifacts
+dotnet pack src/NextUnit.Templates/NextUnit.Templates.csproj -c Release -o ./artifacts
 ```
 
 ### 6. Commit and Create PR
@@ -207,8 +225,8 @@ Creating a release on GitHub automatically triggers the NuGet package publishing
 
 - GitHub Actions workflow (`.github/workflows/release.yml`) is triggered
 - Packages are built and packed
-- All six packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter,
-  NextUnit.Platform, NextUnit.AspNetCore)
+- All seven packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter,
+  NextUnit.Platform, NextUnit.AspNetCore, NextUnit.Templates)
   are published to NuGet.org using GitHub OIDC authentication
 - No manual API key or `dotnet nuget push` commands needed
 
@@ -258,11 +276,12 @@ has to be live on nuget.org first. Recent examples: #172, #179, #195.
 Checking the two packages the smoke projects name directly is not enough. `NextUnit` depends on
 `NextUnit.Core` and `NextUnit.Platform` at the same version, and `NextUnit.AspNetCore` depends on
 `NextUnit.Core`, so the restore still fails while any of those four is unindexed, and the indexes do
-not all become visible at the same moment. The loop below covers all six published packages, which
-also confirms the release itself completed. The remaining two are a release check rather than a
+not all become visible at the same moment. The loop below covers all seven published packages, which
+also confirms the release itself completed. The remaining three are a release check rather than a
 restore blocker, for different reasons: `NextUnit.Generator` is bundled into `NextUnit` as an
-analyzer asset instead of being declared as a dependency, while `NextUnit.TestAdapter` is an ordinary
-package that the smoke projects simply do not reference.
+analyzer asset instead of being declared as a dependency, `NextUnit.TestAdapter` is an ordinary
+package that the smoke projects simply do not reference, and `NextUnit.Templates` carries no
+dependencies at all.
 
 Save this as a script and run it rather than pasting it into an interactive shell, where the closing
 `test` would end your session:
@@ -271,7 +290,7 @@ Save this as a script and run it rather than pasting it into an interactive shel
 set -e
 version=X.Y.Z
 missing=0
-for pkg in nextunit nextunit.core nextunit.generator nextunit.testadapter nextunit.platform nextunit.aspnetcore; do
+for pkg in nextunit nextunit.core nextunit.generator nextunit.testadapter nextunit.platform nextunit.aspnetcore nextunit.templates; do
   if curl -sf "https://api.nuget.org/v3-flatcontainer/$pkg/index.json" | grep -q "\"$version\""; then
     echo "ok      $pkg"
   else
@@ -389,7 +408,7 @@ Investigate what other changes were made. Revert to previous version if needed.
 When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
-2. **Use the checklist**: Update all nine files/locations listed above
+2. **Use the checklist**: Update all ten files/locations listed above
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files

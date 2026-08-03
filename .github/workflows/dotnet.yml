@@ -236,11 +236,112 @@ jobs:
           -p:UseLocalNextUnitPackage=true \
           -- --minimum-expected-tests 1
 
+  template-smoke:
+    name: Template Integration
+    runs-on: ubuntu-latest
+    env:
+      # A run-scoped packages folder is what makes this check hermetic. NuGet serves a package from
+      # the global packages folder without consulting any source, so a warm cache holding the
+      # published NextUnit of the same version would silently replace the one packed here.
+      NUGET_PACKAGES: ${{ github.workspace }}/artifacts/template-smoke/packages-${{ github.run_id }}-${{ github.run_attempt }}
+      # Generated outside the workspace on purpose: inside it this repository's
+      # Directory.Build.props and central package management would apply to the generated project,
+      # and the check would stop measuring what a consumer actually gets.
+      TEMPLATE_OUTPUT_DIR: ${{ runner.temp }}/nextunit-template-smoke
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Verify the template pins the repository version of NextUnit
+      shell: bash
+      run: |
+        template_project=src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj
+        repo_version=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Directory.Build.props)
+        template_version=$(sed -n 's/.*Include="NextUnit" Version="\([^"]*\)".*/\1/p' "$template_project")
+        if [ -z "$repo_version" ] || [ "$repo_version" != "$template_version" ]; then
+          echo "Error: $template_project pins NextUnit '$template_version' but Directory.Build.props declares '$repo_version'."
+          echo "The template ships as content and cannot resolve its version through Directory.Packages.props;"
+          echo "see the Version Update Checklist in docs/RELEASE_PROCESS.md."
+          exit 1
+        fi
+        echo "PACKAGE_VERSION=$repo_version" >> "$GITHUB_ENV"
+
+    - name: Pack NextUnit and the template package
+      run: |
+        dotnet pack src/NextUnit.Core/NextUnit.Core.csproj --configuration Release --output artifacts/packages
+        dotnet pack src/NextUnit.Platform/NextUnit.Platform.csproj --configuration Release --output artifacts/packages
+        dotnet pack src/NextUnit/NextUnit.csproj --configuration Release --output artifacts/packages
+        dotnet pack src/NextUnit.Templates/NextUnit.Templates.csproj --configuration Release --output artifacts/packages
+
+    - name: Install the template
+      run: dotnet new install "${{ github.workspace }}/artifacts/packages/NextUnit.Templates.$PACKAGE_VERSION.nupkg"
+
+    - name: Create a project from the template
+      shell: bash
+      run: |
+        dotnet new nextunit --name TemplateSmoke --output "$TEMPLATE_OUTPUT_DIR/TemplateSmoke" --no-restore
+        # Source mapping, not source order, is what keeps the template content off nuget.org: the
+        # pinned version also exists there, and without a mapping either copy could win the restore.
+        cat > "$TEMPLATE_OUTPUT_DIR/TemplateSmoke/NuGet.Config" <<'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <packageSources>
+            <clear />
+            <add key="local-nextunit" value="${{ github.workspace }}/artifacts/packages" />
+            <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
+          </packageSources>
+          <packageSourceMapping>
+            <packageSource key="local-nextunit">
+              <package pattern="NextUnit*" />
+            </packageSource>
+            <packageSource key="nuget.org">
+              <package pattern="*" />
+            </packageSource>
+          </packageSourceMapping>
+        </configuration>
+        EOF
+
+    - name: Restore, build, and run the generated project
+      shell: bash
+      run: |
+        project="$TEMPLATE_OUTPUT_DIR/TemplateSmoke/TemplateSmoke.csproj"
+        dotnet restore "$project"
+        # Proves the source mapping actually held. Without this the job would still pass against a
+        # NextUnit downloaded from nuget.org, which is the one thing it exists to rule out.
+        metadata="$NUGET_PACKAGES/nextunit/$PACKAGE_VERSION/.nupkg.metadata"
+        if ! grep -q "${{ github.workspace }}/artifacts/packages" "$metadata"; then
+          echo "Error: NextUnit $PACKAGE_VERSION was not restored from the locally packed feed."
+          cat "$metadata"
+          exit 1
+        fi
+        dotnet build "$project" --configuration Release --no-restore
+        # --minimum-expected-tests fails the run when fewer tests than expected are reported, so a
+        # zero exit code proves the example test was both discovered and passed.
+        dotnet run --project "$project" \
+          --configuration Release \
+          --no-build \
+          -- --minimum-expected-tests 1
+
+    - name: Uninstall the template
+      shell: bash
+      run: |
+        dotnet new uninstall NextUnit.Templates
+        if dotnet new uninstall | grep -q "NextUnit.Templates"; then
+          echo "Error: NextUnit.Templates is still installed after uninstall."
+          exit 1
+        fi
+
   # Summary job
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [build, test, code-quality, security, generator, package-smoke]
+    needs: [build, test, code-quality, security, generator, package-smoke, template-smoke]
     if: always()
 
     steps:
@@ -253,8 +354,10 @@ jobs:
         echo "Security: ${{ needs.security.result }}"
         echo "Generator: ${{ needs.generator.result }}"
         echo "Package Integration: ${{ needs.package-smoke.result }}"
+        echo "Template Integration: ${{ needs.template-smoke.result }}"
 
         [[ "${{ needs.build.result }}" == "success" ]] || exit 1
         [[ "${{ needs.test.result }}" == "success" ]] || exit 1
         [[ "${{ needs.package-smoke.result }}" == "success" ]] || exit 1
+        [[ "${{ needs.template-smoke.result }}" == "success" ]] || exit 1
         echo "✅ All critical checks passed"

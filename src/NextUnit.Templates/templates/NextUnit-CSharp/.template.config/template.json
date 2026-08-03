@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "NextUnit Contributors",
+  "classifications": [ "Test", "NextUnit" ],
+  "name": "NextUnit Test Project",
+  "generatorVersions": "[1.0.0.0-*)",
+  "description": "A project that contains NextUnit tests that run on Microsoft.Testing.Platform on Windows, Linux and macOS.",
+  "groupIdentity": "NextUnit.Test",
+  "precedence": "1000",
+  "identity": "NextUnit.Test.CSharp",
+  "shortName": "nextunit",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "sourceName": "Company.TestProject1",
+  "preferNameDirectory": true,
+  "defaultName": "TestProject1",
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "description": "The target framework for the project.",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "net10.0",
+          "description": "Target net10.0"
+        }
+      ],
+      "replaces": "net10.0",
+      "defaultValue": "net10.0"
+    },
+    "HostIdentifier": {
+      "type": "bind",
+      "binding": "host:HostIdentifier"
+    },
+    "skipRestore": {
+      "type": "parameter",
+      "datatype": "bool",
+      "description": "If specified, skips the automatic restore of the project on create.",
+      "defaultValue": "false"
+    }
+  },
+  "primaryOutputs": [
+    {
+      "path": "Company.TestProject1.csproj"
+    },
+    {
+      "condition": "(HostIdentifier != \"dotnetcli\" && HostIdentifier != \"dotnetcli-preview\")",
+      "path": "UnitTest1.cs"
+    }
+  ],
+  "postActions": [
+    {
+      "id": "restoreNugetPackages",
+      "condition": "(!skipRestore)",
+      "description": "Restore NuGet packages required by this project.",
+      "manualInstructions": [ { "text": "Run 'dotnet restore'" } ],
+      "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+      "continueOnError": true
+    },
+    {
+      "id": "openInEditor",
+      "condition": "(HostIdentifier != \"dotnetcli\" && HostIdentifier != \"dotnetcli-preview\")",
+      "description": "Opens UnitTest1.cs in the editor.",
+      "manualInstructions": [],
+      "actionId": "84C0DA21-51C8-4541-9940-6CA19AF04EE6",
+      "args": {
+        "files": "1"
+      },
+      "continueOnError": true
+    }
+  ]
+}
