@@ -62,8 +62,8 @@
         <ProjectReference Include="..\..\..\src\NextUnit.Generator\NextUnit.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
-        <PackageReference Include="Microsoft.Testing.Platform.MSBuild" Version="2.3.2" />
-        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.2" />
+        <PackageReference Include="Microsoft.Testing.Platform.MSBuild" Version="2.3.3" />
+        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.3" />
         <TestingPlatformBuilderHook Include="EC4B718B-4D5D-4200-8DA0-34A102B3AFB2">
             <DisplayName>NextUnit</DisplayName>
             <TypeFullName>NextUnit.Platform.TestingPlatformBuilderHook</TypeFullName>
