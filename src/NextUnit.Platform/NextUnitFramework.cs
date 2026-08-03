@@ -223,7 +223,10 @@ internal sealed class NextUnitFramework :
         // Apply category and tag filtering to static test cases
         var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags, tc.DisplayName, tc.IsExplicit)).ToList();
 
-        // Get global lifecycle methods from the registry and set on engine (one-time)
+        // Get global lifecycle methods from the registry and set on engine (one-time).
+        // A registry with no asynchronous data source completes this method without ever awaiting,
+        // so this can run while GetTestCasesAsync still holds the gate. That reentrancy is
+        // deliberate and safe: System.Threading.Lock is recursive for the thread that owns it.
         lock (_testCasesGate)
         {
             if (!_assemblyLifecycleInitialized)
