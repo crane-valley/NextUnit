@@ -192,8 +192,12 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         // Filter tests if specific tests were requested
         if (testIdsToRun != null)
         {
+            // Derived once rather than rescanned per placeholder: a selection can hold thousands of
+            // ids, and matching each placeholder against all of them would grow with the product.
+            var selectedRowGroupIds = BuildSelectedRowGroupIds(testIdsToRun);
+
             allTestCases = allTestCases
-                .Where(t => testIdsToRun.Contains(t.Id.Value) || StandsForSelectedRow(t, testIdsToRun))
+                .Where(t => testIdsToRun.Contains(t.Id.Value) || StandsForSelectedRow(t, selectedRowGroupIds))
                 .ToList();
         }
         else
@@ -250,16 +254,41 @@ public sealed class NextUnitTestExecutor : ITestExecutor
     /// <c>[index]</c> suffix, so an exact-id filter would drop it and the run would do nothing at
     /// all -- a silent no-op in Test Explorer. Selecting a row therefore reruns its whole group,
     /// which is the documented granularity of a deferred source.
+    /// <para>
+    /// The deferred check comes first so an ordinary test case, which is selected by its exact id,
+    /// can never be pulled into a run by a row id that happens to extend it.
+    /// </para>
     /// </remarks>
-    internal static bool StandsForSelectedRow(TestCaseDescriptor testCase, HashSet<string> testIdsToRun)
+    internal static bool StandsForSelectedRow(TestCaseDescriptor testCase, HashSet<string> selectedRowGroupIds) =>
+        testCase.DeferredDataSource is not null && selectedRowGroupIds.Contains(testCase.Id.Value);
+
+    /// <summary>
+    /// Maps every selected row id back to the id of the group it was expanded from.
+    /// </summary>
+    /// <remarks>
+    /// A row id is its group's id followed by an <c>[index]</c> suffix, so dropping the suffix
+    /// yields the id discovery published. Selected ids that do not end in such a suffix are not row
+    /// ids and contribute nothing; they are already matched exactly by the caller.
+    /// </remarks>
+    internal static HashSet<string> BuildSelectedRowGroupIds(IEnumerable<string> selectedTestIds)
     {
-        if (testCase.DeferredDataSource is null)
+        var groupIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var testId in selectedTestIds)
         {
-            return false;
+            if (testId.Length == 0 || testId[^1] != ']')
+            {
+                continue;
+            }
+
+            var indexStart = testId.LastIndexOf('[');
+            if (indexStart > 0)
+            {
+                groupIds.Add(testId.Substring(0, indexStart));
+            }
         }
 
-        var rowPrefix = testCase.Id.Value + "[";
-        return testIdsToRun.Any(id => id.StartsWith(rowPrefix, StringComparison.Ordinal));
+        return groupIds;
     }
 
     internal static HashSet<string> BuildSelectedDescriptorIds(IEnumerable<string> selectedTestIds)

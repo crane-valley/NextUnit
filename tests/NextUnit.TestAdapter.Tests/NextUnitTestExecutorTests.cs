@@ -51,10 +51,7 @@ public sealed class NextUnitTestExecutorTests
     public void StandsForSelectedRow_PlaceholderOfASelectedRow_IsRetained()
     {
         var placeholder = CreateDeferredPlaceholder();
-        var selected = new HashSet<string>(StringComparer.Ordinal)
-        {
-            $"{placeholder.Id.Value}[1]"
-        };
+        var selected = NextUnitTestExecutor.BuildSelectedRowGroupIds([$"{placeholder.Id.Value}[1]"]);
 
         Assert.True(NextUnitTestExecutor.StandsForSelectedRow(placeholder, selected));
     }
@@ -63,14 +60,14 @@ public sealed class NextUnitTestExecutorTests
     public void StandsForSelectedRow_PlaceholderOfAnUnrelatedSelection_IsNotRetained()
     {
         var placeholder = CreateDeferredPlaceholder();
-        var selected = new HashSet<string>(StringComparer.Ordinal)
-        {
+        var selected = NextUnitTestExecutor.BuildSelectedRowGroupIds(
+        [
             "Tests.Other:TestProject.Tests.OtherRows[0]",
 
-            // Shares the placeholder id as a string prefix but is a different data source, so the
-            // "[" in the row prefix is what keeps it out.
+            // Shares the placeholder id as a string prefix but belongs to a different data source,
+            // so dropping its index suffix yields a group id that is not this placeholder's.
             $"{placeholder.Id.Value}Extra[0]"
-        };
+        ]);
 
         Assert.False(NextUnitTestExecutor.StandsForSelectedRow(placeholder, selected));
     }
@@ -87,9 +84,39 @@ public sealed class NextUnitTestExecutorTests
             Id = new TestCaseId("Tests.Ordinary"),
             DisplayName = "Ordinary"
         };
-        var selected = new HashSet<string>(StringComparer.Ordinal) { "Tests.Ordinary[0]" };
+        var selected = NextUnitTestExecutor.BuildSelectedRowGroupIds(["Tests.Ordinary[0]"]);
 
         Assert.False(NextUnitTestExecutor.StandsForSelectedRow(testCase, selected));
+    }
+
+    /// <summary>
+    /// A selected id that is not a row id contributes no group, so an ordinary selection cannot
+    /// widen a run by accident.
+    /// </summary>
+    [Fact]
+    public void BuildSelectedRowGroupIds_IgnoresIdsWithoutARowIndex()
+    {
+        var groupIds = NextUnitTestExecutor.BuildSelectedRowGroupIds(
+        [
+            "Tests.Static",
+            "Tests.Deferred:TestProject.Tests.Rows",
+            "Tests.Repeat[0]#1",
+            "[0]"
+        ]);
+
+        Assert.Empty(groupIds);
+    }
+
+    [Fact]
+    public void BuildSelectedRowGroupIds_DropsTheRowIndexSuffix()
+    {
+        var groupIds = NextUnitTestExecutor.BuildSelectedRowGroupIds(
+        [
+            "Tests.Deferred:TestProject.Tests.Rows[0]",
+            "Tests.Deferred:TestProject.Tests.Rows[12]"
+        ]);
+
+        Assert.Equal("Tests.Deferred:TestProject.Tests.Rows", Assert.Single(groupIds));
     }
 
     private static TestCaseDescriptor CreateDeferredPlaceholder() =>
