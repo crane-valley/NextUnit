@@ -71,8 +71,21 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
 
         // Discovery reports every descriptor, unfiltered: VSTest asks for the full list once and
         // applies its own filtering when the user later selects tests to run.
+        //
+        // CancellationToken.None is passed explicitly rather than by omission: ITestDiscoverer has
+        // no cancellation contract at all -- unlike ITestExecutor, which owns a Cancel() call and
+        // therefore a token to hand down -- so there is genuinely nothing to route here. An
+        // asynchronous data source that blocks forever will block VSTest discovery. Under
+        // Microsoft.Testing.Platform the request token flows all the way through, and that is the
+        // path NextUnit's own runner uses.
         DiscoverExpandedTests<TestDataDescriptor>(
-            registryType, "TestDataDescriptors", "test data", TestDataExpander.Expand, source, logger, discoverySink);
+            registryType,
+            "TestDataDescriptors",
+            "test data",
+            descriptors => TestDataExpander.Expand(descriptors, CancellationToken.None),
+            source,
+            logger,
+            discoverySink);
 
         DiscoverExpandedTests<ClassDataSourceDescriptor>(
             registryType, "ClassDataSourceDescriptors", "class data source", ClassDataSourceExpander.Expand, source, logger, discoverySink);

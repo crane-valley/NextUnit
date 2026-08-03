@@ -167,6 +167,11 @@ public static class TestDataExpander
         AsyncDataSourceProviderDelegate asyncProvider,
         CancellationToken cancellationToken)
     {
+        // Checked before the provider runs: invoking it starts the member's work, and a
+        // task-wrapped member cannot be called back once started, so an already-cancelled request
+        // must not reach it at all.
+        cancellationToken.ThrowIfCancellationRequested();
+
         var rows = new List<object?>();
         var enumerator = asyncProvider(cancellationToken).GetAsyncEnumerator(cancellationToken);
         var enumeratorIsDisposable = true;
@@ -212,11 +217,46 @@ public static class TestDataExpander
         {
             if (enumeratorIsDisposable)
             {
-                await enumerator.DisposeAsync().ConfigureAwait(false);
+                await DisposeEnumeratorAsync(enumerator, cancellationToken).ConfigureAwait(false);
             }
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// Disposes a row enumerator without letting cleanup outlast a cancelled request.
+    /// </summary>
+    /// <remarks>
+    /// A source is free to await non-cancellable cleanup in <c>DisposeAsync</c>, which would hang
+    /// discovery just as surely as a move that never completes, so a pending disposal is raced
+    /// against the token too. Disposal that completes synchronously, which is the usual case for a
+    /// compiler-generated iterator, never reaches the race. Abandoning cleanup can leak whatever
+    /// the source held; that is the accepted cost of guaranteeing that cancellation returns.
+    /// <para>
+    /// Cancellation is swallowed rather than rethrown because this runs from a <c>finally</c>:
+    /// rethrowing would replace whatever actually ended the enumeration with a cancellation that
+    /// says nothing about it.
+    /// </para>
+    /// </remarks>
+    private static async ValueTask DisposeEnumeratorAsync(
+        IAsyncDisposable enumerator,
+        CancellationToken cancellationToken)
+    {
+        var dispose = enumerator.DisposeAsync();
+        if (dispose.IsCompleted)
+        {
+            dispose.GetAwaiter().GetResult();
+            return;
+        }
+
+        try
+        {
+            await dispose.AsTask().WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     private static IEnumerable ResolveSyncRows(TestDataDescriptor descriptor)
