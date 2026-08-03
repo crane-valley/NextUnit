@@ -261,7 +261,7 @@ jobs:
     - name: Verify the template pins the repository version of NextUnit
       shell: bash
       run: |
-        template_project=src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj
+        template_project=src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj.template
         repo_version=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Directory.Build.props)
         template_version=$(sed -n 's/.*Include="NextUnit" Version="\([^"]*\)".*/\1/p' "$template_project")
         if [ -z "$repo_version" ] || [ "$repo_version" != "$template_version" ]; then

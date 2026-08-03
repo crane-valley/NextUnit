@@ -52,12 +52,17 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 ### Template Content Files
 
-1. **src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj**
-   - Location: `/src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj`
+1. **src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj.template**
+   - Location: `/src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj.template`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />`
    - This file ships as package content and is generated into a project outside this repository, so
      it cannot resolve its version through `Directory.Packages.props` the way an in-repo project
      does. The literal is the only place the generated project learns which NextUnit to restore.
+   - The `.template` extension keeps the file off every repository-wide `*.csproj` sweep; the
+     template engine renames it on creation. Without it, GitHub's automatic dependency submission
+     restores the file against nuget.org, which fails on `NU1008` under central package management
+     and would fail again on every release PR because the version being released is not published
+     yet.
    - The `template-smoke` job in `.github/workflows/dotnet.yml` compares this literal against
      `Directory.Build.props` and fails the build when they diverge, so a forgotten bump surfaces on
      the release PR rather than in a user's first `dotnet new nextunit`.

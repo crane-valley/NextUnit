@@ -27,7 +27,10 @@
     <!-- The generated projects under templates/ are package content, never compilation inputs of
          this repository: they reference NextUnit as a published package and target net10.0, so
          building them here would resolve against this repository's central package versions instead
-         of what a consumer gets. -->
+         of what a consumer gets. That is also why the project file carries a .template extension and
+         the template engine renames it on creation - see the rename modifier in template.json. A
+         repository-wide *.csproj sweep would otherwise pick it up, and GitHub's automatic dependency
+         submission is exactly such a sweep. -->
     <Content Include="templates\**\*" Exclude="templates\**\bin\**;templates\**\obj\**" />
     <Compile Remove="**\*" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />

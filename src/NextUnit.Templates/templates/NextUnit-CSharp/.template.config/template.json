@@ -16,6 +16,17 @@
   "sourceName": "Company.TestProject1",
   "preferNameDirectory": true,
   "defaultName": "TestProject1",
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "rename": {
+            "Company.TestProject1.csproj.template": "Company.TestProject1.csproj"
+          }
+        }
+      ]
+    }
+  ],
   "symbols": {
     "Framework": {
       "type": "parameter",

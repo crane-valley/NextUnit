@@ -160,7 +160,7 @@ jobs:
         env:
           TEMPLATE_OUTPUT_DIR: ${{ runner.temp }}/nextunit-template-release-check
         run: |
-          template_project=src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj
+          template_project=src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj.template
           template_version=$(sed -n 's/.*Include="NextUnit" Version="\([^"]*\)".*/\1/p' "$template_project")
           if [ "$template_version" != "$PACKAGE_VERSION" ]; then
             echo "Error: $template_project pins NextUnit '$template_version' but this release is '$PACKAGE_VERSION'."
