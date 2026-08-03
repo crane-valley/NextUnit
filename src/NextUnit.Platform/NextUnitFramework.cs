@@ -176,7 +176,7 @@ internal sealed class NextUnitFramework :
 
             // BuildTestCasesAsync runs synchronously up to its first await, so the synchronous data
             // sources are still expanded under the gate exactly as they were before.
-            buildTask = _testCasesTask ??= BuildTestCasesAsync(_buildCancellation.Token);
+            buildTask = _testCasesTask ??= StartBuild();
         }
 
         try
@@ -229,8 +229,38 @@ internal sealed class NextUnitFramework :
             _disposed = true;
         }
 
-        _buildCancellation.Cancel();
-        _buildCancellation.Dispose();
+        // Disposal runs in a finally so a cancellation callback that throws cannot leave the source
+        // undisposed forever: _disposed is already committed, so no later call would retry it.
+        try
+        {
+            _buildCancellation.Cancel();
+        }
+        finally
+        {
+            _buildCancellation.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Starts the shared build and makes sure its failure is observed.
+    /// </summary>
+    /// <remarks>
+    /// Now that a caller can cancel its own wait and leave, a failing build may end up with nobody
+    /// awaiting it. Reading the exception here keeps that case out of
+    /// <see cref="TaskScheduler.UnobservedTaskException"/>; the failure still propagates normally to
+    /// anyone who does await the task.
+    /// </remarks>
+    private Task<IReadOnlyList<TestCaseDescriptor>> StartBuild()
+    {
+        var buildTask = BuildTestCasesAsync(_buildCancellation.Token);
+
+        _ = buildTask.ContinueWith(
+            static failed => _ = failed.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        return buildTask;
     }
 
     /// <summary>
