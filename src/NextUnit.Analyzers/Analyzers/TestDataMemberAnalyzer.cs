@@ -126,12 +126,16 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
 
         if (validateRowType)
         {
+            // Validate the member the generator will actually bind, not simply the first static
+            // member with this name. A type carrying both Rows() and an unsupported
+            // Rows(CancellationToken) overload would otherwise be reported for an overload that is
+            // never emitted, failing a build that compiles and runs correctly.
             ValidateRowType(
                 context,
                 method,
                 attribute,
                 memberName,
-                GetMemberType(validMember),
+                DataSourceMemberResolver.Resolve(targetType, memberName, knownDataSourceTypes).MemberType,
                 knownDataSourceTypes);
         }
     }
@@ -163,24 +167,6 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 knownDataSourceTypes);
         }
     }
-
-    /// <summary>
-    /// Gets the type a data source member exposes.
-    /// </summary>
-    /// <remarks>
-    /// A method taking a single cancellation token is accepted because an asynchronous source may
-    /// observe the discovery token; the generator binds that signature the same way.
-    /// </remarks>
-    private static ITypeSymbol? GetMemberType(ISymbol member) => member switch
-    {
-        IPropertySymbol property => property.Type,
-        IFieldSymbol field => field.Type,
-        IMethodSymbol method when method.Parameters.Length == 0 => method.ReturnType,
-        IMethodSymbol method when method.Parameters.Length == 1 &&
-            method.Parameters[0].Type.ToDisplayString() == WellKnownTypeNames.CancellationToken =>
-            method.ReturnType,
-        _ => null
-    };
 
     private static void ValidateRowType(
         SymbolAnalysisContext context,

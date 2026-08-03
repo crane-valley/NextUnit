@@ -17,7 +17,8 @@ namespace NextUnit.Platform;
 /// </remarks>
 internal sealed class NextUnitFramework :
     ITestFramework,
-    IDataProducer
+    IDataProducer,
+    IDisposable
 {
     // TODO M4: _services will be used for dependency injection and service resolution
 #pragma warning disable IDE0052 // Remove unread private members
@@ -33,6 +34,10 @@ internal sealed class NextUnitFramework :
     // are published together by the same one-time build in GetTestCasesAsync.
     private readonly Lock _testCasesGate = new();
     private Task<IReadOnlyList<TestCaseDescriptor>>? _testCasesTask;
+
+    // The build is shared by every request, so it cannot borrow any single request's token; it gets
+    // its own, cancelled when the framework is disposed.
+    private readonly CancellationTokenSource _buildCancellation = new();
     private readonly TestFilterConfiguration _filterConfig;
 
     private readonly SessionLifecycleRunner _sessionHooks = new();
@@ -161,25 +166,48 @@ internal sealed class NextUnitFramework :
         {
             // BuildTestCasesAsync runs synchronously up to its first await, so the synchronous data
             // sources are still expanded under the gate exactly as they were before.
-            buildTask = _testCasesTask ??= BuildTestCasesAsync(cancellationToken);
+            buildTask = _testCasesTask ??= BuildTestCasesAsync(_buildCancellation.Token);
         }
 
         try
         {
-            return await buildTask.ConfigureAwait(false);
+            // The shared build runs on the framework's own token, and each caller cancels only its
+            // own wait. Binding the build to whichever request happened to start it would let a
+            // cancelled discovery abort an unrelated run that is merely awaiting the same result.
+            return await buildTask.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch
         {
-            lock (_testCasesGate)
+            // Only a build that actually failed is dropped, so the next request rebuilds instead of
+            // replaying the failure. A caller whose own wait was cancelled leaves the shared build
+            // alone: it may still be serving another request.
+            if (buildTask.IsCompleted && !buildTask.IsCompletedSuccessfully)
             {
-                if (ReferenceEquals(_testCasesTask, buildTask))
+                lock (_testCasesGate)
                 {
-                    _testCasesTask = null;
+                    if (ReferenceEquals(_testCasesTask, buildTask))
+                    {
+                        _testCasesTask = null;
+                    }
                 }
             }
 
             throw;
         }
+    }
+
+    /// <summary>
+    /// Cancels and releases the shared build.
+    /// </summary>
+    /// <remarks>
+    /// The build outlives any single request by design, so something has to bound its lifetime.
+    /// Microsoft.Testing.Platform disposes the framework at the end of the test application, which
+    /// is the point at which no request can still want the result.
+    /// </remarks>
+    public void Dispose()
+    {
+        _buildCancellation.Cancel();
+        _buildCancellation.Dispose();
     }
 
     /// <summary>

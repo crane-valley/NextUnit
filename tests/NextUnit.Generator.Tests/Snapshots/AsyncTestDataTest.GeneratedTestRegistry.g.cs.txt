@@ -236,6 +236,58 @@ internal static class GeneratedTestRegistry
                 DisplayNameFormatterType = null,
                 Priority = 0
             },
+            new global::NextUnit.Internal.TestDataDescriptor
+            {
+                BaseId = "TestProject.AsyncTestDataTests.DataDriven",
+                DisplayName = "DataDriven",
+                TestClass = typeof(global::TestProject.AsyncTestDataTests),
+                MethodName = "DataDriven",
+                TestClassFactory = static (output, context) => new global::TestProject.AsyncTestDataTests(),
+                TestMethodWithArguments = static (instance, arguments, ct) => { ((global::TestProject.AsyncTestDataTests)instance).DataDriven(global::NextUnit.Internal.ArgumentConverter.Convert<int>(arguments[0], "a", "DataDriven"), global::NextUnit.Internal.ArgumentConverter.Convert<int>(arguments[1], "b", "DataDriven")); return global::System.Threading.Tasks.Task.CompletedTask; },
+                DataSourceName = "OverloadedRows",
+                DataSourceType = typeof(global::TestProject.AsyncTestDataTests),
+                DataSourceProvider = static () => (object?)global::TestProject.AsyncTestDataTests.OverloadedRows(),
+                ParameterTypes = new global::System.Type[] { typeof(int), typeof(int) },
+                Lifecycle = new global::NextUnit.Internal.LifecycleInfo
+                {
+                    BeforeTestMethods = EmptyLifecycleMethods,
+                    AfterTestMethods = EmptyLifecycleMethods,
+                    BeforeClassMethods = EmptyLifecycleMethods,
+                    AfterClassMethods = EmptyLifecycleMethods,
+                    BeforeAssemblyMethods = EmptyLifecycleMethods,
+                    AfterAssemblyMethods = EmptyLifecycleMethods,
+                    BeforeSessionMethods = EmptyLifecycleMethods,
+                    AfterSessionMethods = EmptyLifecycleMethods
+                },
+                Parallel = new global::NextUnit.Internal.ParallelInfo
+                {
+                    NotInParallel = false,
+                    ConstraintKeys = EmptyStrings,
+                    ParallelGroup = null,
+                    ParallelLimit = null
+                },
+                Dependencies = EmptyTestCaseIds,
+                DependencyInfos = EmptyDependencyInfos,
+                IsSkipped = false,
+                SkipReason = null,
+                IsExplicit = false,
+                ExplicitReason = null,
+                Categories = EmptyStrings,
+                Tags = EmptyStrings,
+                RequiresTestOutput = false,
+                RequiresTestContext = false,
+                TimeoutMs = null,
+                Retry = new global::NextUnit.Internal.RetryInfo
+                {
+                    Count = null,
+                    DelayMs = 0,
+                    IsFlaky = false,
+                    FlakyReason = null
+                },
+                CustomDisplayNameTemplate = null,
+                DisplayNameFormatterType = null,
+                Priority = 0
+            },
         };
 
     public static global::System.Collections.Generic.IReadOnlyList<global::NextUnit.Internal.ClassDataSourceDescriptor> ClassDataSourceDescriptors { get; } =

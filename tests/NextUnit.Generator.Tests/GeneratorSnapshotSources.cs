@@ -111,11 +111,27 @@ internal static class GeneratorSnapshotSources
             public static ValueTask<IReadOnlyList<object[]>> ValueTaskRows() =>
                 new ValueTask<IReadOnlyList<object[]>>(new[] { new object[] { 7, 8 } });
 
+            // Declared before the parameterless overload on purpose: the generator must still bind
+            // OverloadedRows(), so an existing suite cannot switch to a different data set on
+            // upgrade.
+            public static async IAsyncEnumerable<object[]> OverloadedRows(
+                [EnumeratorCancellation] CancellationToken cancellationToken)
+            {
+                await Task.Yield();
+                yield return new object[] { 9, 9 };
+            }
+
+            public static IEnumerable<object[]> OverloadedRows()
+            {
+                yield return new object[] { 11, 12 };
+            }
+
             [Test]
             [TestData(nameof(StreamedRows))]
             [TestData(nameof(UncancellableRows))]
             [TestData(nameof(TaskRows))]
             [TestData(nameof(ValueTaskRows))]
+            [TestData(nameof(OverloadedRows))]
             public void DataDriven(int a, int b)
             {
             }

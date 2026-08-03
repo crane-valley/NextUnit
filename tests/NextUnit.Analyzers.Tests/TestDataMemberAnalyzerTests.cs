@@ -442,6 +442,36 @@ public class TestDataMemberAnalyzerTests
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
+    /// <summary>
+    /// A parameterless overload keeps binding even when an unsupported cancellation-aware overload
+    /// is declared first, so upgrading cannot turn a working suite into a build error.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithUnsupportedOverloadFirst_BindsParameterlessOverloadAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static Task Rows(CancellationToken cancellationToken) => Task.CompletedTask;
+
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+
+                [Test]
+                [TestData("Rows")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
     [Fact]
     public async Task TestDataWithBareTask_ReportsUnsupportedAwaitableAsync()
     {

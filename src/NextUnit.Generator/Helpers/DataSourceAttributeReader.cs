@@ -339,91 +339,27 @@ internal static class DataSourceAttributeReader
     /// <summary>
     /// Resolves how a <c>[TestData]</c> member is accessed together with the shape of its rows.
     /// </summary>
-    private static ResolvedDataSourceMember ResolveDataSourceMember(
+    /// <remarks>
+    /// Member selection itself lives in <see cref="DataSourceMemberResolver"/> so the analyzers
+    /// validate exactly the member this emits.
+    /// </remarks>
+    private static (DataSourceMemberKind Kind, DataSourceShape Shape, bool AcceptsCancellationToken) ResolveDataSourceMember(
         INamedTypeSymbol? typeSymbol,
         string memberName,
         KnownDataSourceTypes knownDataSourceTypes)
     {
-        if (typeSymbol is null)
+        var resolved = DataSourceMemberResolver.Resolve(typeSymbol, memberName, knownDataSourceTypes);
+
+        var kind = resolved.Symbol switch
         {
-            return ResolvedDataSourceMember.Unresolved;
-        }
+            IMethodSymbol => DataSourceMemberKind.Method,
+            IPropertySymbol => DataSourceMemberKind.Property,
+            IFieldSymbol => DataSourceMemberKind.Field,
+            _ => DataSourceMemberKind.Unknown
+        };
 
-        foreach (var member in typeSymbol.GetMembers(memberName))
-        {
-            if (!member.IsStatic)
-            {
-                continue;
-            }
-
-            switch (member)
-            {
-                case IMethodSymbol method:
-                {
-                    var shape = knownDataSourceTypes.Classify(method.ReturnType).Shape;
-
-                    if (method.Parameters.Length == 0)
-                    {
-                        return new ResolvedDataSourceMember(DataSourceMemberKind.Method, shape, false);
-                    }
-
-                    // A cancellation token parameter is only accepted for an asynchronous source:
-                    // the synchronous provider delegate takes no arguments, so there would be no
-                    // token to pass and the call could not be emitted.
-                    if (method.Parameters.Length == 1 &&
-                        IsCancellationToken(method.Parameters[0]) &&
-                        IsAsyncShape(shape))
-                    {
-                        return new ResolvedDataSourceMember(DataSourceMemberKind.Method, shape, true);
-                    }
-
-                    // Any other signature cannot be invoked from generated code; keep looking in
-                    // case an overload or another member with the same name does match.
-                    break;
-                }
-
-                case IPropertySymbol property:
-                    return new ResolvedDataSourceMember(
-                        DataSourceMemberKind.Property,
-                        knownDataSourceTypes.Classify(property.Type).Shape,
-                        false);
-
-                case IFieldSymbol field:
-                    return new ResolvedDataSourceMember(
-                        DataSourceMemberKind.Field,
-                        knownDataSourceTypes.Classify(field.Type).Shape,
-                        false);
-            }
-        }
-
-        return ResolvedDataSourceMember.Unresolved;
-    }
-
-    private static bool IsCancellationToken(IParameterSymbol parameter) =>
-        parameter.Type.ToDisplayString() == WellKnownTypeNames.CancellationToken;
-
-    private static bool IsAsyncShape(DataSourceShape shape) =>
-        shape == DataSourceShape.AsyncEnumerable ||
-        shape == DataSourceShape.TaskOfCollection ||
-        shape == DataSourceShape.ValueTaskOfCollection;
-
-    private readonly struct ResolvedDataSourceMember
-    {
-        public ResolvedDataSourceMember(
-            DataSourceMemberKind kind,
-            DataSourceShape shape,
-            bool acceptsCancellationToken)
-        {
-            Kind = kind;
-            Shape = shape;
-            AcceptsCancellationToken = acceptsCancellationToken;
-        }
-
-        public static ResolvedDataSourceMember Unresolved { get; } =
-            new(DataSourceMemberKind.Unknown, DataSourceShape.Sync, false);
-
-        public DataSourceMemberKind Kind { get; }
-        public DataSourceShape Shape { get; }
-        public bool AcceptsCancellationToken { get; }
+        return kind == DataSourceMemberKind.Unknown
+            ? (DataSourceMemberKind.Unknown, DataSourceShape.Sync, false)
+            : (kind, knownDataSourceTypes.Classify(resolved.MemberType).Shape, resolved.AcceptsCancellationToken);
     }
 }
