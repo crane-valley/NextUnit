@@ -42,6 +42,7 @@ internal sealed class NextUnitFramework :
 
     private readonly SessionLifecycleRunner _sessionHooks = new();
     private bool _assemblyLifecycleInitialized;
+    private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NextUnitFramework"/> class.
@@ -154,9 +155,10 @@ internal sealed class NextUnitFramework :
     /// </summary>
     /// <remarks>
     /// The build task is shared, so the data source members run once per process however many
-    /// requests the platform issues. A build that ends in failure or cancellation is dropped rather
-    /// than memoized: the first caller's token governs the shared build, and a cancelled discovery
-    /// must not leave every later request permanently poisoned.
+    /// requests the platform issues. It runs on the framework's own token rather than any single
+    /// request's, and each caller cancels only its own wait, so one cancelled request cannot abort
+    /// another that is merely awaiting the same result. A build that ends in failure is dropped
+    /// rather than memoized, so the next request rebuilds instead of replaying the failure.
     /// </remarks>
     private async Task<IReadOnlyList<TestCaseDescriptor>> GetTestCasesAsync(CancellationToken cancellationToken)
     {
@@ -164,6 +166,14 @@ internal sealed class NextUnitFramework :
 
         lock (_testCasesGate)
         {
+            // A build can fail after the caller that started it has already walked away, leaving a
+            // faulted task nobody observed. Dropping it on acquisition means the next request
+            // rebuilds, rather than being handed a failure that belonged to someone else.
+            if (_testCasesTask is { IsCompleted: true, IsCompletedSuccessfully: false })
+            {
+                _testCasesTask = null;
+            }
+
             // BuildTestCasesAsync runs synchronously up to its first await, so the synchronous data
             // sources are still expanded under the gate exactly as they were before.
             buildTask = _testCasesTask ??= BuildTestCasesAsync(_buildCancellation.Token);
@@ -207,6 +217,18 @@ internal sealed class NextUnitFramework :
     /// </remarks>
     public void Dispose()
     {
+        // Idempotent: Cancel() on an already-disposed source throws, and a host is free to dispose
+        // an extension more than once.
+        lock (_testCasesGate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+        }
+
         _buildCancellation.Cancel();
         _buildCancellation.Dispose();
     }
