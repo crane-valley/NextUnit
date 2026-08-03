@@ -192,7 +192,9 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         // Filter tests if specific tests were requested
         if (testIdsToRun != null)
         {
-            allTestCases = allTestCases.Where(t => testIdsToRun.Contains(t.Id.Value)).ToList();
+            allTestCases = allTestCases
+                .Where(t => testIdsToRun.Contains(t.Id.Value) || StandsForSelectedRow(t, testIdsToRun))
+                .ToList();
         }
         else
         {
@@ -236,6 +238,28 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             descriptors, selectedDescriptorIds, baseIdSelector, isExplicitSelector);
 
         destination.AddRange(expand(descriptorsToExpand.ToList()));
+    }
+
+    /// <summary>
+    /// Reports whether a deferred placeholder stands for one of the rows the user selected.
+    /// </summary>
+    /// <remarks>
+    /// A deferred row's id comes into existence only when a run produces it, but VSTest remembers
+    /// the test cases it saw in results, so the user can select one of those rows and run it again.
+    /// Discovery still offers nothing but the placeholder, whose id is the row id without its
+    /// <c>[index]</c> suffix, so an exact-id filter would drop it and the run would do nothing at
+    /// all -- a silent no-op in Test Explorer. Selecting a row therefore reruns its whole group,
+    /// which is the documented granularity of a deferred source.
+    /// </remarks>
+    internal static bool StandsForSelectedRow(TestCaseDescriptor testCase, HashSet<string> testIdsToRun)
+    {
+        if (testCase.DeferredDataSource is null)
+        {
+            return false;
+        }
+
+        var rowPrefix = testCase.Id.Value + "[";
+        return testIdsToRun.Any(id => id.StartsWith(rowPrefix, StringComparison.Ordinal));
     }
 
     internal static HashSet<string> BuildSelectedDescriptorIds(IEnumerable<string> selectedTestIds)
