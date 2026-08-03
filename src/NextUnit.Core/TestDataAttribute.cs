@@ -12,8 +12,9 @@ namespace NextUnit;
 /// <see cref="System.Collections.Generic.IAsyncEnumerable{T}"/>, <c>Task&lt;TCollection&gt;</c>, or
 /// <c>ValueTask&lt;TCollection&gt;</c> where <c>TCollection</c> is enumerable. An
 /// <see cref="System.Collections.Generic.IAsyncEnumerable{T}"/> member may take a single
-/// <see cref="System.Threading.CancellationToken"/> parameter, which receives the discovery
-/// cancellation token.
+/// <see cref="System.Threading.CancellationToken"/> parameter, which receives whichever token
+/// governs the enumeration: the discovery token for an eager source, and the run token for a
+/// deferred one.
 /// </para>
 /// <para>
 /// Rows are enumerated during discovery by default, which keeps every row an individually
@@ -23,8 +24,9 @@ namespace NextUnit;
 /// <para>
 /// A data source must not block synchronously. Cancellation is honored at every genuine await
 /// point, but code that blocks the calling thread -- <c>Task.Wait</c>, <c>.Result</c>, a lazy
-/// sequence whose <c>MoveNext</c> blocks -- cannot be interrupted by any token, and stalls
-/// discovery until it returns. Wait asynchronously and observe the token instead.
+/// sequence whose <c>MoveNext</c> blocks -- cannot be interrupted by any token, and stalls whatever
+/// phase is enumerating it: discovery for an eager source, the run itself for a deferred one. Wait
+/// asynchronously and observe the token instead.
 /// </para>
 /// </remarks>
 /// <example>

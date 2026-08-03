@@ -290,27 +290,17 @@ public sealed class TestExecutionEngine
                 continue;
             }
 
+            IReadOnlyList<TestCaseDescriptor> rows;
+
+            // The try covers the expansion and nothing else. Reporting from inside it would let a
+            // sink failure be caught by the handler below, which would then re-report the same test
+            // as a data source error: the sink's own failure would be hidden behind an invented
+            // expansion failure that never happened.
             try
             {
-                var rows = await TestDataExpander
+                rows = await TestDataExpander
                     .ExpandDeferredAsync(testCase.DeferredDataSource!, cancellationToken)
                     .ConfigureAwait(false);
-
-                if (rows.Count == 0)
-                {
-                    // Discovery already advertised this placeholder, so dropping it silently would
-                    // leave a test the user can see and select but that never reports anything, and
-                    // a run missing it entirely would still pass. Reported as skipped rather than
-                    // failed to match the eager path, where a source with no rows produces no tests
-                    // rather than an error.
-                    await sink.ReportSkippedAsync(
-                        testCase.WithSkipReason(
-                            $"The deferred data source '{testCase.DeferredDataSource!.DataSourceName}' produced no rows."))
-                        .ConfigureAwait(false);
-                    continue;
-                }
-
-                expanded.AddRange(rows);
             }
             catch (OperationCanceledException ex) when (IsRunCancellation(ex, cancellationToken))
             {
@@ -320,7 +310,23 @@ public sealed class TestExecutionEngine
             catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
             {
                 await sink.ReportErrorAsync(testCase, ex).ConfigureAwait(false);
+                continue;
             }
+
+            if (rows.Count == 0)
+            {
+                // Discovery already advertised this placeholder, so dropping it silently would leave
+                // a test the user can see and select but that never reports anything, and a run
+                // missing it entirely would still pass. Reported as skipped rather than failed to
+                // match the eager path, where a source with no rows produces no tests, not an error.
+                await sink.ReportSkippedAsync(
+                    testCase.WithSkipReason(
+                        $"The deferred data source '{testCase.DeferredDataSource!.DataSourceName}' produced no rows."))
+                    .ConfigureAwait(false);
+                continue;
+            }
+
+            expanded.AddRange(rows);
         }
 
         return expanded;

@@ -290,6 +290,14 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         /// <remarks>
         /// Duration is always zero: the engine owns timing and does not report it through this
         /// sink, so reporting anything else here would be invented data.
+        /// <para>
+        /// Traits are attached to the result's test case even though discovery already sent them for
+        /// every test it reported. A deferred data source's rows are not among those: their ids come
+        /// into existence during the run, so VSTest has no trait information for them at all, and
+        /// omitting traits here would drop their categories and tags entirely. Repeating the traits
+        /// for an already-discovered test costs a handful of properties and keeps every result
+        /// self-describing regardless of when its test case first appeared.
+        /// </para>
         /// </remarks>
         private Task RecordResult(
             TestCaseDescriptor test,
@@ -299,7 +307,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             string? errorMessage = null,
             string? errorStackTrace = null)
         {
-            var vsTestCase = VSTestCaseFactory.Create(test, _source, includeTraits: false);
+            var vsTestCase = VSTestCaseFactory.Create(test, _source);
             var result = new TestResult(vsTestCase)
             {
                 Outcome = outcome,

@@ -145,6 +145,26 @@ public sealed class TestExecutionEngineDeferredTests
     }
 
     /// <summary>
+    /// A sink that fails while reporting the empty-source skip must surface as itself. Reporting it
+    /// as a data source error would hide the sink failure behind an expansion failure that never
+    /// happened.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_EmptyDeferredSourceWithFailingSink_PropagatesTheSinkFailureAsync()
+    {
+        var sink = new SkipRejectingSink();
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await new TestExecutionEngine().RunAsync(
+                [CreateEmptyPlaceholder()],
+                sink,
+                CancellationToken.None));
+
+        Assert.Equal("sink is down", failure.Message);
+        Assert.Equal(0, sink.ErrorReportAttempts);
+    }
+
+    /// <summary>
     /// A failed expansion must not strand the engine: the non-reentrancy claim is released like any
     /// other run, so the same instance can be used again.
     /// </summary>
@@ -256,5 +276,31 @@ public sealed class TestExecutionEngineDeferredTests
         public void Add(int a, int b, int expected)
         {
         }
+    }
+
+    /// <summary>
+    /// Fails only on skip reports, and counts error reports so a test can prove the failure was not
+    /// quietly reclassified into one.
+    /// </summary>
+    private sealed class SkipRejectingSink : ITestExecutionSink
+    {
+        private int _errorReportAttempts;
+
+        public int ErrorReportAttempts => Volatile.Read(ref _errorReportAttempts);
+
+        public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null) =>
+            Task.CompletedTask;
+
+        public Task ReportFailedAsync(TestCaseDescriptor test, AssertionFailedException ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null) =>
+            Task.CompletedTask;
+
+        public Task ReportErrorAsync(TestCaseDescriptor test, Exception ex, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
+        {
+            Interlocked.Increment(ref _errorReportAttempts);
+            return Task.CompletedTask;
+        }
+
+        public Task ReportSkippedAsync(TestCaseDescriptor test, IReadOnlyList<Artifact>? artifacts = null) =>
+            throw new InvalidOperationException("sink is down");
     }
 }

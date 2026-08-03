@@ -132,9 +132,9 @@ A `[TestData]` member can produce its rows asynchronously. Three shapes are supp
 enumerable. Rows may be typed exactly as they are for a synchronous member, `TestDataRow<T>`
 included.
 
-An `IAsyncEnumerable<T>` member may take a single `CancellationToken` parameter. NextUnit passes the
-discovery cancellation token, so a source that waits on I/O can be interrupted instead of stalling
-the run:
+An `IAsyncEnumerable<T>` member may take a single `CancellationToken` parameter. NextUnit passes
+whichever token governs the enumeration -- the discovery token here, or the run token for a deferred
+source -- so a source that waits on I/O can be interrupted instead of stalling the run:
 
 ```csharp
 public static async IAsyncEnumerable<object[]> StreamedRows(
@@ -177,7 +177,8 @@ time as `NU0014`.
 A data source must not block synchronously. Cancellation is honored at every genuine await point, so
 a source that awaits its I/O can always be interrupted. Code that blocks the calling thread cannot
 be: `Task.Wait()`, `.Result`, a lock held across a slow call, or a lazy sequence whose `MoveNext`
-blocks will stall discovery until it returns, and no cancellation token can shorten that. This is not
+blocks will stall whichever phase is enumerating the source -- discovery, or the run itself for a
+deferred source -- until it returns, and no cancellation token can shorten that. This is not
 specific to async sources -- an ordinary `IEnumerable<T>` member that blocks behaves the same way --
 but it is worth stating plainly, because an `async` signature can otherwise suggest a guarantee the
 runtime cannot make. Await instead of blocking, and observe the token you are given.
