@@ -200,9 +200,10 @@ internal sealed class NextUnitFramework :
     /// Cancels and releases the shared build.
     /// </summary>
     /// <remarks>
-    /// The build outlives any single request by design, so something has to bound its lifetime.
-    /// Microsoft.Testing.Platform disposes the framework at the end of the test application, which
-    /// is the point at which no request can still want the result.
+    /// The build no longer belongs to any single request, so disposal is where its lifetime ends:
+    /// once the framework is gone, nothing can still want the result. A host that never disposes the
+    /// framework loses nothing but the early cancellation, because the build dies with the process
+    /// and every caller already cancels its own wait independently.
     /// </remarks>
     public void Dispose()
     {
