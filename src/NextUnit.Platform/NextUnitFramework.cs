@@ -217,19 +217,34 @@ internal sealed class NextUnitFramework :
     private void ReleaseBuild(TestCaseBuild build)
     {
         CancellationTokenSource? abandoned = null;
+        CancellationTokenSource? finished = null;
 
         lock (_testCasesGate)
         {
-            if (--build.Waiters == 0 && !build.Task.IsCompleted)
+            if (--build.Waiters == 0)
             {
-                abandoned = build.TakeCancellation();
+                var cancellation = build.TakeCancellation();
 
-                if (ReferenceEquals(_currentBuild, build))
+                if (build.Task.IsCompleted)
                 {
-                    _currentBuild = null;
+                    // A finished build keeps serving its cached result, but nothing will read its
+                    // token again. Releasing the source here stops a data source's registrations and
+                    // callback closures from staying rooted for the framework's whole lifetime.
+                    finished = cancellation;
+                }
+                else
+                {
+                    abandoned = cancellation;
+
+                    if (ReferenceEquals(_currentBuild, build))
+                    {
+                        _currentBuild = null;
+                    }
                 }
             }
         }
+
+        finished?.Dispose();
 
         // Cancelled outside the gate: Cancel runs its registered callbacks inline, and running
         // arbitrary continuation work while holding the lock every request needs is how a

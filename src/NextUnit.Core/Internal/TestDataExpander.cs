@@ -243,13 +243,14 @@ public static class TestDataExpander
         IAsyncDisposable enumerator,
         CancellationToken cancellationToken)
     {
-        var dispose = enumerator.DisposeAsync();
-
         try
         {
-            // Both completion paths share one filter. Splitting them let a synchronously cancelled
-            // DisposeAsync throw straight out of this method, and since it runs from a finally that
-            // cancellation would have replaced the actual data source failure the caller needs.
+            // The call itself is inside the try, not just the await. Every step here can raise the
+            // cancellation -- the invocation, a synchronously completed result, or the pending wait
+            // -- and this runs from a finally, so any one of them escaping would replace the actual
+            // data source failure the caller needs with a cancellation that explains nothing.
+            var dispose = enumerator.DisposeAsync();
+
             if (dispose.IsCompleted)
             {
                 dispose.GetAwaiter().GetResult();

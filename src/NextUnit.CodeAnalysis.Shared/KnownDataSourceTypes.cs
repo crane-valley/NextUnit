@@ -100,27 +100,40 @@ internal readonly struct KnownDataSourceTypes
         return ClassifyAwaitable(namedType);
     }
 
+    /// <summary>
+    /// Classifies a type that is awaited rather than enumerated.
+    /// </summary>
+    /// <remarks>
+    /// The base chain is walked rather than the original definition compared once, because a type
+    /// deriving from <c>Task&lt;TCollection&gt;</c> is still awaited as one. Matching only the exact
+    /// definition classified it as synchronous, and the generator then emitted a synchronous
+    /// provider that the runtime could not cast, reporting the source as missing with no diagnostic
+    /// to explain it. The sibling test-method classifier walks the chain for the same reason.
+    /// </remarks>
     private DataSourceClassification ClassifyAwaitable(INamedTypeSymbol namedType)
     {
-        var isTask = Matches(namedType.OriginalDefinition, _genericTask);
-        var isValueTask = Matches(namedType.OriginalDefinition, _genericValueTask);
-
-        if (isTask || isValueTask)
+        for (INamedTypeSymbol? current = namedType; current is not null; current = current.BaseType)
         {
-            var awaitedType = namedType.TypeArguments[0];
-            if (!IsSyncCollection(awaitedType))
+            var isTask = Matches(current.OriginalDefinition, _genericTask);
+            var isValueTask = Matches(current.OriginalDefinition, _genericValueTask);
+
+            if (isTask || isValueTask)
+            {
+                var awaitedType = current.TypeArguments[0];
+                if (!IsSyncCollection(awaitedType))
+                {
+                    return new DataSourceClassification(DataSourceShape.UnsupportedAwaitable, null);
+                }
+
+                return new DataSourceClassification(
+                    isTask ? DataSourceShape.TaskOfCollection : DataSourceShape.ValueTaskOfCollection,
+                    TryGetSyncElementType(awaitedType));
+            }
+
+            if (Matches(current, _task) || Matches(current, _valueTask))
             {
                 return new DataSourceClassification(DataSourceShape.UnsupportedAwaitable, null);
             }
-
-            return new DataSourceClassification(
-                isTask ? DataSourceShape.TaskOfCollection : DataSourceShape.ValueTaskOfCollection,
-                TryGetSyncElementType(awaitedType));
-        }
-
-        if (Matches(namedType, _task) || Matches(namedType, _valueTask))
-        {
-            return new DataSourceClassification(DataSourceShape.UnsupportedAwaitable, null);
         }
 
         return new DataSourceClassification(DataSourceShape.Sync, null);
