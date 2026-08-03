@@ -254,13 +254,11 @@ internal sealed class NextUnitFramework :
             return;
         }
 
-        try
+        // The using is load-bearing, not decoration: Cancel runs registered callbacks inline, and one
+        // that throws must not leave the source undisposed.
+        using (cancellation)
         {
             cancellation.Cancel();
-        }
-        finally
-        {
-            cancellation.Dispose();
         }
     }
 
