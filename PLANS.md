@@ -121,6 +121,22 @@ decision rather than more schedules or report formats.
 - Guardrail: keep Dependabot as the update mechanism; CodeQL and SBOM generation remain demand-triggered,
   not standing roadmap work.
 
+### Priority 2 — The release checklist misdescribes how `Directory.Packages.props` carries the version
+
+Surfaced by the Codex review of the `NextUnit.Templates` change (2026-08-04) and confirmed to
+pre-date it. The Version Update Checklist tells the releaser to update six
+`<PackageVersion ... Version="X.Y.Z" />` entries in `Directory.Packages.props`, and the
+Troubleshooting section repeats the claim. All six entries actually read `$(NextUnitVersion)`, so the
+one value to change is the `<NextUnitVersion>` property. Following the instruction literally replaces
+six indirections with literals and leaves `NextUnitVersion` at the old value, which the release
+workflow's tag-versus-version gate then rejects.
+
+Left as-is here because it is orthogonal to the template package and touches instructions this change
+does not otherwise alter.
+
+- [ ] Rewrite the `Directory.Packages.props` checklist item and its Troubleshooting counterpart around
+  the single `<NextUnitVersion>` property.
+
 ### Priority 2 — `--list-tests` reports no tests under Microsoft.Testing.Platform
 
 Surfaced while verifying the `dotnet new nextunit` template (2026-08-04) and confirmed to pre-date it:

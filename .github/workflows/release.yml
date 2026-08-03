@@ -150,6 +150,50 @@ jobs:
             -p:UseLocalNextUnitPackage=true \
             -- --minimum-expected-tests 1
 
+      # The template ships as content, so neither the solution build nor the package smoke above
+      # compiles a single line of it: a missing .template.config, a malformed template.json, or a
+      # stale pinned version would reach nuget.org unnoticed. A published version is immutable, so
+      # this repeats the dotnet.yml template check here rather than trusting that it ran on the
+      # tagged commit.
+      - name: Verify template integration
+        shell: bash
+        env:
+          TEMPLATE_OUTPUT_DIR: ${{ runner.temp }}/nextunit-template-release-check
+        run: |
+          template_project=src/NextUnit.Templates/templates/NextUnit-CSharp/Company.TestProject1.csproj
+          template_version=$(sed -n 's/.*Include="NextUnit" Version="\([^"]*\)".*/\1/p' "$template_project")
+          if [ "$template_version" != "$PACKAGE_VERSION" ]; then
+            echo "Error: $template_project pins NextUnit '$template_version' but this release is '$PACKAGE_VERSION'."
+            echo "See the Version Update Checklist in docs/RELEASE_PROCESS.md."
+            exit 1
+          fi
+          dotnet new install "${{ github.workspace }}/artifacts/packages/NextUnit.Templates.$PACKAGE_VERSION.nupkg"
+          dotnet new nextunit --name TemplateSmoke --output "$TEMPLATE_OUTPUT_DIR/TemplateSmoke" --no-restore
+          # Source mapping keeps NextUnit* on the packages this run just built. The same version may
+          # already exist on nuget.org from a re-run, and either copy could otherwise win.
+          cat > "$TEMPLATE_OUTPUT_DIR/TemplateSmoke/NuGet.Config" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="local-nextunit" value="${{ github.workspace }}/artifacts/packages" />
+              <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
+            </packageSources>
+            <packageSourceMapping>
+              <packageSource key="local-nextunit">
+                <package pattern="NextUnit*" />
+              </packageSource>
+              <packageSource key="nuget.org">
+                <package pattern="*" />
+              </packageSource>
+            </packageSourceMapping>
+          </configuration>
+          EOF
+          project="$TEMPLATE_OUTPUT_DIR/TemplateSmoke/TemplateSmoke.csproj"
+          dotnet restore "$project"
+          dotnet build "$project" --configuration Release --no-restore
+          dotnet run --project "$project" --configuration Release --no-build -- --minimum-expected-tests 1
+
       - name: NuGet login (OIDC)
         id: login
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
