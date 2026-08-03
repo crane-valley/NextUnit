@@ -33,13 +33,10 @@ internal sealed class NextUnitFramework :
     // held. _testCasesGate covers both _testCasesTask and _assemblyLifecycleInitialized because they
     // are published together by the same one-time build in GetTestCasesAsync.
     private readonly Lock _testCasesGate = new();
-    private Task<IReadOnlyList<TestCaseDescriptor>>? _testCasesTask;
-
-    // The build is shared by every request, so it cannot borrow any single request's token; it gets
-    // its own. _buildWaiters counts the requests currently awaiting it, which is what lets an
+    // The build is shared by every request, so it cannot borrow any single request's token; each
+    // generation carries its own token source and its own waiter count, which is what lets an
     // unfinished build be cancelled once its last waiter leaves without disturbing the others.
-    private CancellationTokenSource? _buildCancellation;
-    private int _buildWaiters;
+    private TestCaseBuild? _currentBuild;
     private readonly TestFilterConfiguration _filterConfig;
 
     private readonly SessionLifecycleRunner _sessionHooks = new();
@@ -162,15 +159,17 @@ internal sealed class NextUnitFramework :
     /// merely awaiting the same result. A build that ends in failure is dropped rather than
     /// memoized, so the next request rebuilds instead of replaying the failure.
     /// <para>
-    /// Waiters are counted so an unfinished build does not outlive its audience. When the last
-    /// waiter walks away from a build that is still running, nothing will ever observe it, so it is
-    /// cancelled and dropped instead of being left cached where every later request would inherit
-    /// the same stuck work and whatever resources its data source is holding.
+    /// Waiters are counted per build, not globally. When the last waiter walks away from a build
+    /// that is still running, nothing will ever observe it, so it is cancelled and dropped instead
+    /// of being left cached where every later request would inherit the same stuck work and
+    /// whatever resources its data source is holding. The count lives on the build because a
+    /// detached generation keeps its own waiters: a shared counter would let a replacement inherit
+    /// them and mistake itself for a build that still has an audience.
     /// </para>
     /// </remarks>
     private async Task<IReadOnlyList<TestCaseDescriptor>> GetTestCasesAsync(CancellationToken cancellationToken)
     {
-        Task<IReadOnlyList<TestCaseDescriptor>> buildTask;
+        TestCaseBuild build;
 
         lock (_testCasesGate)
         {
@@ -181,22 +180,22 @@ internal sealed class NextUnitFramework :
             // A build can fail after the caller that started it has already walked away, leaving a
             // faulted task nobody observed. Dropping it on acquisition means the next request
             // rebuilds, rather than being handed a failure that belonged to someone else.
-            if (_testCasesTask is { IsCompleted: true, IsCompletedSuccessfully: false })
+            if (_currentBuild is { Task: { IsCompleted: true, IsCompletedSuccessfully: false } })
             {
-                DetachBuild();
+                _currentBuild = null;
             }
 
-            if (_testCasesTask is null)
+            if (_currentBuild is null)
             {
-                _buildCancellation = new CancellationTokenSource();
+                var cancellation = new CancellationTokenSource();
 
                 // BuildTestCasesAsync runs synchronously up to its first await, so the synchronous
                 // data sources are still expanded under the gate exactly as they were before.
-                _testCasesTask = StartBuild(_buildCancellation.Token);
+                _currentBuild = new TestCaseBuild(cancellation, StartBuild(cancellation.Token));
             }
 
-            buildTask = _testCasesTask;
-            _buildWaiters++;
+            build = _currentBuild;
+            build.Waiters++;
         }
 
         try
@@ -204,31 +203,31 @@ internal sealed class NextUnitFramework :
             // Each caller cancels only its own wait. Binding the build to whichever request happened
             // to start it would let a cancelled discovery abort an unrelated run that is merely
             // awaiting the same result.
-            return await buildTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await build.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            ReleaseBuild(buildTask);
+            ReleaseBuild(build);
         }
     }
 
     /// <summary>
     /// Records that one waiter has left, cancelling the build if it was the last one.
     /// </summary>
-    private void ReleaseBuild(Task<IReadOnlyList<TestCaseDescriptor>> buildTask)
+    private void ReleaseBuild(TestCaseBuild build)
     {
         CancellationTokenSource? abandoned = null;
 
         lock (_testCasesGate)
         {
-            _buildWaiters--;
-
-            if (_buildWaiters == 0 &&
-                !buildTask.IsCompleted &&
-                ReferenceEquals(_testCasesTask, buildTask))
+            if (--build.Waiters == 0 && !build.Task.IsCompleted)
             {
-                abandoned = _buildCancellation;
-                DetachBuild();
+                abandoned = build.TakeCancellation();
+
+                if (ReferenceEquals(_currentBuild, build))
+                {
+                    _currentBuild = null;
+                }
             }
         }
 
@@ -239,12 +238,45 @@ internal sealed class NextUnitFramework :
     }
 
     /// <summary>
-    /// Forgets the current build so the next request starts a fresh one. Callers hold the gate.
+    /// One generation of the shared test case build: its task, its token source, and the number of
+    /// requests currently awaiting it.
     /// </summary>
-    private void DetachBuild()
+    /// <remarks>
+    /// Grouped into one object so the three can never drift apart. A detached generation stays
+    /// reachable through the waiters still holding it, which is exactly why the count cannot live
+    /// on the framework.
+    /// </remarks>
+    private sealed class TestCaseBuild
     {
-        _testCasesTask = null;
-        _buildCancellation = null;
+        private CancellationTokenSource? _cancellation;
+
+        public TestCaseBuild(CancellationTokenSource cancellation, Task<IReadOnlyList<TestCaseDescriptor>> task)
+        {
+            _cancellation = cancellation;
+            Task = task;
+        }
+
+        public Task<IReadOnlyList<TestCaseDescriptor>> Task { get; }
+
+        /// <summary>
+        /// Gets or sets the number of requests currently awaiting this build. Guarded by the gate.
+        /// </summary>
+        public int Waiters { get; set; }
+
+        /// <summary>
+        /// Claims the token source for cancellation, returning it to exactly one caller.
+        /// </summary>
+        /// <remarks>
+        /// The last waiter and <see cref="Dispose"/> can both decide to end the same build. Handing
+        /// the source out once means the loser cancels nothing rather than operating on a source the
+        /// winner has already disposed.
+        /// </remarks>
+        public CancellationTokenSource? TakeCancellation()
+        {
+            var cancellation = _cancellation;
+            _cancellation = null;
+            return cancellation;
+        }
     }
 
     private static void CancelAndDispose(CancellationTokenSource? cancellation)
@@ -296,8 +328,8 @@ internal sealed class NextUnitFramework :
             }
 
             _disposed = true;
-            abandoned = _buildCancellation;
-            DetachBuild();
+            abandoned = _currentBuild?.TakeCancellation();
+            _currentBuild = null;
         }
 
         CancelAndDispose(abandoned);
