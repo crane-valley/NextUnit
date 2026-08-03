@@ -254,8 +254,10 @@ public static class TestDataExpander
         {
             await dispose.AsTask().WaitAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Filtered on the discovery token so only the race's own cancellation is swallowed. A
+            // source that cancels its cleanup for its own reasons still surfaces the failure.
         }
     }
 

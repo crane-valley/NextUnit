@@ -169,6 +169,20 @@ deliberate design decision rather than a drive-by fix.
   Resolved: added an `[AssemblyTeardown]` synthetic node mirroring the class-scope nodes, so the
   failure is a test result in both adapters instead of an exception thrown out of `RunAsync`.
 
+### Priority 2 — Non-public data source members break the generated registry
+
+Surfaced by the async data source review (2026-08-03) and verified to pre-date it: the generator
+emits direct member access from `NextUnit.Generated.GeneratedTestRegistry`, so a `[TestData]` member
+that is `private` or `protected` produces `CS0122` in the consumer's build. `TestDataMemberAnalyzer`
+accepts such members because the runtime reflection fallback uses `BindingFlags.NonPublic`, so the
+analyzer and the generator disagree about what is valid. Async sources inherit the behavior
+unchanged rather than widening it.
+
+- [ ] Decide between emitting an accessibility-safe accessor and reporting non-public data source
+  members as a diagnostic, then align `TestDataMemberAnalyzer` with the decision.
+- [ ] Cover `private`, `protected`, and `internal` members on the synchronous and asynchronous paths
+  once the decision is made.
+
 ### Priority 2 — Lifecycle follow-ups deferred by the 2026-07-26 refactor review
 
 These items change observable behavior, so they were excluded from the refactor that surfaced them
