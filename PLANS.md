@@ -169,6 +169,26 @@ deliberate design decision rather than a drive-by fix.
   Resolved: added an `[AssemblyTeardown]` synthetic node mirroring the class-scope nodes, so the
   failure is a test result in both adapters instead of an exception thrown out of `RunAsync`.
 
+### Decided — data sources must not block synchronously
+
+Decided 2026-08-03 while adding async member data. Cancellation is honored at every genuine await
+point in the expander, but a data source that blocks its calling thread cannot be interrupted by any
+token: the enumerator race only helps once `MoveNextAsync` has returned a pending task, and a
+`MoveNext` that blocks never gets that far. The contract is now stated on `TestDataAttribute` and in
+`docs/GETTING_STARTED.md`.
+
+Running enumeration on a pool thread would close the gap and was rejected:
+
+- It changes the observable threading contract for every data source, synchronous ones included:
+  thread affinity, current culture, and any ambient context a source reads today would move.
+- An abandoned enumeration leaks its thread for the process lifetime, trading a stall the user can
+  see and fix for a leak they cannot.
+- The limitation is not new. A blocking synchronous `[TestData]` member has always stalled discovery;
+  async sources inherit that property rather than adding it.
+
+Revisit only if a concrete report shows a source that cannot avoid blocking, and treat it as its own
+change with its own review rather than a follow-up to the async work.
+
 ### Priority 2 — Data source member lookup is narrower than C# member access
 
 Both items were surfaced by the async data source review (2026-08-03) and verified against `main` to

@@ -175,6 +175,7 @@ public static class TestDataExpander
         var rows = new List<object?>();
         var enumerator = asyncProvider(cancellationToken).GetAsyncEnumerator(cancellationToken);
         var enumeratorIsDisposable = true;
+        var enumerationSucceeded = false;
 
         try
         {
@@ -212,15 +213,33 @@ public static class TestDataExpander
                 cancellationToken.ThrowIfCancellationRequested();
                 rows.Add(enumerator.Current);
             }
+
+            // The per-row check never runs for the move that ends the sequence, so a token cancelled
+            // exactly as enumeration finished would otherwise be reported as a complete result.
+            cancellationToken.ThrowIfCancellationRequested();
+            enumerationSucceeded = true;
         }
         finally
         {
             if (enumeratorIsDisposable)
             {
-                await DisposeEnumeratorAsync(enumerator, cancellationToken).ConfigureAwait(false);
+                await DisposeEnumeratorAsync(
+                    enumerator,
+                    cancellationToken,
+                    // Suppress the cancellation only while an exception is already unwinding.
+                    // Otherwise the rows are complete and cancellation during cleanup is the only
+                    // failure there is, so swallowing it would report a cancelled request as a
+                    // successful discovery.
+                    suppressCancellation: !enumerationSucceeded).ConfigureAwait(false);
             }
         }
 
+        // The last word on cancellation, after cleanup rather than before it. Cleanup is itself a
+        // place a token can be cancelled, and a disposal that completes successfully reports
+        // nothing, so without this check the rows would come back as a complete result on a
+        // cancelled request. Checking here makes the guarantee uniform: this method never returns
+        // rows to a caller whose token was cancelled, wherever the cancellation happened to land.
+        cancellationToken.ThrowIfCancellationRequested();
         return rows;
     }
 
@@ -234,14 +253,18 @@ public static class TestDataExpander
     /// compiler-generated iterator, never reaches the race. Abandoning cleanup can leak whatever
     /// the source held; that is the accepted cost of guaranteeing that cancellation returns.
     /// <para>
-    /// Cancellation is swallowed rather than rethrown because this runs from a <c>finally</c>:
-    /// rethrowing would replace whatever actually ended the enumeration with a cancellation that
-    /// says nothing about it.
+    /// Cancellation is swallowed only when <paramref name="suppressCancellation"/> says an exception
+    /// is already unwinding, since this runs from a <c>finally</c> and rethrowing there would
+    /// replace whatever actually ended the enumeration with a cancellation that says nothing about
+    /// it. When enumeration succeeded, cancellation during cleanup is the only failure there is and
+    /// must reach the caller: reporting a cancelled request as a successful discovery is worse than
+    /// either outcome it is chosen between.
     /// </para>
     /// </remarks>
     private static async ValueTask DisposeEnumeratorAsync(
         IAsyncDisposable enumerator,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool suppressCancellation)
     {
         try
         {
@@ -259,7 +282,7 @@ public static class TestDataExpander
 
             await dispose.AsTask().WaitAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (suppressCancellation && cancellationToken.IsCancellationRequested)
         {
             // Filtered on the discovery token so only the race's own cancellation is swallowed. A
             // source that cancels its cleanup for its own reasons still surfaces the failure.

@@ -174,6 +174,14 @@ The awaited value has to be a collection of rows. A member returning bare `Task`
 something that is not enumerable such as `Task<int>`, cannot supply rows and is reported at build
 time as `NU0014`.
 
+A data source must not block synchronously. Cancellation is honored at every genuine await point, so
+a source that awaits its I/O can always be interrupted. Code that blocks the calling thread cannot
+be: `Task.Wait()`, `.Result`, a lock held across a slow call, or a lazy sequence whose `MoveNext`
+blocks will stall discovery until it returns, and no cancellation token can shorten that. This is not
+specific to async sources -- an ordinary `IEnumerable<T>` member that blocks behaves the same way --
+but it is worth stating plainly, because an `async` signature can otherwise suggest a guarantee the
+runtime cannot make. Await instead of blocking, and observe the token you are given.
+
 ## Running Tests
 
 ### Command Line

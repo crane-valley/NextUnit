@@ -5,8 +5,22 @@ namespace NextUnit;
 /// </summary>
 /// <remarks>
 /// This attribute specifies a method or property that returns test data for parameterized tests.
-/// The data source must be a static member that returns <see cref="System.Collections.Generic.IEnumerable{T}"/> 
+/// The data source must be a static member that returns <see cref="System.Collections.Generic.IEnumerable{T}"/>
 /// where T is <see cref="object"/>[] or a compatible type.
+/// <para>
+/// Rows may also be produced asynchronously, by returning
+/// <see cref="System.Collections.Generic.IAsyncEnumerable{T}"/>, <c>Task&lt;TCollection&gt;</c>, or
+/// <c>ValueTask&lt;TCollection&gt;</c> where <c>TCollection</c> is enumerable. An
+/// <see cref="System.Collections.Generic.IAsyncEnumerable{T}"/> member may take a single
+/// <see cref="System.Threading.CancellationToken"/> parameter, which receives the discovery
+/// cancellation token.
+/// </para>
+/// <para>
+/// A data source must not block synchronously. Cancellation is honored at every genuine await
+/// point, but code that blocks the calling thread -- <c>Task.Wait</c>, <c>.Result</c>, a lazy
+/// sequence whose <c>MoveNext</c> blocks -- cannot be interrupted by any token, and stalls
+/// discovery until it returns. Wait asynchronously and observe the token instead.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>

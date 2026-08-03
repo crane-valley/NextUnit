@@ -172,6 +172,72 @@ public sealed class AsyncTestDataExpanderTests
         await Xunit.Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await expansion);
     }
 
+    /// <summary>
+    /// Cancellation raised while only disposal is still pending must reach the caller. Swallowing it
+    /// there would report a cancelled request as a successful discovery.
+    /// </summary>
+    [Fact]
+    public async Task ExpandAsync_CancelledDuringDisposalOnly_PropagatesCancellationAsync()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var descriptor = CreateDescriptor(
+            "DisposalCancellingRows",
+            _ => new DisposalCancellingRows(cancellation));
+
+        await Xunit.Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await TestDataExpander.ExpandAsync([descriptor], cancellation.Token));
+    }
+
+    /// <summary>
+    /// Cancellation raised by the move that ends the sequence must reach the caller too. No per-row
+    /// check runs for that move, so nothing else would observe it.
+    /// </summary>
+    [Fact]
+    public async Task ExpandAsync_CancelledAsEnumerationEnds_PropagatesCancellationAsync()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var descriptor = CreateDescriptor(
+            "EndCancellingRows",
+            _ => new EndCancellingRows(cancellation));
+
+        await Xunit.Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await TestDataExpander.ExpandAsync([descriptor], cancellation.Token));
+    }
+
+    /// <summary>
+    /// Cancellation raised by a disposal that then completes successfully must reach the caller.
+    /// Cleanup reports nothing in that case, so only the check after it can observe the token.
+    /// </summary>
+    [Fact]
+    public async Task ExpandAsync_CancelledBySuccessfulDisposal_PropagatesCancellationAsync()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var descriptor = CreateDescriptor(
+            "DisposalTokenCancellingRows",
+            _ => new DisposalTokenCancellingRows(cancellation));
+
+        await Xunit.Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await TestDataExpander.ExpandAsync([descriptor], cancellation.Token));
+    }
+
+    /// <summary>
+    /// The mirror image: a data source failure still wins over a cancellation raised during cleanup,
+    /// because the failure is what the caller can act on.
+    /// </summary>
+    [Fact]
+    public async Task ExpandAsync_SourceThrowsAndDisposalCancels_ReportsSourceFailureAsync()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var descriptor = CreateDescriptor(
+            "ThrowingDisposalCancellingRows",
+            _ => new DisposalCancellingRows(cancellation, throwFromEnumeration: true));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await TestDataExpander.ExpandAsync([descriptor], cancellation.Token));
+
+        Assert.Equal("data source failed", exception.Message);
+    }
+
     [Fact]
     public async Task ExpandAsync_SourceThrows_PropagatesOriginalExceptionAsync()
     {
@@ -313,6 +379,106 @@ public sealed class AsyncTestDataExpanderTests
     {
         public void Add(int a, int b, int expected)
         {
+        }
+    }
+
+    /// <summary>
+    /// Yields its rows, then cancels the discovery token and reports the cancellation from
+    /// <see cref="IAsyncDisposable.DisposeAsync"/>, so disposal is the only thing left to fail.
+    /// </summary>
+    /// <remarks>
+    /// Hand-written rather than a compiler-generated iterator because an <c>async</c> iterator
+    /// cannot be made to fail in <c>DisposeAsync</c> alone.
+    /// </remarks>
+    private sealed class DisposalCancellingRows(
+        CancellationTokenSource cancellation,
+        bool throwFromEnumeration = false) : IAsyncEnumerable<object?>, IAsyncEnumerator<object?>
+    {
+        private int _index;
+
+        public object? Current { get; private set; }
+
+        public IAsyncEnumerator<object?> GetAsyncEnumerator(CancellationToken cancellationToken) => this;
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            if (_index++ > 0)
+            {
+                return throwFromEnumeration
+                    ? ValueTask.FromException<bool>(new InvalidOperationException("data source failed"))
+                    : ValueTask.FromResult(false);
+            }
+
+            Current = new object[] { 1, 2, 3 };
+            return ValueTask.FromResult(true);
+        }
+
+        /// <summary>
+        /// Cancels here rather than during enumeration, so disposal really is the only failure.
+        /// </summary>
+        public ValueTask DisposeAsync()
+        {
+            cancellation.Cancel();
+            return ValueTask.FromCanceled(new CancellationToken(canceled: true));
+        }
+    }
+
+    /// <summary>
+    /// Cancels the discovery token from the move that ends the sequence, where no per-row check
+    /// runs, and then disposes cleanly.
+    /// </summary>
+    private sealed class EndCancellingRows(CancellationTokenSource cancellation)
+        : IAsyncEnumerable<object?>, IAsyncEnumerator<object?>
+    {
+        private int _index;
+
+        public object? Current { get; private set; }
+
+        public IAsyncEnumerator<object?> GetAsyncEnumerator(CancellationToken cancellationToken) => this;
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            if (_index++ > 0)
+            {
+                cancellation.Cancel();
+                return ValueTask.FromResult(false);
+            }
+
+            Current = new object[] { 1, 2, 3 };
+            return ValueTask.FromResult(true);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Cancels the discovery token during cleanup and then completes disposal successfully, so
+    /// nothing in the enumeration or the cleanup itself reports the cancellation.
+    /// </summary>
+    private sealed class DisposalTokenCancellingRows(CancellationTokenSource cancellation)
+        : IAsyncEnumerable<object?>, IAsyncEnumerator<object?>
+    {
+        private int _index;
+
+        public object? Current { get; private set; }
+
+        public IAsyncEnumerator<object?> GetAsyncEnumerator(CancellationToken cancellationToken) => this;
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            if (_index++ > 0)
+            {
+                return ValueTask.FromResult(false);
+            }
+
+            Current = new object[] { 1, 2, 3 };
+            return ValueTask.FromResult(true);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            cancellation.Cancel();
+            return ValueTask.CompletedTask;
         }
     }
 }
