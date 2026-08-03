@@ -244,10 +244,6 @@ jobs:
       # the global packages folder without consulting any source, so a warm cache holding the
       # published NextUnit of the same version would silently replace the one packed here.
       NUGET_PACKAGES: ${{ github.workspace }}/artifacts/template-smoke/packages-${{ github.run_id }}-${{ github.run_attempt }}
-      # Generated outside the workspace on purpose: inside it this repository's
-      # Directory.Build.props and central package management would apply to the generated project,
-      # and the check would stop measuring what a consumer actually gets.
-      TEMPLATE_OUTPUT_DIR: ${{ runner.temp }}/nextunit-template-smoke
 
     steps:
     - name: Checkout code
@@ -271,6 +267,11 @@ jobs:
           exit 1
         fi
         echo "PACKAGE_VERSION=$repo_version" >> "$GITHUB_ENV"
+        # Generated outside the workspace on purpose: inside it this repository's
+        # Directory.Build.props and central package management would apply to the generated project,
+        # and the check would stop measuring what a consumer actually gets. Set here rather than in
+        # the job's env: block, where the runner context is not available.
+        echo "TEMPLATE_OUTPUT_DIR=$RUNNER_TEMP/nextunit-template-smoke" >> "$GITHUB_ENV"
 
     - name: Pack NextUnit and the template package
       run: |
