@@ -185,16 +185,33 @@ internal sealed record TestDataSource
     public TestDataSource(
         string memberName,
         string? memberTypeName,
-        DataSourceMemberKind memberKind)
+        DataSourceMemberKind memberKind,
+        DataSourceShape shape,
+        bool acceptsCancellationToken)
     {
         MemberName = memberName;
         MemberTypeName = memberTypeName;
         MemberKind = memberKind;
+        Shape = shape;
+        AcceptsCancellationToken = acceptsCancellationToken;
     }
 
     public string MemberName { get; }
     public string? MemberTypeName { get; }
     public DataSourceMemberKind MemberKind { get; }
+
+    /// <summary>
+    /// Gets how the member hands over its rows, which decides whether the generator emits the
+    /// synchronous provider delegate or the asynchronous one.
+    /// </summary>
+    public DataSourceShape Shape { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the member is a method that takes the discovery cancellation
+    /// token. Only asynchronous sources can accept one; the synchronous provider delegate has no
+    /// token to pass.
+    /// </summary>
+    public bool AcceptsCancellationToken { get; }
 }
 
 /// <summary>

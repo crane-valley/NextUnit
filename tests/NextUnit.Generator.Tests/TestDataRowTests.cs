@@ -9,7 +9,8 @@ public sealed class TestDataRowTests
     {
         var descriptor = CreateTestDataDescriptor();
 
-        var testCase = Assert.Single(TestDataExpander.ExpandSingle(descriptor));
+        var testCase = Assert.Single(
+            TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken));
 
         Assert.Equal("adds positive values", testCase.DisplayName);
         Assert.Equal(new object?[] { 2, 3, 5 }, testCase.Arguments);
@@ -25,7 +26,8 @@ public sealed class TestDataRowTests
     [Fact]
     public async Task TestDataExpander_ManualDescriptor_CreatesReflectionFallbackAsync()
     {
-        var testCase = Assert.Single(TestDataExpander.ExpandSingle(CreateTestDataDescriptor()));
+        var testCase = Assert.Single(
+            TestDataExpander.ExpandSingle(CreateTestDataDescriptor(), TestContext.Current.CancellationToken));
 
         Xunit.Assert.NotNull(testCase.TestMethodWithArguments);
         var invoker = testCase.TestMethodWithArguments!;

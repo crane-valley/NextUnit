@@ -154,4 +154,16 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         description: "Methods with [Arguments], [TestData], or [Matrix] must also have [Test] to be discovered by the test generator.");
+
+    /// <summary>
+    /// NU0014: TestData member returns an awaitable that cannot supply rows.
+    /// </summary>
+    public static readonly DiagnosticDescriptor TestDataMemberUnsupportedAwaitable = new(
+        id: "NU0014",
+        title: "TestData member returns an unsupported awaitable",
+        messageFormat: "TestData member '{0}' returns '{1}', which supplies no rows; use IEnumerable<T>, IAsyncEnumerable<T>, Task<IEnumerable<T>>, or ValueTask<IEnumerable<T>>",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "A [TestData] member may await, but the awaited value must be a collection of rows. Bare Task or ValueTask, and a task wrapping a non-collection, cannot be expanded into test cases.");
 }

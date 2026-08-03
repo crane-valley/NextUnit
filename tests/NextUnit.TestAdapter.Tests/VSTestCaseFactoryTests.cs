@@ -16,7 +16,8 @@ public sealed class VSTestCaseFactoryTests
             DataSourceName = nameof(GetRows),
             DataSourceType = typeof(VSTestCaseFactoryTests),
             ParameterTypes = [typeof(int), typeof(int), typeof(int)]
-        }));
+        },
+        TestContext.Current.CancellationToken));
 
         var testCase = VSTestCaseFactory.Create(descriptor, "tests.dll");
         var traits = testCase.Traits.Select(trait => (trait.Name, trait.Value)).ToArray();

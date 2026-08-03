@@ -165,6 +165,59 @@ internal static class CodeBuilder
             : $"static () => (object?){access}";
     }
 
+    /// <summary>
+    /// Builds the synchronous provider for a <c>[TestData]</c> member, which is emitted only for a
+    /// synchronous source. An asynchronous member is reached through
+    /// <see cref="BuildAsyncTestDataSourceProvider"/> instead, and emitting both would make the
+    /// runtime invoke the member twice.
+    /// </summary>
+    public static string BuildTestDataSourceProvider(
+        string typeName,
+        string memberName,
+        DataSourceMemberKind memberKind,
+        DataSourceShape shape) =>
+        shape == DataSourceShape.Sync
+            ? BuildDataSourceProvider(typeName, memberName, memberKind)
+            : "null";
+
+    /// <summary>
+    /// Builds the asynchronous provider for a <c>[TestData]</c> member, or <c>null</c> when the
+    /// member is not an asynchronous source the generator can bind.
+    /// </summary>
+    /// <remarks>
+    /// The adapter calls exist because C# has no async iterator lambda, so the conversion to an
+    /// untyped row sequence cannot be inlined here. Every emitted call binds its type argument
+    /// statically, which is what keeps the generated path free of runtime reflection.
+    /// </remarks>
+    public static string? BuildAsyncTestDataSourceProvider(
+        string typeName,
+        string memberName,
+        DataSourceMemberKind memberKind,
+        DataSourceShape shape,
+        bool acceptsCancellationToken)
+    {
+        if (memberKind == DataSourceMemberKind.Unknown)
+        {
+            return null;
+        }
+
+        var arguments = acceptsCancellationToken ? "ct" : "";
+        var access = memberKind == DataSourceMemberKind.Method
+            ? $"{typeName}.{memberName}({arguments})"
+            : $"{typeName}.{memberName}";
+
+        return shape switch
+        {
+            DataSourceShape.AsyncEnumerable =>
+                $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync({access}, ct)",
+            DataSourceShape.TaskOfCollection =>
+                $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync({access}, ct)",
+            DataSourceShape.ValueTaskOfCollection =>
+                $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync(({access}).AsTask(), ct)",
+            _ => null
+        };
+    }
+
     public static string BuildDataSourceFactory(string typeName) =>
         $"static () => new {typeName}()";
 

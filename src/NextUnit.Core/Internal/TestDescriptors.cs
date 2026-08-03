@@ -67,6 +67,17 @@ public delegate object TestClassFactoryDelegate(ITestOutput output, ITestContext
 public delegate object? DataSourceProviderDelegate();
 
 /// <summary>
+/// Resolves a source-generated asynchronous member data source into an untyped row sequence.
+/// </summary>
+/// <param name="cancellationToken">The token that cancels row enumeration during discovery.</param>
+/// <remarks>
+/// The generator binds the member's element type statically and hands the rows over as
+/// <see cref="object"/>, so the runtime never needs reflection or a runtime generic instantiation
+/// to read an <c>IAsyncEnumerable&lt;T&gt;</c> whose <c>T</c> it does not know.
+/// </remarks>
+public delegate IAsyncEnumerable<object?> AsyncDataSourceProviderDelegate(CancellationToken cancellationToken);
+
+/// <summary>
 /// Delegate for invoking a lifecycle method.
 /// </summary>
 /// <param name="instance">The test class instance.</param>
@@ -461,6 +472,15 @@ public sealed class TestDataDescriptor
     /// Gets or initializes the generated data source accessor.
     /// </summary>
     public DataSourceProviderDelegate? DataSourceProvider { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the generated accessor for an asynchronous data source member.
+    /// </summary>
+    /// <remarks>
+    /// Set instead of <see cref="DataSourceProvider"/>, never alongside it: a member is either
+    /// synchronous or asynchronous, and the expander prefers this one when both are present.
+    /// </remarks>
+    public AsyncDataSourceProviderDelegate? AsyncDataSourceProvider { get; init; }
 
     /// <summary>
     /// Gets or initializes the lifecycle hooks configuration for the test.

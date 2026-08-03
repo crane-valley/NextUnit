@@ -15,29 +15,45 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
             DiagnosticDescriptors.TestDataMemberNotFound,
-            DiagnosticDescriptors.TestDataRowTypeMismatch);
+            DiagnosticDescriptors.TestDataRowTypeMismatch,
+            DiagnosticDescriptors.TestDataMemberUnsupportedAwaitable);
 
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+        context.RegisterCompilationStartAction(static startContext =>
+        {
+            var knownDataSourceTypes = KnownDataSourceTypes.Create(startContext.Compilation);
+            startContext.RegisterSymbolAction(
+                symbolContext => AnalyzeMethod(symbolContext, knownDataSourceTypes),
+                SymbolKind.Method);
+        });
     }
 
-    private static void AnalyzeMethod(SymbolAnalysisContext context)
+    private static void AnalyzeMethod(SymbolAnalysisContext context, KnownDataSourceTypes knownDataSourceTypes)
     {
         var method = (IMethodSymbol)context.Symbol;
+
+        // A method symbol action also fires for constructors, accessors, operators, and synthesized
+        // methods, none of which can carry a data source attribute. Skipping them early also keeps
+        // the fallback location safe: a synthesized symbol can have no location at all, and
+        // Locations[0] on one of those would crash the analyzer rather than report a diagnostic.
+        if (method.MethodKind != MethodKind.Ordinary || method.Locations.IsEmpty)
+        {
+            return;
+        }
 
         // Check method-level [TestData] attributes
         foreach (var attribute in method.GetAttributes())
         {
             if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.TestData)
             {
-                ValidateMemberReference(context, method, attribute, validateRowType: true);
+                ValidateMemberReference(context, method, attribute, knownDataSourceTypes, validateRowType: true);
             }
             else if (IsClassDataSourceAttribute(attribute))
             {
-                ValidateClassDataSourceTypes(context, method, attribute);
+                ValidateClassDataSourceTypes(context, method, attribute, knownDataSourceTypes);
             }
         }
 
@@ -48,7 +64,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             {
                 if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.ValuesFromMember)
                 {
-                    ValidateMemberReference(context, method, attribute, validateRowType: false);
+                    ValidateMemberReference(context, method, attribute, knownDataSourceTypes, validateRowType: false);
                 }
             }
         }
@@ -58,6 +74,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         SymbolAnalysisContext context,
         IMethodSymbol method,
         AttributeData attribute,
+        KnownDataSourceTypes knownDataSourceTypes,
         bool validateRowType)
     {
         var constructorArgs = attribute.ConstructorArguments;
@@ -118,12 +135,17 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
 
         if (validateRowType)
         {
+            // Validate the member the generator will actually bind, not simply the first static
+            // member with this name. A type carrying both Rows() and an unsupported
+            // Rows(CancellationToken) overload would otherwise be reported for an overload that is
+            // never emitted, failing a build that compiles and runs correctly.
             ValidateRowType(
                 context,
                 method,
                 attribute,
                 memberName,
-                GetMemberType(validMember));
+                DataSourceMemberResolver.Resolve(targetType, memberName, knownDataSourceTypes).MemberType,
+                knownDataSourceTypes);
         }
     }
 
@@ -140,7 +162,8 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
     private static void ValidateClassDataSourceTypes(
         SymbolAnalysisContext context,
         IMethodSymbol method,
-        AttributeData attribute)
+        AttributeData attribute,
+        KnownDataSourceTypes knownDataSourceTypes)
     {
         foreach (var sourceType in attribute.AttributeClass!.TypeArguments.OfType<INamedTypeSymbol>())
         {
@@ -149,26 +172,34 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 method,
                 attribute,
                 sourceType.Name,
-                sourceType);
+                sourceType,
+                knownDataSourceTypes);
         }
     }
-
-    private static ITypeSymbol? GetMemberType(ISymbol member) => member switch
-    {
-        IPropertySymbol property => property.Type,
-        IFieldSymbol field => field.Type,
-        IMethodSymbol method when method.Parameters.Length == 0 => method.ReturnType,
-        _ => null
-    };
 
     private static void ValidateRowType(
         SymbolAnalysisContext context,
         IMethodSymbol method,
         AttributeData attribute,
         string sourceName,
-        ITypeSymbol? sourceType)
+        ITypeSymbol? sourceType,
+        KnownDataSourceTypes knownDataSourceTypes)
     {
-        var elementType = TryGetEnumerableElementType(sourceType);
+        var classification = knownDataSourceTypes.Classify(sourceType);
+
+        if (classification.Shape == DataSourceShape.UnsupportedAwaitable)
+        {
+            ReportDiagnostic(
+                context,
+                method,
+                attribute,
+                DiagnosticDescriptors.TestDataMemberUnsupportedAwaitable,
+                sourceName,
+                sourceType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+            return;
+        }
+
+        var elementType = classification.RowType;
         if (elementType is null)
         {
             return;
@@ -213,39 +244,27 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var location = attribute.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
-            ?? method.Locations[0];
-        context.ReportDiagnostic(Diagnostic.Create(
+        ReportDiagnostic(
+            context,
+            method,
+            attribute,
             DiagnosticDescriptors.TestDataRowTypeMismatch,
-            location,
             sourceName,
             rowType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            method.Name));
+            method.Name);
     }
 
-    private static ITypeSymbol? TryGetEnumerableElementType(ITypeSymbol? sourceType)
+    private static void ReportDiagnostic(
+        SymbolAnalysisContext context,
+        IMethodSymbol method,
+        AttributeData attribute,
+        DiagnosticDescriptor descriptor,
+        params object[] messageArguments)
     {
-        if (sourceType is IArrayTypeSymbol array)
-        {
-            return array.ElementType;
-        }
-
-        if (sourceType is not INamedTypeSymbol namedType)
-        {
-            return null;
-        }
-
-        if (IsGenericEnumerable(namedType))
-        {
-            return namedType.TypeArguments[0];
-        }
-
-        var enumerableInterface = namedType.AllInterfaces.FirstOrDefault(IsGenericEnumerable);
-        return enumerableInterface?.TypeArguments[0];
+        var location = attribute.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
+            ?? method.Locations[0];
+        context.ReportDiagnostic(Diagnostic.Create(descriptor, location, messageArguments));
     }
-
-    private static bool IsGenericEnumerable(INamedTypeSymbol type) =>
-        type.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T;
 
     private static ITypeSymbol UnwrapTestDataRow(ITypeSymbol elementType)
     {

@@ -33,7 +33,9 @@ internal static class DataSourceAttributeReader
         return builder.ToImmutable();
     }
 
-    public static EquatableArray<TestDataSource> GetTestDataSources(IMethodSymbol methodSymbol)
+    public static EquatableArray<TestDataSource> GetTestDataSources(
+        IMethodSymbol methodSymbol,
+        KnownDataSourceTypes knownDataSourceTypes)
     {
         var builder = ImmutableArray.CreateBuilder<TestDataSource>();
 
@@ -63,10 +65,14 @@ internal static class DataSourceAttributeReader
             var memberType = memberTypeArg ?? methodSymbol.ContainingType;
             string? memberTypeName = memberTypeArg?.ToDisplayString(AttributeHelper.FullyQualifiedTypeFormat);
 
+            var member = ResolveDataSourceMember(memberType, memberName, knownDataSourceTypes);
+
             builder.Add(new TestDataSource(
                 memberName,
                 memberTypeName,
-                GetDataSourceMemberKind(memberType, memberName)));
+                member.Kind,
+                member.Shape,
+                member.AcceptsCancellationToken));
         }
 
         return builder.ToImmutable();
@@ -288,6 +294,13 @@ internal static class DataSourceAttributeReader
         return null;
     }
 
+    /// <summary>
+    /// Resolves how a data source member is accessed, ignoring the shape of what it returns.
+    /// </summary>
+    /// <remarks>
+    /// Used by the parameter-level sources ([ValuesFromMember] and [ValuesFrom&lt;T&gt;]), which only
+    /// expand synchronous collections.
+    /// </remarks>
     private static DataSourceMemberKind GetDataSourceMemberKind(
         INamedTypeSymbol? typeSymbol,
         string memberName)
@@ -321,5 +334,32 @@ internal static class DataSourceAttributeReader
         }
 
         return DataSourceMemberKind.Unknown;
+    }
+
+    /// <summary>
+    /// Resolves how a <c>[TestData]</c> member is accessed together with the shape of its rows.
+    /// </summary>
+    /// <remarks>
+    /// Member selection itself lives in <see cref="DataSourceMemberResolver"/> so the analyzers
+    /// validate exactly the member this emits.
+    /// </remarks>
+    private static (DataSourceMemberKind Kind, DataSourceShape Shape, bool AcceptsCancellationToken) ResolveDataSourceMember(
+        INamedTypeSymbol? typeSymbol,
+        string memberName,
+        KnownDataSourceTypes knownDataSourceTypes)
+    {
+        var resolved = DataSourceMemberResolver.Resolve(typeSymbol, memberName, knownDataSourceTypes);
+
+        var kind = resolved.Symbol switch
+        {
+            IMethodSymbol => DataSourceMemberKind.Method,
+            IPropertySymbol => DataSourceMemberKind.Property,
+            IFieldSymbol => DataSourceMemberKind.Field,
+            _ => DataSourceMemberKind.Unknown
+        };
+
+        return kind == DataSourceMemberKind.Unknown
+            ? (DataSourceMemberKind.Unknown, DataSourceShape.Sync, false)
+            : (kind, knownDataSourceTypes.Classify(resolved.MemberType).Shape, resolved.AcceptsCancellationToken);
     }
 }

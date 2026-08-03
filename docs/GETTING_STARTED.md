@@ -125,6 +125,63 @@ Method- and class-level categories or tags are combined with row metadata. A row
 skip reason apply only to that generated test case. Tuple values expand across parameters; other
 values, including `null` and collections, remain a single argument.
 
+### Async Data Rows
+
+A `[TestData]` member can produce its rows asynchronously. Three shapes are supported:
+`IAsyncEnumerable<T>`, `Task<TCollection>`, and `ValueTask<TCollection>`, where `TCollection` is any
+enumerable. Rows may be typed exactly as they are for a synchronous member, `TestDataRow<T>`
+included.
+
+An `IAsyncEnumerable<T>` member may take a single `CancellationToken` parameter. NextUnit passes the
+discovery cancellation token, so a source that waits on I/O can be interrupted instead of stalling
+the run:
+
+```csharp
+public static async IAsyncEnumerable<object[]> StreamedRows(
+    [EnumeratorCancellation] CancellationToken cancellationToken)
+{
+    await using var reader = OpenFixtureStream();
+    await foreach (var line in reader.ReadLinesAsync(cancellationToken))
+    {
+        yield return Parse(line);
+    }
+}
+
+[Test]
+[TestData(nameof(StreamedRows))]
+public void Add_FromAsyncSource(int a, int b, int expected)
+{
+    Assert.Equal(expected, a + b);
+}
+```
+
+A member that fetches everything at once returns the collection wrapped in a task instead:
+
+```csharp
+public static async Task<IEnumerable<object[]>> LoadRowsAsync()
+{
+    var payload = await httpClient.GetFromJsonAsync<Row[]>("fixtures.json");
+    return payload!.Select(row => new object[] { row.A, row.B, row.Expected });
+}
+```
+
+Rows are enumerated once during discovery, exactly as synchronous rows are, so every row stays an
+individually selectable and filterable test case in the IDE and on the command line. The source
+generator binds the member statically, so async sources need no runtime reflection and remain
+trimming- and Native AOT-compatible.
+
+The awaited value has to be a collection of rows. A member returning bare `Task`, or a task wrapping
+something that is not enumerable such as `Task<int>`, cannot supply rows and is reported at build
+time as `NU0014`.
+
+A data source must not block synchronously. Cancellation is honored at every genuine await point, so
+a source that awaits its I/O can always be interrupted. Code that blocks the calling thread cannot
+be: `Task.Wait()`, `.Result`, a lock held across a slow call, or a lazy sequence whose `MoveNext`
+blocks will stall discovery until it returns, and no cancellation token can shorten that. This is not
+specific to async sources -- an ordinary `IEnumerable<T>` member that blocks behaves the same way --
+but it is worth stating plainly, because an `async` signature can otherwise suggest a guarantee the
+runtime cannot make. Await instead of blocking, and observe the token you are given.
+
 ## Running Tests
 
 ### Command Line

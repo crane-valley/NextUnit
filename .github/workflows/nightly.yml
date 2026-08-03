@@ -47,7 +47,7 @@ jobs:
       # Single line to avoid PowerShell issues with backslash line continuation on Windows
       run: |
         echo "Running NextUnit sample tests..."
-        dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --configuration Release --no-build -- --minimum-expected-tests 20
+        dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --configuration Release --no-build -- --minimum-expected-tests 27
 
   # Native AOT compilation and execution test
   native-aot-test:
@@ -89,7 +89,7 @@ jobs:
       run: |
         echo "=== Running Native AOT Tests ==="
         chmod +x ./aot-publish/NextUnit.SampleTests
-        ./aot-publish/NextUnit.SampleTests --minimum-expected-tests 20
+        ./aot-publish/NextUnit.SampleTests --minimum-expected-tests 27
 
     - name: Report AOT binary size
       run: |
@@ -127,7 +127,10 @@ jobs:
         
         total_time=0
         runs=5
-        
+        # Kept in step with the --minimum-expected-tests floor used by the sample test job above,
+        # so the reported per-test overhead does not drift as the sample suite grows.
+        expected_tests=27
+
         for i in $(seq 1 $runs); do
           echo "Run $i of $runs..."
           start_time=$(date +%s%N)
@@ -142,8 +145,8 @@ jobs:
         echo ""
         echo "=== Results ==="
         echo "Average execution time: ${avg_time}ms"
-        echo "Target: < 1000ms for 20 tests"
-        echo "Per-test overhead: ~$((avg_time / 20))ms"
+        echo "Target: < 1000ms for ${expected_tests} tests"
+        echo "Per-test overhead: ~$((avg_time / expected_tests))ms"
         
         if [ $avg_time -lt 1000 ]; then
           echo "✅ Performance target met!"

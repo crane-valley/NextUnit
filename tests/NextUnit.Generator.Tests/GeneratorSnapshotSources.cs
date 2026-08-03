@@ -77,6 +77,67 @@ internal static class GeneratorSnapshotSources
         }
         """;
 
+    /// <summary>
+    /// Pins every asynchronous <c>[TestData]</c> shape the generator binds, including the
+    /// cancellation-aware method form.
+    /// </summary>
+    public const string AsyncTestDataTest = """
+        using System.Collections.Generic;
+        using System.Runtime.CompilerServices;
+        using System.Threading;
+        using System.Threading.Tasks;
+        using NextUnit;
+
+        namespace TestProject;
+
+        public class AsyncTestDataTests
+        {
+            public static async IAsyncEnumerable<object[]> StreamedRows(
+                [EnumeratorCancellation] CancellationToken cancellationToken)
+            {
+                await Task.Yield();
+                yield return new object[] { 1, 2 };
+            }
+
+            public static async IAsyncEnumerable<object[]> UncancellableRows()
+            {
+                await Task.Yield();
+                yield return new object[] { 3, 4 };
+            }
+
+            public static Task<IEnumerable<object[]>> TaskRows() =>
+                Task.FromResult<IEnumerable<object[]>>(new[] { new object[] { 5, 6 } });
+
+            public static ValueTask<IReadOnlyList<object[]>> ValueTaskRows() =>
+                new ValueTask<IReadOnlyList<object[]>>(new[] { new object[] { 7, 8 } });
+
+            // Declared before the parameterless overload on purpose: the generator must still bind
+            // OverloadedRows(), so an existing suite cannot switch to a different data set on
+            // upgrade.
+            public static async IAsyncEnumerable<object[]> OverloadedRows(
+                [EnumeratorCancellation] CancellationToken cancellationToken)
+            {
+                await Task.Yield();
+                yield return new object[] { 9, 9 };
+            }
+
+            public static IEnumerable<object[]> OverloadedRows()
+            {
+                yield return new object[] { 11, 12 };
+            }
+
+            [Test]
+            [TestData(nameof(StreamedRows))]
+            [TestData(nameof(UncancellableRows))]
+            [TestData(nameof(TaskRows))]
+            [TestData(nameof(ValueTaskRows))]
+            [TestData(nameof(OverloadedRows))]
+            public void DataDriven(int a, int b)
+            {
+            }
+        }
+        """;
+
     public const string ClassDataSourceTest = """
         using System.Collections;
         using System.Collections.Generic;
