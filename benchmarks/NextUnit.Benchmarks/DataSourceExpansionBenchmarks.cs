@@ -23,7 +23,7 @@ namespace NextUnit.Benchmarks;
 [MemoryDiagnoser]
 public class DataSourceExpansionBenchmarks
 {
-    private static object[][] _rows = [];
+    private object[][] _rows = [];
     private TestDataDescriptor _eagerDescriptor = null!;
     private TestDataDescriptor _deferredDescriptor = null!;
     private TestDataDescriptor _deferredAsyncDescriptor = null!;
@@ -88,51 +88,64 @@ public class DataSourceExpansionBenchmarks
         return testCases.Count;
     }
 
-    private static TestDataDescriptor CreateAsyncDescriptor() => new()
+    private TestDataDescriptor CreateAsyncDescriptor()
     {
-        BaseId = "NextUnit.Benchmarks.DataSourceExpansionBenchmarks.AddAsync",
-        DisplayName = "AddAsync",
-        TestClass = typeof(BenchmarkDataTarget),
-        MethodName = nameof(BenchmarkDataTarget.Add),
-        DataSourceName = "StreamedRows",
-        DataSourceType = typeof(DataSourceExpansionBenchmarks),
-        ParameterTypes = [typeof(int), typeof(int), typeof(int)],
-        DeferredEnumeration = true,
-        TestClassFactory = static (_, _) => new BenchmarkDataTarget(),
-        TestMethodWithArguments = static (_, _, _) => Task.CompletedTask,
-        AsyncDataSourceProvider = static ct => StreamRowsAsync(ct)
-    };
+        // The rows are passed in rather than read from a field inside the iterator, so nothing here
+        // depends on instance state that BenchmarkDotNet could reset between runs.
+        var rows = _rows;
+
+        return new TestDataDescriptor
+        {
+            BaseId = "NextUnit.Benchmarks.DataSourceExpansionBenchmarks.AddAsync",
+            DisplayName = "AddAsync",
+            TestClass = typeof(BenchmarkDataTarget),
+            MethodName = nameof(BenchmarkDataTarget.Add),
+            DataSourceName = "StreamedRows",
+            DataSourceType = typeof(DataSourceExpansionBenchmarks),
+            ParameterTypes = [typeof(int), typeof(int), typeof(int)],
+            DeferredEnumeration = true,
+            TestClassFactory = static (_, _) => new BenchmarkDataTarget(),
+            TestMethodWithArguments = static (_, _, _) => Task.CompletedTask,
+            AsyncDataSourceProvider = ct => StreamRowsAsync(rows, ct)
+        };
+    }
 
     /// <summary>
     /// Yields the same pre-built rows the synchronous source hands over, so the comparison measures
     /// the expander rather than the cost of fabricating rows.
     /// </summary>
     private static async IAsyncEnumerable<object?> StreamRowsAsync(
+        object[][] rows,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         await Task.CompletedTask;
 
-        foreach (var row in _rows)
+        foreach (var row in rows)
         {
             cancellationToken.ThrowIfCancellationRequested();
             yield return row;
         }
     }
 
-    private static TestDataDescriptor CreateDescriptor(bool deferred) => new()
+    private TestDataDescriptor CreateDescriptor(bool deferred)
     {
-        BaseId = "NextUnit.Benchmarks.DataSourceExpansionBenchmarks.Add",
-        DisplayName = "Add",
-        TestClass = typeof(BenchmarkDataTarget),
-        MethodName = nameof(BenchmarkDataTarget.Add),
-        DataSourceName = nameof(_rows),
-        DataSourceType = typeof(DataSourceExpansionBenchmarks),
-        ParameterTypes = [typeof(int), typeof(int), typeof(int)],
-        DeferredEnumeration = deferred,
-        TestClassFactory = static (_, _) => new BenchmarkDataTarget(),
-        TestMethodWithArguments = static (_, _, _) => Task.CompletedTask,
-        DataSourceProvider = static () => _rows
-    };
+        var rows = _rows;
+
+        return new TestDataDescriptor
+        {
+            BaseId = "NextUnit.Benchmarks.DataSourceExpansionBenchmarks.Add",
+            DisplayName = "Add",
+            TestClass = typeof(BenchmarkDataTarget),
+            MethodName = nameof(BenchmarkDataTarget.Add),
+            DataSourceName = "Rows",
+            DataSourceType = typeof(DataSourceExpansionBenchmarks),
+            ParameterTypes = [typeof(int), typeof(int), typeof(int)],
+            DeferredEnumeration = deferred,
+            TestClassFactory = static (_, _) => new BenchmarkDataTarget(),
+            TestMethodWithArguments = static (_, _, _) => Task.CompletedTask,
+            DataSourceProvider = () => rows
+        };
+    }
 
     private sealed class BenchmarkDataTarget
     {

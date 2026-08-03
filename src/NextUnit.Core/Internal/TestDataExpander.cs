@@ -130,7 +130,8 @@ public static class TestDataExpander
     /// Enumerated explicitly rather than with <c>foreach</c> so the token is checked before each
     /// <c>MoveNext</c> instead of after it. Producing the next row is the expensive half of a lazy
     /// source, and a <c>foreach</c> would always advance the producer once more before the body
-    /// could observe cancellation, making the run pay for a row it will never use.
+    /// could observe cancellation, making the run pay for a row it will never use. Disposal is not
+    /// lost with the <c>foreach</c>: the enumerator is still released by a <c>using</c>.
     /// </para>
     /// </remarks>
     private static List<TestCaseDescriptor> ProjectSyncRows(
@@ -142,26 +143,23 @@ public static class TestDataExpander
         var index = 0;
         var enumerator = data.GetEnumerator();
 
-        try
+        // IEnumerable.GetEnumerator returns the non-generic IEnumerator, which does not implement
+        // IDisposable, so the enumerator cannot be declared with using directly. The compiler
+        // generated iterators this actually receives do implement it, and using on a null-valued
+        // IDisposable is a no-op, so this covers both without a hand-written finally.
+        using var enumeratorDisposal = enumerator as IDisposable;
+
+        while (true)
         {
-            while (true)
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!enumerator.MoveNext())
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (!enumerator.MoveNext())
-                {
-                    break;
-                }
-
-                testCases.Add(projector.Project(enumerator.Current, index));
-                index++;
+                break;
             }
-        }
-        finally
-        {
-            // IEnumerable.GetEnumerator returns the non-generic IEnumerator, which does not
-            // implement IDisposable, but the compiler-generated iterators this actually receives do.
-            (enumerator as IDisposable)?.Dispose();
+
+            testCases.Add(projector.Project(enumerator.Current, index));
+            index++;
         }
 
         // No check covers the MoveNext that ends the sequence -- the loop breaks on it rather than

@@ -302,12 +302,12 @@ public sealed class TestExecutionEngine
                     .ExpandDeferredAsync(testCase.DeferredDataSource!, cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (OperationCanceledException ex) when (IsRunCancellation(ex, cancellationToken))
-            {
-                // The run is being cancelled, not this source failing. Let it end the run.
-                throw;
-            }
-            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            // Run cancellation is excluded by the filter rather than caught and rethrown: it is the
+            // run ending, not this source failing, and a filter leaves it to propagate without the
+            // handler ever running -- which keeps the first-chance debugger behavior intact.
+            catch (Exception ex) when (
+                !ExceptionHelper.IsCriticalException(ex) &&
+                !(ex is OperationCanceledException cancellation && IsRunCancellation(cancellation, cancellationToken)))
             {
                 await sink.ReportErrorAsync(testCase, ex).ConfigureAwait(false);
                 continue;
