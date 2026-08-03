@@ -420,17 +420,17 @@ When asked to prepare a NuGet release:
 6. **Verify completeness**: Check that no files were missed using:
 
    ```bash
-   grep -r "OLD_VERSION" --include="*.md" --include="*.props" --include="*.csproj"
+   grep -r "OLD_VERSION" --include="*.md" --include="*.props" --include="*.csproj" --include="*.csproj.template"
    ```
 
 ### Example Commands for Agents
 
 ```bash
 # Find all version references (replace X.Y.Z with current version)
-grep -r "1\.6\.0" --include="*.md" --include="*.props" --include="*.csproj"
+grep -r "1\.6\.0" --include="*.md" --include="*.props" --include="*.csproj" --include="*.csproj.template"
 
 # Verify no mixed versions exist
-grep -rE "1\.[0-9]+\.[0-9]+" --include="*.md" --include="*.props" --include="*.csproj" | grep -v "1.6.1" | grep -v ".git"
+grep -rE "1\.[0-9]+\.[0-9]+" --include="*.md" --include="*.props" --include="*.csproj" --include="*.csproj.template" | grep -v "1.6.1" | grep -v ".git"
 ```
 
 ## Summary
