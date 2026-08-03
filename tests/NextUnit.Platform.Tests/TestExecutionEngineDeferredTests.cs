@@ -125,6 +125,26 @@ public sealed class TestExecutionEngineDeferredTests
     }
 
     /// <summary>
+    /// Discovery advertised the placeholder, so a source that turns out to have no rows must still
+    /// report something. Dropping it would leave a test the user can see and select but that never
+    /// reports anything, and a run missing it would still pass.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_DeferredSourceWithNoRows_ReportsThePlaceholderAsSkippedAsync()
+    {
+        var sink = new RecordingSink();
+        var placeholder = CreateEmptyPlaceholder();
+
+        await new TestExecutionEngine().RunAsync([placeholder], sink, CancellationToken.None);
+
+        var skipped = Assert.Single(sink.Skipped);
+        Assert.Equal(placeholder.Id.Value, skipped.Id.Value);
+        Assert.Equal("The deferred data source 'EmptyRows' produced no rows.", skipped.SkipReason);
+        Assert.Empty(sink.Errors);
+        Assert.Empty(sink.Passed);
+    }
+
+    /// <summary>
     /// A failed expansion must not strand the engine: the non-reentrancy claim is released like any
     /// other run, so the same instance can be used again.
     /// </summary>
@@ -178,6 +198,22 @@ public sealed class TestExecutionEngineDeferredTests
             TestClassFactory = static (_, _) => new Target(),
             TestMethodWithArguments = static (_, _, _) => Task.CompletedTask,
             DataSourceProvider = static () => throw new InvalidOperationException("data source failed")
+        });
+
+    private static TestCaseDescriptor CreateEmptyPlaceholder() =>
+        SinglePlaceholder(new TestDataDescriptor
+        {
+            BaseId = "Tests.Empty",
+            DisplayName = "Empty",
+            TestClass = typeof(Target),
+            MethodName = nameof(Target.Add),
+            DataSourceName = "EmptyRows",
+            DataSourceType = typeof(TestExecutionEngineDeferredTests),
+            ParameterTypes = [typeof(int), typeof(int), typeof(int)],
+            DeferredEnumeration = true,
+            TestClassFactory = static (_, _) => new Target(),
+            TestMethodWithArguments = static (_, _, _) => Task.CompletedTask,
+            DataSourceProvider = static () => Array.Empty<object[]>()
         });
 
     private static TestCaseDescriptor CreateAsyncPlaceholder(Action onInvoke) =>
