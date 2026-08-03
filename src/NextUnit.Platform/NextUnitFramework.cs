@@ -406,12 +406,24 @@ internal sealed class NextUnitFramework :
         // token instead of going through the synchronous AddFilteredExpansion helper.
         var testDataDescriptors = SelectDescriptorsToExpand(
             generatedRegistry.TestDataDescriptors,
-            td => _filterConfig.ShouldExpandDynamicTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit));
+            td => !td.DeferredEnumeration &&
+                _filterConfig.ShouldExpandDynamicTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit));
         if (testDataDescriptors.Count > 0)
         {
             allTestCases.AddRange(
                 await TestDataExpander.ExpandAsync(testDataDescriptors, cancellationToken).ConfigureAwait(false));
         }
+
+        // A deferred source is filtered as one unit, by the test method's own name, categories, and
+        // tags, and never expanded here. ShouldExpandDynamicTest is deliberately not used: it admits
+        // every descriptor as soon as any include filter exists, precisely so row-level metadata can
+        // decide afterwards, and there is no row-level metadata to decide with until execution.
+        // Letting a filter expand the source anyway would silently restore the startup cost the user
+        // opted out of, exactly when they were trying to narrow the run.
+        var deferredDescriptors = SelectDescriptorsToExpand(
+            generatedRegistry.TestDataDescriptors,
+            td => td.DeferredEnumeration &&
+                _filterConfig.ShouldIncludeTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit));
 
         AddFilteredExpansion(
             generatedRegistry.ClassDataSourceDescriptors,
@@ -427,6 +439,16 @@ internal sealed class NextUnitFramework :
 
         // Apply category and tag filtering to static test cases
         var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags, tc.DisplayName, tc.IsExplicit)).ToList();
+
+        // Appended after the row-level pass, not before it: a placeholder was already accepted or
+        // rejected as a descriptor above, and its display name names the source rather than any row,
+        // so running it through a name filter a second time would reject groups the first pass just
+        // admitted.
+        if (deferredDescriptors.Count > 0)
+        {
+            filteredTestCases.AddRange(
+                await TestDataExpander.ExpandAsync(deferredDescriptors, cancellationToken).ConfigureAwait(false));
+        }
 
         // Get global lifecycle methods from the registry and set on engine (one-time).
         // A registry with no asynchronous data source completes this method without ever awaiting,

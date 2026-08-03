@@ -201,4 +201,46 @@ internal sealed class TestCaseSeed
             Priority = Priority
         };
     }
+
+    /// <summary>
+    /// Builds the single test case that stands in for a deferred data source until execution
+    /// expands it.
+    /// </summary>
+    /// <param name="testId">The placeholder identifier built by the expander.</param>
+    /// <param name="source">The descriptor the placeholder expands back into.</param>
+    /// <remarks>
+    /// Deliberately carries no invoker and no arguments: a placeholder is replaced by its rows
+    /// before the dependency graph is built, so it never reaches execution. The one exception is a
+    /// source whose test is skipped, which is reported straight from the placeholder rather than
+    /// running a data source whose rows nobody will execute.
+    /// </remarks>
+    public TestCaseDescriptor CreateDeferredPlaceholder(string testId, TestDataDescriptor source)
+    {
+        return new TestCaseDescriptor
+        {
+            Id = new TestCaseId(testId),
+            DisplayName = $"{source.DisplayName} (deferred data source: {source.DataSourceName})",
+            TestClass = TestClass,
+            MethodName = MethodName,
+            TestClassFactory = TestClassFactory,
+            Lifecycle = Lifecycle,
+            Parallel = Parallel,
+            Dependencies = Dependencies,
+            DependencyInfos = DependencyInfos,
+            IsSkipped = IsSkipped,
+            SkipReason = SkipReason,
+            IsExplicit = IsExplicit,
+            ExplicitReason = ExplicitReason,
+            Categories = Categories,
+            Tags = Tags,
+            RequiresTestOutput = RequiresTestOutput,
+            RequiresTestContext = RequiresTestContext,
+            TimeoutMs = TimeoutMs,
+            Retry = Retry,
+            CustomDisplayNameTemplate = CustomDisplayNameTemplate,
+            DisplayNameFormatterType = DisplayNameFormatterType,
+            Priority = Priority,
+            DeferredDataSource = source
+        };
+    }
 }

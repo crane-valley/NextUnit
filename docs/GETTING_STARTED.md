@@ -182,6 +182,67 @@ specific to async sources -- an ordinary `IEnumerable<T>` member that blocks beh
 but it is worth stating plainly, because an `async` signature can otherwise suggest a guarantee the
 runtime cannot make. Await instead of blocking, and observe the token you are given.
 
+### Deferred Data Rows
+
+Eager enumeration is the default and stays the default. Every `[TestData]` member is read once during
+discovery, which is what makes each row an individually selectable, filterable test case. For a
+source large or slow enough that reading it at startup is itself the problem, set
+`DeferredEnumeration = true` to move the enumeration to execution time:
+
+```csharp
+public static IEnumerable<object[]> EveryRowInTheFixtureFile()
+{
+    foreach (var line in File.ReadLines("ten-thousand-rows.csv"))
+    {
+        yield return Parse(line);
+    }
+}
+
+[Test]
+[TestData(nameof(EveryRowInTheFixtureFile), DeferredEnumeration = true)]
+public void Validate(int input, int expected)
+{
+    Assert.Equal(expected, Transform(input));
+}
+```
+
+Discovery then reports one placeholder test named after the source -- `Validate (deferred data
+source: EveryRowInTheFixtureFile)` -- instead of one test per row, and the member is not called at
+all. The rows become individual test results when the run reaches the placeholder. Deferral is
+independent of row shape: a deferred `IAsyncEnumerable<T>` member enumerates during execution and
+receives the run cancellation token rather than the discovery one.
+
+#### The selection and filtering tradeoff
+
+Nothing but the placeholder exists until the run starts, so a deferred source is selected, filtered,
+and skipped as one unit:
+
+- Row-level display names, categories, and tags cannot be filtered on, because they do not exist yet
+  when the filter is evaluated. Filters still apply to the group through the test method's own name,
+  categories, and tags, so `--test-name "Validate*"` runs the whole source.
+- An IDE cannot run a single row of a deferred source. Selecting the placeholder runs every row.
+- `--list-tests` reports one entry for the source rather than one per row, and cannot report a row
+  count.
+- A skipped test does not enumerate its source at all; the skip is reported once, on the placeholder.
+
+A filter is deliberately never allowed to re-enable eager enumeration behind your back. Doing so
+would restore the exact startup cost the option exists to remove, and would restore it precisely when
+you were trying to narrow the run. If you want per-row selection, use eager enumeration -- that is
+what it is for.
+
+What does not change is the rows themselves. Once expanded they are ordinary test cases, so retry,
+timeout, parallelism, dependencies, priority, and typed `TestDataRow<T>` metadata behave exactly as
+they do for an eager source. A source that throws is reported as an error on the placeholder, and the
+rest of the run continues rather than the whole assembly failing.
+
+What does change, besides the timing, is where the read sits in the lifecycle. An eager source is
+read while the test list is built, before any hook runs. A deferred source is read at the start of the
+run: under Microsoft.Testing.Platform that is after session-scoped setup and before assembly-, class-,
+and test-scoped hooks, and under the VSTest adapter, which has no session scope, nothing has run
+either. A deferred source is also not read at all when a session setup hook requested a skip, or when
+the test itself is skipped. Do not write a data source that depends on lifecycle state; the ordering
+differs between the two modes and is not a contract to build on.
+
 ## Running Tests
 
 ### Command Line

@@ -65,5 +65,21 @@ public class BasicTests
     {
         NextUnit.Assert.Equal(expected, a + b);
     }
+
+    // A deferred source is enumerated by the execution engine rather than by discovery, so its
+    // generated provider is reached from a different call site than every other data source here.
+    // Trimming and Native AOT publishing have to keep that call site alive too.
+    public static IEnumerable<object[]> DeferredRows()
+    {
+        yield return [6, 7, 13];
+        yield return [8, 9, 17];
+    }
+
+    [NextUnit.Test]
+    [NextUnit.TestData(nameof(DeferredRows), DeferredEnumeration = true)]
+    public void PackageRunsDeferredDataRow(int a, int b, int expected)
+    {
+        NextUnit.Assert.Equal(expected, a + b);
+    }
 #endif
 }

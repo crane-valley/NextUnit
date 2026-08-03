@@ -16,6 +16,11 @@ namespace NextUnit;
 /// cancellation token.
 /// </para>
 /// <para>
+/// Rows are enumerated during discovery by default, which keeps every row an individually
+/// selectable and filterable test case. Set <see cref="DeferredEnumeration"/> to move the
+/// enumeration to execution time for a source too large to expand at startup.
+/// </para>
+/// <para>
 /// A data source must not block synchronously. Cancellation is honored at every genuine await
 /// point, but code that blocks the calling thread -- <c>Task.Wait</c>, <c>.Result</c>, a lazy
 /// sequence whose <c>MoveNext</c> blocks -- cannot be interrupted by any token, and stalls
@@ -65,4 +70,37 @@ public sealed class TestDataAttribute : Attribute
     /// If null, the test class itself is used.
     /// </summary>
     public Type? MemberType { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the rows are enumerated during execution instead of
+    /// during discovery. The default is <see langword="false"/>, which enumerates during discovery.
+    /// </summary>
+    /// <remarks>
+    /// Opt in only for a source large or slow enough that expanding it at startup is the problem
+    /// being solved. Discovery then reports one placeholder test for the whole source and the rows
+    /// become individual test results only once the run reaches them.
+    /// <para>
+    /// The cost is selection and filtering granularity. Nothing but the placeholder exists at
+    /// discovery, so a deferred source is selected, filtered, and skipped as one unit: row display
+    /// names, row categories, and row tags cannot be filtered on, and an IDE cannot run a single
+    /// row. Filters still apply to the group through the test method's own name, categories, and
+    /// tags. A filter is never allowed to silently re-enable eager enumeration, because that would
+    /// reintroduce the startup cost this option exists to remove.
+    /// </para>
+    /// <para>
+    /// Deferring moves when the member is called, and that is visible in the lifecycle. An eager
+    /// source is read while the test list is built, before any hook runs. A deferred source is read
+    /// at the start of the run, which under Microsoft.Testing.Platform is after session-scoped
+    /// setup has run and before assembly-, class-, and test-scoped hooks; the VSTest adapter has no
+    /// session scope, so nothing has run there either. A deferred source is also not read at all
+    /// when a session setup hook requested a skip, or when the test itself is skipped. Do not write
+    /// a data source that depends on lifecycle state: the ordering differs between the two modes
+    /// and is not a contract to build on.
+    /// </para>
+    /// <para>
+    /// A source that fails is reported as an error on the placeholder and the rest of the run
+    /// continues.
+    /// </para>
+    /// </remarks>
+    public bool DeferredEnumeration { get; set; }
 }

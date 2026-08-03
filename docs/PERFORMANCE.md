@@ -55,6 +55,36 @@ outlier. The sample-suite timing includes process startup and test execution. It
 diagnostic covers only the benchmark host process, not the child test process, so no allocation
 comparison is reported for that row.
 
+## Deferred data source enumeration
+
+`[TestData(..., DeferredEnumeration = true)]` moves row enumeration from discovery to execution. The
+`DataSourceExpansionBenchmarks` harness measures the three pieces separately on Windows 11, .NET SDK
+10.0.302 / runtime 10.0.10, and an Intel Core i5-13500, with ten measured iterations per case:
+
+| Benchmark | 100 rows | 1,000 rows | 10,000 rows | Allocated at 10,000 rows |
+| --------- | -------: | ---------: | ----------: | -----------------------: |
+| Discovery: eager expansion of every row | 69.550us | 608.750us | 5.767ms | 9,407.88 KB |
+| Discovery: deferred placeholder only | 8.600us | 11.300us | 18.050us | 1.3 KB |
+| Execution: deferred fan-out into rows | 66.500us | 589.750us | 5.982ms | 9,407.74 KB |
+| Execution: deferred async fan-out into rows | 71.550us | 680.800us | 6.408ms | 9,642.30 KB |
+
+Medians are reported. These operations run in microseconds, so a single JIT warm-up iteration
+dominates the arithmetic mean; the medians above are the representative figures, and the means are
+kept out for that reason rather than because they were unflattering.
+
+Two properties are what the benchmark exists to prove. Deferred discovery is flat in both time and
+allocation: 1.3 KB and under twenty microseconds whether the source can produce 100 rows or 10,000,
+because the member is never called. And deferral moves work rather than multiplying it -- the
+execution fan-out costs what eager discovery would have cost, allocating 9,407.74 KB against eager's
+9,407.88 KB at 10,000 rows, so neither path builds an intermediate collection on top of the rows
+themselves.
+
+The asynchronous fan-out is measured separately because it is the path where a second such collection
+could appear: its rows arrive one at a time through an enumerator rather than as a ready collection,
+so it projects each row into a test case as it arrives instead of materializing every row first. Its
+2.5% allocation overhead at 10,000 rows is the async enumerator machinery -- roughly 24 bytes per row
+-- not a second copy of the source.
+
 ## Cross-framework methodology and anti-bias controls
 
 - All seven participants target .NET 10 and run as native Microsoft.Testing.Platform executables.

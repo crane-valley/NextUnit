@@ -187,13 +187,15 @@ internal sealed record TestDataSource
         string? memberTypeName,
         DataSourceMemberKind memberKind,
         DataSourceShape shape,
-        bool acceptsCancellationToken)
+        bool acceptsCancellationToken,
+        bool deferredEnumeration)
     {
         MemberName = memberName;
         MemberTypeName = memberTypeName;
         MemberKind = memberKind;
         Shape = shape;
         AcceptsCancellationToken = acceptsCancellationToken;
+        DeferredEnumeration = deferredEnumeration;
     }
 
     public string MemberName { get; }
@@ -212,6 +214,16 @@ internal sealed record TestDataSource
     /// token to pass.
     /// </summary>
     public bool AcceptsCancellationToken { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the attribute asked for the rows to be enumerated during
+    /// execution instead of during discovery.
+    /// </summary>
+    /// <remarks>
+    /// Orthogonal to <see cref="Shape"/>: a deferred source is still emitted with whichever provider
+    /// delegate its shape calls for, and the runtime decides when to invoke it.
+    /// </remarks>
+    public bool DeferredEnumeration { get; }
 }
 
 /// <summary>

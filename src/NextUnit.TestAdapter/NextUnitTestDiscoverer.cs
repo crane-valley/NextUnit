@@ -78,6 +78,10 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
         // asynchronous data source that blocks forever will block VSTest discovery. Under
         // Microsoft.Testing.Platform the request token flows all the way through, and that is the
         // path NextUnit's own runner uses.
+        //
+        // A source declared with DeferredEnumeration is reported as one placeholder test instead of
+        // one test per row; the expander decides that, so nothing here has to. Selecting the
+        // placeholder in an IDE runs every row of the source.
         DiscoverExpandedTests<TestDataDescriptor>(
             registryType,
             "TestDataDescriptors",

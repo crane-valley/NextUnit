@@ -78,6 +78,48 @@ internal static class GeneratorSnapshotSources
         """;
 
     /// <summary>
+    /// Pins the deferred form of <c>[TestData]</c> against both a synchronous and an asynchronous
+    /// member, since deferral and row shape are independent.
+    /// </summary>
+    public const string DeferredTestDataTest = """
+        using System.Collections.Generic;
+        using System.Runtime.CompilerServices;
+        using System.Threading;
+        using System.Threading.Tasks;
+        using NextUnit;
+
+        namespace TestProject;
+
+        public class DeferredTestDataTests
+        {
+            public static IEnumerable<object[]> Rows()
+            {
+                yield return new object[] { 1, 2 };
+            }
+
+            public static async IAsyncEnumerable<object[]> StreamedRows(
+                [EnumeratorCancellation] CancellationToken cancellationToken)
+            {
+                await Task.Yield();
+                yield return new object[] { 3, 4 };
+            }
+
+            public static IEnumerable<object[]> EagerRows()
+            {
+                yield return new object[] { 5, 6 };
+            }
+
+            [Test]
+            [TestData(nameof(Rows), DeferredEnumeration = true)]
+            [TestData(nameof(StreamedRows), DeferredEnumeration = true)]
+            [TestData(nameof(EagerRows))]
+            public void DataDriven(int a, int b)
+            {
+            }
+        }
+        """;
+
+    /// <summary>
     /// Pins every asynchronous <c>[TestData]</c> shape the generator binds, including the
     /// cancellation-aware method form.
     /// </summary>

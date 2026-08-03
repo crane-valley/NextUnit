@@ -141,6 +141,15 @@ public sealed class TestExecutionEngine
     {
         var testCasesList = testCases.ToList();
 
+        // As early in the run as it can be: before the try/finally below and before assembly setup,
+        // so a deferred source sees as little of the lifecycle as possible. It cannot see none of
+        // it -- under Microsoft.Testing.Platform session setup has already run by the time a run
+        // request reaches the engine, whereas an eager source is read while the test list is built,
+        // before that -- which is why the ordering is documented as differing between the two modes
+        // rather than claimed to match. Being outside the try is safe precisely because nothing has
+        // been set up yet: there is no cleanup for an escaping exception to skip.
+        testCasesList = await ExpandDeferredDataSourcesAsync(testCasesList, sink, cancellationToken).ConfigureAwait(false);
+
         // Note: Assembly lifecycle methods should be set via SetGlobalAssemblyLifecycle before calling RunAsync.
         // This ensures global lifecycle methods from all test classes are properly collected.
 
@@ -234,6 +243,70 @@ public sealed class TestExecutionEngine
 
     private static bool IsRunCancellation(OperationCanceledException exception, CancellationToken cancellationToken) =>
         RunCancellationClassifier.IsRunCancellation(exception, cancellationToken);
+
+    /// <summary>
+    /// Replaces every deferred data source placeholder with the rows it stands for.
+    /// </summary>
+    /// <remarks>
+    /// Deferred enumeration is the one runtime expansion that does not happen at discovery, so this
+    /// is where it lands: before the dependency graph is built, which means everything downstream --
+    /// the graph, the scheduler, retry, reporting -- sees ordinary test cases and needs no knowledge
+    /// of deferral at all.
+    /// <para>
+    /// A source that fails is reported as an error on its own placeholder rather than aborting the
+    /// run. There are no rows to attribute the failure to, and one unreachable data source must not
+    /// cost the user every other test in the assembly; the eager path can afford to fail discovery
+    /// outright because nothing has started running yet, which is no longer true here.
+    /// </para>
+    /// <para>
+    /// A placeholder whose test is already skipped is left as it is. Its rows would all be reported
+    /// skipped, so enumerating them would pay the full cost of the source to produce nothing but a
+    /// longer list of skips.
+    /// </para>
+    /// </remarks>
+    private static async ValueTask<List<TestCaseDescriptor>> ExpandDeferredDataSourcesAsync(
+        List<TestCaseDescriptor> testCases,
+        ITestExecutionSink sink,
+        CancellationToken cancellationToken)
+    {
+        if (!testCases.Any(RequiresDeferredExpansion))
+        {
+            return testCases;
+        }
+
+        var expanded = new List<TestCaseDescriptor>(testCases.Count);
+
+        foreach (var testCase in testCases)
+        {
+            if (!RequiresDeferredExpansion(testCase))
+            {
+                expanded.Add(testCase);
+                continue;
+            }
+
+            try
+            {
+                expanded.AddRange(
+                    await TestDataExpander
+                        .ExpandDeferredAsync(testCase.DeferredDataSource!, cancellationToken)
+                        .ConfigureAwait(false));
+            }
+            catch (OperationCanceledException ex) when (IsRunCancellation(ex, cancellationToken))
+            {
+                // The run is being cancelled, not this source failing. Let it end the run.
+                throw;
+            }
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            {
+                await sink.ReportErrorAsync(testCase, ex).ConfigureAwait(false);
+            }
+        }
+
+        return expanded;
+    }
+
+    private static bool RequiresDeferredExpansion(TestCaseDescriptor testCase) =>
+        testCase.DeferredDataSource is not null && !testCase.IsSkipped;
 
     /// <summary>
     /// Surfaces the run-body exception together with any cleanup failures so that neither run

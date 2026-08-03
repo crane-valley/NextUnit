@@ -35,6 +35,10 @@ public class GeneratorSnapshotTests
         VerifySnapshotAsync("AsyncTestDataTest", GeneratorSnapshotSources.AsyncTestDataTest);
 
     [Fact]
+    public Task DeferredTestDataTest_MatchesSnapshotAsync() =>
+        VerifySnapshotAsync("DeferredTestDataTest", GeneratorSnapshotSources.DeferredTestDataTest);
+
+    [Fact]
     public Task ClassDataSourceTest_MatchesSnapshotAsync() =>
         VerifySnapshotAsync("ClassDataSourceTest", GeneratorSnapshotSources.ClassDataSourceTest);
 

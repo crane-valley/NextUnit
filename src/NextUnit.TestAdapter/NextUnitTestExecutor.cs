@@ -157,6 +157,11 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         // The run token is threaded into [TestData] expansion so an asynchronous data source is
         // interruptible; TestDataExpander does the blocking drain that this synchronous contract
         // requires, in one documented place rather than here.
+        //
+        // A deferred source still yields only its placeholder here, which is what makes the
+        // testIdsToRun filter below work: discovery published that same placeholder id, so it is the
+        // id the user can have selected. The execution engine replaces the placeholder with the real
+        // rows once the selection has been applied.
         AddExpandedTests<TestDataDescriptor>(
             registryType,
             "TestDataDescriptors",

@@ -809,4 +809,41 @@ public class TestFilterConfigurationTests
         // Assert
         Assert.True(result);
     }
+
+    /// <summary>
+    /// Pins why a deferred data source is filtered with <c>ShouldIncludeTest</c> rather than
+    /// <c>ShouldExpandDynamicTest</c>: the latter admits a non-matching descriptor as soon as any
+    /// include filter exists, precisely so that row-level metadata can decide afterwards. A deferred
+    /// source has no rows until execution, so using it would either expand the source a filter was
+    /// supposed to skip -- restoring the startup cost the user opted out of -- or report a group
+    /// whose method matches nothing.
+    /// </summary>
+    [Test]
+    public void ShouldExpandDynamicTest_NonMatchingDescriptorWithIncludeFilter_DiffersFromShouldIncludeTest()
+    {
+        var config = new TestFilterConfiguration
+        {
+            IncludeCategories = ["RowOnly"]
+        };
+        var categories = new[] { "Method" };
+        var tags = Array.Empty<string>();
+
+        Assert.True(config.ShouldExpandDynamicTest(categories, tags, "Add"));
+        Assert.False(config.ShouldIncludeTest(categories, tags, "Add"));
+    }
+
+    /// <summary>
+    /// The group-level decision still honors the test method's own metadata, so filtering a deferred
+    /// source by the method name, category, or tag keeps working.
+    /// </summary>
+    [Test]
+    public void ShouldIncludeTest_MethodLevelCategoryMatches_ReturnsTrue()
+    {
+        var config = new TestFilterConfiguration
+        {
+            IncludeCategories = ["Method"]
+        };
+
+        Assert.True(config.ShouldIncludeTest(["Method"], Array.Empty<string>(), "Add"));
+    }
 }
