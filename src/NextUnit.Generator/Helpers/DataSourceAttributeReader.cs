@@ -33,7 +33,9 @@ internal static class DataSourceAttributeReader
         return builder.ToImmutable();
     }
 
-    public static EquatableArray<TestDataSource> GetTestDataSources(IMethodSymbol methodSymbol)
+    public static EquatableArray<TestDataSource> GetTestDataSources(
+        IMethodSymbol methodSymbol,
+        KnownDataSourceTypes knownDataSourceTypes)
     {
         var builder = ImmutableArray.CreateBuilder<TestDataSource>();
 
@@ -63,10 +65,14 @@ internal static class DataSourceAttributeReader
             var memberType = memberTypeArg ?? methodSymbol.ContainingType;
             string? memberTypeName = memberTypeArg?.ToDisplayString(AttributeHelper.FullyQualifiedTypeFormat);
 
+            var member = ResolveDataSourceMember(memberType, memberName, knownDataSourceTypes);
+
             builder.Add(new TestDataSource(
                 memberName,
                 memberTypeName,
-                GetDataSourceMemberKind(memberType, memberName)));
+                member.Kind,
+                member.Shape,
+                member.AcceptsCancellationToken));
         }
 
         return builder.ToImmutable();
@@ -288,6 +294,13 @@ internal static class DataSourceAttributeReader
         return null;
     }
 
+    /// <summary>
+    /// Resolves how a data source member is accessed, ignoring the shape of what it returns.
+    /// </summary>
+    /// <remarks>
+    /// Used by the parameter-level sources ([ValuesFromMember] and [ValuesFrom&lt;T&gt;]), which only
+    /// expand synchronous collections.
+    /// </remarks>
     private static DataSourceMemberKind GetDataSourceMemberKind(
         INamedTypeSymbol? typeSymbol,
         string memberName)
@@ -321,5 +334,96 @@ internal static class DataSourceAttributeReader
         }
 
         return DataSourceMemberKind.Unknown;
+    }
+
+    /// <summary>
+    /// Resolves how a <c>[TestData]</c> member is accessed together with the shape of its rows.
+    /// </summary>
+    private static ResolvedDataSourceMember ResolveDataSourceMember(
+        INamedTypeSymbol? typeSymbol,
+        string memberName,
+        KnownDataSourceTypes knownDataSourceTypes)
+    {
+        if (typeSymbol is null)
+        {
+            return ResolvedDataSourceMember.Unresolved;
+        }
+
+        foreach (var member in typeSymbol.GetMembers(memberName))
+        {
+            if (!member.IsStatic)
+            {
+                continue;
+            }
+
+            switch (member)
+            {
+                case IMethodSymbol method:
+                {
+                    var shape = knownDataSourceTypes.Classify(method.ReturnType).Shape;
+
+                    if (method.Parameters.Length == 0)
+                    {
+                        return new ResolvedDataSourceMember(DataSourceMemberKind.Method, shape, false);
+                    }
+
+                    // A cancellation token parameter is only accepted for an asynchronous source:
+                    // the synchronous provider delegate takes no arguments, so there would be no
+                    // token to pass and the call could not be emitted.
+                    if (method.Parameters.Length == 1 &&
+                        IsCancellationToken(method.Parameters[0]) &&
+                        IsAsyncShape(shape))
+                    {
+                        return new ResolvedDataSourceMember(DataSourceMemberKind.Method, shape, true);
+                    }
+
+                    // Any other signature cannot be invoked from generated code; keep looking in
+                    // case an overload or another member with the same name does match.
+                    break;
+                }
+
+                case IPropertySymbol property:
+                    return new ResolvedDataSourceMember(
+                        DataSourceMemberKind.Property,
+                        knownDataSourceTypes.Classify(property.Type).Shape,
+                        false);
+
+                case IFieldSymbol field:
+                    return new ResolvedDataSourceMember(
+                        DataSourceMemberKind.Field,
+                        knownDataSourceTypes.Classify(field.Type).Shape,
+                        false);
+            }
+        }
+
+        return ResolvedDataSourceMember.Unresolved;
+    }
+
+    private static bool IsCancellationToken(IParameterSymbol parameter) =>
+        parameter.Type.ToDisplayString() == WellKnownTypeNames.CancellationToken;
+
+    private static bool IsAsyncShape(DataSourceShape shape) =>
+        shape == DataSourceShape.AsyncEnumerable ||
+        shape == DataSourceShape.TaskOfCollection ||
+        shape == DataSourceShape.ValueTaskOfCollection;
+
+    private readonly struct ResolvedDataSourceMember
+    {
+        public ResolvedDataSourceMember(
+            DataSourceMemberKind kind,
+            DataSourceShape shape,
+            bool acceptsCancellationToken)
+        {
+            Kind = kind;
+            Shape = shape;
+            AcceptsCancellationToken = acceptsCancellationToken;
+        }
+
+        public static ResolvedDataSourceMember Unresolved { get; } =
+            new(DataSourceMemberKind.Unknown, DataSourceShape.Sync, false);
+
+        public DataSourceMemberKind Kind { get; }
+        public DataSourceShape Shape { get; }
+        public bool AcceptsCancellationToken { get; }
     }
 }

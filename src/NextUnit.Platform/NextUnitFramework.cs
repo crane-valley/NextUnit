@@ -27,10 +27,12 @@ internal sealed class NextUnitFramework :
 
     // One framework instance serves every request the platform issues, and discovery and execution
     // requests may overlap, so the one-time initialization below has to be guarded rather than relying
-    // on a single caller. _testCasesGate covers both _testCases and _assemblyLifecycleInitialized
-    // because they are published together by the same one-time build in GetTestCases.
+    // on a single caller. The memoized value is the build *task*, not the finished list: expanding a
+    // data source can now await an asynchronous member, and nothing may be awaited while a lock is
+    // held. _testCasesGate covers both _testCasesTask and _assemblyLifecycleInitialized because they
+    // are published together by the same one-time build in GetTestCasesAsync.
     private readonly Lock _testCasesGate = new();
-    private IReadOnlyList<TestCaseDescriptor>? _testCases;
+    private Task<IReadOnlyList<TestCaseDescriptor>>? _testCasesTask;
     private readonly TestFilterConfiguration _filterConfig;
 
     private readonly SessionLifecycleRunner _sessionHooks = new();
@@ -92,7 +94,7 @@ internal sealed class NextUnitFramework :
     public async Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
     {
         // Ensure test cases and global lifecycle methods are loaded
-        var testCases = GetTestCases();
+        var testCases = await GetTestCasesAsync(context.CancellationToken).ConfigureAwait(false);
         if (testCases.Count == 0)
         {
             return new CreateTestSessionResult { IsSuccess = true };
@@ -142,49 +144,69 @@ internal sealed class NextUnitFramework :
             : new CloseTestSessionResult { IsSuccess = false, ErrorMessage = error };
     }
 
-    private IReadOnlyList<TestCaseDescriptor> GetTestCases()
+    /// <summary>
+    /// Returns the memoized test case list, building it on the first call.
+    /// </summary>
+    /// <remarks>
+    /// The build task is shared, so the data source members run once per process however many
+    /// requests the platform issues. A build that ends in failure or cancellation is dropped rather
+    /// than memoized: the first caller's token governs the shared build, and a cancelled discovery
+    /// must not leave every later request permanently poisoned.
+    /// </remarks>
+    private async Task<IReadOnlyList<TestCaseDescriptor>> GetTestCasesAsync(CancellationToken cancellationToken)
     {
-        // Volatile read pairs with the Volatile.Write below, so a caller that sees a non-null reference
-        // also sees a fully populated list rather than a partially initialized one.
-        var cached = Volatile.Read(ref _testCases);
-        if (cached is not null)
-        {
-            return cached;
-        }
+        Task<IReadOnlyList<TestCaseDescriptor>> buildTask;
 
         lock (_testCasesGate)
         {
-            return BuildTestCases();
+            // BuildTestCasesAsync runs synchronously up to its first await, so the synchronous data
+            // sources are still expanded under the gate exactly as they were before.
+            buildTask = _testCasesTask ??= BuildTestCasesAsync(cancellationToken);
+        }
+
+        try
+        {
+            return await buildTask.ConfigureAwait(false);
+        }
+        catch
+        {
+            lock (_testCasesGate)
+            {
+                if (ReferenceEquals(_testCasesTask, buildTask))
+                {
+                    _testCasesTask = null;
+                }
+            }
+
+            throw;
         }
     }
 
     /// <summary>
-    /// Builds and memoizes the filtered test case list. Callers must hold <see cref="_testCasesGate"/>.
+    /// Builds the filtered test case list.
     /// </summary>
-    private IReadOnlyList<TestCaseDescriptor> BuildTestCases()
+    private async Task<IReadOnlyList<TestCaseDescriptor>> BuildTestCasesAsync(CancellationToken cancellationToken)
     {
-        if (_testCases is not null)
-        {
-            return _testCases;
-        }
-
         var generatedRegistry = GeneratedTestRegistryStore.Current;
         if (generatedRegistry is null)
         {
-            var empty = Array.Empty<TestCaseDescriptor>();
-            Volatile.Write(ref _testCases, empty);
-            return empty;
+            return Array.Empty<TestCaseDescriptor>();
         }
 
         var allTestCases = new List<TestCaseDescriptor>();
 
         allTestCases.AddRange(generatedRegistry.TestCases);
 
-        AddFilteredExpansion(
+        // [TestData] members may be asynchronous, so this expansion is awaited with the request's
+        // token instead of going through the synchronous AddFilteredExpansion helper.
+        var testDataDescriptors = SelectDescriptorsToExpand(
             generatedRegistry.TestDataDescriptors,
-            td => _filterConfig.ShouldExpandDynamicTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit),
-            TestDataExpander.Expand,
-            allTestCases);
+            td => _filterConfig.ShouldExpandDynamicTest(td.Categories, td.Tags, td.DisplayName, td.IsExplicit));
+        if (testDataDescriptors.Count > 0)
+        {
+            allTestCases.AddRange(
+                await TestDataExpander.ExpandAsync(testDataDescriptors, cancellationToken).ConfigureAwait(false));
+        }
 
         AddFilteredExpansion(
             generatedRegistry.ClassDataSourceDescriptors,
@@ -202,19 +224,21 @@ internal sealed class NextUnitFramework :
         var filteredTestCases = allTestCases.Where(tc => _filterConfig.ShouldIncludeTest(tc.Categories, tc.Tags, tc.DisplayName, tc.IsExplicit)).ToList();
 
         // Get global lifecycle methods from the registry and set on engine (one-time)
-        if (!_assemblyLifecycleInitialized)
+        lock (_testCasesGate)
         {
-            _engine.SetGlobalAssemblyLifecycle(
-                generatedRegistry.GlobalBeforeAssemblyMethods,
-                generatedRegistry.GlobalAfterAssemblyMethods);
-            _sessionHooks.AddMethods(
-                generatedRegistry.GlobalBeforeSessionMethods,
-                generatedRegistry.GlobalAfterSessionMethods);
+            if (!_assemblyLifecycleInitialized)
+            {
+                _engine.SetGlobalAssemblyLifecycle(
+                    generatedRegistry.GlobalBeforeAssemblyMethods,
+                    generatedRegistry.GlobalAfterAssemblyMethods);
+                _sessionHooks.AddMethods(
+                    generatedRegistry.GlobalBeforeSessionMethods,
+                    generatedRegistry.GlobalAfterSessionMethods);
 
-            _assemblyLifecycleInitialized = true;
+                _assemblyLifecycleInitialized = true;
+            }
         }
 
-        Volatile.Write(ref _testCases, filteredTestCases);
         return filteredTestCases;
     }
 
@@ -228,21 +252,28 @@ internal sealed class NextUnitFramework :
         Func<IEnumerable<TDescriptor>, IEnumerable<TestCaseDescriptor>> expand,
         List<TestCaseDescriptor> destination)
     {
-        if (descriptors.Count == 0)
+        var filteredDescriptors = SelectDescriptorsToExpand(descriptors, shouldExpand);
+        if (filteredDescriptors.Count == 0)
         {
             return;
         }
 
-        var filteredDescriptors = descriptors.Where(shouldExpand).ToList();
         destination.AddRange(expand(filteredDescriptors));
     }
+
+    private static List<TDescriptor> SelectDescriptorsToExpand<TDescriptor>(
+        IReadOnlyList<TDescriptor> descriptors,
+        Func<TDescriptor, bool> shouldExpand) =>
+        descriptors.Count == 0
+            ? new List<TDescriptor>()
+            : descriptors.Where(shouldExpand).ToList();
 
     private async Task DiscoverAsync(
         DiscoverTestExecutionRequest request,
         IMessageBus messageBus,
         CancellationToken cancellationToken)
     {
-        var testCases = GetTestCases();
+        var testCases = await GetTestCasesAsync(cancellationToken).ConfigureAwait(false);
 
         foreach (var testCase in testCases)
         {
@@ -263,7 +294,7 @@ internal sealed class NextUnitFramework :
         IMessageBus messageBus,
         CancellationToken cancellationToken)
     {
-        var testCases = GetTestCases();
+        var testCases = await GetTestCasesAsync(cancellationToken).ConfigureAwait(false);
         var sink = new MessageBusSink(messageBus, request.Session.SessionUid, this);
 
         // A session setup hook that requested a skip disqualifies every test in the session, so the

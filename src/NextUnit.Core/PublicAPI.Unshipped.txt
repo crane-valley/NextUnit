@@ -1,1 +1,11 @@
 #nullable enable
+NextUnit.Internal.AsyncDataSourceAdapter
+NextUnit.Internal.AsyncDataSourceProviderDelegate
+NextUnit.Internal.TestDataDescriptor.AsyncDataSourceProvider.get -> NextUnit.Internal.AsyncDataSourceProviderDelegate?
+NextUnit.Internal.TestDataDescriptor.AsyncDataSourceProvider.init -> void
+static NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync<TRow>(System.Collections.Generic.IAsyncEnumerable<TRow>! source, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
+static NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync<TRows>(System.Threading.Tasks.Task<TRows>! source, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
+static NextUnit.Internal.TestDataExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestDataDescriptor!>! testDataDescriptors, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+static NextUnit.Internal.TestDataExpander.ExpandAsync(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestDataDescriptor!>! testDataDescriptors, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!>
+static NextUnit.Internal.TestDataExpander.ExpandSingle(NextUnit.Internal.TestDataDescriptor! descriptor, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+virtual NextUnit.Internal.AsyncDataSourceProviderDelegate.Invoke(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!

@@ -84,12 +84,16 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             return null;
         }
 
-        return TransformMethod(methodSymbol, KnownReturnTypes.Create(context.SemanticModel.Compilation));
+        return TransformMethod(
+            methodSymbol,
+            KnownReturnTypes.Create(context.SemanticModel.Compilation),
+            KnownDataSourceTypes.Create(context.SemanticModel.Compilation));
     }
 
     private static TestMethodDescriptor? TransformMethod(
         IMethodSymbol methodSymbol,
-        KnownReturnTypes knownTypes)
+        KnownReturnTypes knownTypes,
+        KnownDataSourceTypes knownDataSourceTypes)
     {
         var typeSymbol = methodSymbol.ContainingType;
         var fullyQualifiedTypeName = AttributeHelper.GetFullyQualifiedTypeName(typeSymbol);
@@ -106,7 +110,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var (isSkipped, skipReason) = AttributeHelper.GetSkipInfo(methodSymbol);
         var (isExplicit, explicitReason) = AttributeHelper.GetExplicitInfo(methodSymbol, typeSymbol);
         var argumentSets = DataSourceAttributeReader.GetArgumentSets(methodSymbol);
-        var testDataSources = DataSourceAttributeReader.GetTestDataSources(methodSymbol);
+        var testDataSources = DataSourceAttributeReader.GetTestDataSources(methodSymbol, knownDataSourceTypes);
         var classDataSources = DataSourceAttributeReader.GetClassDataSources(methodSymbol);
         var parameters = AttributeHelper.GetParameters(methodSymbol);
         var categories = AttributeHelper.GetCategories(methodSymbol, typeSymbol);

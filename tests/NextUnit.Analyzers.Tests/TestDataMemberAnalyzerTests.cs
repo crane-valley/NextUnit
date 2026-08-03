@@ -351,4 +351,148 @@ public class TestDataMemberAnalyzerTests
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
+
+    [Fact]
+    public async Task TestDataWithCancellableAsyncEnumerable_NoDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Runtime.CompilerServices;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static async IAsyncEnumerable<object[]> Rows(
+                    [EnumeratorCancellation] CancellationToken cancellationToken)
+                {
+                    await Task.Yield();
+                    yield return new object[] { 1 };
+                }
+
+                [Test]
+                [TestData("Rows")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    [Fact]
+    public async Task TestDataWithTaskWrappedCollection_NoDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static Task<IEnumerable<object[]>> Rows() =>
+                    Task.FromResult<IEnumerable<object[]>>(new[] { new object[] { 1 } });
+
+                [Test]
+                [TestData("Rows")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// The row type of an asynchronous source is checked against the test method exactly as a
+    /// synchronous one is.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithAsyncEnumerableRowTypeMismatch_ReportsDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static async IAsyncEnumerable<string> Rows()
+                {
+                    await Task.Yield();
+                    yield return "value";
+                }
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0009")
+            .WithLocation(0)
+            .WithArguments("Rows", "string", "TestMethod");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task TestDataWithBareTask_ReportsUnsupportedAwaitableAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static Task Rows() => Task.CompletedTask;
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0014")
+            .WithLocation(0)
+            .WithArguments("Rows", "Task");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task TestDataWithTaskWrappedScalar_ReportsUnsupportedAwaitableAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static ValueTask<int> Rows() => new ValueTask<int>(1);
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0014")
+            .WithLocation(0)
+            .WithArguments("Rows", "ValueTask<int>");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
 }

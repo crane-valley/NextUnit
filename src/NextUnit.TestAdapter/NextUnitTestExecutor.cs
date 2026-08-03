@@ -154,13 +154,16 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             allTestCases.AddRange(testCases);
         }
 
+        // The run token is threaded into [TestData] expansion so an asynchronous data source is
+        // interruptible; TestDataExpander does the blocking drain that this synchronous contract
+        // requires, in one documented place rather than here.
         AddExpandedTests<TestDataDescriptor>(
             registryType,
             "TestDataDescriptors",
             selectedDescriptorIds,
             descriptor => descriptor.BaseId,
             descriptor => descriptor.IsExplicit,
-            TestDataExpander.Expand,
+            descriptors => TestDataExpander.Expand(descriptors, cancellationToken),
             allTestCases);
 
         AddExpandedTests<ClassDataSourceDescriptor>(

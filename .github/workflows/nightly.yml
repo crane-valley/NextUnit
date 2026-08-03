@@ -47,7 +47,7 @@ jobs:
       # Single line to avoid PowerShell issues with backslash line continuation on Windows
       run: |
         echo "Running NextUnit sample tests..."
-        dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --configuration Release --no-build -- --minimum-expected-tests 20
+        dotnet run --project samples/NextUnit.SampleTests/NextUnit.SampleTests.csproj --configuration Release --no-build -- --minimum-expected-tests 27
 
   # Native AOT compilation and execution test
   native-aot-test:
@@ -89,7 +89,7 @@ jobs:
       run: |
         echo "=== Running Native AOT Tests ==="
         chmod +x ./aot-publish/NextUnit.SampleTests
-        ./aot-publish/NextUnit.SampleTests --minimum-expected-tests 20
+        ./aot-publish/NextUnit.SampleTests --minimum-expected-tests 27
 
     - name: Report AOT binary size
       run: |

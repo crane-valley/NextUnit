@@ -122,7 +122,22 @@ internal static class TestCaseEmitter
         EmitRuntimeDescriptorHeader(writer, test, lifecycleMethods);
         writer.WriteLine($"DataSourceName = {AttributeHelper.ToLiteral(dataSource.MemberName)},");
         writer.WriteLine($"DataSourceType = typeof({dataSourceType}),");
-        writer.WriteLine($"DataSourceProvider = {CodeBuilder.BuildDataSourceProvider(dataSourceType, dataSource.MemberName, dataSource.MemberKind)},");
+        writer.WriteLine($"DataSourceProvider = {CodeBuilder.BuildTestDataSourceProvider(dataSourceType, dataSource.MemberName, dataSource.MemberKind, dataSource.Shape)},");
+
+        // Emitted only for an asynchronous source. The descriptor property already defaults to
+        // null, so writing it for every synchronous source would be pure noise in the generated
+        // file and would churn every existing snapshot baseline.
+        var asyncDataSourceProvider = CodeBuilder.BuildAsyncTestDataSourceProvider(
+            dataSourceType,
+            dataSource.MemberName,
+            dataSource.MemberKind,
+            dataSource.Shape,
+            dataSource.AcceptsCancellationToken);
+        if (asyncDataSourceProvider is not null)
+        {
+            writer.WriteLine($"AsyncDataSourceProvider = {asyncDataSourceProvider},");
+        }
+
         writer.WriteLine($"ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
         EmitLifecycleAndParallelBlock(writer, test, lifecycleMethods);
         EmitDependencyAndSkipBlock(writer, test);

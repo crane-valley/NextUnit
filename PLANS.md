@@ -47,7 +47,7 @@ the missing work is metadata and scalable asynchronous enumeration.
 
 #### Async and deferred data sources
 
-- [ ] Accept cancellation-aware `IAsyncEnumerable<T>` member data and task/value-task-wrapped
+- [x] Accept cancellation-aware `IAsyncEnumerable<T>` member data and task/value-task-wrapped
   member collections without runtime reflection in the AOT path.
 - [ ] Add explicit deferred enumeration for very large data sets so discovery can expose one
   placeholder and enumerate rows only during execution.

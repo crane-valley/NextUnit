@@ -12,6 +12,8 @@ internal static class WellKnownTypeNames
     public const string CancellationToken = "System.Threading.CancellationToken";
 
     public const string Task = "System.Threading.Tasks.Task";
+    public const string GenericTask = "System.Threading.Tasks.Task`1";
     public const string ValueTask = "System.Threading.Tasks.ValueTask";
     public const string GenericValueTask = "System.Threading.Tasks.ValueTask`1";
+    public const string AsyncEnumerable = "System.Collections.Generic.IAsyncEnumerable`1";
 }
