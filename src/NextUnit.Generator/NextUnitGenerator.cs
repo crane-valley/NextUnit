@@ -123,6 +123,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var matrixExclusions = DataSourceAttributeReader.GetMatrixExclusions(methodSymbol);
         var combinedParameterSources = DataSourceAttributeReader.GetCombinedParameterSources(methodSymbol);
         var priority = AttributeHelper.GetExecutionPriority(methodSymbol, typeSymbol);
+        var (cultureName, uiCultureName) = AttributeHelper.GetCultureNames(methodSymbol, typeSymbol);
 
         return new TestMethodDescriptor(
             id,
@@ -163,7 +164,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             matrixParameters,
             matrixExclusions,
             combinedParameterSources,
-            priority);
+            priority,
+            cultureName,
+            uiCultureName);
     }
 
     /// <summary>

@@ -41,6 +41,9 @@ internal static class NextUnitAttributeNames
     public const string Tag = "NextUnit.TagAttribute";
     public const string Timeout = "NextUnit.TimeoutAttribute";
     public const string Retry = "NextUnit.RetryAttribute";
+    public const string Culture = "NextUnit.CultureAttribute";
+    public const string UICulture = "NextUnit.UICultureAttribute";
+    public const string InvariantCulture = "NextUnit.InvariantCultureAttribute";
     public const string Flaky = "NextUnit.FlakyAttribute";
     public const string Repeat = "NextUnit.RepeatAttribute";
     public const string DisplayName = "NextUnit.DisplayNameAttribute";
@@ -75,6 +78,8 @@ internal static class NextUnitAttributeNames
         /// </summary>
         public const string Retry = "RetryAttribute";
 
+        public const string Culture = "CultureAttribute";
+        public const string UICulture = "UICultureAttribute";
         public const string TestData = "TestDataAttribute";
         public const string ClassDataSource = "ClassDataSourceAttribute";
         public const string Matrix = "MatrixAttribute";

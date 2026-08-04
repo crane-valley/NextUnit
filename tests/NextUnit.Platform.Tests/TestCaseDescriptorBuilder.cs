@@ -22,6 +22,7 @@ internal sealed class TestCaseDescriptorBuilder
     private LifecycleInfo _lifecycle = new();
     private ParallelInfo _parallel = new();
     private RetryInfo _retry = new();
+    private TestCultureInfo _culture = new();
     private int? _timeoutMs;
     private int _priority;
 
@@ -100,6 +101,16 @@ internal sealed class TestCaseDescriptorBuilder
         return this;
     }
 
+    /// <summary>
+    /// Declares the cultures the test runs under, in the shape the generator emits for
+    /// <c>[Culture]</c>, <c>[UICulture]</c>, and <c>[InvariantCulture]</c>.
+    /// </summary>
+    public TestCaseDescriptorBuilder WithCulture(string? cultureName = null, string? uiCultureName = null)
+    {
+        _culture = new TestCultureInfo { CultureName = cultureName, UICultureName = uiCultureName };
+        return this;
+    }
+
     public TestCaseDescriptorBuilder WithTimeout(int timeoutMs)
     {
         _timeoutMs = timeoutMs;
@@ -141,6 +152,7 @@ internal sealed class TestCaseDescriptorBuilder
         Lifecycle = _lifecycle,
         Parallel = _parallel,
         Retry = _retry,
+        Culture = _culture,
         TimeoutMs = _timeoutMs,
         Priority = _priority
     };

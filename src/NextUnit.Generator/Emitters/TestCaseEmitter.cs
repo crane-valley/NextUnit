@@ -67,6 +67,7 @@ internal static class TestCaseEmitter
         EmitLabelBlock(writer, test);
         writer.WriteLine($"RepeatIndex = {LiteralFormatter.NullableInt(repeatIndex)},");
         EmitRetryBlock(writer, test);
+        EmitCultureBlock(writer, test);
         EmitDisplayNameAndPriorityBlock(writer, test);
         EndDescriptor(writer);
     }
@@ -103,6 +104,7 @@ internal static class TestCaseEmitter
         EmitLabelBlock(writer, test);
         writer.WriteLine($"RepeatIndex = {LiteralFormatter.NullableInt(repeatIndex)},");
         EmitRetryBlock(writer, test);
+        EmitCultureBlock(writer, test);
         EmitDisplayNameAndPriorityBlock(writer, test);
         EndDescriptor(writer);
     }
@@ -151,6 +153,7 @@ internal static class TestCaseEmitter
         EmitDependencyAndSkipBlock(writer, test);
         EmitLabelBlock(writer, test);
         EmitRetryBlock(writer, test);
+        EmitCultureBlock(writer, test);
         EmitDisplayNameAndPriorityBlock(writer, test);
         EndDescriptor(writer);
     }
@@ -183,6 +186,7 @@ internal static class TestCaseEmitter
         EmitDependencyAndSkipBlock(writer, test);
         EmitLabelBlock(writer, test);
         EmitRetryBlock(writer, test);
+        EmitCultureBlock(writer, test);
         EmitDisplayNameAndPriorityBlock(writer, test);
         EndDescriptor(writer);
     }
@@ -203,6 +207,7 @@ internal static class TestCaseEmitter
         EmitDependencyAndSkipBlock(writer, test);
         EmitLabelBlock(writer, test);
         EmitRetryBlock(writer, test);
+        EmitCultureBlock(writer, test);
         EmitDisplayNameAndPriorityBlock(writer, test);
         EndDescriptor(writer);
     }
@@ -302,6 +307,30 @@ internal static class TestCaseEmitter
 
         writer.WriteLine($"IsFlaky = {LiteralFormatter.Bool(test.IsFlaky)},");
         writer.WriteLine($"FlakyReason = {LiteralFormatter.NullableString(test.FlakyReason)}");
+        writer.Unindent();
+        writer.WriteLine("},");
+    }
+
+    /// <summary>
+    /// Emits the declared cultures, and nothing at all when none are declared.
+    /// </summary>
+    /// <remarks>
+    /// Conditional for the same reason as <c>PolicyFactory</c> above: the descriptor property
+    /// already defaults to the shared empty instance, so emitting it for every test would churn
+    /// every existing snapshot baseline without changing behavior.
+    /// </remarks>
+    private static void EmitCultureBlock(CodeWriter writer, TestMethodDescriptor test)
+    {
+        if (test.CultureName is null && test.UICultureName is null)
+        {
+            return;
+        }
+
+        writer.WriteLine("Culture = new global::NextUnit.Internal.TestCultureInfo");
+        writer.WriteLine("{");
+        writer.Indent();
+        writer.WriteLine($"CultureName = {LiteralFormatter.NullableString(test.CultureName)},");
+        writer.WriteLine($"UICultureName = {LiteralFormatter.NullableString(test.UICultureName)}");
         writer.Unindent();
         writer.WriteLine("},");
     }

@@ -656,6 +656,77 @@ output, and attached artifacts do not carry over from a discarded attempt. Only 
 output and artifacts are reported. State that must survive a retry belongs in a static field or in
 class-scope state.
 
+## Controlling the Culture
+
+Tests that format or parse dates, numbers, or currency depend on `CultureInfo.CurrentCulture`, so
+they pass on one machine and fail on another. `[Culture]` pins the culture a test runs under, and
+`[UICulture]` pins the culture used to look up localized resources.
+
+```csharp
+public class FormattingTests
+{
+    [Test]
+    [Culture("de-DE")]
+    public void ParsesTheGermanDecimalSeparator()
+    {
+        Assert.Equal(1234.5, double.Parse("1234,5"));
+    }
+
+    [Test]
+    [UICulture("ja-JP")]
+    public void LooksUpJapaneseResources() { }
+}
+```
+
+`[InvariantCulture]` is shorthand for setting both to the invariant culture, which is the usual way
+to make a test independent of the machine it runs on:
+
+```csharp
+[InvariantCulture]
+public class InvariantFormattingTests
+{
+    [Test]
+    public void FormatsTheSameEverywhere()
+    {
+        Assert.Equal("1234.5", 1234.5.ToString());
+    }
+}
+```
+
+All three attributes apply at assembly, class, and method level. Each axis resolves on its own and
+the most specific declaration wins, so a method can override the culture while inheriting the UI
+culture from its class or assembly:
+
+```csharp
+[assembly: UICulture("fr-FR")]
+
+[Culture("de-DE")]
+public class MixedTests
+{
+    [Test]
+    [Culture("ja-JP")]  // ja-JP formatting, fr-FR resources
+    public void Mixed() { }
+}
+```
+
+Because `[InvariantCulture]` only supplies the axes a level leaves unspecified, combining it with an
+explicit attribute is a composition rather than a conflict: `[InvariantCulture]` with
+`[UICulture("ja-JP")]` means invariant formatting with Japanese resources.
+
+The culture covers the whole test attempt -- constructor, test-scoped `[Before]` and `[After]` hooks,
+the test method, and disposal -- and is applied again for each `[Retry]` attempt, so an attempt that
+changes the culture cannot decide what the next one starts from. It is set inside the test's own
+asynchronous flow, so tests running in parallel each see their own culture and never each other's,
+and the previous culture is put back after a pass, a failure, a timeout, and a cancellation alike.
+
+Two limits are worth knowing. Display names are built during discovery rather than execution, so a
+declared culture does not change them. And a name that matches no culture on the machine running the
+test fails that test with a message naming it; only names that no machine could accept, such as one
+containing a space, are rejected at build time as `NU0018`.
+
+> **Coming from NUnit**: `[Culture]` here does what NUnit's `[SetCulture]` does. NUnit's own
+> `[Culture]` attribute *filters* which tests run, which NextUnit has no equivalent for.
+
 ## Best Practices
 
 1. **Use descriptive test names**: `MethodName_Scenario_ExpectedResult`

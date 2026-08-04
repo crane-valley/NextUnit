@@ -236,6 +236,39 @@ public sealed class RetryInfo
 }
 
 /// <summary>
+/// Contains the cultures a test runs under.
+/// </summary>
+/// <remarks>
+/// The names are carried as strings rather than <see cref="System.Globalization.CultureInfo"/>
+/// instances so the generator can emit them as literals, and so a culture missing on the executing
+/// machine is reported as that test's error instead of failing the whole generated registry's static
+/// initializer.
+/// </remarks>
+public sealed class TestCultureInfo
+{
+    /// <summary>
+    /// The shared instance used by every test that declares no culture.
+    /// </summary>
+    /// <remarks>
+    /// Safe to share because the type is immutable, and worth sharing because otherwise every
+    /// descriptor allocates an object describing the absence of a setting.
+    /// </remarks>
+    internal static TestCultureInfo None { get; } = new();
+
+    /// <summary>
+    /// Gets or initializes the name for <see cref="System.Globalization.CultureInfo.CurrentCulture"/>,
+    /// or <c>null</c> to leave the ambient culture in place. The empty string is the invariant culture.
+    /// </summary>
+    public string? CultureName { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the name for <see cref="System.Globalization.CultureInfo.CurrentUICulture"/>,
+    /// or <c>null</c> to leave the ambient UI culture in place. The empty string is the invariant culture.
+    /// </summary>
+    public string? UICultureName { get; init; }
+}
+
+/// <summary>
 /// Describes a test case with all its metadata and configuration.
 /// </summary>
 public sealed class TestCaseDescriptor
@@ -274,6 +307,7 @@ public sealed class TestCaseDescriptor
         TimeoutMs = other.TimeoutMs;
         RepeatIndex = other.RepeatIndex;
         Retry = other.Retry;
+        Culture = other.Culture;
         CustomDisplayNameTemplate = other.CustomDisplayNameTemplate;
         DisplayNameFormatterType = other.DisplayNameFormatterType;
         Priority = other.Priority;
@@ -404,6 +438,11 @@ public sealed class TestCaseDescriptor
     /// Gets or initializes the retry configuration for the test.
     /// </summary>
     public RetryInfo Retry { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the cultures the test runs under.
+    /// </summary>
+    public TestCultureInfo Culture { get; init; } = TestCultureInfo.None;
 
     /// <summary>
     /// Gets or initializes the custom display name template with optional placeholders ({0}, {1}, etc.).
@@ -607,6 +646,11 @@ public sealed class TestDataDescriptor
     /// Gets or initializes the retry configuration for the test.
     /// </summary>
     public RetryInfo Retry { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the cultures the test runs under.
+    /// </summary>
+    public TestCultureInfo Culture { get; init; } = TestCultureInfo.None;
 
     /// <summary>
     /// Gets or initializes the custom display name template with optional placeholders ({0}, {1}, etc.).
@@ -839,6 +883,11 @@ public sealed class CombinedDataSourceDescriptor
     public RetryInfo Retry { get; init; } = new();
 
     /// <summary>
+    /// Gets or initializes the cultures the test runs under.
+    /// </summary>
+    public TestCultureInfo Culture { get; init; } = TestCultureInfo.None;
+
+    /// <summary>
     /// Gets or initializes the custom display name template with optional placeholders ({0}, {1}, etc.).
     /// </summary>
     public string? CustomDisplayNameTemplate { get; init; }
@@ -994,6 +1043,11 @@ public sealed class ClassDataSourceDescriptor
     /// Gets or initializes the retry configuration for the test.
     /// </summary>
     public RetryInfo Retry { get; init; } = new();
+
+    /// <summary>
+    /// Gets or initializes the cultures the test runs under.
+    /// </summary>
+    public TestCultureInfo Culture { get; init; } = TestCultureInfo.None;
 
     /// <summary>
     /// Gets or initializes the custom display name template with optional placeholders ({0}, {1}, etc.).

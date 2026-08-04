@@ -455,6 +455,79 @@ internal static class AttributeHelper
         return null;
     }
 
+    /// <summary>
+    /// Resolves the cultures a test runs under from the method, its class, and its assembly.
+    /// </summary>
+    /// <remarks>
+    /// Each axis resolves on its own, so a method that overrides only the current culture keeps the
+    /// UI culture its class or assembly declared. Within one level an explicit
+    /// <c>[Culture]</c>/<c>[UICulture]</c> wins over <c>[InvariantCulture]</c>, which fills in the
+    /// axes that level left unspecified; that is what lets <c>[InvariantCulture]</c> combine with
+    /// <c>[UICulture("ja-JP")]</c> to mean invariant formatting with Japanese resources.
+    /// </remarks>
+    public static (string? CultureName, string? UICultureName) GetCultureNames(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol)
+    {
+        string? cultureName = null;
+        string? uiCultureName = null;
+
+        foreach (var symbol in new ISymbol[] { methodSymbol, typeSymbol, typeSymbol.ContainingAssembly })
+        {
+            var isInvariant = HasAttribute(symbol, NextUnitAttributeNames.InvariantCulture);
+
+            cultureName ??= GetCultureNameFromSymbol(symbol, NextUnitAttributeNames.Culture)
+                ?? (isInvariant ? "" : null);
+            uiCultureName ??= GetCultureNameFromSymbol(symbol, NextUnitAttributeNames.UICulture)
+                ?? (isInvariant ? "" : null);
+
+            if (cultureName is not null && uiCultureName is not null)
+            {
+                break;
+            }
+        }
+
+        return (cultureName, uiCultureName);
+    }
+
+    private static string? GetCultureNameFromSymbol(ISymbol symbol, string attributeName)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, attributeName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            // A null argument is left to the attribute's own ArgumentNullException rather than
+            // silently emitted as "no culture declared".
+            if (attribute.ConstructorArguments[0].Value is string name)
+            {
+                return name;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool HasAttribute(ISymbol symbol, string attributeName)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (IsAttribute(attribute, attributeName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static int GetExecutionPriority(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
         var methodPriority = GetExecutionPriorityFromSymbol(methodSymbol);
