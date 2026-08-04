@@ -23,3 +23,15 @@ NU0009 | NextUnit | Error | Test data row type does not match test method parame
 NU0010 | NextUnit | Error | Test data row metadata is invalid
 NU0011 | NextUnit | Error | Test or lifecycle method return type is unsupported
 NU0013 | NextUnit | Warning | Data source attribute without [Test]
+
+## Release 1.19.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+NU0014 | NextUnit | Error | TestData member returns an unsupported awaitable
+NU0015 | NextUnit | Error | Conflicting retry attributes
+NU0016 | NextUnit | Error | Retry policy type is not accessible to generated code
+NU0017 | NextUnit | Error | Invalid retry count
+NU0018 | NextUnit | Error | Malformed culture name

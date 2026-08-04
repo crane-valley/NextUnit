@@ -67,6 +67,24 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
      `Directory.Build.props` and fails the build when they diverge, so a forgotten bump surfaces on
      the release PR rather than in a user's first `dotnet new nextunit`.
 
+### Analyzer Release Files
+
+1. **src/NextUnit.Analyzers/AnalyzerReleases.Shipped.md** and
+   **src/NextUnit.Analyzers/AnalyzerReleases.Unshipped.md**
+   - Move every rule listed in `AnalyzerReleases.Unshipped.md` into a new
+     `## Release X.Y.Z` section at the end of `AnalyzerReleases.Shipped.md`, then reset the
+     unshipped file to its empty state, the single line `; No unshipped rule changes.`
+   - Skip this when the unshipped file is already empty, which is the case for a release that
+     adds no diagnostics. Only `1.9.0`, `1.16.0`, and `1.19.0` added rules, so
+     `AnalyzerReleases.Shipped.md` has a section for those releases and no others.
+   - These two files are the ledger recording which release first shipped each `NU00xx`
+     diagnostic, so leaving a rule unshipped after publishing it loses that provenance
+     permanently. `RS2008` is satisfied by an entry in either file and therefore does not catch
+     the omission; the build stays green either way.
+   - Added to this checklist during the 1.19.0 release, which was the first release to add rules
+     after PR #171 introduced the release-tracking files, and so the first time the promotion was
+     needed.
+
 ### Documentation Files
 
 1. **README.md**
