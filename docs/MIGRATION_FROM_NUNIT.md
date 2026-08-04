@@ -649,8 +649,9 @@ public class ApiTests
 }
 ```
 
-`[Retry(count)]` counts the first attempt, as NUnit's does, and the optional second argument is a
-delay in milliseconds between attempts. A `[Timeout]` budget applies to each attempt separately, and
+`[Retry(count)]` counts the first attempt, so `[Retry(3)]` means at most three runs, matching the
+convention of NUnit's `tryCount`. The optional second argument is a delay in milliseconds between
+attempts. A `[Timeout]` budget applies to each attempt separately, and
 timeouts, runtime skips, and cancellation are never retried.
 
 NUnit retries every failure. To decide per failure, implement `IRetryPolicy` and attach it with
