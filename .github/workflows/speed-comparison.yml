@@ -152,6 +152,9 @@ jobs:
             tools/speed-comparison/results/runtime-comparison.json
             tools/speed-comparison/results/REGRESSION_REPORT.md
           retention-days: 90
+          # A re-run reuses the run ID, so without this the upload collides with the previous attempt's
+          # artifact and publish-history would go on to fetch that attempt's stale record.
+          overwrite: true
         # Guarded on the measurement step, not on the job: RUNTIME_COMPARISON.md is tracked in Git, so a
         # run that failed before overwriting it would otherwise publish the committed numbers under
         # today's timestamp. Publishing after the analysis step fails is intended and still happens.
@@ -163,6 +166,7 @@ jobs:
           name: speed-comparison-history
           path: tools/speed-comparison/results/history-record.json
           retention-days: 7
+          overwrite: true
         if: ${{ !cancelled() && steps.round-robin.outcome == 'success' && github.event_name != 'pull_request' }}
 
       - name: Comment PR with results (on pull requests)
