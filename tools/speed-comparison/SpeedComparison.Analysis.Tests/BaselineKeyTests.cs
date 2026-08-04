@@ -72,11 +72,40 @@ public class BaselineKeyTests
     }
 
     [Test]
+    public void ResizingTheWorkloadStartsANewBaseline()
+    {
+        // A different number of tests changes the mix of startup, scheduling, and execution that the ratio
+        // measures, so the older runs stop being comparable however stable the machine was.
+        var samples = SyntheticRuns.Samples(seed: 1);
+        var first = BaselineKey.For(SyntheticRuns.Result(samples));
+        var second = BaselineKey.For(SyntheticRuns.Result(samples) with { ExpectedTestCount = 200 });
+
+        Assert.NotEqual(first, second);
+    }
+
+    [Test]
+    public void AReferenceFrameworkUpgradeKeepsTheBaseline()
+    {
+        // Reference versions are dependency-managed and move often. Keying on them would retire the
+        // baseline before it could arm; the report names the change instead.
+        var samples = SyntheticRuns.Samples(seed: 1);
+        var upgraded = SyntheticRuns.Result(samples);
+        upgraded = upgraded with
+        {
+            Summaries = [.. upgraded.Summaries.Select(summary =>
+                summary.Framework == "TUnit" ? summary with { Version = "2.0.0" } : summary)]
+        };
+
+        Assert.Equal(BaselineKey.For(SyntheticRuns.Result(samples)), BaselineKey.For(upgraded));
+    }
+
+    [Test]
     public void TheKeyNamesTheDimensionsItSplitsOn()
     {
         var key = BaselineKey.For(SyntheticRuns.Result(SyntheticRuns.Samples(seed: 1)));
 
         Assert.Contains(ComparisonResult.RoundRobinBenchmarkId, key);
+        Assert.Contains("127 tests", key);
         Assert.Contains("ubuntu24", key);
         Assert.Contains("sdk 10.0", key);
         Assert.Contains("runtime 10.0", key);

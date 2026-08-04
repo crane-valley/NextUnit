@@ -100,10 +100,12 @@ jobs:
         if: success()
 
       # Fails the job only for a regression that this run and the recorded run before it both showed.
-      # A pull-request run never enters the history, so it reports without ever failing.
+      # Only a run that publish-history will actually append counts as the baseline series: a run that
+      # never enters the history has no predecessor of its own, so a pull request or a manual dispatch on
+      # a side branch reports against the baseline without ever being able to fail on it.
       - name: Check for a performance regression
         env:
-          SERIES: ${{ github.event_name == 'pull_request' && 'pull-request' || 'baseline' }}
+          SERIES: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'baseline' || 'pull-request' }}
         run: |
           dotnet run -c Release --no-build --project tools/speed-comparison/Tests.Benchmark -- \
             --analyze-regression \

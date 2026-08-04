@@ -56,25 +56,42 @@ Each line records everything needed to interpret or re-analyse the run later:
 The file keeps the most recent 100 runs. At the weekly cadence that is about two years, and it stays far
 above the 20-run baseline window even if a second runner image is added later.
 
+Appending is idempotent per run: a record replaces any line already stored for the same run and benchmark
+rather than adding a second copy. A publishing job that retries after an uncertain push would otherwise
+record one measurement twice, and the baseline would count it as two independent observations.
+
 ## Which runs are comparable
 
 A run is compared only against recorded runs with the same baseline key:
 
 ```text
-round-robin-runtime | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, xUnit
+round-robin-runtime | 127 tests | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, xUnit
 ```
 
-The key holds the benchmark, the runner image family, the architecture, the SDK and runtime at
-**major.minor**, and the set of reference participants.
+The key holds the benchmark, the size of the workload, the runner image family, the architecture, the SDK
+and runtime at **major.minor**, and the set of reference participants.
 
-Patch versions are deliberately excluded. Hosted images move the SDK and runtime patch almost every week,
-and keying on them would reset the baseline before it could ever arm, while the metric already cancels the
-machine differences that a patch bump might bring. The exact SDK version, runtime version, and image build
-are still recorded on every line, so a suspicious result can be traced to them.
+The test count is in the key because resizing the suite changes the mix of startup, scheduling, and
+execution that the ratio measures. The reference set is in the key because it is the denominator of the
+metric: dropping or adding a competing framework changes what every number means. Adding or removing one of
+NextUnit's own participants does not split the baseline.
 
-The reference set is part of the key because it is the denominator of the metric: dropping or adding a
-competing framework changes what every number means, and the older runs must stop being treated as
-comparable. Adding or removing one of NextUnit's own participants does not split the baseline.
+Two things are deliberately **not** in the key.
+
+**SDK and runtime patch versions.** Hosted images move them almost every week, so keying on them would
+retire the baseline before it could ever arm, while the metric already cancels the machine differences a
+patch bump might bring.
+
+**Reference framework versions.** These are dependency-managed and bump often enough that keying on them
+would leave the gate disarmed most of the time. The metric is also resistant to them: a reference is one of
+several inside a geometric mean, so even an unusually large 20% improvement to a single competing framework
+moves the denominator by only about 5% of itself, which lands under the effect-size bar. The residual risk
+is real but small, so the report names it instead of the key absorbing it: whenever a reference version
+differs from the most recent comparable run, the report says so, which is the first thing to check when a
+finding looks surprising.
+
+The exact SDK version, runtime version, image build, and every participant's framework version are recorded
+on every line regardless, so any result can be traced back to them.
 
 ## What counts as a regression
 
@@ -100,8 +117,9 @@ show a spread, so a gate armed on them would be guessing at what counts as noise
 Clearing all three bars produces **Suspected**, which reports and passes. The build fails only at
 **Confirmed**, which additionally requires that the recorded run before it was also flagged.
 
-This falls out of one rule rather than a special case. Only default-branch runs append to the history, so
-only they can have a predecessor in their own series, and a pull-request run therefore cannot reach
+This falls out of one rule rather than a special case. A run is in the baseline series only if it will
+actually be appended, which means a non-pull-request run on `main`. Every other run, whether a pull request
+or a manual dispatch on a side branch, has no predecessor in its own series and therefore cannot reach
 Confirmed. That is the intended behaviour twice over:
 
 - Pull-request runs deliberately do not write history. A pull request measures unmerged code, so appending
@@ -111,8 +129,9 @@ Confirmed. That is the intended behaviour twice over:
   suspected regression there is a prompt to look, not a blocked merge.
 
 At the weekly cadence a real regression therefore turns the scheduled run red two weeks after it lands.
-A maintainer who does not want to wait can trigger the workflow manually: `workflow_dispatch` runs on the
-default branch append to the history like scheduled runs, so a second dispatch confirms immediately.
+A maintainer who does not want to wait can trigger the workflow manually **on `main`**: a dispatch there
+appends to the history like a scheduled run, so a second dispatch confirms immediately. A dispatch on any
+other branch reports without appending, exactly like a pull request.
 
 ## Verdicts
 
@@ -165,6 +184,11 @@ reviewable commit explaining the decision.
 
 **The gate never arms.** Check the baseline key printed in the report. If it changes on every run, a
 dimension of the key is churning; the reference set or the runner image family is the usual cause.
+
+**A finding that arrives with a dependency bump.** The report lists any reference framework whose version
+moved since the last comparable run. A competing framework getting materially faster raises every gated
+participant's ratio at once, so a finding that names one is about the denominator, not about NextUnit.
+Retire the baseline as for an accepted change.
 
 **The history branch is not being written.** The `publish-history` job runs only for non-pull-request events
 on `main`, and needs `benchmark-data` to be unprotected so `GITHUB_TOKEN` can push to it.

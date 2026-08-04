@@ -29,6 +29,15 @@ public static class RegressionReport
                 $"- Skipped {result.SkippedRecordCount} recorded run(s) written by a different history schema"));
         }
 
+        if (result.ReferenceVersionChanges.Count > 0)
+        {
+            // The references are the denominator, so an upgrade among them moves every gated participant
+            // at once. Naming it here is what separates a real regression from a dependency bump.
+            builder.AppendLine(
+                "- Reference frameworks changed since the last comparable run: "
+                + string.Join(", ", result.ReferenceVersionChanges));
+        }
+
         builder.AppendLine();
         builder.AppendLine("| Participant | Normalized median | Baseline | Change | Robust spread | p | Verdict |");
         builder.AppendLine("| ----------- | ----------------: | -------: | -----: | ------------: | -: | ------- |");

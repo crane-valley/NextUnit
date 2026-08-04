@@ -187,6 +187,36 @@ public class RegressionGateTests
     }
 
     [Test]
+    public void AReferenceFrameworkUpgradeIsNamedInTheResult()
+    {
+        var history = SyntheticRuns.Baseline(10);
+        var upgraded = SyntheticRuns.Result(SyntheticRuns.Samples(seed: 100));
+        upgraded = upgraded with
+        {
+            Summaries = [.. upgraded.Summaries.Select(summary =>
+                summary.Framework == "TUnit" ? summary with { Version = "2.0.0" } : summary)]
+        };
+
+        var result = RegressionGate.Evaluate(upgraded, history, GateSeries.Baseline);
+
+        Assert.Equal(1, result.ReferenceVersionChanges.Count);
+        Assert.Contains("TUnit 1.0.0 -> 2.0.0", result.ReferenceVersionChanges[0]);
+    }
+
+    [Test]
+    public void UnchangedReferenceFrameworksAreNotReported()
+    {
+        var history = SyntheticRuns.Baseline(10);
+
+        var result = RegressionGate.Evaluate(
+            SyntheticRuns.Result(SyntheticRuns.Samples(seed: 100)),
+            history,
+            GateSeries.Baseline);
+
+        Assert.Equal(0, result.ReferenceVersionChanges.Count);
+    }
+
+    [Test]
     public void OnlyThisProjectsParticipantsAreGated()
     {
         Assert.True(RegressionGate.IsGated("NextUnit"));

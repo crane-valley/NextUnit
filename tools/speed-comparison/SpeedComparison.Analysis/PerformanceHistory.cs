@@ -173,6 +173,11 @@ public static class PerformanceHistoryStore
     /// <summary>
     /// Appends <paramref name="record"/> and trims the file to the most recent <see cref="MaximumRecords"/>
     /// lines. Trimming keeps the store bounded without needing a retention job.
+    /// <para>
+    /// The append replaces any record already stored for the same run and benchmark rather than adding a
+    /// second copy. A publishing job that retries after an uncertain push would otherwise record the same
+    /// run twice, and the baseline would count one measurement as two independent observations.
+    /// </para>
     /// </summary>
     public static void Append(string path, HistoryRecord record)
     {
@@ -186,7 +191,10 @@ public static class PerformanceHistoryStore
         // Existing lines are carried across verbatim, including any the current schema skips, so an
         // append never destroys a record this build happens not to understand.
         var lines = File.Exists(path)
-            ? File.ReadAllLines(path).Where(line => !string.IsNullOrWhiteSpace(line)).ToList()
+            ? File.ReadAllLines(path)
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Where(line => !DescribesSameRun(line, record))
+                .ToList()
             : [];
         lines.Add(Serialize(record));
         if (lines.Count > MaximumRecords)
@@ -195,6 +203,29 @@ public static class PerformanceHistoryStore
         }
 
         File.WriteAllLines(path, lines);
+    }
+
+    /// <summary>
+    /// Whether a stored line describes the same run and benchmark as <paramref name="record"/>. The check
+    /// reads the two identifying properties directly so it works on any schema version that carries them.
+    /// </summary>
+    private static bool DescribesSameRun(string line, HistoryRecord record)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(line);
+            return document.RootElement.TryGetProperty(nameof(HistoryRecord.RunId), out var runId)
+                && document.RootElement.TryGetProperty(nameof(HistoryRecord.BenchmarkId), out var benchmarkId)
+                && runId.ValueKind == JsonValueKind.String
+                && benchmarkId.ValueKind == JsonValueKind.String
+                && string.Equals(runId.GetString(), record.RunId, StringComparison.Ordinal)
+                && string.Equals(benchmarkId.GetString(), record.BenchmarkId, StringComparison.Ordinal);
+        }
+        catch (JsonException)
+        {
+            // Read reports a malformed line with its location; an append must not silently drop it.
+            return false;
+        }
     }
 }
 
@@ -207,6 +238,7 @@ public static class BaselineKey
         ArgumentNullException.ThrowIfNull(record);
         return Compose(
             record.BenchmarkId,
+            record.ExpectedTestCount,
             record.Environment.RunnerImage,
             record.Environment.Architecture,
             record.Environment.SdkVersion,
@@ -220,6 +252,7 @@ public static class BaselineKey
         ArgumentNullException.ThrowIfNull(result);
         return Compose(
             result.BenchmarkId,
+            result.ExpectedTestCount,
             result.RunnerImage,
             result.Architecture,
             result.DotNetSdkVersion,
@@ -229,6 +262,7 @@ public static class BaselineKey
 
     private static string Compose(
         string benchmarkId,
+        int expectedTestCount,
         string runnerImage,
         string architecture,
         string sdkVersion,
@@ -244,6 +278,9 @@ public static class BaselineKey
         return string.Join(
             " | ",
             benchmarkId,
+            // Resizing the suite changes the mix of startup, scheduling, and execution the ratio measures,
+            // so runs of a differently sized workload are not comparable however stable the machine was.
+            FormattableString.Invariant($"{expectedTestCount} tests"),
             runnerImage,
             architecture,
             $"sdk {MajorMinor(sdkVersion)}",

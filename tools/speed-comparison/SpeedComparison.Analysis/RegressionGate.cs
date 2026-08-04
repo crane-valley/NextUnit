@@ -81,6 +81,13 @@ public sealed record GateResult
     /// <summary>How many recorded lines were written by a different schema version and therefore skipped.</summary>
     public required int SkippedRecordCount { get; init; }
 
+    /// <summary>
+    /// Reference frameworks whose version differs from the most recent comparable run, as
+    /// <c>name old -&gt; new</c>. The references are the denominator of the metric, so an upgrade among them
+    /// shifts every gated participant at once and is the first thing to check when a finding is surprising.
+    /// </summary>
+    public required IReadOnlyList<string> ReferenceVersionChanges { get; init; }
+
     /// <summary>The finding for every gated participant.</summary>
     public required IReadOnlyList<ParticipantAssessment> Assessments { get; init; }
 
@@ -187,9 +194,42 @@ public static class RegressionGate
             Series = series,
             BaselineRunCount = baseline.Length,
             SkippedRecordCount = skippedRecordCount,
+            ReferenceVersionChanges = ReferenceVersionChanges(result, baseline),
             Assessments = assessments,
             Record = BuildRecord(result, currentSamples, normalized, assessments)
         };
+    }
+
+    /// <summary>
+    /// Names the reference frameworks whose version moved since the most recent comparable run.
+    /// <para>
+    /// Reference versions are deliberately not part of the baseline key. They are dependency-managed and
+    /// move often, so keying on them would retire the baseline before it could arm. The metric is also
+    /// resistant to them: a single reference is one of several inside a geometric mean, so even a large
+    /// upgrade to one of them moves the denominator by a fraction of its own change. What is left is a
+    /// residual risk worth naming in the report rather than one worth disarming the gate over.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<string> ReferenceVersionChanges(
+        ComparisonResult result,
+        IReadOnlyList<HistoryRecord> baseline)
+    {
+        if (baseline.Count == 0)
+        {
+            return [];
+        }
+
+        var previous = baseline[^1].Participants.ToDictionary(
+            participant => participant.Framework,
+            participant => participant.Version,
+            StringComparer.Ordinal);
+
+        return result.Summaries
+            .Where(summary => !IsGated(summary.Framework))
+            .Where(summary => previous.TryGetValue(summary.Framework, out var version)
+                && !string.Equals(version, summary.Version, StringComparison.Ordinal))
+            .Select(summary => $"{summary.Framework} {previous[summary.Framework]} -> {summary.Version}")
+            .ToArray();
     }
 
     private static ParticipantAssessment Assess(

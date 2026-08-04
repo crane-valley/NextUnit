@@ -72,6 +72,54 @@ public class PerformanceHistoryStoreTests
     }
 
     [Test]
+    public void AppendingTheSameRunTwiceRecordsItOnce()
+    {
+        // A publishing job that retries after an uncertain push must not turn one measurement into two
+        // independent baseline observations.
+        using var directory = new TemporaryDirectory();
+        var path = directory.Resolve("history.jsonl");
+
+        PerformanceHistoryStore.Append(path, Record(1));
+        PerformanceHistoryStore.Append(path, Record(1));
+
+        var records = PerformanceHistoryStore.Read(path, out _);
+
+        Assert.Equal(1, records.Count);
+        Assert.Equal("run-1", records[0].RunId);
+    }
+
+    [Test]
+    public void ReappendingTheSameRunReplacesTheStoredVerdict()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = directory.Resolve("history.jsonl");
+        var first = SyntheticRuns.Record(
+            SyntheticRuns.Samples(seed: 1),
+            runId: "run-1",
+            generatedAtUtc: new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero));
+
+        PerformanceHistoryStore.Append(path, first);
+        PerformanceHistoryStore.Append(path, first with { Trigger = "workflow_dispatch" });
+
+        var records = PerformanceHistoryStore.Read(path, out _);
+
+        Assert.Equal(1, records.Count);
+        Assert.Equal("workflow_dispatch", records[0].Trigger);
+    }
+
+    [Test]
+    public void DifferentRunsAreBothRecorded()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = directory.Resolve("history.jsonl");
+
+        PerformanceHistoryStore.Append(path, Record(1));
+        PerformanceHistoryStore.Append(path, Record(2));
+
+        Assert.Equal(2, PerformanceHistoryStore.Read(path, out _).Count);
+    }
+
+    [Test]
     public void RecordsFromAnotherSchemaAreSkippedRatherThanFailing()
     {
         using var directory = new TemporaryDirectory();
