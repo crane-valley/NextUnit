@@ -643,7 +643,7 @@ internal static class AttributeHelper
         foreach (var attribute in symbol.GetAttributes())
         {
             var policyTypeName = GetRetryPolicyTypeName(attribute);
-            var isRetry = policyTypeName is not null || IsAttribute(attribute, NextUnitAttributeNames.Retry);
+            var isRetry = policyTypeName is not null || RetryAttributeMatcher.IsPlainRetry(attribute);
             if (!isRetry || attribute.ConstructorArguments.Length == 0)
             {
                 continue;
@@ -670,22 +670,10 @@ internal static class AttributeHelper
     /// </summary>
     private static string? GetRetryPolicyTypeName(AttributeData attribute)
     {
-        if (attribute.AttributeClass is not { IsGenericType: true } attributeClass)
-        {
-            return null;
-        }
-
-        var constructedFrom = attributeClass.ConstructedFrom;
-        if (constructedFrom.MetadataName != NextUnitAttributeNames.MetadataNames.RetryAttributeGeneric ||
-            constructedFrom.ContainingNamespace.ToDisplayString() != NextUnitAttributeNames.Namespace)
-        {
-            return null;
-        }
-
         // Formatted for a constructor call, not for a type reference: `new global::Policy?()` is not
         // valid C#, and `[Retry<Policy?>(2)]` is only a nullability warning at the attribute, so a
         // consumer that does not promote warnings would otherwise get a hard error in generated code.
-        return attributeClass.TypeArguments[0].ToDisplayString(ConstructorCallFormat);
+        return RetryAttributeMatcher.GetPolicyType(attribute)?.ToDisplayString(ConstructorCallFormat);
     }
 
     /// <summary>

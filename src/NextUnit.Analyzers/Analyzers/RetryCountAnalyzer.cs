@@ -53,20 +53,6 @@ public sealed class RetryCountAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool IsRetry(AttributeData attribute)
-    {
-        if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.Retry)
-        {
-            return true;
-        }
-
-        if (attribute.AttributeClass is not { IsGenericType: true } attributeClass)
-        {
-            return false;
-        }
-
-        var constructedFrom = attributeClass.ConstructedFrom;
-        return constructedFrom.MetadataName == NextUnitAttributeNames.MetadataNames.RetryAttributeGeneric &&
-            constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace;
-    }
+    private static bool IsRetry(AttributeData attribute) =>
+        RetryAttributeMatcher.IsRetry(attribute);
 }

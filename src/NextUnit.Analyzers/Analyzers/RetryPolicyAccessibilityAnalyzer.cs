@@ -50,22 +50,8 @@ public sealed class RetryPolicyAccessibilityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static ITypeSymbol? GetPolicyType(AttributeData attribute)
-    {
-        if (attribute.AttributeClass is not { IsGenericType: true } attributeClass)
-        {
-            return null;
-        }
-
-        var constructedFrom = attributeClass.ConstructedFrom;
-        if (constructedFrom.MetadataName != NextUnitAttributeNames.MetadataNames.RetryAttributeGeneric ||
-            constructedFrom.ContainingNamespace.ToDisplayString() != NextUnitAttributeNames.Namespace)
-        {
-            return null;
-        }
-
-        return attributeClass.TypeArguments[0];
-    }
+    private static ITypeSymbol? GetPolicyType(AttributeData attribute) =>
+        RetryAttributeMatcher.GetPolicyType(attribute);
 
     /// <summary>
     /// Reports whether the generated registry, which lives in the compiling assembly, can name the type.

@@ -68,6 +68,13 @@ internal static class NextUnitAttributeNames
     {
         public const string Test = "TestAttribute";
         public const string Arguments = "ArgumentsAttribute";
+
+        /// <summary>
+        /// Shared by <c>[Retry]</c> and <c>[Retry&lt;TPolicy&gt;]</c>: <c>ISymbol.Name</c> carries no
+        /// generic arity, so the two are told apart by arity rather than by name.
+        /// </summary>
+        public const string Retry = "RetryAttribute";
+
         public const string TestData = "TestDataAttribute";
         public const string ClassDataSource = "ClassDataSourceAttribute";
         public const string Matrix = "MatrixAttribute";
@@ -85,6 +92,5 @@ internal static class NextUnitAttributeNames
         public const string ClassDataSourceAttributePrefix = "ClassDataSourceAttribute`";
         public const string ValuesFromAttributePrefix = "ValuesFromAttribute`";
         public const string TestDataRow = "TestDataRow`1";
-        public const string RetryAttributeGeneric = "RetryAttribute`1";
     }
 }

@@ -61,18 +61,5 @@ public sealed class ConflictingRetryAttributeAnalyzer : DiagnosticAnalyzer
     }
 
     private static bool IsRetry(AttributeData attribute) =>
-        IsPolicyRetry(attribute) ||
-        attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.Retry;
-
-    private static bool IsPolicyRetry(AttributeData attribute)
-    {
-        if (attribute.AttributeClass is not { IsGenericType: true } attributeClass)
-        {
-            return false;
-        }
-
-        var constructedFrom = attributeClass.ConstructedFrom;
-        return constructedFrom.MetadataName == NextUnitAttributeNames.MetadataNames.RetryAttributeGeneric &&
-            constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace;
-    }
+        RetryAttributeMatcher.IsRetry(attribute);
 }
