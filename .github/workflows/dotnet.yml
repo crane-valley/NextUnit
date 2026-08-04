@@ -123,9 +123,17 @@ jobs:
         done
 
   # Job 4: Security scan
+  #
+  # Blocking, and scoped to what the pull request changes: the gate compares the vulnerabilities the
+  # head revision resolves against the ones the base revision already resolves, and fails only on the
+  # difference. An advisory published against a package main already carries therefore leaves
+  # unrelated pull requests green; the nightly Vulnerability Scan job owns those.
+  #
+  # The diff has no meaning outside a pull request, so the job does not run on push.
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
 
     steps:
     - name: Checkout code
@@ -144,12 +152,22 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-nuget-
 
-    - name: Restore dependencies
-      run: dotnet restore NextUnit.CI.slnx
+    # After the cache step on purpose: a second copy of the repository inside the workspace would
+    # otherwise feed the hashFiles globs above and give this job a cache key no other job shares.
+    - name: Checkout base revision
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.base.sha }}
+        path: base-revision
 
-    - name: Check for vulnerable packages
-      run: dotnet list NextUnit.CI.slnx package --vulnerable --include-transitive
-      continue-on-error: true
+    # NextUnit.slnx rather than NextUnit.CI.slnx: a pull request can add a vulnerable package to a
+    # test, benchmark, or tool project just as easily as to a shipped one.
+    - name: Fail on newly introduced vulnerable packages
+      run: >
+        pwsh -NoProfile -File .github/scripts/check-dependency-vulnerabilities.ps1
+        -Solution NextUnit.slnx
+        -Allowlist .github/vulnerability-allowlist.txt
+        -BaselinePath base-revision
 
   # Job 5: Verify generator output
   generator:

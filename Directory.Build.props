@@ -7,6 +7,15 @@
     
     <!-- Enforce strict code quality -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Audit the whole graph, not just direct references. The SDK default has changed between
+         versions, and a vulnerability that only a transitive package carries is the common case. -->
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <!-- NuGet audit findings stay warnings. As errors they fail restore for everyone the moment an
+         advisory is published against a package the repository already depends on, including work
+         that touches no dependency at all. The Security Scan job fails on what a pull request
+         introduces and the nightly Vulnerability Scan fails on what is already here, so the finding
+         still blocks something; it just blocks the right thing. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
