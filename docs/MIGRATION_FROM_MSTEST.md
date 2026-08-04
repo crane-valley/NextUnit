@@ -47,7 +47,17 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 Remove the MSTest packages and add the single NextUnit package.
 
 ```bash
+# Projects on the MSTest meta-package
 dotnet remove package MSTest
+dotnet add package NextUnit
+```
+
+`dotnet remove package` removes a direct reference and fails on a package the project only gets
+transitively, so run the removals that match your own `<PackageReference>` lines. A project predating
+the meta-package references the two halves and the VSTest SDK instead:
+
+```bash
+# Projects on the individual packages
 dotnet remove package MSTest.TestAdapter
 dotnet remove package MSTest.TestFramework
 dotnet remove package Microsoft.NET.Test.Sdk

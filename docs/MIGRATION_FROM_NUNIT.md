@@ -662,25 +662,31 @@ timeouts, runtime skips, and cancellation are never retried.
 The retryable set is wider here than in NUnit. NextUnit's `[Retry]` re-runs a test after any failure
 except a timeout, a runtime skip, and cancellation, including one that threw an unexpected exception.
 NUnit's `[Retry]` re-runs an assertion failure and leaves an error alone, so a test that used to fail
-at once can now be retried into passing. Restore the narrower behavior by implementing `IRetryPolicy`
-and attaching it with `[Retry<TPolicy>(count)]`:
+at once can now be retried into passing. `IRetryPolicy`, attached with `[Retry<TPolicy>(count)]`,
+decides per failure. A policy that accepts only `AssertionFailedException` is the closest match to
+what NUnit retried:
 
 ```csharp
 using NextUnit;
 
-public sealed class RetryTransientFailures : IRetryPolicy
+public sealed class RetryAssertionFailures : IRetryPolicy
 {
     public ValueTask<bool> ShouldRetryAsync(RetryContext context) =>
-        ValueTask.FromResult(context.Exception is HttpRequestException or TimeoutException);
+        ValueTask.FromResult(context.Exception is AssertionFailedException);
 }
 
 public class PaymentTests
 {
     [Test]
-    [Retry<RetryTransientFailures>(3)]
+    [Retry<RetryAssertionFailures>(3)]
     public Task ChargesTheCardAsync() => Task.CompletedTask;
 }
 ```
+
+Retrying an assertion failure is rarely what you want once the suite is migrated, though: a flaky
+integration test usually fails on the transport rather than the assertion. A policy matching
+`HttpRequestException or TimeoutException` targets that directly, and is worth reaching for instead of
+reproducing NUnit's split.
 
 `RetryContext` carries the `Exception`, the `ITestContext` of the attempt, the one-based `Attempt`,
 the `MaxAttempts` budget, and the run `CancellationToken`. The policy type needs a public

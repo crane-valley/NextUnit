@@ -96,15 +96,24 @@ public class MigrationGuideSampleTests
             out var driverDiagnostics,
             cancellationToken);
 
+        // A generator that throws is reported as an ordinary compiler warning and yields a
+        // compilation with no generated output, so the run result is what proves generation
+        // actually happened rather than silently not running.
+        var generatorFailures = driver.GetRunResult().Results
+            .Where(result => result.Exception is not null)
+            .Select(result => $"generator {result.Generator.GetGeneratorType().Name} threw: {result.Exception}")
+            .ToArray();
+
         var analyzerDiagnostics = await generated
             .WithAnalyzers(_analyzers.Value)
             .GetAnalyzerDiagnosticsAsync(cancellationToken);
 
-        var failures = generated.GetDiagnostics(cancellationToken)
-            .AddRange(driverDiagnostics)
-            .AddRange(analyzerDiagnostics)
-            .Where(IsFailure)
-            .Select(Describe)
+        var failures = generatorFailures.Concat(
+            generated.GetDiagnostics(cancellationToken)
+                .AddRange(driverDiagnostics)
+                .AddRange(analyzerDiagnostics)
+                .Where(IsFailure)
+                .Select(Describe))
             .ToArray();
 
         Xunit.Assert.True(
