@@ -65,6 +65,7 @@ internal static class SyntheticRuns
         {
             GeneratedAtUtc = generatedAtUtc ?? new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero),
             BenchmarkId = ComparisonResult.RoundRobinBenchmarkId,
+            MetricRevision = ComparisonResult.CurrentMetricRevision,
             RunnerImage = runnerImage,
             RunnerImageVersion = "20260728.1.0",
             OperatingSystem = "Ubuntu 24.04.4 LTS",
@@ -129,6 +130,7 @@ internal static class SyntheticRuns
             SchemaVersion = HistoryRecord.CurrentSchemaVersion,
             GeneratedAtUtc = generatedAtUtc,
             BenchmarkId = ComparisonResult.RoundRobinBenchmarkId,
+            MetricRevision = ComparisonResult.CurrentMetricRevision,
             Commit = "0123456789abcdef0123456789abcdef01234567",
             Reference = "refs/heads/main",
             RunId = runId,

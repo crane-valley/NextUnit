@@ -68,6 +68,9 @@ public sealed record HistoryRecord
     /// <summary>The measured workload identifier.</summary>
     public required string BenchmarkId { get; init; }
 
+    /// <summary>The metric revision the run was measured under.</summary>
+    public required int MetricRevision { get; init; }
+
     /// <summary>The commit the measured executables were built from.</summary>
     public required string Commit { get; init; }
 
@@ -238,6 +241,7 @@ public static class BaselineKey
         ArgumentNullException.ThrowIfNull(record);
         return Compose(
             record.BenchmarkId,
+            record.MetricRevision,
             record.ExpectedTestCount,
             record.Rounds,
             record.Environment.RunnerImage,
@@ -253,6 +257,7 @@ public static class BaselineKey
         ArgumentNullException.ThrowIfNull(result);
         return Compose(
             result.BenchmarkId,
+            result.MetricRevision,
             result.ExpectedTestCount,
             result.Rounds,
             result.RunnerImage,
@@ -264,6 +269,7 @@ public static class BaselineKey
 
     private static string Compose(
         string benchmarkId,
+        int metricRevision,
         int expectedTestCount,
         int rounds,
         string runnerImage,
@@ -281,6 +287,10 @@ public static class BaselineKey
         return string.Join(
             " | ",
             benchmarkId,
+            // How a run is measured is not derivable from any count: changing the warm-up policy, the
+            // process arguments, the normalisation, or which tests make up the suite all leave every other
+            // element identical. The revision is bumped by hand to retire the baseline in those cases.
+            FormattableString.Invariant($"metric r{metricRevision}"),
             // Resizing the suite changes the mix of startup, scheduling, and execution the ratio measures,
             // so runs of a differently sized workload are not comparable however stable the machine was.
             FormattableString.Invariant($"{expectedTestCount} tests"),

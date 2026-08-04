@@ -84,6 +84,18 @@ public class BaselineKeyTests
     }
 
     [Test]
+    public void ANewMetricRevisionStartsANewBaseline()
+    {
+        // Changing how a run is measured, or which tests it runs, need not change any count. The revision
+        // is the manual escape hatch for exactly that, so it has to split the baseline on its own.
+        var samples = SyntheticRuns.Samples(seed: 1);
+        var first = BaselineKey.For(SyntheticRuns.Result(samples));
+        var second = BaselineKey.For(SyntheticRuns.Result(samples) with { MetricRevision = 2 });
+
+        Assert.NotEqual(first, second);
+    }
+
+    [Test]
     public void ADifferentRoundCountStartsANewBaseline()
     {
         // A dispatch may legally ask for fewer rounds. Such a run carries too few samples for the rank

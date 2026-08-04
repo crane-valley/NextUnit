@@ -60,6 +60,7 @@ internal static class RoundRobinComparison
         {
             GeneratedAtUtc = generatedAtUtc,
             BenchmarkId = ComparisonResult.RoundRobinBenchmarkId,
+            MetricRevision = ComparisonResult.CurrentMetricRevision,
             RunnerImage = EnvironmentValue("ImageOS") ?? "local",
             RunnerImageVersion = EnvironmentValue("ImageVersion") ?? "local",
             OperatingSystem = RuntimeInformation.OSDescription,

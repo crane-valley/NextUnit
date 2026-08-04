@@ -46,6 +46,7 @@ Each line records everything needed to interpret or re-analyse the run later:
 | Field | Purpose |
 | ----- | ------- |
 | `SchemaVersion` | A reader skips lines written by another version rather than failing the gate |
+| `MetricRevision` | How the run was measured, so a later change to the method cannot be compared across |
 | `GeneratedAtUtc`, `RunId`, `Commit`, `Reference`, `Trigger` | Which run this was, and what produced it |
 | `Environment` | Runner image and image build, OS, architecture, processor, processor count, SDK version, runtime version |
 | `Rounds`, `ExpectedTestCount` | The workload the samples came from |
@@ -65,11 +66,17 @@ record one measurement twice, and the baseline would count it as two independent
 A run is compared only against recorded runs with the same baseline key:
 
 ```text
-round-robin-runtime | 127 tests | 21 rounds | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, xUnit
+round-robin-runtime | metric r1 | 127 tests | 21 rounds | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, xUnit
 ```
 
-The key holds the benchmark, the size and shape of the workload, the runner image family, the architecture,
-the SDK and runtime at **major.minor**, and the set of reference participants.
+The key holds the benchmark, its metric revision, the size and shape of the workload, the runner image
+family, the architecture, the SDK and runtime at **major.minor**, and the set of reference participants.
+
+The metric revision is a hand-maintained number, `ComparisonResult.CurrentMetricRevision`. Counts cannot
+catch every incompatible change: altering the warm-up policy, the arguments the measured processes receive,
+what the samples are normalised against, or swapping which 127 tests run all leave the rest of the key
+identical while changing what the number means. **Bump the revision in the same commit as any such change**,
+which retires the old baseline instead of comparing across it.
 
 The test count is in the key because resizing the suite changes the mix of startup, scheduling, and
 execution that the ratio measures. The round count is in the key because a manual dispatch may legally ask

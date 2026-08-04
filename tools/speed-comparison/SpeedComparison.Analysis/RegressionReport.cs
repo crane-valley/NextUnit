@@ -22,7 +22,9 @@ public static class RegressionReport
             "- Series: "
             + (result.Series == GateSeries.Baseline
                 ? "default branch, appended to the history"
-                : "pull request, read-only"));
+                // Every run that is not appended reads this way, including a manual dispatch on a side
+                // branch, so the label describes what the run does rather than guessing what triggered it.
+                : "read-only, not appended to the history"));
         if (result.SkippedRecordCount > 0)
         {
             builder.AppendLine(Invariant(

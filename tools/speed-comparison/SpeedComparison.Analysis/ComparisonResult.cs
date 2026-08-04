@@ -24,11 +24,26 @@ public sealed record ComparisonResult
     /// <summary>Identifies the measured workload so unrelated benchmarks never share a baseline.</summary>
     public const string RoundRobinBenchmarkId = "round-robin-runtime";
 
+    /// <summary>
+    /// The revision of how a run is measured and turned into a number.
+    /// <para>
+    /// <b>Bump this whenever a change makes new runs incomparable with older ones</b>: the warm-up policy,
+    /// the arguments or environment the measured processes receive, what the samples are normalised
+    /// against, or the composition of the test suite. Counts alone cannot catch those; swapping which
+    /// 127 tests run leaves every other part of the key identical while changing what the number means.
+    /// Bumping starts a fresh baseline instead of comparing across the change.
+    /// </para>
+    /// </summary>
+    public const int CurrentMetricRevision = 1;
+
     /// <summary>When the comparison finished.</summary>
     public required DateTimeOffset GeneratedAtUtc { get; init; }
 
     /// <summary>The workload identifier; see <see cref="RoundRobinBenchmarkId"/>.</summary>
     public required string BenchmarkId { get; init; }
+
+    /// <summary>The metric revision this run was measured under; see <see cref="CurrentMetricRevision"/>.</summary>
+    public required int MetricRevision { get; init; }
 
     /// <summary>The hosted runner image family, for example <c>ubuntu24</c>, or <c>local</c> off CI.</summary>
     public required string RunnerImage { get; init; }

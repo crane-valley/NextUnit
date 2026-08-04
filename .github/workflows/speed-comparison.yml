@@ -302,7 +302,9 @@ jobs:
           if [ -n "$LATEST_MD" ] && [ -f "$LATEST_MD" ]; then
             cat "$LATEST_MD" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ Benchmarks completed successfully" >> $GITHUB_STEP_SUMMARY
+            # The results now survive a failing job, because a confirmed regression fails after measuring.
+            # The message therefore reports the measurement, not the job.
+            echo "✅ Benchmarks measured successfully" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Benchmark results not found" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

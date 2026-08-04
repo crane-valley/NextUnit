@@ -28,7 +28,10 @@ public enum GateSeries
     /// <summary>A default-branch run. It appends to the history and can therefore confirm a repeat.</summary>
     Baseline,
 
-    /// <summary>A pull-request run. It reads the history without appending and never reaches a failing verdict.</summary>
+    /// <summary>
+    /// A run that reads the history without appending, and therefore never reaches a failing verdict.
+    /// Pull requests are the usual case; a manual dispatch outside the default branch behaves the same way.
+    /// </summary>
     PullRequest
 }
 
@@ -351,6 +354,7 @@ public static class RegressionGate
             SchemaVersion = HistoryRecord.CurrentSchemaVersion,
             GeneratedAtUtc = result.GeneratedAtUtc,
             BenchmarkId = result.BenchmarkId,
+            MetricRevision = result.MetricRevision,
             Commit = result.Commit,
             Reference = result.Reference,
             RunId = result.RunId,
