@@ -210,6 +210,14 @@ the test host has.
 - [ ] Bring `docs/MIGRATION_FROM_XUNIT.md` under the same compile check. Its samples are bare method
   and statement fragments rather than compilation units, and two blocks are API listings with
   undeclared identifiers, so inclusion means rewriting the samples rather than annotating them.
+- [ ] Decide how documentation on `main` should present APIs that are not in the released package.
+  `README.md`, `docs/GETTING_STARTED.md`, and both new migration guides describe `[Retry<TPolicy>]`,
+  the culture attributes, `DeferredEnumeration`, and `ITestContext.RetryAttempt` while pinning
+  `Version="1.18.0"`, and `PublicAPI.Unshipped.txt` shows all of them are unreleased, so a reader who
+  installs the pinned version cannot compile those samples. The pin is correct by the Version Update
+  Checklist, which bumps every document at release; the gap is that `main` documents `main` without
+  saying so. Options are an unreleased marker on the affected sections, or accepting the gap and
+  saying so once. This spans four documents and the release process, so it is not a per-guide fix.
 - [ ] Fix two claims in `docs/GETTING_STARTED.md` that the current code contradicts, both pre-dating
   this work: the skip section states that runtime conditional skipping is unsupported, while
   `Assert.Skip`, `Assert.SkipWhen`, and `Assert.SkipUnless` ship and are exercised by

@@ -69,6 +69,11 @@ public class MigrationGuideSampleTests
     /// </summary>
     private const string NextUnitCategory = "NextUnit";
 
+    /// <summary>
+    /// The diagnostic Roslyn reports when an analyzer throws instead of completing.
+    /// </summary>
+    private const string AnalyzerFailureDiagnosticId = "AD0001";
+
     [Fact]
     public async Task EveryNextUnitSampleCompilesAsync()
     {
@@ -172,11 +177,14 @@ public class MigrationGuideSampleTests
     /// A compiler error always fails. A NextUnit diagnostic fails from warning severity upwards,
     /// because several of them -- a data source without <c>[Test]</c>, an unresolved
     /// <c>[DependsOn]</c> target -- ship as warnings, and a published sample that trips one is wrong
-    /// even though a reader's build would only warn. Non-NextUnit warnings are left alone so the
-    /// samples are not dragged toward this repository's own analyzer settings.
+    /// even though a reader's build would only warn. An analyzer that throws reports
+    /// <c>AD0001</c> as an ordinary warning outside the NextUnit category, which would otherwise let
+    /// this check pass on validation that never ran. Other warnings are left alone so the samples
+    /// are not dragged toward this repository's own analyzer settings.
     /// </summary>
     private static bool IsFailure(Diagnostic diagnostic) =>
         diagnostic.Severity == DiagnosticSeverity.Error ||
+        string.Equals(diagnostic.Id, AnalyzerFailureDiagnosticId, StringComparison.Ordinal) ||
         (diagnostic.Severity == DiagnosticSeverity.Warning &&
             string.Equals(diagnostic.Descriptor.Category, NextUnitCategory, StringComparison.Ordinal));
 
