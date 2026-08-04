@@ -78,6 +78,16 @@ public delegate object? DataSourceProviderDelegate();
 public delegate IAsyncEnumerable<object?> AsyncDataSourceProviderDelegate(CancellationToken cancellationToken);
 
 /// <summary>
+/// Creates the <see cref="IRetryPolicy"/> configured by <see cref="RetryAttribute{TPolicy}"/>.
+/// </summary>
+/// <remarks>
+/// A factory rather than a <see cref="Type"/>: the generator emits a direct constructor call, so no
+/// part of the retry path reflects over a user type, and the trimmer keeps the policy because
+/// ordinary generated code references it.
+/// </remarks>
+public delegate IRetryPolicy RetryPolicyFactoryDelegate();
+
+/// <summary>
 /// Delegate for invoking a lifecycle method.
 /// </summary>
 /// <param name="instance">The test class instance.</param>
@@ -202,6 +212,17 @@ public sealed class RetryInfo
     /// Gets or initializes the delay in milliseconds between retry attempts.
     /// </summary>
     public int DelayMs { get; init; }
+
+    /// <summary>
+    /// Gets or initializes the factory for the <see cref="IRetryPolicy"/> that decides which
+    /// failures are retried, or <c>null</c> to retry every retriable failure.
+    /// </summary>
+    /// <remarks>
+    /// Null is the compatibility default: a test declared with the non-generic
+    /// <see cref="RetryAttribute"/> never allocates a policy and behaves exactly as it did before
+    /// policies existed.
+    /// </remarks>
+    public RetryPolicyFactoryDelegate? PolicyFactory { get; init; }
 
     /// <summary>
     /// Gets or initializes a value indicating whether the test is marked as flaky.

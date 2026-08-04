@@ -75,11 +75,21 @@ NextUnit's package is now self-contained, but users still have to create and edi
 The existing `[Retry]` retries every non-timeout, non-skip failure. TUnit and current NUnit allow
 retry decisions based on the exception, while MSTest exposes the current run count.
 
-- [ ] Provide an extensible, async retry decision API with the exception, test context, and current
-  attempt; keep today's retry-all behavior as the compatibility default.
-- [ ] Expose the one-based retry attempt in `ITestContext` and include total attempts in the final
-  failure output/result metadata.
-- [ ] Prove cleanup, output, artifacts, cancellation, and `StateBag` semantics across attempts.
+- [x] Provide an extensible, async retry decision API with the exception, test context, and current
+  attempt; keep today's retry-all behavior as the compatibility default. Shipped as `IRetryPolicy`
+  plus `RetryContext`, attached with `[Retry<TPolicy>(count)]`. A policy that throws is reported
+  alongside the test's own failure and stops further attempts, so an undecided policy is never read
+  as either answer. `[Retry(count)]` keeps retrying every retriable failure and allocates no policy.
+- [x] Expose the one-based retry attempt in `ITestContext` and include total attempts in the final
+  failure output/result metadata. `ITestContext.RetryAttempt` is a default interface member, so an
+  externally implemented context still compiles; the failure output of a retried test ends with the
+  attempts actually run, which is what distinguishes an exhausted budget from a policy stop. Every
+  failing end of a retry sequence carries it -- exhausted budget, policy stop, policy failure,
+  timeout, and disposal failure -- while a pass or a runtime skip does not.
+- [x] Prove cleanup, output, artifacts, cancellation, and `StateBag` semantics across attempts.
+  Behavioral tests pin one instance and one set of test-scoped hooks per attempt, per-attempt output
+  and artifacts with only the final attempt reported, a `StateBag` that starts empty every attempt,
+  and the two cancellation classifications at the policy decision point.
 - Guardrail: avoid a separate statistics store; reporting should flow through existing test results and
   Microsoft.Testing.Platform.
 
@@ -255,6 +265,20 @@ decision, and none of them was introduced by that change.
   against whichever the symbol enumeration happens to return first. Pre-existing and not specific to
   async sources -- it affects synchronous `[TestData]` and `[ClassDataSource<T>]` the same way -- but
   the fix is a deliberate precedence rule, not a tie-break chosen at random.
+
+### Priority 2 — Emitted type names do not escape keyword identifiers
+
+Surfaced by the Codex review of the selective retry change (2026-08-04) and confirmed to pre-date it.
+`AttributeHelper.FullyQualifiedTypeFormat` and `TypeofCompatibleFormat` both omit
+`SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers`, so a test class, data source type, or
+parameter type whose identifier is an escaped keyword (`public class @event`) is emitted as
+`global::event`. The generated registry then fails to parse in the consumer's build, with the error
+pointing at a file the user did not write. The retry change added a `ConstructorCallFormat` that does
+escape, because its emission was new; the pre-existing formats were left alone because changing them
+rewrites every emission path and every snapshot baseline at once.
+
+- [ ] Escape keyword identifiers in the shared emission formats, and cover a keyword-named test class,
+  data source type, and parameter type.
 
 ### Priority 2 — Data source member lookup is narrower than C# member access
 

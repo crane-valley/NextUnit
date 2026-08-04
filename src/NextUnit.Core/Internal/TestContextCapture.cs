@@ -26,6 +26,7 @@ internal sealed class TestContextCapture : ITestContext
     /// <param name="arguments">The arguments for parameterized tests, or null.</param>
     /// <param name="timeoutMs">The timeout in milliseconds, or null.</param>
     /// <param name="repeatIndex">The zero-based repeat index for repeated tests, or null.</param>
+    /// <param name="retryAttempt">The one-based number of the attempt this context belongs to.</param>
     /// <param name="cancellationToken">The cancellation token for the test.</param>
     /// <param name="output">The test output writer.</param>
     public TestContextCapture(
@@ -38,6 +39,7 @@ internal sealed class TestContextCapture : ITestContext
         object?[]? arguments,
         int? timeoutMs,
         int? repeatIndex,
+        int retryAttempt,
         CancellationToken cancellationToken,
         ITestOutput output)
     {
@@ -50,6 +52,7 @@ internal sealed class TestContextCapture : ITestContext
         Arguments = arguments;
         TimeoutMs = timeoutMs;
         RepeatIndex = repeatIndex;
+        RetryAttempt = retryAttempt;
         CancellationToken = cancellationToken;
         Output = output;
     }
@@ -80,6 +83,9 @@ internal sealed class TestContextCapture : ITestContext
 
     /// <inheritdoc/>
     public int? RepeatIndex { get; }
+
+    /// <inheritdoc/>
+    public int RetryAttempt { get; }
 
     /// <inheritdoc/>
     public CancellationToken CancellationToken { get; }
@@ -204,6 +210,9 @@ internal sealed class NullTestContext : ITestContext
 
     /// <inheritdoc/>
     public int? RepeatIndex => null;
+
+    /// <inheritdoc/>
+    public int RetryAttempt => 1;
 
     /// <inheritdoc/>
     public CancellationToken CancellationToken => CancellationToken.None;

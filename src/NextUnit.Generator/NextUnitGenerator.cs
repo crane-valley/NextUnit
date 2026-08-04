@@ -117,7 +117,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var tags = AttributeHelper.GetTags(methodSymbol, typeSymbol);
         var constructorMetadata = AttributeHelper.GetTestClassConstructorMetadata(typeSymbol);
         var timeoutMs = AttributeHelper.GetTimeout(methodSymbol, typeSymbol);
-        var (retryCount, retryDelayMs, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol);
+        var (retryCount, retryDelayMs, retryPolicyTypeName, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol);
         var repeatCount = AttributeHelper.GetRepeatCount(methodSymbol);
         var matrixParameters = DataSourceAttributeReader.GetMatrixParameters(methodSymbol);
         var matrixExclusions = DataSourceAttributeReader.GetMatrixExclusions(methodSymbol);
@@ -154,6 +154,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             timeoutMs,
             retryCount,
             retryDelayMs,
+            retryPolicyTypeName,
             isFlaky,
             flakyReason,
             customDisplayName,

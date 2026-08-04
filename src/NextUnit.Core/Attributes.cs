@@ -369,6 +369,86 @@ public sealed class RetryAttribute : Attribute
 }
 
 /// <summary>
+/// Specifies that a test should be retried on failure, with an <see cref="IRetryPolicy"/> deciding
+/// which failures are worth another attempt.
+/// </summary>
+/// <typeparam name="TPolicy">
+/// The policy consulted after each failed attempt. The <c>new()</c> constraint is what makes the
+/// policy reachable without reflection: the generator emits a direct <c>new TPolicy()</c> call, so
+/// the compiler rejects a policy without a public parameterless constructor instead of the run
+/// failing on the first retry.
+/// </typeparam>
+/// <remarks>
+/// Identical to <see cref="RetryAttribute"/> apart from the policy: the attempt budget, the delay,
+/// and the method-over-class precedence all behave the same way. Applying both this attribute and
+/// the non-generic <see cref="RetryAttribute"/> to one method or class is reported as <c>NU0015</c>.
+/// </remarks>
+/// <example>
+/// <code>
+/// [Test]
+/// [Retry&lt;RetryOnlyTimeouts&gt;(3)]
+/// public async Task PlacesOrder()
+/// {
+/// }
+/// </code>
+/// </example>
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+public sealed class RetryAttribute<TPolicy> : Attribute
+    where TPolicy : IRetryPolicy, new()
+{
+    /// <summary>
+    /// Gets the maximum number of attempts, including the first one.
+    /// </summary>
+    public int Count { get; }
+
+    /// <summary>
+    /// Gets the delay in milliseconds between attempts.
+    /// </summary>
+    public int DelayMs { get; }
+
+    /// <summary>
+    /// Gets the policy type consulted after each failed attempt.
+    /// </summary>
+    public Type PolicyType => typeof(TPolicy);
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RetryAttribute{TPolicy}"/> class.
+    /// </summary>
+    /// <param name="count">The maximum number of attempts. Must be at least 1.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="count"/> is less than 1.</exception>
+    public RetryAttribute(int count)
+    {
+        if (count < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count), "Retry count must be at least 1.");
+        }
+        Count = count;
+        DelayMs = 0;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RetryAttribute{TPolicy}"/> class with a delay
+    /// between attempts.
+    /// </summary>
+    /// <param name="count">The maximum number of attempts. Must be at least 1.</param>
+    /// <param name="delayMs">The delay in milliseconds between attempts. Must be non-negative.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="count"/> is less than 1 or <paramref name="delayMs"/> is negative.</exception>
+    public RetryAttribute(int count, int delayMs)
+    {
+        if (count < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count), "Retry count must be at least 1.");
+        }
+        if (delayMs < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(delayMs), "Delay must be non-negative.");
+        }
+        Count = count;
+        DelayMs = delayMs;
+    }
+}
+
+/// <summary>
 /// Marks a test as known to be flaky (intermittently failing).
 /// </summary>
 /// <remarks>

@@ -14,11 +14,18 @@ internal sealed class RecordingSink : ITestExecutionSink
     public List<(TestCaseDescriptor Test, Exception Exception)> Errors { get; } = [];
     public List<(TestCaseDescriptor Test, AssertionFailedException Exception)> Failed { get; } = [];
 
+    /// <summary>
+    /// The output and artifacts delivered with each result, in report order. Retry publishes only the
+    /// last attempt's output and artifacts, so tests assert on what actually reached the adapter.
+    /// </summary>
+    public List<(string? Output, IReadOnlyList<Artifact>? Artifacts)> Reports { get; } = [];
+
     public Task ReportPassedAsync(TestCaseDescriptor test, string? output = null, IReadOnlyList<Artifact>? artifacts = null)
     {
         lock (_lock)
         {
             Passed.Add(test);
+            Reports.Add((output, artifacts));
         }
 
         return Task.CompletedTask;
@@ -29,6 +36,7 @@ internal sealed class RecordingSink : ITestExecutionSink
         lock (_lock)
         {
             Failed.Add((test, ex));
+            Reports.Add((output, artifacts));
         }
 
         return Task.CompletedTask;
@@ -39,6 +47,7 @@ internal sealed class RecordingSink : ITestExecutionSink
         lock (_lock)
         {
             Errors.Add((test, ex));
+            Reports.Add((output, artifacts));
         }
 
         return Task.CompletedTask;
@@ -49,6 +58,7 @@ internal sealed class RecordingSink : ITestExecutionSink
         lock (_lock)
         {
             Skipped.Add(test);
+            Reports.Add((null, artifacts));
         }
 
         return Task.CompletedTask;

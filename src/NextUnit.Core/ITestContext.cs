@@ -56,6 +56,17 @@ public interface ITestContext
     public int? RepeatIndex { get; }
 
     /// <summary>
+    /// Gets the one-based number of the attempt currently executing.
+    /// </summary>
+    /// <remarks>
+    /// This is 1 on the first attempt of every test, whether or not <see cref="RetryAttribute"/> is
+    /// applied, and increases by one for each retry. A default implementation is supplied so that
+    /// adding this member does not break a context implemented outside NextUnit; the framework's own
+    /// contexts always report the real attempt.
+    /// </remarks>
+    public int RetryAttempt => 1;
+
+    /// <summary>
     /// Gets a cancellation token that is triggered when the test should be cancelled (either due to timeout or external cancellation).
     /// </summary>
     public CancellationToken CancellationToken { get; }

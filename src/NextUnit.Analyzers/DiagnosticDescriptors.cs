@@ -166,4 +166,40 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "A [TestData] member may await, but the awaited value must be a collection of rows. Bare Task or ValueTask, and a task wrapping a non-collection, cannot be expanded into test cases.");
+
+    /// <summary>
+    /// NU0015: Conflicting [Retry] and [Retry&lt;TPolicy&gt;] attributes.
+    /// </summary>
+    public static readonly DiagnosticDescriptor ConflictingRetryAttributes = new(
+        id: "NU0015",
+        title: "Conflicting retry attributes",
+        messageFormat: "'{0}' has more than one retry attribute; keep one, because only one attempt budget and policy can apply",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "[Retry] and every constructed [Retry<TPolicy>] declare the attempt budget and delay for the same target, so applying more than one leaves the retry policy and the budget ambiguous.");
+
+    /// <summary>
+    /// NU0016: Retry policy type is not reachable from the generated registry.
+    /// </summary>
+    public static readonly DiagnosticDescriptor RetryPolicyNotAccessible = new(
+        id: "NU0016",
+        title: "Retry policy type is not accessible to generated code",
+        messageFormat: "Retry policy '{0}' is not accessible from the generated test registry; make it internal or public and not nested in a private or protected scope",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "The generator constructs the retry policy directly rather than by reflection, so the policy type must be visible from the generated registry. A private or protected policy satisfies the new() constraint at the attribute but fails to compile in the generated code.");
+
+    /// <summary>
+    /// NU0017: Invalid retry count.
+    /// </summary>
+    public static readonly DiagnosticDescriptor InvalidRetryCount = new(
+        id: "NU0017",
+        title: "Invalid retry count",
+        messageFormat: "Retry count must be at least 1, got {0}",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "The retry count is the total number of attempts, including the first, so it must be at least 1. The attribute constructor rejects a smaller value, but the generated execution path reads the attribute arguments without ever constructing the attribute, so the guard never runs.");
 }

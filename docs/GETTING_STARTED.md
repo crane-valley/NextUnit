@@ -541,6 +541,121 @@ public void PendingTest() { }
 
 **Note**: Use the `[Skip]` attribute to skip tests at compile time. Runtime conditional skipping is not currently supported.
 
+## Retrying Failed Tests
+
+`[Retry(count)]` runs a failing test again until it passes or the attempt budget is spent. The count
+includes the first attempt, so `[Retry(3)]` means at most three runs. An optional second argument
+adds a delay in milliseconds between attempts.
+
+```csharp
+public class OrderTests
+{
+    [Test]
+    [Retry(3)]
+    public async Task PlacesOrder() { }
+
+    [Test]
+    [Retry(3, 200)]  // Wait 200ms before each retry
+    public async Task PlacesOrderWithBackoff() { }
+}
+
+// A class-level budget applies to every test in the class
+[Retry(2)]
+public class FlakyIntegrationTests
+{
+    [Test]
+    public async Task ReadsFromTheApi() { }
+
+    [Test]
+    [Retry(4)]  // Method level replaces the class declaration entirely
+    public async Task ReadsFromTheSlowApi() { }
+}
+```
+
+Timeouts, runtime skips, and run cancellation are never retried. A `[Timeout]` budget applies to each
+attempt separately, not to the whole retry sequence. A count below 1 is reported as `NU0017`.
+
+### Retrying Selectively
+
+By default every other failure is retried. To decide per failure, implement `IRetryPolicy` and attach
+it with `[Retry<TPolicy>(count)]`:
+
+```csharp
+using NextUnit;
+
+public sealed class RetryTransientFailures : IRetryPolicy
+{
+    public ValueTask<bool> ShouldRetryAsync(RetryContext context) =>
+        ValueTask.FromResult(context.Exception is HttpRequestException or TimeoutException);
+}
+
+public class ApiTests
+{
+    [Test]
+    [Retry<RetryTransientFailures>(3)]
+    public async Task ReadsFromTheApi() { }
+}
+```
+
+`RetryContext` carries the failure and everything needed to judge it:
+
+| Member | Meaning |
+| ------ | ------- |
+| `Exception` | The exception that failed the attempt |
+| `TestContext` | The `ITestContext` of the attempt, including `StateBag` and `Output` |
+| `Attempt` | The one-based number of the attempt that just failed |
+| `MaxAttempts` | The total budget, so a policy can see how much is left |
+| `CancellationToken` | The run token, for a policy that waits or probes before deciding |
+
+The decision is asynchronous, so a policy may consult a health endpoint or wait for a dependency
+before answering. Rules worth knowing:
+
+- The policy is consulted only when another attempt is available. It never runs after the last
+  attempt, and never for a passing, skipped, timed-out, or cancelled attempt.
+- One policy instance is created per test execution, on the first decision, and reused for the
+  remaining decisions of that test. Instances are never shared between tests and are never disposed.
+- A policy that throws does not silently mean "yes" or "no": the test's own failure and the policy
+  failure are reported together, and no further attempt runs.
+- The policy type needs a public parameterless constructor. The `new()` constraint on
+  `[Retry<TPolicy>]` makes the compiler enforce that, and the generator emits a direct constructor
+  call so policies work under Native AOT without reflection.
+- Because the constructor call is direct, the policy must be visible from the generated registry:
+  `internal` or `public`, and not nested inside a private or protected scope. A policy that is not is
+  reported as `NU0016`.
+- Applying both `[Retry]` and `[Retry<TPolicy>]` to the same method or class is reported as `NU0015`.
+
+### Observing Attempts
+
+`ITestContext.RetryAttempt` is the one-based number of the attempt currently running. It is 1 on the
+first attempt of every test, whether or not `[Retry]` is applied:
+
+```csharp
+[Test]
+[Retry(3)]
+public async Task ReadsFromTheApi()
+{
+    TestContext.Current!.Output.WriteLine($"Attempt {TestContext.Current.RetryAttempt}");
+}
+```
+
+When a retried test ultimately fails, its output ends with a line recording how many attempts ran:
+
+```text
+[NextUnit] Test failed after 2 of 5 attempts.
+```
+
+Attempts run, not attempts budgeted, so this shows when a policy stopped the sequence early. Every
+way a retried test can end in failure carries it: an exhausted budget, a policy that declined, a
+policy that threw, a timeout, and a failing `Dispose`. A test that eventually passed does not, and
+neither does a runtime skip. NextUnit keeps no separate retry statistics; the attempt count reaches
+you through the ordinary test result.
+
+Each attempt is a complete test execution. A new test class instance is created and disposed, the
+test-scoped `[Before]` hooks run again, and the context is rebuilt, so `StateBag` entries, captured
+output, and attached artifacts do not carry over from a discarded attempt. Only the final attempt's
+output and artifacts are reported. State that must survive a retry belongs in a static field or in
+class-scope state.
+
 ## Best Practices
 
 1. **Use descriptive test names**: `MethodName_Scenario_ExpectedResult`

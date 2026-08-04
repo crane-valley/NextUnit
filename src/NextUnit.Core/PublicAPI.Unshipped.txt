@@ -1,6 +1,25 @@
 #nullable enable
+NextUnit.Core.ITestContext.RetryAttempt.get -> int
+NextUnit.IRetryPolicy
+NextUnit.IRetryPolicy.ShouldRetryAsync(NextUnit.RetryContext! context) -> System.Threading.Tasks.ValueTask<bool>
 NextUnit.Internal.AsyncDataSourceAdapter
 NextUnit.Internal.AsyncDataSourceProviderDelegate
+NextUnit.Internal.RetryInfo.PolicyFactory.get -> NextUnit.Internal.RetryPolicyFactoryDelegate?
+NextUnit.Internal.RetryInfo.PolicyFactory.init -> void
+NextUnit.Internal.RetryPolicyFactoryDelegate
+NextUnit.RetryAttribute<TPolicy>
+NextUnit.RetryAttribute<TPolicy>.Count.get -> int
+NextUnit.RetryAttribute<TPolicy>.DelayMs.get -> int
+NextUnit.RetryAttribute<TPolicy>.PolicyType.get -> System.Type!
+NextUnit.RetryAttribute<TPolicy>.RetryAttribute(int count) -> void
+NextUnit.RetryAttribute<TPolicy>.RetryAttribute(int count, int delayMs) -> void
+NextUnit.RetryContext
+NextUnit.RetryContext.Attempt.get -> int
+NextUnit.RetryContext.CancellationToken.get -> System.Threading.CancellationToken
+NextUnit.RetryContext.Exception.get -> System.Exception!
+NextUnit.RetryContext.MaxAttempts.get -> int
+NextUnit.RetryContext.RetryContext(System.Exception! exception, NextUnit.Core.ITestContext! testContext, int attempt, int maxAttempts, System.Threading.CancellationToken cancellationToken) -> void
+NextUnit.RetryContext.TestContext.get -> NextUnit.Core.ITestContext!
 NextUnit.Internal.TestCaseDescriptor.DeferredDataSource.get -> NextUnit.Internal.TestDataDescriptor?
 NextUnit.Internal.TestCaseDescriptor.DeferredDataSource.init -> void
 NextUnit.Internal.TestDataDescriptor.AsyncDataSourceProvider.get -> NextUnit.Internal.AsyncDataSourceProviderDelegate?
@@ -16,3 +35,4 @@ static NextUnit.Internal.TestDataExpander.ExpandAsync(System.Collections.Generic
 static NextUnit.Internal.TestDataExpander.ExpandDeferredAsync(NextUnit.Internal.TestDataDescriptor! descriptor, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!>
 static NextUnit.Internal.TestDataExpander.ExpandSingle(NextUnit.Internal.TestDataDescriptor! descriptor, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
 virtual NextUnit.Internal.AsyncDataSourceProviderDelegate.Invoke(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
+virtual NextUnit.Internal.RetryPolicyFactoryDelegate.Invoke() -> NextUnit.IRetryPolicy!
