@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NU0016` reports a retry policy the generated registry cannot construct. A private or protected
   nested policy satisfies the `new()` constraint at the attribute and would otherwise fail the
   consumer's build with `CS0122` inside generated code.
+- `NU0017` reports a retry count below 1 on either retry attribute. The attribute constructor rejects
+  the value, but the generated path reads the attribute arguments without ever constructing the
+  attribute, so a `[Retry(0)]` previously reached the engine and aborted the run with an internal
+  error instead of failing the build.
 
 ## [1.18.0] - 2026-07-26
 

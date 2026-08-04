@@ -573,7 +573,7 @@ public class FlakyIntegrationTests
 ```
 
 Timeouts, runtime skips, and run cancellation are never retried. A `[Timeout]` budget applies to each
-attempt separately, not to the whole retry sequence.
+attempt separately, not to the whole retry sequence. A count below 1 is reported as `NU0017`.
 
 ### Retrying Selectively
 
