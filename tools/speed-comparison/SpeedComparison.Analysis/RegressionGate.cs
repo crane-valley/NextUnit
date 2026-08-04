@@ -246,7 +246,6 @@ public static class RegressionGate
         // beyond normal run-to-run movement" and the rank test answers "is the shift consistent".
         var runMedians = new List<double>(baseline.Count);
         var pooled = new List<double>(baseline.Count * Math.Max(current.Length, 1));
-        var previousVerdict = RegressionVerdict.NotEvaluated;
         foreach (var record in baseline)
         {
             var recorded = NormalizeRecord(record);
@@ -257,10 +256,17 @@ public static class RegressionGate
 
             runMedians.Add(RobustStatistics.Median(values));
             pooled.AddRange(values);
-            previousVerdict = record.Participants
-                .First(participant => participant.Framework == framework)
-                .Verdict;
         }
+
+        // Confirmation reads the immediately preceding run and no further back. Gated participants are
+        // deliberately not part of the baseline key, so one can be removed and later restored; carrying a
+        // verdict across the runs that did not measure it would confirm a repeat that never happened.
+        // Statistics still use every comparable record above.
+        var previousVerdict = baseline.Count == 0
+            ? RegressionVerdict.NotEvaluated
+            : baseline[^1].Participants
+                .FirstOrDefault(participant => participant.Framework == framework)?.Verdict
+                ?? RegressionVerdict.NotEvaluated;
 
         if (runMedians.Count < MinimumBaselineRuns || current.Length == 0)
         {

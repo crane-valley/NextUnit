@@ -187,6 +187,43 @@ public class RegressionGateTests
     }
 
     [Test]
+    public void ARunThatDidNotMeasureTheParticipantCannotCorroborate()
+    {
+        // Gated participants are deliberately not part of the baseline key, so one can be dropped and later
+        // restored. A suspected verdict from before the gap must not confirm a repeat that never happened.
+        var history = SyntheticRuns.Baseline(10);
+        history[^2] = SyntheticRuns.Record(
+            SyntheticRuns.Samples(seed: 50, subjectMilliseconds: 300.0 * 1.25),
+            runId: "baseline-suspected",
+            // Dated before the final record so the run without the participant stays the most recent one.
+            generatedAtUtc: new DateTimeOffset(2026, 2, 26, 0, 0, 0, TimeSpan.Zero),
+            verdict: RegressionVerdict.Suspected);
+        history[^1] = WithoutSubject(history[^1]);
+        var regressed = SyntheticRuns.Samples(seed: 100, subjectMilliseconds: 300.0 * 1.25);
+
+        var result = RegressionGate.Evaluate(SyntheticRuns.Result(regressed), history, GateSeries.Baseline);
+
+        Assert.Equal(RegressionVerdict.Suspected, Subject(result).Verdict);
+        Assert.False(result.HasConfirmedRegression);
+    }
+
+    [Test]
+    public void ARunThatDidNotMeasureTheParticipantStillFeedsTheStatistics()
+    {
+        var history = SyntheticRuns.Baseline(10);
+        history[^1] = WithoutSubject(history[^1]);
+
+        var result = RegressionGate.Evaluate(
+            SyntheticRuns.Result(SyntheticRuns.Samples(seed: 100)),
+            history,
+            GateSeries.Baseline);
+
+        Assert.Equal(10, result.BaselineRunCount);
+        Assert.Equal(9, Subject(result).BaselineRunCount);
+        Assert.Equal(RegressionVerdict.Stable, Subject(result).Verdict);
+    }
+
+    [Test]
     public void AReferenceFrameworkUpgradeIsNamedInTheResult()
     {
         var history = SyntheticRuns.Baseline(10);
@@ -227,4 +264,10 @@ public class RegressionGateTests
 
     private static ParticipantAssessment Subject(GateResult result)
         => result.Assessments.Single(assessment => assessment.Framework == SyntheticRuns.Subject);
+
+    private static HistoryRecord WithoutSubject(HistoryRecord record)
+        => record with
+        {
+            Participants = [.. record.Participants.Where(participant => participant.Framework != SyntheticRuns.Subject)]
+        };
 }

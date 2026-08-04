@@ -101,6 +101,7 @@ jobs:
           echo "Recorded runs available: $(wc -l < "$history_file")"
 
       - name: Run round-robin speed comparison
+        id: round-robin
         env:
           ROUNDS: ${{ inputs.iterations || '21' }}
         run: dotnet run -c Release --no-build --project tools/speed-comparison/Tests.Benchmark -- --round-robin "$ROUNDS"
@@ -151,7 +152,10 @@ jobs:
             tools/speed-comparison/results/runtime-comparison.json
             tools/speed-comparison/results/REGRESSION_REPORT.md
           retention-days: 90
-        if: ${{ !cancelled() }}
+        # Guarded on the measurement step, not on the job: RUNTIME_COMPARISON.md is tracked in Git, so a
+        # run that failed before overwriting it would otherwise publish the committed numbers under
+        # today's timestamp. Publishing after the analysis step fails is intended and still happens.
+        if: ${{ !cancelled() && steps.round-robin.outcome == 'success' }}
 
       - name: Upload the history record
         uses: actions/upload-artifact@v7
@@ -159,10 +163,10 @@ jobs:
           name: speed-comparison-history
           path: tools/speed-comparison/results/history-record.json
           retention-days: 7
-        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        if: ${{ !cancelled() && steps.round-robin.outcome == 'success' && github.event_name != 'pull_request' }}
 
       - name: Comment PR with results (on pull requests)
-        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        if: ${{ !cancelled() && steps.round-robin.outcome == 'success' && github.event_name == 'pull_request' }}
         uses: actions/github-script@v9
         with:
           script: |

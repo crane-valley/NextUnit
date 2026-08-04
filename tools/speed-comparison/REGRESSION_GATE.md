@@ -120,6 +120,10 @@ show a spread, so a gate armed on them would be guessing at what counts as noise
 Clearing all three bars produces **Suspected**, which reports and passes. The build fails only at
 **Confirmed**, which additionally requires that the recorded run before it was also flagged.
 
+Confirmation reads the immediately preceding comparable run and no further back. Gated participants are not
+part of the baseline key, so one can be dropped and later restored; carrying a verdict across the runs in
+between would confirm a repeat that never happened. The statistics still use the whole window.
+
 This falls out of one rule rather than a special case. A run is in the baseline series only if it will
 actually be appended, which means a non-pull-request run on `main`. Every other run, whether a pull request
 or a manual dispatch on a side branch, has no predecessor in its own series and therefore cannot reach
