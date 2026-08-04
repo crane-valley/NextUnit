@@ -189,7 +189,7 @@ git checkout -b release/vX.Y.Z main
 
 Follow the Version Update Checklist above and update all twelve version-reference files
 (two core version files, one template content file, four documentation files,
-five user documentation files), plus either analyzer release ledger pair whose
+five user documentation files), plus each analyzer release ledger pair whose
 `AnalyzerReleases.Unshipped.md` lists any rules.
 
 **Automation Tip for Copilot Agents:**
@@ -451,7 +451,7 @@ When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
 2. **Use the checklist**: Update all twelve version-reference files/locations listed above, and
-   promote either analyzer release ledger pair whose unshipped file lists any rules
+   promote each analyzer release ledger pair whose unshipped file lists any rules
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
