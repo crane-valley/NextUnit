@@ -141,6 +141,12 @@ the shared lookup, once, for all of them.
 - [ ] Decide between walking the base type and overridden method chain in `AttributeHelper` and
   declaring `Inherited = false` on the attributes, then apply the decision to every NextUnit
   attribute at once and cover a base test class and an overriding method.
+- [ ] Include lifecycle methods in that decision. `RegistryEmitter.LifecycleMethodsFor` looks the
+  hooks up by the test's exact `FullyQualifiedTypeName`, so a `[Before]` or `[After]` declared on a
+  base test class never runs for the derived classes holding the tests. The failure is silent -- the
+  tests still run, without their setup -- and both xUnit and MSTest run inherited hooks, so it is a
+  migration hazard as well as a surprise. Surfaced by the Codex review of the migration guides
+  (2026-08-04); the guides tell readers to declare hooks on each concrete class meanwhile.
 
 ### Priority 2 — Display names are formatted with whichever culture happens to be ambient
 
@@ -189,11 +195,47 @@ reports into the job summary and a comment instead. See `tools/speed-comparison/
 
 ### Priority 2 — Adoption documentation
 
-- [ ] Add concise NUnit-to-NextUnit and MSTest-to-NextUnit migration guides covering project setup,
+- [x] Add concise NUnit-to-NextUnit and MSTest-to-NextUnit migration guides covering project setup,
   lifecycle, data sources, filtering, assertions, and deliberate non-equivalents.
-- [ ] Link the guides from the README and NuGet README and compile every code sample in CI.
+- [x] Link the guides from the README and NuGet README and compile every code sample in CI.
 - Guardrail: defer an automated Roslyn migration tool until issues or real migrations demonstrate repeated
   mechanical work that documentation cannot solve.
+
+Delivered as `docs/MIGRATION_FROM_NUNIT.md` and `docs/MIGRATION_FROM_MSTEST.md`, guarded by
+`tests/NextUnit.Docs.Tests`. That project extracts every fenced C# block from the guides and compiles
+it through the NextUnit generator and analyzers, so the Markdown is the single source of truth and a
+sample cannot drift from a compiled copy of itself. Blocks whose info string annotates the language
+with a source framework name are the code being migrated away from and are excluded; any other
+annotation, and any unrecognized fence language, fails the check, so a typo cannot silently drop a
+sample. Running the generator and analyzers rather than only the compiler is what makes the check
+meaningful for a guide that is mostly attributes: a data source without `[Test]`, a misnamed
+`[TestData]` member, or an unreachable retry policy is reported here. The reference set is narrowed
+to the shared framework plus the NextUnit package, so a sample cannot compile against something only
+the test host has.
+
+- [ ] Bring `docs/MIGRATION_FROM_XUNIT.md` under the same compile check. Its samples are bare method
+  and statement fragments rather than compilation units, and two blocks are API listings with
+  undeclared identifiers, so inclusion means rewriting the samples rather than annotating them.
+- [ ] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
+  declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiles, but
+  `NextUnitGenerator` resolves the limit from the test method and its containing type only and never
+  from `ContainingAssembly`, so a suite-wide limit is silently dropped and the run falls back to the
+  processor count. `[Timeout]` and the culture attributes already read the assembly, so the fix is
+  either to do the same here or to drop the assembly target. Surfaced by the Codex review of the
+  migration guides (2026-08-04); the guides document the current behavior meanwhile.
+- [ ] Decide how documentation on `main` should present APIs that are not in the released package.
+  `README.md`, `docs/GETTING_STARTED.md`, and both new migration guides describe `[Retry<TPolicy>]`,
+  the culture attributes, `DeferredEnumeration`, and `ITestContext.RetryAttempt` while pinning
+  `Version="1.18.0"`, and `PublicAPI.Unshipped.txt` shows all of them are unreleased, so a reader who
+  installs the pinned version cannot compile those samples. The pin is correct by the Version Update
+  Checklist, which bumps every document at release; the gap is that `main` documents `main` without
+  saying so. Options are an unreleased marker on the affected sections, or accepting the gap and
+  saying so once. This spans four documents and the release process, so it is not a per-guide fix.
+- [ ] Fix two claims in `docs/GETTING_STARTED.md` that the current code contradicts, both pre-dating
+  this work: the skip section states that runtime conditional skipping is unsupported, while
+  `Assert.Skip`, `Assert.SkipWhen`, and `Assert.SkipUnless` ship and are exercised by
+  `samples/NextUnit.SampleTests/SkipTests.cs`; and the samples omit `using NextUnit;`, which compiles
+  in `samples/NextUnit.SampleTests` only because that namespace nests under `NextUnit`.
 
 ### Priority 2 — Make dependency findings actionable
 

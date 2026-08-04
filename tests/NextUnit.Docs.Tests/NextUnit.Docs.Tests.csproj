@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <!-- NextUnit.Analyzers ships its code fixes in the same assembly as its analyzers, so
+         enumerating its types needs the Workspaces assembly those code fixes derive from. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- NextUnit.Analyzers and NextUnit.Generator are referenced as libraries, not as analyzers: the
+         samples are compiled in-process, which needs the analyzer and generator types at run time. -->
+    <ProjectReference Include="..\..\src\NextUnit.Analyzers\NextUnit.Analyzers.csproj" />
+    <ProjectReference Include="..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
+    <ProjectReference Include="..\..\src\NextUnit.Generator\NextUnit.Generator.csproj" />
+    <ProjectReference Include="..\..\src\NextUnit.Platform\NextUnit.Platform.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The guides are the compile input, so they have to reach the test output directory. -->
+    <None Include="..\..\docs\MIGRATION_FROM_NUNIT.md" Link="Guides\MIGRATION_FROM_NUNIT.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\docs\MIGRATION_FROM_MSTEST.md" Link="Guides\MIGRATION_FROM_MSTEST.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

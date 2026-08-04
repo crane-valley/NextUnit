@@ -33,6 +33,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/NextUnit.Analyzers.Tests/NextUnit.Analyzers.Tests.csproj" />
     <Project Path="tests/NextUnit.Core.Tests/NextUnit.Core.Tests.csproj" />
+    <Project Path="tests/NextUnit.Docs.Tests/NextUnit.Docs.Tests.csproj" />
     <Project Path="tests/NextUnit.Generator.Tests/NextUnit.Generator.Tests.csproj" />
     <Project Path="tests/NextUnit.Platform.Tests/NextUnit.Platform.Tests.csproj" />
     <Project Path="tests/NextUnit.TestAdapter.Tests/NextUnit.TestAdapter.Tests.csproj" />
