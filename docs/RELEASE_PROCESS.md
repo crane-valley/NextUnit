@@ -67,6 +67,34 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
      `Directory.Build.props` and fails the build when they diverge, so a forgotten bump surfaces on
      the release PR rather than in a user's first `dotnet new nextunit`.
 
+### Analyzer Release Files
+
+There are two independent pairs, one per diagnostic-producing project:
+
+1. **src/NextUnit.Analyzers/AnalyzerReleases.Shipped.md** and
+   **src/NextUnit.Analyzers/AnalyzerReleases.Unshipped.md**, holding the `NU00xx` analyzer rules
+2. **src/NextUnit.Generator/AnalyzerReleases.Shipped.md** and
+   **src/NextUnit.Generator/AnalyzerReleases.Unshipped.md**, holding the `NEXTUNIT0xx` generator
+   rules
+
+Handle each pair on its own:
+
+- Move every rule listed in that project's `AnalyzerReleases.Unshipped.md` into a new
+  `## Release X.Y.Z` section at the end of the same project's `AnalyzerReleases.Shipped.md`, then
+  reset the unshipped file to its empty state, the single line `; No unshipped rule changes.`
+- Skip a pair whose unshipped file lists no rules, which is the case for a release that adds no
+  diagnostics to that project. Note that the empty state is not a zero-byte file but that single
+  marker line, so test for rule entries rather than for emptiness.
+- The two ledgers advance independently, and neither tracks the other: the analyzer side has
+  sections for `1.9.0`, `1.16.0`, and `1.19.0`, the generator side for `1.0.0`, `1.9.0`, `1.10.0`,
+  and `1.11.0`.
+- These files record which release first shipped each diagnostic, so leaving a rule unshipped
+  after publishing it loses that provenance permanently. `RS2008` is satisfied by an entry in
+  either file and therefore does not catch the omission; the build stays green either way.
+- Added to this checklist during the 1.19.0 release, the first release to add rules since PR #171
+  introduced the analyzer pair and PR #182 the generator pair, and so the first time the promotion
+  was needed. Only the analyzer pair had rules to promote in that cycle.
+
 ### Documentation Files
 
 1. **README.md**
@@ -159,9 +187,10 @@ git checkout -b release/vX.Y.Z main
 
 ### 2. Update All Version References
 
-Follow the Version Update Checklist above and update all twelve files
+Follow the Version Update Checklist above and update all twelve version-reference files
 (two core version files, one template content file, four documentation files,
-five user documentation files).
+five user documentation files), plus each analyzer release ledger pair whose
+`AnalyzerReleases.Unshipped.md` lists any rules.
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -421,7 +450,8 @@ Investigate what other changes were made. Revert to previous version if needed.
 When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
-2. **Use the checklist**: Update all twelve files/locations listed above
+2. **Use the checklist**: Update all twelve version-reference files/locations listed above, and
+   promote each analyzer release ledger pair whose unshipped file lists any rules
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files

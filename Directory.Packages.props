@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <NextUnitVersion>1.18.0</NextUnitVersion>
+    <NextUnitVersion>1.19.0</NextUnitVersion>
   </PropertyGroup>
   <ItemGroup>
     <!-- NextUnit Packages -->
