@@ -239,6 +239,7 @@ public static class BaselineKey
         return Compose(
             record.BenchmarkId,
             record.ExpectedTestCount,
+            record.Rounds,
             record.Environment.RunnerImage,
             record.Environment.Architecture,
             record.Environment.SdkVersion,
@@ -253,6 +254,7 @@ public static class BaselineKey
         return Compose(
             result.BenchmarkId,
             result.ExpectedTestCount,
+            result.Rounds,
             result.RunnerImage,
             result.Architecture,
             result.DotNetSdkVersion,
@@ -263,6 +265,7 @@ public static class BaselineKey
     private static string Compose(
         string benchmarkId,
         int expectedTestCount,
+        int rounds,
         string runnerImage,
         string architecture,
         string sdkVersion,
@@ -281,6 +284,10 @@ public static class BaselineKey
             // Resizing the suite changes the mix of startup, scheduling, and execution the ratio measures,
             // so runs of a differently sized workload are not comparable however stable the machine was.
             FormattableString.Invariant($"{expectedTestCount} tests"),
+            // A dispatch may legally ask for fewer rounds than the schedule uses. Those runs carry too few
+            // samples for the rank test to decide anything, so they must form their own series rather than
+            // land in the normal one as an unearned Stable and displace a suspected run from the chain.
+            FormattableString.Invariant($"{rounds} rounds"),
             runnerImage,
             architecture,
             $"sdk {MajorMinor(sdkVersion)}",

@@ -84,6 +84,33 @@ public class BaselineKeyTests
     }
 
     [Test]
+    public void ADifferentRoundCountStartsANewBaseline()
+    {
+        // A dispatch may legally ask for fewer rounds. Such a run carries too few samples for the rank
+        // test to decide anything, so it must not land in the normal series as an unearned Stable and
+        // displace a suspected run from the confirmation chain.
+        var samples = SyntheticRuns.Samples(seed: 1);
+        var first = BaselineKey.For(SyntheticRuns.Result(samples));
+        var second = BaselineKey.For(SyntheticRuns.Result(samples) with { Rounds = 7 });
+
+        Assert.NotEqual(first, second);
+    }
+
+    [Test]
+    public void AShortDispatchCannotDisplaceTheRecordedChain()
+    {
+        var history = SyntheticRuns.Baseline(10);
+        var shortRun = SyntheticRuns.Result(SyntheticRuns.Samples(seed: 100)) with { Rounds = 7 };
+
+        var result = RegressionGate.Evaluate(shortRun, history, GateSeries.Baseline);
+
+        Assert.Equal(0, result.BaselineRunCount);
+        Assert.Equal(
+            RegressionVerdict.InsufficientBaseline,
+            result.Assessments.Single(assessment => assessment.Framework == SyntheticRuns.Subject).Verdict);
+    }
+
+    [Test]
     public void AReferenceFrameworkUpgradeKeepsTheBaseline()
     {
         // Reference versions are dependency-managed and move often. Keying on them would retire the

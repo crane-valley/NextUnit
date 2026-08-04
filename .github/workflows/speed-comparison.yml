@@ -39,6 +39,10 @@ jobs:
   benchmark:
     name: Run Speed Comparison
     runs-on: ubuntu-latest
+    outputs:
+      # Whether a record exists to hand to publish-history. Read from the file rather than inferred from
+      # the job's conclusion, because a confirmed regression fails the job after writing one.
+      history-record-produced: ${{ steps.history-record.outputs.produced }}
 
     steps:
       - name: Checkout code
@@ -70,14 +74,29 @@ jobs:
           # and an invalid context there silently removes the whole workflow from the check list.
           history_file="$RUNNER_TEMP/round-robin-runtime.jsonl"
           : > "$history_file"
-          # Not a shallow fetch: the branch is one small file, and keeping both this checkout and the
-          # publishing clone complete avoids the shallow-update rejections a truncated history can cause.
-          if git fetch --no-tags origin "$HISTORY_BRANCH" 2>/dev/null; then
-            git show "FETCH_HEAD:$HISTORY_PATH" > "$history_file" 2>/dev/null \
-              || echo "The $HISTORY_BRANCH branch does not carry $HISTORY_PATH yet."
-          else
+
+          # An absent branch and an unreachable remote must not look alike. Treating a network or
+          # authentication failure as "no history yet" would quietly analyse against an empty baseline
+          # and break the confirmation chain, so only ls-remote's specific "no such ref" exit code 2 is
+          # accepted as an empty baseline and anything else fails the job.
+          probe=0
+          git ls-remote --exit-code --heads origin "$HISTORY_BRANCH" >/dev/null 2>&1 || probe=$?
+          if [ "$probe" -eq 2 ]; then
             echo "There is no $HISTORY_BRANCH branch yet, so the baseline starts empty."
+          elif [ "$probe" -ne 0 ]; then
+            echo "Could not reach the remote to look for $HISTORY_BRANCH (git ls-remote exit $probe)."
+            exit 1
+          else
+            # Not a shallow fetch: the branch is one small file, and keeping both this checkout and the
+            # publishing clone complete avoids shallow-update rejections on push.
+            git fetch --no-tags origin "$HISTORY_BRANCH"
+            if git cat-file -e "FETCH_HEAD:$HISTORY_PATH" 2>/dev/null; then
+              git show "FETCH_HEAD:$HISTORY_PATH" > "$history_file"
+            else
+              echo "The $HISTORY_BRANCH branch does not carry $HISTORY_PATH yet."
+            fi
           fi
+
           echo "HISTORY_FILE=$history_file" >> "$GITHUB_ENV"
           echo "Recorded runs available: $(wc -l < "$history_file")"
 
@@ -111,6 +130,17 @@ jobs:
             --analyze-regression \
             --history "$HISTORY_FILE" \
             --series "$SERIES"
+
+      - name: Note whether a history record was produced
+        id: history-record
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          if [ -f tools/speed-comparison/results/history-record.json ]; then
+            echo "produced=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "produced=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v7
@@ -182,16 +212,25 @@ jobs:
         with:
           name: speed-comparison-history
           path: history-record
-        continue-on-error: true
+        # Tolerated only when the benchmark never got far enough to write a record. Once one exists,
+        # losing it here would leave a gap in the history and silently break the confirmation chain,
+        # so the transfer has to fail loudly instead.
+        continue-on-error: ${{ needs.benchmark.outputs.history-record-produced != 'true' }}
 
       - name: Append the run to the history branch
         shell: bash
         env:
           GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RECORD_PRODUCED: ${{ needs.benchmark.outputs.history-record-produced }}
         run: |
           set -euo pipefail
           record="$GITHUB_WORKSPACE/history-record/history-record.json"
           if [ ! -f "$record" ]; then
+            if [ "$RECORD_PRODUCED" = "true" ]; then
+              echo "The benchmark job produced a history record but it did not arrive here."
+              echo "Refusing to pass silently: a missing run breaks the repeated-regression chain."
+              exit 1
+            fi
             echo "The benchmark job produced no history record, so there is nothing to publish."
             exit 0
           fi

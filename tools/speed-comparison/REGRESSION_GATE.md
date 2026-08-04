@@ -65,16 +65,19 @@ record one measurement twice, and the baseline would count it as two independent
 A run is compared only against recorded runs with the same baseline key:
 
 ```text
-round-robin-runtime | 127 tests | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, xUnit
+round-robin-runtime | 127 tests | 21 rounds | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, xUnit
 ```
 
-The key holds the benchmark, the size of the workload, the runner image family, the architecture, the SDK
-and runtime at **major.minor**, and the set of reference participants.
+The key holds the benchmark, the size and shape of the workload, the runner image family, the architecture,
+the SDK and runtime at **major.minor**, and the set of reference participants.
 
 The test count is in the key because resizing the suite changes the mix of startup, scheduling, and
-execution that the ratio measures. The reference set is in the key because it is the denominator of the
-metric: dropping or adding a competing framework changes what every number means. Adding or removing one of
-NextUnit's own participants does not split the baseline.
+execution that the ratio measures. The round count is in the key because a manual dispatch may legally ask
+for fewer rounds than the schedule uses, and a run with too few samples for the rank test would otherwise
+join the normal series as an unearned `Stable` and displace a suspected run from the confirmation chain. The
+reference set is in the key because it is the denominator of the metric: dropping or adding a competing
+framework changes what every number means. Adding or removing one of NextUnit's own participants does not
+split the baseline.
 
 Two things are deliberately **not** in the key.
 
@@ -192,6 +195,12 @@ Retire the baseline as for an accepted change.
 
 **The history branch is not being written.** The `publish-history` job runs only for non-pull-request events
 on `main`, and needs `benchmark-data` to be unprotected so `GITHUB_TOKEN` can push to it.
+
+**A gap in the history would be worse than a red job**, so the paths that could hide one fail closed. The
+fetch step distinguishes an absent branch from an unreachable remote and fails on the latter rather than
+analysing against an empty baseline; and if the benchmark wrote a record that then fails to reach
+`publish-history`, that job fails rather than skipping the run. Both would otherwise break the confirmation
+chain silently and postpone a real regression by weeks.
 
 ## Workflow shape
 
