@@ -182,9 +182,23 @@ function Read-AllowlistFile {
 }
 
 function Get-TargetVulnerability {
-    param([string] $Path, [string] $RootPath, [string] $Label, [string] $PropertyName, [string] $PropertyValue)
+    param(
+        [string] $Path,
+        [string] $RootPath,
+        [string] $Label,
+        [string] $PropertyName,
+        [string] $PropertyValue,
+        [switch] $AllowMissing
+    )
 
     if (-not (Test-Path -LiteralPath $Path)) {
+        if ($AllowMissing) {
+            # A target the pull request introduces does not exist in the base revision, and
+            # everything it resolves is new by definition.
+            Write-Host "Skipping $Label target $Path because this revision does not have it"
+            return [pscustomobject]@{ Scanned = @(); Vulnerabilities = @() }
+        }
+
         throw "$Label target not found: $Path"
     }
 
@@ -286,7 +300,7 @@ function Get-TargetVulnerability {
 }
 
 function Get-ScanResult {
-    param([string[]] $Targets, [string] $RootPath, [string] $Label)
+    param([string[]] $Targets, [string] $RootPath, [string] $Label, [switch] $AllowMissing)
 
     $scanned = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $found = [System.Collections.Generic.List[object]]::new()
@@ -308,7 +322,7 @@ function Get-ScanResult {
         }
 
         $result = Get-TargetVulnerability -Path (Join-Path $RootPath $parts[0].Trim()) -RootPath $RootPath `
-            -Label $Label -PropertyName $name -PropertyValue $value
+            -Label $Label -PropertyName $name -PropertyValue $value -AllowMissing:$AllowMissing
 
         foreach ($project in $result.Scanned) {
             [void] $scanned.Add($project)
@@ -381,37 +395,49 @@ foreach ($entry in $active) {
     [void] $allowed.Add($entry.Key)
 }
 
-$rootPath = (Resolve-Path -LiteralPath $Root).Path
-$hasBaseline = -not [string]::IsNullOrWhiteSpace($BaselinePath)
-$baselineFull = ''
-$excludePath = ''
-if ($hasBaseline) {
-    $baselineFull = (Resolve-Path -LiteralPath $BaselinePath).Path
-    $relativeBaseline = ConvertTo-RepositoryPath -Path $baselineFull -RootPath $rootPath
-    if (-not $relativeBaseline.StartsWith('..')) {
-        $excludePath = $relativeBaseline
-    }
-}
-
-$current = Get-ScanResult -Targets $targets -RootPath $rootPath -Label 'head'
-
-# A single returned path would arrive unrolled as a bare string, which has no Count.
-$unscanned = @(Get-UnscannedProject -RootPath $rootPath -Scanned $current.Scanned -ExcludePath $excludePath)
-if ($unscanned.Count -gt 0) {
-    foreach ($project in $unscanned) {
-        Write-Annotation -Level 'error' -Message "$project is not covered by the vulnerability scan; add it to a scanned solution."
-        Write-Host "Unscanned project: $project"
-    }
-    Write-Host 'Every project has to be reachable from a scanned target, otherwise its packages go unchecked.'
-    exit 2
-}
-
 $baselineKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-if ($hasBaseline) {
-    $baseline = Get-ScanResult -Targets $targets -RootPath $baselineFull -Label 'baseline'
-    foreach ($item in $baseline.Vulnerabilities) {
-        [void] $baselineKeys.Add($item.Key)
+$current = $null
+
+# Everything from here to the baseline scan is setup rather than a verdict, so a failure in it is a
+# scan error and exits 2 rather than passing for a vulnerability finding.
+try {
+    $rootPath = (Resolve-Path -LiteralPath $Root).Path
+    $hasBaseline = -not [string]::IsNullOrWhiteSpace($BaselinePath)
+    $baselineFull = ''
+    $excludePath = ''
+    if ($hasBaseline) {
+        $baselineFull = (Resolve-Path -LiteralPath $BaselinePath).Path
+        $relativeBaseline = ConvertTo-RepositoryPath -Path $baselineFull -RootPath $rootPath
+        if (-not $relativeBaseline.StartsWith('..')) {
+            $excludePath = $relativeBaseline
+        }
     }
+
+    $current = Get-ScanResult -Targets $targets -RootPath $rootPath -Label 'head'
+
+    # A single returned path would arrive unrolled as a bare string, which has no Count.
+    $unscanned = @(Get-UnscannedProject -RootPath $rootPath -Scanned $current.Scanned -ExcludePath $excludePath)
+    if ($unscanned.Count -gt 0) {
+        foreach ($project in $unscanned) {
+            Write-Annotation -Level 'error' -Message "$project is not covered by the vulnerability scan; add it to a scanned solution."
+            Write-Host "Unscanned project: $project"
+        }
+        Write-Host 'Every project has to be reachable from a scanned target, otherwise its packages go unchecked.'
+        exit 2
+    }
+
+    if ($hasBaseline) {
+        # A target the pull request adds is absent from the base revision, which is not an error.
+        $baseline = Get-ScanResult -Targets $targets -RootPath $baselineFull -Label 'baseline' -AllowMissing
+        foreach ($item in $baseline.Vulnerabilities) {
+            [void] $baselineKeys.Add($item.Key)
+        }
+    }
+}
+catch {
+    Write-Annotation -Level 'error' -Message "$($_.Exception.Message)"
+    Write-Host "Scan error: $($_.Exception.Message)"
+    exit 2
 }
 
 $suppressed = @($current.Vulnerabilities | Where-Object { $allowed.Contains($_.Exception) })
