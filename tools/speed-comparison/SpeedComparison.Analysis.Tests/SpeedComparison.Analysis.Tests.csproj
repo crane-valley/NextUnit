@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <Import Project="..\..\..\src\NextUnit\buildTransitive\NextUnit.props" />
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\SpeedComparison.Analysis\SpeedComparison.Analysis.csproj" />
+        <ProjectReference Include="..\..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
+        <ProjectReference Include="..\..\..\src\NextUnit.Platform\NextUnit.Platform.csproj" />
+        <ProjectReference Include="..\..\..\src\NextUnit.Generator\NextUnit.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>

@@ -23,6 +23,20 @@ Round-robin mode is the source of the table in `docs/PERFORMANCE.md`. It:
 
 The round count must be a positive multiple of seven. The default is 21.
 
+## Regression detection
+
+CI compares each round-robin run against a rolling history of earlier runs and fails the scheduled run only
+when a regression is large, statistically significant, and repeated across two recorded runs. Pull-request
+runs report against the same baseline without ever failing.
+
+```bash
+dotnet run -c Release --project Tests.Benchmark -- \
+  --analyze-regression --history /path/to/round-robin-runtime.jsonl --series baseline
+```
+
+See [REGRESSION_GATE.md](REGRESSION_GATE.md) for the metric, the thresholds and their rationale, the history
+store, and what to do when the gate fires.
+
 ## BenchmarkDotNet diagnostics
 
 BenchmarkDotNet is retained for build measurements, Native AOT experiments, and detailed
