@@ -84,6 +84,15 @@ public sealed class CultureNameAnalyzer : DiagnosticAnalyzer
         var attributeType = context.SemanticModel
             .GetSymbolInfo(attribute, context.CancellationToken).Symbol?.ContainingType;
 
+        // An attribute that does not bind - which is routine while the file is mid-edit - must not be
+        // compared, because SymbolEqualityComparer treats null as equal to null. Only one of the two
+        // culture types has to resolve for this action to be registered, so without this guard an
+        // unresolved attribute would match the unresolved half and be reported as a culture name.
+        if (attributeType is null)
+        {
+            return;
+        }
+
         if (!SymbolEqualityComparer.Default.Equals(attributeType, culture) &&
             !SymbolEqualityComparer.Default.Equals(attributeType, uiCulture))
         {
