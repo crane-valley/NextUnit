@@ -45,7 +45,8 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[SetCulture]` | `[Culture]` | |
 | `[SetUICulture]` | `[UICulture]` | |
 | `[Culture]` (filter) | none | NUnit's `[Culture]` selects tests; NextUnit's sets one |
-| `[Platform]` | `Assert.SkipOnWindows`, `SkipOnLinux`, `SkipOnMacOS`, `SkipOnFreeBSD` | |
+| `[Platform(Exclude = "Win")]` | `Assert.SkipOnWindows`, `SkipOnLinux`, `SkipOnMacOS`, `SkipOnFreeBSD` | The skip helpers exclude one platform |
+| `[Platform("Win")]` | `Assert.SkipUnless(OperatingSystem.IsWindows(), reason)` | Include needs the predicate form; see [Filtering and selection](#filtering-and-selection) |
 | `Assert.That` and constraints | `Assert.Equal`, `Assert.True`, and friends | See [Assertions](#assertions) |
 | `Assert.Multiple` | none | See [Deliberate non-equivalents](#deliberate-non-equivalents) |
 | `TestContext.CurrentContext` | `TestContext.Current` | |
@@ -242,8 +243,15 @@ public class ContainerTests
 ```
 
 Hooks may return `void`, `Task`, `Task<T>`, `ValueTask`, or `ValueTask<T>`, so NUnit's async setup
-converts directly. Class-, assembly-, and session-scoped hooks are declared `static` in the examples
-above because they run once, outside any single test instance.
+converts directly.
+
+Class-, assembly-, and session-scoped hooks are declared `static` in the examples above, and that is
+not a style choice. NextUnit builds one instance of the class to run the class-scoped hooks on, and a
+separate instance for each test, so an instance `[Before(LifecycleScope.Class)]` compiles and runs but
+writes its fields on an object no test ever sees. An NUnit `[OneTimeSetUp]` that populates instance
+fields therefore needs its state moved as well as its attribute changed: make the field `static`, or
+hold the fixture in a type of its own and reach it through `[ClassDataSource<T>]` with
+`Shared = SharedType.PerClass`.
 
 ## Data sources
 
@@ -572,8 +580,27 @@ public class MaintenanceTests
 ```
 
 `[Skip]` is the compile-time form of `[Ignore]`. `Assert.Skip`, `Assert.SkipWhen`, and
-`Assert.SkipUnless` cover the runtime form, and `Assert.SkipOnWindows`, `SkipOnLinux`, `SkipOnMacOS`,
-and `SkipOnFreeBSD` replace `[Platform]`.
+`Assert.SkipUnless` cover the runtime form.
+
+Platform selection needs care, because `[Platform]` includes by default and the skip helpers exclude.
+`Assert.SkipOnWindows`, `SkipOnLinux`, `SkipOnMacOS`, and `SkipOnFreeBSD` replace
+`[Platform(Exclude = "Win")]` and its siblings. An include such as `[Platform("Win")]` means the test
+runs *only* on Windows, so the same rewrite would invert it -- the test would then skip on Windows
+and run everywhere else. Express an include with the predicate form instead:
+
+```csharp
+using NextUnit;
+
+public class RegistryTests
+{
+    [Test]
+    public void ReadsTheRegistry()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The registry exists only on Windows");
+        Assert.True(OperatingSystem.IsWindows());
+    }
+}
+```
 
 ## Parallelism and ordering
 

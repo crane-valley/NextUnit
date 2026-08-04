@@ -49,6 +49,7 @@ Remove the MSTest packages and add the single NextUnit package.
 ```bash
 # Projects on the MSTest meta-package
 dotnet remove package MSTest
+dotnet remove package Microsoft.NET.Test.Sdk
 dotnet add package NextUnit
 ```
 
