@@ -41,12 +41,7 @@ public class MigrationGuideSampleTests
     /// </summary>
     private static readonly string[] _knownLanguages = ["bash", "csharp", "json", "text", "xml"];
 
-    /// <summary>
-    /// Info-string annotations marking a C# block as another framework's code, shown for comparison
-    /// and therefore not compiled here. Any other annotation is rejected, because a typo must not be
-    /// able to silently drop a NextUnit sample out of this check.
-    /// </summary>
-    private static readonly string[] _foreignFrameworks = ["nunit", "mstest", "xunit"];
+    private const string GuidePrefix = "MIGRATION_FROM_";
 
     private static readonly string[] _sampleUsings =
     [
@@ -129,31 +124,49 @@ public class MigrationGuideSampleTests
     [Fact]
     public void CodeFenceInfoStringsAreRecognized()
     {
-        foreach (var block in _guides.SelectMany(LoadBlocks))
+        foreach (var guide in _guides)
         {
-            Xunit.Assert.True(
-                _knownLanguages.Contains(block.Language, StringComparer.Ordinal),
-                $"{block.Location}: unknown fence language '{block.Language}'. " +
-                $"Expected one of {string.Join(", ", _knownLanguages)}.");
+            // A guide migrates from exactly one framework, so that is the only annotation it may
+            // carry. Accepting any framework name would let a NextUnit sample marked with the wrong
+            // one drop out of compilation while still looking annotated on purpose.
+            var sourceFramework = SourceFramework(guide);
 
-            if (block.Language != "csharp")
-            {
-                continue;
-            }
-
-            Xunit.Assert.True(
-                block.Annotations.Count <= 1,
-                $"{block.Location}: a C# block takes at most one annotation, found '{block.InfoString}'.");
-
-            foreach (var annotation in block.Annotations)
+            foreach (var block in LoadBlocks(guide))
             {
                 Xunit.Assert.True(
-                    _foreignFrameworks.Contains(annotation, StringComparer.Ordinal),
-                    $"{block.Location}: unknown annotation '{annotation}'. " +
-                    $"Expected one of {string.Join(", ", _foreignFrameworks)}, or none for a compiled NextUnit sample.");
+                    _knownLanguages.Contains(block.Language, StringComparer.Ordinal),
+                    $"{block.Location}: unknown fence language '{block.Language}'. " +
+                    $"Expected one of {string.Join(", ", _knownLanguages)}.");
+
+                if (block.Language != "csharp")
+                {
+                    continue;
+                }
+
+                Xunit.Assert.True(
+                    block.Annotations.Count <= 1,
+                    $"{block.Location}: a C# block takes at most one annotation, found '{block.InfoString}'.");
+
+                foreach (var annotation in block.Annotations)
+                {
+                    Xunit.Assert.True(
+                        string.Equals(annotation, sourceFramework, StringComparison.Ordinal),
+                        $"{block.Location}: unexpected annotation '{annotation}'. " +
+                        $"Expected '{sourceFramework}' for the code being migrated away from, " +
+                        "or none for a compiled NextUnit sample.");
+                }
             }
         }
     }
+
+    /// <summary>
+    /// The framework a guide migrates from, taken from its file name so that adding a guide needs no
+    /// second list to keep in step.
+    /// </summary>
+    private static string SourceFramework(string guide) =>
+        Path.GetFileNameWithoutExtension(guide)
+            .Replace(GuidePrefix, string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
 
     /// <summary>
     /// A compiler error always fails. A NextUnit diagnostic fails from warning severity upwards,

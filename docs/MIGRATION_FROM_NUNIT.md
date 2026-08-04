@@ -215,9 +215,15 @@ public class OrderTests
 }
 ```
 
-`LifecycleScope` has four values you will use: `Test`, `Class`, `Assembly`, and `Session`. An
-`[SetUpFixture]` that prepares a namespace becomes an assembly- or session-scoped hook. Session scope
-is the outermost: it wraps the whole run under Microsoft.Testing.Platform.
+`LifecycleScope` has four values you will use: `Test`, `Class`, `Assembly`, and `Session`. Session
+scope is the outermost: it wraps the whole run under Microsoft.Testing.Platform.
+
+`[SetUpFixture]` is the one mapping that loses precision. NUnit scopes it to the namespace it is
+declared in and that namespace's descendants, and NextUnit has no namespace scope, so an
+assembly-scoped hook runs for every test in the assembly instead. Use it only for setup that is
+genuinely assembly-wide. When two namespaces each had their own fixture, collapsing both into
+assembly scope makes each one run for the other's tests: move the setup into class-scoped hooks on
+the classes that need it, or split the namespaces into separate test projects.
 
 ```csharp
 using NextUnit;
