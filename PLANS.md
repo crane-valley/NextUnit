@@ -287,10 +287,12 @@ because each needs a decision outside it:
   is off, so a pull request can merge on a `Security Scan` that ran before `main` moved. A vulnerable
   resolution that only appears once two branches combine, such as a central version pin meeting a new
   package reference, would not be seen until the nightly.
-- [ ] Extend the scan to configuration-dependent package references, or accept the gap.
-  `tools/speed-comparison/UnifiedTests` selects its test framework packages through
-  `ItemGroup Condition="'$(TestFramework)' == ...`, and the scan restores with the default property
-  values, so those references are never resolved. Covering them means one restore per value.
+- [ ] Decide whether the pull request gate should also sweep configuration-dependent package
+  references. `tools/speed-comparison/UnifiedTests` selects its test framework packages through
+  `ItemGroup Condition="'$(TestFramework)' == ...`, so a default restore resolves none of them. The
+  nightly scan covers all five values through the per-target property syntax; the gate does not,
+  because five more restores on both sides of the diff would double its runtime for a benchmark
+  harness that ships nothing.
 
 ### Priority 2 — The release checklist misdescribes how `Directory.Packages.props` carries the version
 

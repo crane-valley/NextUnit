@@ -156,7 +156,10 @@ nothing worse, and failing on it would block the dependency bumps that eventuall
 
 Both jobs scan `NextUnit.slnx` plus the two package smoke projects, which belong to no solution. The
 script also fails when it finds a `.csproj` in the tree that none of its targets reach, so a new
-project cannot go unscanned by being left out of the solution.
+project cannot go unscanned by being left out of the solution. A target may pin one MSBuild property
+as `project.csproj|Name=Value` for package references that sit behind a condition; the nightly uses
+that to sweep `tools/speed-comparison` once per `TestFramework` value, which the pull request gate
+skips to stay off the critical path.
 
 NuGet audit still runs on every restore, but `Directory.Build.props` keeps `NU1901` through `NU1904`
 out of `TreatWarningsAsErrors`. As errors they would fail restore for every contributor the moment

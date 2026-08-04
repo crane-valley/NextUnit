@@ -182,22 +182,37 @@ function Read-AllowlistFile {
 }
 
 function Get-TargetVulnerability {
-    param([string] $Path, [string] $RootPath, [string] $Label)
+    param([string] $Path, [string] $RootPath, [string] $Label, [string] $PropertyName, [string] $PropertyValue)
 
     if (-not (Test-Path -LiteralPath $Path)) {
         throw "$Label target not found: $Path"
     }
 
-    Write-Host "Restoring $Label target $Path"
-    & dotnet restore $Path | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        throw "dotnet restore failed for $Path with exit code $LASTEXITCODE."
+    $suffix = ''
+    if ($PropertyName) {
+        # dotnet list package takes no MSBuild properties, so the property is set in the environment,
+        # which MSBuild reads as a global property for both the restore and the listing.
+        $suffix = " with $PropertyName=$PropertyValue"
+        Set-Item -Path "env:$PropertyName" -Value $PropertyValue
     }
 
-    Write-Host "Listing vulnerable packages for $Label target $Path"
-    $output = & dotnet list $Path package --vulnerable --include-transitive --format json --output-version 1
-    if ($LASTEXITCODE -ne 0) {
-        throw "dotnet list package failed for $Path with exit code $LASTEXITCODE."
+    try {
+        Write-Host "Restoring $Label target $Path$suffix"
+        & dotnet restore $Path | Out-Host
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet restore failed for $Path$suffix with exit code $LASTEXITCODE."
+        }
+
+        Write-Host "Listing vulnerable packages for $Label target $Path$suffix"
+        $output = & dotnet list $Path package --vulnerable --include-transitive --format json --output-version 1
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet list package failed for $Path$suffix with exit code $LASTEXITCODE."
+        }
+    }
+    finally {
+        if ($PropertyName) {
+            Remove-Item -Path "env:$PropertyName" -ErrorAction SilentlyContinue
+        }
     }
 
     $text = ($output -join [System.Environment]::NewLine)
@@ -278,7 +293,22 @@ function Get-ScanResult {
     $keys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
     foreach ($target in $Targets) {
-        $result = Get-TargetVulnerability -Path (Join-Path $RootPath $target) -RootPath $RootPath -Label $Label
+        # A target may pin one MSBuild property, as in path|TestFramework=XUNIT, for projects whose
+        # package references sit behind a condition that the default evaluation never satisfies.
+        $parts = $target -split '\|', 2
+        $name = ''
+        $value = ''
+        if ($parts.Count -eq 2) {
+            $assignment = $parts[1] -split '=', 2
+            if ($assignment.Count -ne 2 -or -not $assignment[0].Trim()) {
+                throw "Target '$target' has a property that is not written as Name=Value."
+            }
+            $name = $assignment[0].Trim()
+            $value = $assignment[1].Trim()
+        }
+
+        $result = Get-TargetVulnerability -Path (Join-Path $RootPath $parts[0].Trim()) -RootPath $RootPath `
+            -Label $Label -PropertyName $name -PropertyValue $value
 
         foreach ($project in $result.Scanned) {
             [void] $scanned.Add($project)

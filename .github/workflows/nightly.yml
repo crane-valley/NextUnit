@@ -251,10 +251,13 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
+    # The speed comparison project selects its packages through TestFramework conditions, so the
+    # default evaluation resolves none of them. Restoring it once per value is affordable here and
+    # not on the pull request path, which is why the gate leaves this to the nightly.
     - name: Scan resolved packages for known vulnerabilities
       run: >
         pwsh -NoProfile -File .github/scripts/check-dependency-vulnerabilities.ps1
-        -Target NextUnit.slnx,tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj,tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj
+        -Target 'NextUnit.slnx,tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj,tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj,tools/speed-comparison/UnifiedTests/UnifiedTests.csproj|TestFramework=NEXTUNIT,tools/speed-comparison/UnifiedTests/UnifiedTests.csproj|TestFramework=TUNIT,tools/speed-comparison/UnifiedTests/UnifiedTests.csproj|TestFramework=XUNIT,tools/speed-comparison/UnifiedTests/UnifiedTests.csproj|TestFramework=NUNIT,tools/speed-comparison/UnifiedTests/UnifiedTests.csproj|TestFramework=MSTEST'
         -Allowlist .github/vulnerability-allowlist.txt
         -ExpiredEntryAction fail
 
