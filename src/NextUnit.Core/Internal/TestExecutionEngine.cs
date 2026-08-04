@@ -755,8 +755,9 @@ public sealed class TestExecutionEngine
             var testContext = CreateTestContext(testCase, effectiveToken, testOutput, attempt);
             TestContext.SetCurrent(testContext);
 
+            var budget = new AttemptBudget(attempt, maxAttempts);
             var attemptResult = await ExecuteSingleAttemptAsync(
-                testCase, sink, effectiveToken, timeoutCts, testOutput, cancellationToken).ConfigureAwait(false);
+                testCase, sink, effectiveToken, timeoutCts, testOutput, budget, cancellationToken).ConfigureAwait(false);
 
             if (attemptResult.IsTerminal)
             {
@@ -787,10 +788,17 @@ public sealed class TestExecutionEngine
                     cancellationToken).ConfigureAwait(false);
                 policy = decision.Policy;
 
+                // The decision may be asynchronous, so the run can be cancelled while it is awaited.
+                // Checked again here for the same reason as after the attempt itself: without it a
+                // "yes" would start the next attempt on an already-cancelled token, and a "no" or a
+                // policy failure would report a test failure that cancellation has superseded.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (decision.PolicyFailure is not null)
                 {
                     // A policy that failed decided nothing, so retrying would be guessing. Report both,
                     // the test's own failure first so the policy failure cannot mask it.
+                    AppendAttemptSummary(testOutput, budget);
                     await ReportFinalExceptionAsync(
                         testCase,
                         sink,
@@ -816,7 +824,7 @@ public sealed class TestExecutionEngine
             }
 
             // Attempts are spent, or the policy declined a further one: report the failure.
-            AppendAttemptSummary(testOutput, attempt, maxAttempts);
+            AppendAttemptSummary(testOutput, budget);
             await ReportFinalExceptionAsync(
                 testCase, sink, failure, testOutput.GetOutput(), testContext.Artifacts).ConfigureAwait(false);
             return;
@@ -881,16 +889,38 @@ public sealed class TestExecutionEngine
     /// The test output is the reporting channel because it already reaches both adapters and the
     /// user's console; a dedicated result field would be an adapter-visible change, and a separate
     /// statistics store is exactly what the retry design rules out. Written only when retry is
-    /// configured, since "after 1 of 1 attempts" on every ordinary failure is noise.
+    /// configured, since "after 1 of 1 attempts" on every ordinary failure is noise, and only for
+    /// failures: a pass or a runtime skip did not fail after anything.
     /// </remarks>
-    private static void AppendAttemptSummary(TestOutputCapture testOutput, int attempt, int maxAttempts)
+    private static void AppendAttemptSummary(TestOutputCapture testOutput, AttemptBudget budget)
     {
-        if (maxAttempts <= 1)
+        if (budget.MaxAttempts <= 1)
         {
             return;
         }
 
-        testOutput.WriteLine($"[NextUnit] Test failed after {attempt} of {maxAttempts} attempts.");
+        testOutput.WriteLine(
+            $"[NextUnit] Test failed after {budget.Attempt} of {budget.MaxAttempts} attempts.");
+    }
+
+    /// <summary>
+    /// Where one attempt sits in the test's attempt budget.
+    /// </summary>
+    /// <remarks>
+    /// Carried into the attempt so that every path that ends a retried test in failure - exhausted
+    /// attempts, a policy stop, a policy failure, a timeout, a disposal failure - reports the same
+    /// attempt count, rather than only the one path the retry loop itself owns.
+    /// </remarks>
+    private readonly struct AttemptBudget
+    {
+        public AttemptBudget(int attempt, int maxAttempts)
+        {
+            Attempt = attempt;
+            MaxAttempts = maxAttempts;
+        }
+
+        public int Attempt { get; }
+        public int MaxAttempts { get; }
     }
 
     /// <summary>
@@ -919,6 +949,7 @@ public sealed class TestExecutionEngine
         CancellationToken effectiveToken,
         CancellationTokenSource? timeoutCts,
         TestOutputCapture testOutput,
+        AttemptBudget budget,
         CancellationToken cancellationToken)
     {
         // Create test instance (each test gets its own instance)
@@ -951,7 +982,7 @@ public sealed class TestExecutionEngine
 
         if (disposalFailure is null)
         {
-            await ReportAttemptOutcomeAsync(testCase, sink, result, testOutput, currentContext).ConfigureAwait(false);
+            await ReportAttemptOutcomeAsync(testCase, sink, result, testOutput, currentContext, budget).ConfigureAwait(false);
             return result;
         }
 
@@ -959,6 +990,7 @@ public sealed class TestExecutionEngine
         // instead of a synthetic one (unlike class-scope disposal, whose instance is shared). Reporting
         // happens after disposal so a passing test is not first reported as passed and then failed.
         var reportedFailure = CombineWithDisposalFailure(result, disposalFailure);
+        AppendAttemptSummary(testOutput, budget);
         try
         {
             await ReportFinalExceptionAsync(
@@ -1076,10 +1108,19 @@ public sealed class TestExecutionEngine
         ITestExecutionSink sink,
         AttemptResult result,
         TestOutputCapture testOutput,
-        ITestContext currentContext)
+        ITestContext currentContext,
+        AttemptBudget budget)
     {
         // Artifacts collected before a timeout or a runtime skip are preserved.
         var artifacts = currentContext.Artifacts;
+
+        // A timeout ends the retry sequence, so it is the last attempt this test runs and the attempt
+        // count belongs on it as much as on an exhausted budget. A pass or a runtime skip gets none:
+        // neither failed after anything.
+        if (result.Outcome == AttemptOutcome.TimedOut)
+        {
+            AppendAttemptSummary(testOutput, budget);
+        }
 
         return result.Outcome switch
         {

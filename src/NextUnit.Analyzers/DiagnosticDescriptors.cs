@@ -178,4 +178,16 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "[Retry] and [Retry<TPolicy>] both declare the attempt budget and delay for the same target, so applying both leaves the retry policy and the budget ambiguous.");
+
+    /// <summary>
+    /// NU0016: Retry policy type is not reachable from the generated registry.
+    /// </summary>
+    public static readonly DiagnosticDescriptor RetryPolicyNotAccessible = new(
+        id: "NU0016",
+        title: "Retry policy type is not accessible to generated code",
+        messageFormat: "Retry policy '{0}' is not accessible from the generated test registry; make it internal or public and not nested in a private or protected scope",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "The generator constructs the retry policy directly rather than by reflection, so the policy type must be visible from the generated registry. A private or protected policy satisfies the new() constraint at the attribute but fails to compile in the generated code.");
 }

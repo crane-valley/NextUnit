@@ -1,0 +1,132 @@
+using NextUnit.Analyzers.Analyzers;
+using NextUnit.Analyzers.Tests.Verifiers;
+using Xunit;
+
+namespace NextUnit.Analyzers.Tests;
+
+public class RetryPolicyAccessibilityAnalyzerTests
+{
+    private const string PolicyBody = @"
+    public System.Threading.Tasks.ValueTask<bool> ShouldRetryAsync(NextUnit.RetryContext context) =>
+        System.Threading.Tasks.ValueTask.FromResult(true);
+";
+
+    [Fact]
+    public async Task PrivateNestedPolicy_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    private sealed class AlwaysRetry : IRetryPolicy
+    {" + PolicyBody + @"    }
+
+    [Test]
+    [Retry<AlwaysRetry>(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>
+            .Diagnostic("NU0016")
+            .WithSpan(13, 6, 13, 27)
+            .WithArguments("Tests.AlwaysRetry");
+
+        await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A public policy nested in a private type is just as unreachable, which is why the whole
+    /// containing chain is walked rather than only the policy itself.
+    /// </summary>
+    [Fact]
+    public async Task PublicPolicyNestedInPrivateType_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    private static class Container
+    {
+        public sealed class AlwaysRetry : IRetryPolicy
+        {" + PolicyBody + @"        }
+    }
+
+    [Test]
+    [Retry<Container.AlwaysRetry>(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>
+            .Diagnostic("NU0016")
+            .WithSpan(16, 6, 16, 37)
+            .WithArguments("Tests.Container.AlwaysRetry");
+
+        await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task InternalNestedPolicy_NoDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    internal sealed class AlwaysRetry : IRetryPolicy
+    {" + PolicyBody + @"    }
+
+    [Test]
+    [Retry<AlwaysRetry>(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    [Fact]
+    public async Task TopLevelPolicy_NoDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public sealed class AlwaysRetry : IRetryPolicy
+{" + PolicyBody + @"}
+
+public class Tests
+{
+    [Test]
+    [Retry<AlwaysRetry>(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    [Fact]
+    public async Task PlainRetry_NoDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    [Test]
+    [Retry(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+}

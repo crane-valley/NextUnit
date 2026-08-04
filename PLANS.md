@@ -83,7 +83,9 @@ retry decisions based on the exception, while MSTest exposes the current run cou
 - [x] Expose the one-based retry attempt in `ITestContext` and include total attempts in the final
   failure output/result metadata. `ITestContext.RetryAttempt` is a default interface member, so an
   externally implemented context still compiles; the failure output of a retried test ends with the
-  attempts actually run, which is what distinguishes an exhausted budget from a policy stop.
+  attempts actually run, which is what distinguishes an exhausted budget from a policy stop. Every
+  failing end of a retry sequence carries it -- exhausted budget, policy stop, policy failure,
+  timeout, and disposal failure -- while a pass or a runtime skip does not.
 - [x] Prove cleanup, output, artifacts, cancellation, and `StateBag` semantics across attempts.
   Behavioral tests pin one instance and one set of test-scoped hooks per attempt, per-attempt output
   and artifacts with only the final attempt reported, a `StateBag` that starts empty every attempt,

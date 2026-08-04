@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NU0015` reports a method or class carrying both `[Retry]` and `[Retry<TPolicy>]`. The two are
   distinct types, so the compiler's own duplicate-attribute check does not catch the combination even
   though both declare the same attempt budget.
+- `NU0016` reports a retry policy the generated registry cannot construct. A private or protected
+  nested policy satisfies the `new()` constraint at the attribute and would otherwise fail the
+  consumer's build with `CS0122` inside generated code.
 
 ## [1.18.0] - 2026-07-26
 

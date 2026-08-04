@@ -2,4 +2,8 @@
 NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer
 NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.ConflictingRetryAttributeAnalyzer() -> void
 override NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer
+NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer.RetryPolicyAccessibilityAnalyzer() -> void
 override NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>

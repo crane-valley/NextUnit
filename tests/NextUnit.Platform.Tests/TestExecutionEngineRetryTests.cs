@@ -310,6 +310,133 @@ public sealed class TestExecutionEngineRetryTests
     }
 
     [Test]
+    public async Task TimeoutOnALaterAttempt_ReportsTheAttemptsRunAsync()
+    {
+        var attempts = 0;
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("retry.output.timeout")
+            .WithRetry(3, delayMs: 0)
+            .WithTimeout(200)
+            .WithMethod(async (_, ct) =>
+            {
+                var attempt = Interlocked.Increment(ref attempts);
+                if (attempt == 1)
+                {
+                    throw new InvalidOperationException("transient");
+                }
+
+                await Task.Delay(Timeout.Infinite, ct);
+            })
+            .Build();
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        // A timeout ends the sequence, so it is the last attempt the test runs and carries the count
+        // just as an exhausted budget does.
+        Assert.Single(sink.Errors);
+        var report = Assert.Single(sink.Reports);
+        Assert.Contains("[NextUnit] Test failed after 2 of 3 attempts.", report.Output!);
+    }
+
+    [Test]
+    public async Task DisposalFailureDuringRetry_ReportsTheAttemptsRunAsync()
+    {
+        var test = TestCaseDescriptorBuilder
+            .For<ThrowingDisposeClass>("retry.output.dispose")
+            .WithRetry(3, delayMs: 0)
+            .WithMethod(static (_, _) => throw new InvalidOperationException("test boom"))
+            .Build();
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        // The disposal failure is terminal, so attempt 1 is the last one; the output has to say so
+        // rather than leave the reader assuming the budget was spent.
+        Assert.Single(sink.Errors);
+        var report = Assert.Single(sink.Reports);
+        Assert.Contains("[NextUnit] Test failed after 1 of 3 attempts.", report.Output!);
+    }
+
+    [Test]
+    public async Task PolicyFailure_ReportsTheAttemptsRunAsync()
+    {
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("retry.output.policy.failure")
+            .WithRetryPolicy(4, static () => new ThrowingRetryPolicy())
+            .WithMethod(static (_, _) => throw new InvalidOperationException("test boom"))
+            .Build();
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        var report = Assert.Single(sink.Reports);
+        Assert.Contains("[NextUnit] Test failed after 1 of 4 attempts.", report.Output!);
+    }
+
+    [Test]
+    public async Task PassingRetriedTest_HasNoAttemptSummaryAsync()
+    {
+        var attempts = 0;
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("retry.output.pass")
+            .WithRetry(3, delayMs: 0)
+            .WithMethod((_, _) =>
+            {
+                if (Interlocked.Increment(ref attempts) == 1)
+                {
+                    throw new InvalidOperationException("transient");
+                }
+
+                return Task.CompletedTask;
+            })
+            .Build();
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        // The summary reports a failure, so a test that recovered must not carry one.
+        Assert.Single(sink.Passed);
+        var report = Assert.Single(sink.Reports);
+        Assert.False(
+            (report.Output ?? "").Contains("[NextUnit] Test failed after", StringComparison.Ordinal),
+            "A test that eventually passed must not be described as failed.");
+    }
+
+    [Test]
+    public async Task RunCancelledWhileThePolicyDecides_DoesNotRetryOrReportAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var attempts = 0;
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("retry.policy.cancel.during")
+            .Serial()
+            .WithRetryPolicy(
+                3,
+                () => new DelegatingRetryPolicy(_ =>
+                {
+                    // The policy answers "retry" but the run ends while it is deciding. Its own answer
+                    // must not outrank the cancellation and start another attempt on a dead token.
+                    cts.Cancel();
+                    return true;
+                }))
+            .WithMethod((_, _) =>
+            {
+                Interlocked.Increment(ref attempts);
+                throw new InvalidOperationException("test boom");
+            })
+            .Build();
+
+        var sink = new RecordingSink();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
+
+        Assert.Equal(1, attempts);
+        Assert.Empty(sink.Errors);
+    }
+
+    [Test]
     public async Task FailureWithoutRetry_HasNoAttemptSummaryAsync()
     {
         var test = TestCaseDescriptorBuilder

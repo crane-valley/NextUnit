@@ -619,6 +619,9 @@ before answering. Rules worth knowing:
 - The policy type needs a public parameterless constructor. The `new()` constraint on
   `[Retry<TPolicy>]` makes the compiler enforce that, and the generator emits a direct constructor
   call so policies work under Native AOT without reflection.
+- Because the constructor call is direct, the policy must be visible from the generated registry:
+  `internal` or `public`, and not nested inside a private or protected scope. A policy that is not is
+  reported as `NU0016`.
 - Applying both `[Retry]` and `[Retry<TPolicy>]` to the same method or class is reported as `NU0015`.
 
 ### Observing Attempts
@@ -641,8 +644,11 @@ When a retried test ultimately fails, its output ends with a line recording how 
 [NextUnit] Test failed after 2 of 5 attempts.
 ```
 
-Attempts run, not attempts budgeted, so this shows when a policy stopped the sequence early. NextUnit
-keeps no separate retry statistics; the attempt count reaches you through the ordinary test result.
+Attempts run, not attempts budgeted, so this shows when a policy stopped the sequence early. Every
+way a retried test can end in failure carries it: an exhausted budget, a policy that declined, a
+policy that threw, a timeout, and a failing `Dispose`. A test that eventually passed does not, and
+neither does a runtime skip. NextUnit keeps no separate retry statistics; the attempt count reaches
+you through the ordinary test result.
 
 Each attempt is a complete test execution. A new test class instance is created and disposed, the
 test-scoped `[Before]` hooks run again, and the context is rebuilt, so `StateBag` entries, captured
