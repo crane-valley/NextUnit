@@ -43,6 +43,10 @@ jobs:
       # Whether a record exists to hand to publish-history. Read from the file rather than inferred from
       # the job's conclusion, because a confirmed regression fails the job after writing one.
       history-record-produced: ${{ steps.history-record.outputs.produced }}
+      # The attempt that actually produced the artifacts. "Re-run failed jobs" bumps run_attempt without
+      # re-running this job, so a consumer that recomputed the attempt itself would look for an artifact
+      # nobody uploaded. Reading it from here pins the consumer to the producer.
+      artifact-attempt: ${{ github.run_attempt }}
 
     steps:
       - name: Checkout code
@@ -216,7 +220,7 @@ jobs:
       - name: Download the history record
         uses: actions/download-artifact@v8
         with:
-          name: speed-comparison-history-${{ github.run_attempt }}
+          name: speed-comparison-history-${{ needs.benchmark.outputs.artifact-attempt }}
           path: history-record
         # Tolerated only when the benchmark never got far enough to write a record. Once one exists,
         # losing it here would leave a gap in the history and silently break the confirmation chain,
@@ -290,7 +294,7 @@ jobs:
       - name: Download results
         uses: actions/download-artifact@v8
         with:
-          name: speed-comparison-results-${{ github.run_attempt }}
+          name: speed-comparison-results-${{ needs.benchmark.outputs.artifact-attempt }}
           path: results
         continue-on-error: true
 
