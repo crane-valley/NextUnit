@@ -217,8 +217,11 @@ function Get-TargetVulnerability {
             throw "dotnet restore failed for $Path$suffix with exit code $LASTEXITCODE."
         }
 
+        # --no-restore matters beyond saving a second restore: the .NET 10 listing restores on its
+        # own otherwise, with default properties, which would overwrite the assets file the property
+        # scoped restore above just produced and silently scan the wrong graph.
         Write-Host "Listing vulnerable packages for $Label target $Path$suffix"
-        $output = & dotnet list $Path package --vulnerable --include-transitive --format json --output-version 1
+        $output = & dotnet list $Path package --vulnerable --include-transitive --no-restore --format json --output-version 1
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet list package failed for $Path$suffix with exit code $LASTEXITCODE."
         }
