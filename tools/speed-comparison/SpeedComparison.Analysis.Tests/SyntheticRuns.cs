@@ -109,7 +109,7 @@ internal static class SyntheticRuns
             records.Add(Record(
                 samples,
                 runId: $"baseline-{index}",
-                generatedAtUtc: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddDays(7 * index),
+                generatedAtUtc: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddDays(7.0 * index),
                 verdict: verdict));
         }
 

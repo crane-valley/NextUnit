@@ -43,19 +43,9 @@ public static class RegressionReport
         builder.AppendLine();
         builder.AppendLine("| Participant | Normalized median | Baseline | Change | Robust spread | p | Verdict |");
         builder.AppendLine("| ----------- | ----------------: | -------: | -----: | ------------: | -: | ------- |");
-        foreach (var assessment in result.Assessments)
+        foreach (var row in result.Assessments.Select(FormatRow))
         {
-            string[] cells =
-            [
-                assessment.Framework,
-                Invariant($"{assessment.CurrentNormalizedMedian:F4}"),
-                FormatBaseline(assessment),
-                FormatChange(assessment),
-                FormatSpread(assessment),
-                FormatProbability(assessment),
-                Describe(assessment.Verdict)
-            ];
-            builder.AppendLine($"| {string.Join(" | ", cells)} |");
+            builder.AppendLine(row);
         }
 
         builder.AppendLine();
@@ -111,6 +101,21 @@ public static class RegressionReport
         }
 
         return "No regression.";
+    }
+
+    private static string FormatRow(ParticipantAssessment assessment)
+    {
+        string[] cells =
+        [
+            assessment.Framework,
+            Invariant($"{assessment.CurrentNormalizedMedian:F4}"),
+            FormatBaseline(assessment),
+            FormatChange(assessment),
+            FormatSpread(assessment),
+            FormatProbability(assessment),
+            Describe(assessment.Verdict)
+        ];
+        return $"| {string.Join(" | ", cells)} |";
     }
 
     private static string Join(IEnumerable<ParticipantAssessment> assessments, RegressionVerdict verdict)

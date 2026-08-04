@@ -224,6 +224,40 @@ public class RegressionGateTests
     }
 
     [Test]
+    public void ARecordCarryingANonPositiveSampleIsDropped()
+    {
+        // The history is a git branch, so a hand-edited or truncated record can carry a sample no
+        // measurement would produce. It must not reach the statistics, where it would poison the divisor.
+        var history = SyntheticRuns.Baseline(10);
+        history[^1] = WithSubjectSamples(history[^1], [0.0, 0.0, 0.0]);
+
+        var result = RegressionGate.Evaluate(
+            SyntheticRuns.Result(SyntheticRuns.Samples(seed: 100)),
+            history,
+            GateSeries.Baseline);
+
+        Assert.Equal(9, Subject(result).BaselineRunCount);
+        Assert.Equal(RegressionVerdict.Stable, Subject(result).Verdict);
+    }
+
+    [Test]
+    public void ABaselineOfOnlyCorruptRecordsLeavesTheGateDisarmed()
+    {
+        var history = SyntheticRuns.Baseline(10)
+            .Select(record => WithSubjectSamples(record, [0.0, 0.0, 0.0]))
+            .ToList();
+
+        var result = RegressionGate.Evaluate(
+            SyntheticRuns.Result(SyntheticRuns.Samples(seed: 100, subjectMilliseconds: 300.0 * 1.25)),
+            history,
+            GateSeries.Baseline);
+
+        Assert.Equal(RegressionVerdict.InsufficientBaseline, Subject(result).Verdict);
+        Assert.Equal(0, Subject(result).RelativeChange, 1e-12);
+        Assert.False(result.HasConfirmedRegression);
+    }
+
+    [Test]
     public void AReferenceFrameworkUpgradeIsNamedInTheResult()
     {
         var history = SyntheticRuns.Baseline(10);
@@ -264,6 +298,15 @@ public class RegressionGateTests
 
     private static ParticipantAssessment Subject(GateResult result)
         => result.Assessments.Single(assessment => assessment.Framework == SyntheticRuns.Subject);
+
+    private static HistoryRecord WithSubjectSamples(HistoryRecord record, double[] samples)
+        => record with
+        {
+            Participants = [.. record.Participants.Select(participant =>
+                participant.Framework == SyntheticRuns.Subject
+                    ? participant with { SamplesMilliseconds = samples }
+                    : participant)]
+        };
 
     private static HistoryRecord WithoutSubject(HistoryRecord record)
         => record with

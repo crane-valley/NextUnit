@@ -247,19 +247,16 @@ public static class RegressionGate
         // The floor is measured against run medians, which are independent observations, while the rank
         // test pools the samples inside those runs. Mixing the two on purpose: the floor answers "is this
         // beyond normal run-to-run movement" and the rank test answers "is the shift consistent".
-        var runMedians = new List<double>(baseline.Count);
-        var pooled = new List<double>(baseline.Count * Math.Max(current.Length, 1));
-        foreach (var record in baseline)
-        {
-            var recorded = NormalizeRecord(record);
-            if (!recorded.TryGetValue(framework, out var values) || values.Length == 0)
-            {
-                continue;
-            }
-
-            runMedians.Add(RobustStatistics.Median(values));
-            pooled.AddRange(values);
-        }
+        // The history is a git branch, so a hand-edited or truncated record can carry a zero or negative
+        // sample that no measurement would produce. Such a record is dropped here rather than defended
+        // against later: it is what keeps every value below strictly positive, and therefore keeps the
+        // baseline median a safe divisor.
+        var usable = baseline
+            .Select(record => NormalizeRecord(record).GetValueOrDefault(framework, []))
+            .Where(values => values.Length > 0 && Array.TrueForAll(values, value => value > 0))
+            .ToArray();
+        var runMedians = Array.ConvertAll(usable, RobustStatistics.Median);
+        var pooled = usable.SelectMany(values => values).ToArray();
 
         // Confirmation reads the immediately preceding run and no further back. Gated participants are
         // deliberately not part of the baseline key, so one can be removed and later restored; carrying a
@@ -271,7 +268,7 @@ public static class RegressionGate
                 .FirstOrDefault(participant => participant.Framework == framework)?.Verdict
                 ?? RegressionVerdict.NotEvaluated;
 
-        if (runMedians.Count < MinimumBaselineRuns || current.Length == 0)
+        if (runMedians.Length < MinimumBaselineRuns || current.Length == 0)
         {
             return new ParticipantAssessment
             {
@@ -283,15 +280,17 @@ public static class RegressionGate
                 BaselineRobustDeviation = 0,
                 RegressionProbability = 1,
                 ImprovementProbability = 1,
-                BaselineRunCount = runMedians.Count,
+                BaselineRunCount = runMedians.Length,
                 PreviousVerdict = previousVerdict
             };
         }
 
         var baselineMedian = RobustStatistics.Median(runMedians);
         var robustDeviation = RobustStatistics.RobustStandardDeviation(runMedians);
+        // Safe divisor: every sample behind runMedians was filtered to be strictly positive above, so the
+        // median of them is strictly positive too.
         var relativeChange = (currentMedian - baselineMedian) / baselineMedian;
-        var comparable = current.Length >= MinimumComparableSamples && pooled.Count >= MinimumComparableSamples;
+        var comparable = current.Length >= MinimumComparableSamples && pooled.Length >= MinimumComparableSamples;
         var regressionProbability = comparable ? RobustStatistics.UpperTailProbability(current, pooled) : 1;
         var improvementProbability = comparable ? RobustStatistics.UpperTailProbability(pooled, current) : 1;
         var floor = RobustDeviationMultiple * robustDeviation;
@@ -325,7 +324,7 @@ public static class RegressionGate
             BaselineRobustDeviation = robustDeviation,
             RegressionProbability = regressionProbability,
             ImprovementProbability = improvementProbability,
-            BaselineRunCount = runMedians.Count,
+            BaselineRunCount = runMedians.Length,
             PreviousVerdict = previousVerdict
         };
     }
