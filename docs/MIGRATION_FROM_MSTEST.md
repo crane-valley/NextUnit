@@ -36,7 +36,7 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[ExpectedException]` | `Assert.Throws<T>` | |
 | `[Retry]` | `[Retry]`, `[Retry<TPolicy>]` | |
 | `[DoNotParallelize]` | `[NotInParallel]` | |
-| `[Parallelize(Workers = n)]` | `[ParallelLimit(n)]` | Per class or method, not per assembly |
+| `[Parallelize(Workers = n)]` | `[ParallelLimit(n)]` | Applies at assembly, class, or method level |
 | `[DescriptionAttribute]` | `[DisplayName]` | Changes the reported name |
 | `Assert.AreEqual` | `Assert.Equal` | Same argument order |
 | `StringAssert.*` | `Assert.StartsWith`, `EndsWith`, `Contains` | |
@@ -447,7 +447,7 @@ MSTest splits assertions across `Assert`, `StringAssert`, and `CollectionAssert`
 | `Assert.AreSame(expected, actual)` | `Assert.Same(expected, actual)` |
 | `Assert.AreNotSame(other, actual)` | `Assert.NotSame(other, actual)` |
 | `Assert.ThrowsException<T>(() => ...)` | `Assert.Throws<T>(() => ...)` |
-| `Assert.ThrowsExceptionAsync<T>(...)` | `Assert.ThrowsAsync<T>(...)` |
+| `Assert.ThrowsExceptionAsync<T>(...)` | `await Assert.ThrowsAsync<T>(...)` |
 | `Assert.Fail(message)` | `Assert.Fail(message)` |
 | `Assert.Inconclusive(reason)` | `Assert.Skip(reason)` |
 | `StringAssert.StartsWith(text, prefix)` | `Assert.StartsWith(prefix, text)` |
@@ -463,7 +463,10 @@ and NextUnit passes the expected value first. That reversal still compiles, so i
 watch for during a bulk rewrite.
 
 `[ExpectedException]` has no equivalent, because it passes whenever the exception escapes anywhere in
-the method. Assert on the call that should throw, and use the returned exception for further checks:
+the method. Assert on the call that should throw, and use the returned exception for further checks.
+The async form returns a `Task<TException>` rather than the exception itself, so it has to be
+awaited: an un-awaited call never observes the failure, and the test passes whatever the delegate
+does.
 
 ```csharp
 using NextUnit;
@@ -474,6 +477,18 @@ public class ParsingTests
     public void RejectsNonNumericInput()
     {
         var error = Assert.Throws<FormatException>(() => int.Parse("abc"));
+        Assert.Contains("abc", error.Message);
+    }
+
+    [Test]
+    public async Task RejectsNonNumericInputAsync()
+    {
+        var error = await Assert.ThrowsAsync<FormatException>(async () =>
+        {
+            await Task.Yield();
+            int.Parse("abc");
+        });
+
         Assert.Contains("abc", error.Message);
     }
 }
@@ -580,6 +595,9 @@ public class GroupedTests
 
 `[NotInParallel]` is the equivalent of `[DoNotParallelize]`, and it also accepts constraint keys, so
 classes that share one resource can exclude each other without serializing the whole run.
+`[ParallelLimit]` and `[Timeout]` also apply at assembly level, so an assembly-wide
+`[Parallelize(Workers = 4)]` becomes `[assembly: ParallelLimit(4)]` rather than the same attribute
+repeated on every class.
 
 MSTest has no built-in ordering. NextUnit expresses order as a dependency or a priority:
 

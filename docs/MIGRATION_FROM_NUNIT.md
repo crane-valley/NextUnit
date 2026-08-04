@@ -41,7 +41,7 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[Order]` | `[ExecutionPriority]` | Higher runs first, the opposite of `[Order]` |
 | `[Parallelizable]` | default behavior | |
 | `[NonParallelizable]` | `[NotInParallel]` | |
-| `[LevelOfParallelism]` | `[ParallelLimit]` | Per class or method, not per assembly |
+| `[LevelOfParallelism]` | `[ParallelLimit]` | Applies at assembly, class, or method level |
 | `[SetCulture]` | `[Culture]` | |
 | `[SetUICulture]` | `[UICulture]` | |
 | `[Culture]` (filter) | none | NUnit's `[Culture]` selects tests; NextUnit's sets one |
@@ -464,14 +464,16 @@ expected value.
 | `Assert.That(text, Does.StartWith(prefix))` | `Assert.StartsWith(prefix, text)` |
 | `Assert.That(text, Does.Contain(part))` | `Assert.Contains(part, text)` |
 | `Assert.Throws<T>(() => ...)` | `Assert.Throws<T>(() => ...)` |
-| `Assert.ThrowsAsync<T>(async () => ...)` | `Assert.ThrowsAsync<T>(async () => ...)` |
+| `Assert.ThrowsAsync<T>(async () => ...)` | `await Assert.ThrowsAsync<T>(async () => ...)` |
 | `Assert.Fail(message)` | `Assert.Fail(message)` |
 | `Assert.Ignore(reason)` | `Assert.Skip(reason)` |
 
 The classic NUnit forms -- `Assert.AreEqual`, `Assert.IsTrue`, `Assert.IsNull` -- keep their argument
 order, so those rewrites are pure renames.
 
-`Assert.Throws<T>` returns the exception, which is how you assert on its message:
+`Assert.Throws<T>` returns the exception, which is how you assert on its message. The async form
+returns a `Task<TException>` rather than the exception itself, so it has to be awaited: an
+un-awaited call never observes the failure, and the test passes whatever the delegate does.
 
 ```csharp
 using NextUnit;
@@ -482,6 +484,18 @@ public class ParsingTests
     public void RejectsNonNumericInput()
     {
         var error = Assert.Throws<FormatException>(() => int.Parse("abc"));
+        Assert.Contains("abc", error.Message);
+    }
+
+    [Test]
+    public async Task RejectsNonNumericInputAsync()
+    {
+        var error = await Assert.ThrowsAsync<FormatException>(async () =>
+        {
+            await Task.Yield();
+            int.Parse("abc");
+        });
+
         Assert.Contains("abc", error.Message);
     }
 }
@@ -586,7 +600,9 @@ public class GroupedTests
 ```
 
 `[NotInParallel]` also accepts constraint keys, so classes that share one resource can exclude each
-other without serializing the whole run.
+other without serializing the whole run. `[ParallelLimit]` and `[Timeout]` also apply at assembly
+level, so an assembly-wide `[LevelOfParallelism(4)]` becomes `[assembly: ParallelLimit(4)]` rather
+than the same attribute repeated on every class.
 
 Ordering is expressed as a dependency or a priority rather than an index.
 

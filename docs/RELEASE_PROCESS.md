@@ -107,7 +107,15 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
    - Location: `/docs/MIGRATION_FROM_XUNIT.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in examples
 
-3. **samples/ClassLibrary.Sample.Tests/README.md**
+3. **docs/MIGRATION_FROM_NUNIT.md**
+   - Location: `/docs/MIGRATION_FROM_NUNIT.md`
+   - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the "After" project file
+
+4. **docs/MIGRATION_FROM_MSTEST.md**
+   - Location: `/docs/MIGRATION_FROM_MSTEST.md`
+   - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the "After" project file
+
+5. **samples/ClassLibrary.Sample.Tests/README.md**
    - Location: `/samples/ClassLibrary.Sample.Tests/README.md`
    - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the standalone-project snippet
    - Easy to miss because the sample itself resolves versions through `Directory.Packages.props`;
@@ -151,9 +159,9 @@ git checkout -b release/vX.Y.Z main
 
 ### 2. Update All Version References
 
-Follow the Version Update Checklist above and update all ten files
+Follow the Version Update Checklist above and update all twelve files
 (two core version files, one template content file, four documentation files,
-three user documentation files).
+five user documentation files).
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -413,7 +421,7 @@ Investigate what other changes were made. Revert to previous version if needed.
 When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
-2. **Use the checklist**: Update all ten files/locations listed above
+2. **Use the checklist**: Update all twelve files/locations listed above
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
