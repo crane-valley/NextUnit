@@ -239,12 +239,60 @@ the test host has.
 
 ### Priority 2 — Make dependency findings actionable
 
-- [ ] Replace the non-blocking vulnerability scan with a check that fails for a newly introduced
+- [x] Replace the non-blocking vulnerability scan with a check that fails for a newly introduced
   known vulnerable direct or transitive package.
-- [ ] Support a narrow, reviewed, expiring allowlist for upstream vulnerabilities that cannot be
+- [x] Support a narrow, reviewed, expiring allowlist for upstream vulnerabilities that cannot be
   removed immediately.
 - Guardrail: keep Dependabot as the update mechanism; CodeQL and SBOM generation remain demand-triggered,
   not standing roadmap work.
+
+Delivered as `.github/scripts/check-dependency-vulnerabilities.ps1`, driven from two jobs. The
+`Security Scan` job on pull requests scans the head and the base revision with
+`dotnet list package --vulnerable --include-transitive` and fails only on what the base revision
+does not already resolve, so adding a vulnerable package fails while an advisory published against a
+package `main` already carries does not. The nightly `Vulnerability Scan` job runs the same script
+without a baseline and owns those existing findings. A finding is keyed by project, target
+framework, package, and advisory, so pulling a package that a test project already carries into a
+shipped project still counts as new; the resolved version is left out of the key so that a bump
+between two versions sharing one advisory is not reported as a regression.
+`.github/vulnerability-allowlist.txt` carries exceptions scoped to one advisory and one package,
+with an expiry date at most 90 days out and a reason; an expired entry stops suppressing, warns on
+pull requests, and fails the nightly, so it cannot rot and cannot block unrelated work. Both jobs
+also fail when the tree holds a `.csproj` that none of the scanned targets reach, so a project
+cannot escape the gate by staying out of the solution.
+
+NuGet audit findings moved from errors to warnings in `Directory.Build.props` in the same change.
+They were already blocking, but as restore errors across every project: on the day an advisory
+landed on any resolved package, every build and every pull request broke, including work that
+touched no dependency. The two jobs replace that with a failure aimed at whoever introduced the
+package.
+
+`actions/dependency-review-action` was the obvious candidate and does not fit this repository.
+GitHub resolves transitive NuGet dependencies only through automatic dependency submission, which
+runs on default branch pushes, so a pull request head is parsed statically from the project files.
+Measured against this repository, a branch adding one package produced exactly one dependency graph
+entry, `Serilog.AspNetCore >= 0`: no transitive packages, and no resolved version, because central
+package management keeps versions in `Directory.Packages.props` rather than in the `.csproj`. A gate
+built on that would report almost nothing while looking like it worked.
+
+Three limits of the gate, surfaced by the Codex review of this change (2026-08-04) and left open
+because each needs a decision outside it:
+
+- [ ] Decide whether the `main` branch ruleset should require a review. A pull request supplies the
+  workflow, the script, and the allowlist that judge it, so a crafted pull request can weaken its own
+  `Security Scan` and still show it green. This is true of every check in the repository, not only
+  this one, and the fix is a repository setting rather than a code change: require an approval, or
+  require review of the last push.
+- [ ] Decide whether required status checks should be strict. `strict_required_status_checks_policy`
+  is off, so a pull request can merge on a `Security Scan` that ran before `main` moved. A vulnerable
+  resolution that only appears once two branches combine, such as a central version pin meeting a new
+  package reference, would not be seen until the nightly.
+- [ ] Decide whether the pull request gate should also sweep configuration-dependent package
+  references. `tools/speed-comparison/UnifiedTests` selects its test framework packages through
+  `ItemGroup Condition="'$(TestFramework)' == ...`, so a default restore resolves none of them. The
+  nightly scan covers all five values through the per-target property syntax; the gate does not,
+  because five more restores on both sides of the diff would double its runtime for a benchmark
+  harness that ships nothing.
 
 ### Priority 2 — The release checklist misdescribes how `Directory.Packages.props` carries the version
 

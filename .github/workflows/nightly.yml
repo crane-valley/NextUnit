@@ -231,13 +231,44 @@ jobs:
         echo "General TODOs:"
         grep -r "TODO[^:]" src/ samples/ || echo "None found"
 
+  # Standing vulnerability scan
+  #
+  # The pull request gate fails only on what a pull request introduces, so packages already on main
+  # need a check that is not tied to a diff. This job is that check: it fails on every vulnerability
+  # the solution resolves unless an unexpired allowlist entry covers it, and it fails on an expired
+  # entry so that a dated exception cannot rot unnoticed. Failing here is deliberate, because a red
+  # nightly does not block pull requests that have nothing to do with the advisory.
+  vulnerability-scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: '10.0.x'
+
+    # The speed comparison project selects its packages through TestFramework conditions, so the
+    # default evaluation resolves only the NEXTUNIT set that the property defaults to. Restoring it
+    # once per remaining value is affordable here and not on the pull request path, which is why the
+    # gate leaves this to the nightly.
+    - name: Scan resolved packages for known vulnerabilities
+      run: >
+        pwsh -NoProfile -File .github/scripts/check-dependency-vulnerabilities.ps1
+        -Target 'NextUnit.slnx,tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj,tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj,tools/speed-comparison/UnifiedTests/UnifiedTests.csproj|TestFramework=TUNIT,tools/speed-comparison/UnifiedTests/UnifiedTests.csproj|TestFramework=XUNIT,tools/speed-comparison/UnifiedTests/UnifiedTests.csproj|TestFramework=NUNIT,tools/speed-comparison/UnifiedTests/UnifiedTests.csproj|TestFramework=MSTEST'
+        -Allowlist .github/vulnerability-allowlist.txt
+        -ExpiredEntryAction fail
+
   # Summary report
   nightly-summary:
     name: Nightly Build Summary
     runs-on: ubuntu-latest
-    needs: [multi-version-test, native-aot-test, performance-benchmark, memory-analysis, code-quality]
+    needs: [multi-version-test, native-aot-test, performance-benchmark, memory-analysis, code-quality, vulnerability-scan]
     if: always()
-    
+
     steps:
     - name: Generate summary
       run: |
@@ -247,5 +278,6 @@ jobs:
         echo "Performance: ${{ needs.performance-benchmark.result }}"
         echo "Memory: ${{ needs.memory-analysis.result }}"
         echo "Code quality: ${{ needs.code-quality.result }}"
+        echo "Vulnerability scan: ${{ needs.vulnerability-scan.result }}"
         echo ""
         echo "Timestamp: $(date -u)"
