@@ -74,9 +74,11 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
    - Move every rule listed in `AnalyzerReleases.Unshipped.md` into a new
      `## Release X.Y.Z` section at the end of `AnalyzerReleases.Shipped.md`, then reset the
      unshipped file to its empty state, the single line `; No unshipped rule changes.`
-   - Skip this when the unshipped file is already empty, which is the case for a release that
-     adds no diagnostics. Only `1.9.0`, `1.16.0`, and `1.19.0` added rules, so
-     `AnalyzerReleases.Shipped.md` has a section for those releases and no others.
+   - Skip this when the unshipped file lists no rules, which is the case for a release that adds
+     no diagnostics. Note that the empty state is not a zero-byte file but that single marker
+     line, so test for rule entries rather than for emptiness. Only `1.9.0`, `1.16.0`, and
+     `1.19.0` added rules, so `AnalyzerReleases.Shipped.md` has a section for those releases and
+     no others.
    - These two files are the ledger recording which release first shipped each `NU00xx`
      diagnostic, so leaving a rule unshipped after publishing it loses that provenance
      permanently. `RS2008` is satisfied by an entry in either file and therefore does not catch
@@ -180,7 +182,7 @@ git checkout -b release/vX.Y.Z main
 Follow the Version Update Checklist above and update all twelve version-reference files
 (two core version files, one template content file, four documentation files,
 five user documentation files), plus the two analyzer release files whenever
-`AnalyzerReleases.Unshipped.md` is not already empty.
+`AnalyzerReleases.Unshipped.md` lists any rules.
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -441,7 +443,7 @@ When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
 2. **Use the checklist**: Update all twelve version-reference files/locations listed above, and
-   promote the analyzer release files when the unshipped ledger is not empty
+   promote the analyzer release files when the unshipped ledger lists any rules
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
