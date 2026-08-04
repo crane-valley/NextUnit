@@ -273,7 +273,9 @@ function Get-TargetVulnerability {
 
                 foreach ($vulnerability in (Get-OptionalArray -InputObject $package -Name 'vulnerabilities')) {
                     $url = [string](Get-OptionalProperty -InputObject $vulnerability -Name 'advisoryurl')
-                    $advisory = ($url -split '/')[-1].ToLowerInvariant()
+                    # TrimEnd because a trailing slash would leave an empty identifier, which would
+                    # silently collapse two advisories on one package into a single key.
+                    $advisory = ($url.TrimEnd('/') -split '/')[-1].ToLowerInvariant()
 
                     $found.Add([pscustomobject]@{
                             Project   = $projectPath
