@@ -1,1 +1,5 @@
 #nullable enable
+NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer
+NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.ConflictingRetryAttributeAnalyzer() -> void
+override NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>

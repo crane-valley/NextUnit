@@ -703,7 +703,8 @@ public sealed class TestExecutionEngine
     private static TestContextCapture CreateTestContext(
         TestCaseDescriptor testCase,
         CancellationToken effectiveToken,
-        TestOutputCapture testOutput)
+        TestOutputCapture testOutput,
+        int retryAttempt)
     {
         return new TestContextCapture(
             testName: testCase.MethodName,
@@ -717,6 +718,7 @@ public sealed class TestExecutionEngine
             arguments: testCase.Arguments,
             timeoutMs: testCase.TimeoutMs,
             repeatIndex: testCase.RepeatIndex,
+            retryAttempt: retryAttempt,
             cancellationToken: effectiveToken,
             output: testOutput);
     }
@@ -732,6 +734,11 @@ public sealed class TestExecutionEngine
         var maxAttempts = testCase.Retry.Count ?? 1;
         var retryDelayMs = testCase.Retry.DelayMs;
 
+        // Created on the first decision and reused for the rest of this test, so a policy sees the
+        // attempts of one test case as one sequence. Never shared with another test case: the field
+        // would then have to be synchronized, and a policy's state would leak across tests.
+        IRetryPolicy? policy = null;
+
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             // A fresh timeout source per attempt makes [Timeout] a per-attempt budget; a single
@@ -745,7 +752,7 @@ public sealed class TestExecutionEngine
             var effectiveToken = linkedCts?.Token ?? cancellationToken;
 
             var testOutput = new TestOutputCapture();
-            var testContext = CreateTestContext(testCase, effectiveToken, testOutput);
+            var testContext = CreateTestContext(testCase, effectiveToken, testOutput, attempt);
             TestContext.SetCurrent(testContext);
 
             var attemptResult = await ExecuteSingleAttemptAsync(
@@ -761,32 +768,146 @@ public sealed class TestExecutionEngine
             // and later attempts would otherwise start on the already-cancelled token.
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Non-terminal failure - check if we should retry
+            // Exception is guaranteed non-null because AttemptResult.Retriable(Exception) requires non-null parameter
+            var failure = attemptResult.Exception
+                ?? throw new InvalidOperationException("Retriable attempt result must have a non-null exception.");
+
+            // Non-terminal failure - check if we should retry. The policy is asked only when a further
+            // attempt actually exists: after the last one the answer cannot change anything, and asking
+            // anyway would let a throwing policy turn an ordinary failure into an aggregate.
             if (attempt < maxAttempts)
             {
-                // Wait before retry if delay is specified
-                if (retryDelayMs > 0)
+                var decision = await EvaluateRetryDecisionAsync(
+                    testCase.Retry.PolicyFactory,
+                    policy,
+                    failure,
+                    testContext,
+                    attempt,
+                    maxAttempts,
+                    cancellationToken).ConfigureAwait(false);
+                policy = decision.Policy;
+
+                if (decision.PolicyFailure is not null)
                 {
-                    await Task.Delay(retryDelayMs, cancellationToken).ConfigureAwait(false);
+                    // A policy that failed decided nothing, so retrying would be guessing. Report both,
+                    // the test's own failure first so the policy failure cannot mask it.
+                    await ReportFinalExceptionAsync(
+                        testCase,
+                        sink,
+                        new AggregateException(
+                            "The test failed and the retry policy threw while deciding whether to retry.",
+                            failure,
+                            decision.PolicyFailure),
+                        testOutput.GetOutput(),
+                        testContext.Artifacts).ConfigureAwait(false);
+                    return;
+                }
+
+                if (decision.ShouldRetry)
+                {
+                    // Wait before retry if delay is specified
+                    if (retryDelayMs > 0)
+                    {
+                        await Task.Delay(retryDelayMs, cancellationToken).ConfigureAwait(false);
+                    }
+
+                    continue;
                 }
             }
-            else
-            {
-                // Final attempt - report the exception
-                // Exception is guaranteed non-null because AttemptResult.Retriable(Exception) requires non-null parameter
-                if (attemptResult.Exception is null)
-                {
-                    throw new InvalidOperationException("Retriable attempt result must have a non-null exception.");
-                }
-                var artifacts = TestContext.Current?.Artifacts;
-                await ReportFinalExceptionAsync(testCase, sink, attemptResult.Exception, testOutput.GetOutput(), artifacts).ConfigureAwait(false);
-                return;
-            }
+
+            // Attempts are spent, or the policy declined a further one: report the failure.
+            AppendAttemptSummary(testOutput, attempt, maxAttempts);
+            await ReportFinalExceptionAsync(
+                testCase, sink, failure, testOutput.GetOutput(), testContext.Artifacts).ConfigureAwait(false);
+            return;
         }
 
         // Reaching this point indicates a violation of the retry logic invariants and should be impossible.
         // Throwing here makes such logic errors immediately visible during development.
         throw new InvalidOperationException("Unreachable code path in ExecuteWithRetryAsync: no terminal attempt result was produced.");
+    }
+
+    /// <summary>
+    /// Asks the configured <see cref="IRetryPolicy"/> whether the failed attempt should run again.
+    /// </summary>
+    /// <remarks>
+    /// With no policy configured the answer is an unconditional yes, which is what
+    /// <see cref="RetryAttribute"/> has always meant: every retriable failure is retried until the
+    /// attempt budget is spent.
+    /// </remarks>
+    private static async Task<RetryDecision> EvaluateRetryDecisionAsync(
+        RetryPolicyFactoryDelegate? policyFactory,
+        IRetryPolicy? policy,
+        Exception failure,
+        ITestContext testContext,
+        int attempt,
+        int maxAttempts,
+        CancellationToken cancellationToken)
+    {
+        if (policyFactory is null)
+        {
+            return new RetryDecision { ShouldRetry = true };
+        }
+
+        try
+        {
+            policy ??= policyFactory()
+                ?? throw new InvalidOperationException("The retry policy factory returned null.");
+
+            var shouldRetry = await policy
+                .ShouldRetryAsync(new RetryContext(failure, testContext, attempt, maxAttempts, cancellationToken))
+                .ConfigureAwait(false);
+
+            return new RetryDecision { ShouldRetry = shouldRetry, Policy = policy };
+        }
+        catch (OperationCanceledException ex) when (IsRunCancellation(ex, cancellationToken))
+        {
+            // The run ending is not the policy failing; let it propagate as cancellation so the
+            // adapters treat it the same way they treat a cancelled attempt.
+            throw;
+        }
+        catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+        {
+            // An OCE carrying a foreign token lands here on purpose: it is the policy's own
+            // cancellation, and reporting it as run cancellation would make adapters swallow it.
+            return new RetryDecision { PolicyFailure = ex, Policy = policy };
+        }
+    }
+
+    /// <summary>
+    /// Records how many attempts a retried test consumed, in the output reported with the failure.
+    /// </summary>
+    /// <remarks>
+    /// The test output is the reporting channel because it already reaches both adapters and the
+    /// user's console; a dedicated result field would be an adapter-visible change, and a separate
+    /// statistics store is exactly what the retry design rules out. Written only when retry is
+    /// configured, since "after 1 of 1 attempts" on every ordinary failure is noise.
+    /// </remarks>
+    private static void AppendAttemptSummary(TestOutputCapture testOutput, int attempt, int maxAttempts)
+    {
+        if (maxAttempts <= 1)
+        {
+            return;
+        }
+
+        testOutput.WriteLine($"[NextUnit] Test failed after {attempt} of {maxAttempts} attempts.");
+    }
+
+    /// <summary>
+    /// The outcome of asking the retry policy about one failed attempt.
+    /// </summary>
+    private readonly struct RetryDecision
+    {
+        /// <summary>Whether another attempt should run.</summary>
+        public bool ShouldRetry { get; init; }
+
+        /// <summary>The exception the policy threw, or null when it answered.</summary>
+        public Exception? PolicyFailure { get; init; }
+
+        /// <summary>
+        /// The policy instance, so the caller can reuse it for the remaining decisions of this test.
+        /// </summary>
+        public IRetryPolicy? Policy { get; init; }
     }
 
     /// <summary>

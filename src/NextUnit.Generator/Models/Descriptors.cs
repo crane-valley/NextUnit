@@ -37,6 +37,7 @@ internal sealed record TestMethodDescriptor
         int? timeoutMs,
         int? retryCount,
         int retryDelayMs,
+        string? retryPolicyTypeName,
         bool isFlaky,
         string? flakyReason,
         string? customDisplayName,
@@ -76,6 +77,7 @@ internal sealed record TestMethodDescriptor
         TimeoutMs = timeoutMs;
         RetryCount = retryCount;
         RetryDelayMs = retryDelayMs;
+        RetryPolicyTypeName = retryPolicyTypeName;
         IsFlaky = isFlaky;
         FlakyReason = flakyReason;
         CustomDisplayName = customDisplayName;
@@ -116,6 +118,7 @@ internal sealed record TestMethodDescriptor
     public int? TimeoutMs { get; }
     public int? RetryCount { get; }
     public int RetryDelayMs { get; }
+    public string? RetryPolicyTypeName { get; }
     public bool IsFlaky { get; }
     public string? FlakyReason { get; }
     public string? CustomDisplayName { get; }

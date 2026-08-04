@@ -85,6 +85,21 @@ internal sealed class TestCaseDescriptorBuilder
         return this;
     }
 
+    /// <summary>
+    /// Configures retry with the policy factory shape the generator emits for
+    /// <c>[Retry&lt;TPolicy&gt;]</c>.
+    /// </summary>
+    public TestCaseDescriptorBuilder WithRetryPolicy(int count, RetryPolicyFactoryDelegate policyFactory, int? delayMs = null)
+    {
+        _retry = new RetryInfo
+        {
+            Count = count,
+            DelayMs = delayMs ?? 0,
+            PolicyFactory = policyFactory
+        };
+        return this;
+    }
+
     public TestCaseDescriptorBuilder WithTimeout(int timeoutMs)
     {
         _timeoutMs = timeoutMs;

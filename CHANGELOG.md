@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Selective retry. `[Retry<TPolicy>(count)]` attaches an `IRetryPolicy` that is asked, after each
+  failed attempt that has a further attempt available, whether to run the test again. The decision is
+  asynchronous and receives the exception, the attempt's `ITestContext`, the one-based attempt number,
+  the total budget, and the run cancellation token. `[Retry(count)]` is unchanged and keeps retrying
+  every non-timeout, non-skip, non-cancellation failure, so no existing test behaves differently. The
+  generator emits a direct constructor call for the policy, which keeps the retry path free of
+  reflection under Native AOT, and the `new()` constraint makes the compiler reject a policy without a
+  public parameterless constructor.
+- `ITestContext.RetryAttempt` exposes the one-based number of the attempt currently running, as a
+  default interface member so an `ITestContext` implemented outside NextUnit still compiles. When a
+  retried test ultimately fails, its reported output ends with the attempts it actually ran
+  (`[NextUnit] Test failed after 2 of 5 attempts.`), which shows when a policy stopped the sequence
+  early. There is no separate retry statistics store; the count travels with the ordinary test result.
+- `NU0015` reports a method or class carrying both `[Retry]` and `[Retry<TPolicy>]`. The two are
+  distinct types, so the compiler's own duplicate-attribute check does not catch the combination even
+  though both declare the same attempt budget.
+
 ## [1.18.0] - 2026-07-26
 
 ### Added

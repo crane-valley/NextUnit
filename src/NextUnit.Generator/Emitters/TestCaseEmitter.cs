@@ -290,6 +290,16 @@ internal static class TestCaseEmitter
         writer.Indent();
         writer.WriteLine($"Count = {LiteralFormatter.NullableInt(test.RetryCount)},");
         writer.WriteLine($"DelayMs = {LiteralFormatter.Int(test.RetryDelayMs)},");
+
+        // Emitted only when [Retry<TPolicy>] supplies a policy, for the same reason as the
+        // asynchronous data source provider: the descriptor property already defaults to null, and
+        // writing it for every test would churn every existing snapshot baseline for no gain. The
+        // constructor call is direct, so nothing on this path reflects over the policy type.
+        if (!string.IsNullOrEmpty(test.RetryPolicyTypeName))
+        {
+            writer.WriteLine($"PolicyFactory = static () => new {test.RetryPolicyTypeName}(),");
+        }
+
         writer.WriteLine($"IsFlaky = {LiteralFormatter.Bool(test.IsFlaky)},");
         writer.WriteLine($"FlakyReason = {LiteralFormatter.NullableString(test.FlakyReason)}");
         writer.Unindent();

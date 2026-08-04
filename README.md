@@ -20,6 +20,8 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 - **Combined data sources** - `[Values]`, `[ValuesFromMember]`, `[ValuesFrom<T>]` with Cartesian product
 - **Class data source** - `[ClassDataSource<T>]` with shared instance support
 - **Category/Tag filtering** - `[Category]`, `[Tag]` with CLI and environment variable support
+- **Selective retry** - `[Retry(N)]`, or `[Retry<TPolicy>(N)]` with an async `IRetryPolicy` that decides
+  per exception; the attempt number is on `ITestContext` and the attempt count reaches the failure output
 - **Test dependencies** - `[DependsOn]` for ordered execution with `ProceedOnFailure` option
 - **Explicit tests** - `[Explicit]` to exclude from default runs
 - **Roslyn analyzers** - Compile-time test validation

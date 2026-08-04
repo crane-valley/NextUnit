@@ -166,4 +166,16 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "A [TestData] member may await, but the awaited value must be a collection of rows. Bare Task or ValueTask, and a task wrapping a non-collection, cannot be expanded into test cases.");
+
+    /// <summary>
+    /// NU0015: Conflicting [Retry] and [Retry&lt;TPolicy&gt;] attributes.
+    /// </summary>
+    public static readonly DiagnosticDescriptor ConflictingRetryAttributes = new(
+        id: "NU0015",
+        title: "Conflicting retry attributes",
+        messageFormat: "'{0}' has both [Retry] and [Retry<TPolicy>]; keep one, because only one attempt budget can apply",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "[Retry] and [Retry<TPolicy>] both declare the attempt budget and delay for the same target, so applying both leaves the retry policy and the budget ambiguous.");
 }

@@ -75,11 +75,19 @@ NextUnit's package is now self-contained, but users still have to create and edi
 The existing `[Retry]` retries every non-timeout, non-skip failure. TUnit and current NUnit allow
 retry decisions based on the exception, while MSTest exposes the current run count.
 
-- [ ] Provide an extensible, async retry decision API with the exception, test context, and current
-  attempt; keep today's retry-all behavior as the compatibility default.
-- [ ] Expose the one-based retry attempt in `ITestContext` and include total attempts in the final
-  failure output/result metadata.
-- [ ] Prove cleanup, output, artifacts, cancellation, and `StateBag` semantics across attempts.
+- [x] Provide an extensible, async retry decision API with the exception, test context, and current
+  attempt; keep today's retry-all behavior as the compatibility default. Shipped as `IRetryPolicy`
+  plus `RetryContext`, attached with `[Retry<TPolicy>(count)]`. A policy that throws is reported
+  alongside the test's own failure and stops further attempts, so an undecided policy is never read
+  as either answer. `[Retry(count)]` keeps retrying every retriable failure and allocates no policy.
+- [x] Expose the one-based retry attempt in `ITestContext` and include total attempts in the final
+  failure output/result metadata. `ITestContext.RetryAttempt` is a default interface member, so an
+  externally implemented context still compiles; the failure output of a retried test ends with the
+  attempts actually run, which is what distinguishes an exhausted budget from a policy stop.
+- [x] Prove cleanup, output, artifacts, cancellation, and `StateBag` semantics across attempts.
+  Behavioral tests pin one instance and one set of test-scoped hooks per attempt, per-attempt output
+  and artifacts with only the final attempt reported, a `StateBag` that starts empty every attempt,
+  and the two cancellation classifications at the policy decision point.
 - Guardrail: avoid a separate statistics store; reporting should flow through existing test results and
   Microsoft.Testing.Platform.
 

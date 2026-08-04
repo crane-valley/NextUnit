@@ -85,5 +85,6 @@ internal static class NextUnitAttributeNames
         public const string ClassDataSourceAttributePrefix = "ClassDataSourceAttribute`";
         public const string ValuesFromAttributePrefix = "ValuesFromAttribute`";
         public const string TestDataRow = "TestDataRow`1";
+        public const string RetryAttributeGeneric = "RetryAttribute`1";
     }
 }

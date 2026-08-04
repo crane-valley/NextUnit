@@ -478,13 +478,15 @@ internal static class AttributeHelper
         return null;
     }
 
-    public static (int? retryCount, int retryDelayMs, bool isFlaky, string? flakyReason) GetRetryInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    public static (int? retryCount, int retryDelayMs, string? retryPolicyTypeName, bool isFlaky, string? flakyReason) GetRetryInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
-        var (methodRetryCount, methodRetryDelayMs) = GetRetryFromSymbol(methodSymbol);
-        var (classRetryCount, classRetryDelayMs) = GetRetryFromSymbol(typeSymbol);
+        var methodRetry = GetRetryFromSymbol(methodSymbol);
+        var classRetry = GetRetryFromSymbol(typeSymbol);
 
-        var retryCount = methodRetryCount ?? classRetryCount;
-        var retryDelayMs = methodRetryCount.HasValue ? methodRetryDelayMs : classRetryDelayMs;
+        // The whole retry declaration is taken from one symbol rather than merged property by
+        // property: a method that restates the count must not silently inherit the class's policy,
+        // which is the same rule the delay has always followed.
+        var retry = methodRetry.Count.HasValue ? methodRetry : classRetry;
 
         var (methodIsFlaky, methodFlakyReason) = GetFlakyFromSymbol(methodSymbol);
         var (classIsFlaky, classFlakyReason) = GetFlakyFromSymbol(typeSymbol);
@@ -492,7 +494,7 @@ internal static class AttributeHelper
         var isFlaky = methodIsFlaky || classIsFlaky;
         var flakyReason = methodFlakyReason ?? classFlakyReason;
 
-        return (retryCount, retryDelayMs, isFlaky, flakyReason);
+        return (retry.Count, retry.DelayMs, retry.PolicyTypeName, isFlaky, flakyReason);
     }
 
     public static int? GetRepeatCount(IMethodSymbol methodSymbol)
@@ -613,16 +615,23 @@ internal static class AttributeHelper
         return new TestClassConstructorMetadata(kind, requiresTestOutput, requiresTestContext);
     }
 
-    private static (int? count, int delayMs) GetRetryFromSymbol(ISymbol symbol)
+    /// <summary>
+    /// Reads the retry declaration from one symbol, from either <c>[Retry]</c> or <c>[Retry&lt;TPolicy&gt;]</c>.
+    /// </summary>
+    /// <remarks>
+    /// The policy-bearing form wins when both are applied to the same symbol. That combination is
+    /// reported as <c>NU0015</c>, but the analyzer can be suppressed and the generator still has to
+    /// produce one deterministic answer; the more specific declaration is the one to honor.
+    /// </remarks>
+    private static RetryDeclaration GetRetryFromSymbol(ISymbol symbol)
     {
+        RetryDeclaration? plain = null;
+
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (!IsAttribute(attribute, NextUnitAttributeNames.Retry))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length == 0)
+            var policyTypeName = GetRetryPolicyTypeName(attribute);
+            var isRetry = policyTypeName is not null || IsAttribute(attribute, NextUnitAttributeNames.Retry);
+            if (!isRetry || attribute.ConstructorArguments.Length == 0)
             {
                 continue;
             }
@@ -632,10 +641,53 @@ internal static class AttributeHelper
                 ? attribute.ConstructorArguments[1].Value as int? ?? 0
                 : 0;
 
-            return (count, delayMs);
+            if (policyTypeName is not null)
+            {
+                return new RetryDeclaration(count, delayMs, policyTypeName);
+            }
+
+            plain ??= new RetryDeclaration(count, delayMs, policyTypeName: null);
         }
 
-        return (null, 0);
+        return plain ?? new RetryDeclaration(count: null, delayMs: 0, policyTypeName: null);
+    }
+
+    /// <summary>
+    /// Returns the policy type of a <c>[Retry&lt;TPolicy&gt;]</c> attribute, or null for any other attribute.
+    /// </summary>
+    private static string? GetRetryPolicyTypeName(AttributeData attribute)
+    {
+        if (attribute.AttributeClass is not { IsGenericType: true } attributeClass)
+        {
+            return null;
+        }
+
+        var constructedFrom = attributeClass.ConstructedFrom;
+        if (constructedFrom.MetadataName != NextUnitAttributeNames.MetadataNames.RetryAttributeGeneric ||
+            constructedFrom.ContainingNamespace.ToDisplayString() != NextUnitAttributeNames.Namespace)
+        {
+            return null;
+        }
+
+        return attributeClass.TypeArguments[0].ToDisplayString(FullyQualifiedTypeFormat);
+    }
+
+    /// <summary>
+    /// One symbol's retry declaration. A plain struct rather than a record: the generator targets
+    /// netstandard2.0, which has no <c>IsExternalInit</c> for the synthesized init accessors.
+    /// </summary>
+    private readonly struct RetryDeclaration
+    {
+        public RetryDeclaration(int? count, int delayMs, string? policyTypeName)
+        {
+            Count = count;
+            DelayMs = delayMs;
+            PolicyTypeName = policyTypeName;
+        }
+
+        public int? Count { get; }
+        public int DelayMs { get; }
+        public string? PolicyTypeName { get; }
     }
 
     private static (bool isFlaky, string? reason) GetFlakyFromSymbol(ISymbol symbol)
