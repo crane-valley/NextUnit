@@ -1,28 +1,39 @@
 #!/usr/bin/env pwsh
-# Fails when a solution resolves a NuGet package that carries a known vulnerability.
+# Fails when a project resolves a NuGet package that carries a known vulnerability.
 #
 # With -BaselinePath the check is a diff against another checkout of the same repository: only
 # vulnerabilities absent from that baseline fail. An advisory published against a package the base
 # branch already carries therefore does not turn unrelated pull requests red, while a pull request
-# that adds such a package, or moves a package into a vulnerable range, does fail.
+# that adds such a package, or pulls one into a project that did not have it, does fail.
 #
-# Without -BaselinePath the check covers everything the solution resolves. That is the standing
-# scan for packages already on the base branch.
+# Without -BaselinePath the check covers everything the targets resolve. That is the standing scan
+# for packages already on the base branch.
 #
-# Exit codes: 0 clean, 1 findings, 2 bad usage or a malformed allowlist.
+# Every .csproj under -Root has to be reachable from -Target, so a project that belongs to no
+# scanned solution fails the run instead of going unscanned.
+#
+# Exit codes: 0 clean, 1 findings, 2 bad usage, an unscanned project, or a malformed allowlist.
 
 [CmdletBinding()]
 param(
+    # Solutions or projects to scan, comma separated or as repeated values. Every .csproj under
+    # -Root must be covered by one of them.
     [Parameter(Mandatory = $true)]
-    [string] $Solution,
+    [string[]] $Target,
 
     [Parameter(Mandatory = $true)]
     [string] $Allowlist,
 
+    [string] $Root = '.',
+
     [string] $BaselinePath,
 
     [ValidateSet('warn', 'fail')]
-    [string] $ExpiredEntryAction = 'warn'
+    [string] $ExpiredEntryAction = 'warn',
+
+    # An exception is a short lived promise to come back to it, so a date far enough out to be
+    # indistinguishable from never is rejected outright.
+    [int] $MaxAllowlistDays = 90
 )
 
 Set-StrictMode -Version 2.0
@@ -34,6 +45,17 @@ $PSNativeCommandUseErrorActionPreference = $false
 
 $script:OnActions = $env:GITHUB_ACTIONS -eq 'true'
 $script:Summary = [System.Collections.Generic.List[string]]::new()
+
+# pwsh -File hands every argument through as a literal string, so a comma separated list arrives as
+# one element rather than as the array PowerShell would build for the same text inline.
+$targets = @($Target |
+    ForEach-Object { $_ -split ',' } |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { $_.Length -gt 0 })
+if ($targets.Count -eq 0) {
+    Write-Host 'No scan target was given.'
+    exit 2
+}
 
 # Progress and the report go to the host on purpose. Write-Output would land in the output stream
 # and mix into what the functions below return.
@@ -87,14 +109,24 @@ function Get-OptionalArray {
     return @($value)
 }
 
+function ConvertTo-RepositoryPath {
+    # Head and baseline live in different directories, so only a path relative to the checkout root
+    # is comparable between them.
+    param([string] $Path, [string] $RootPath)
+
+    return [System.IO.Path]::GetRelativePath($RootPath, $Path).Replace('\', '/')
+}
+
 function Read-AllowlistFile {
-    param([string] $Path)
+    param([string] $Path, [int] $MaxDays)
 
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         throw "Allowlist file not found: $Path"
     }
 
-    $pattern = '^(?<advisory>GHSA-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4})[ \t]+(?<expires>\d{4}-\d{2}-\d{2})[ \t]+(?<reason>\S.*)$'
+    $pattern = '^(?<advisory>GHSA-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4})[ \t]+' +
+               '(?<package>[A-Za-z0-9._-]+)[ \t]+(?<expires>\d{4}-\d{2}-\d{2})[ \t]+(?<reason>\S.*)$'
+    $today = [datetime]::UtcNow.Date
     $entries = [System.Collections.Generic.List[object]]::new()
     $seen = @{}
     $lineNumber = 0
@@ -108,14 +140,16 @@ function Read-AllowlistFile {
 
         $match = [regex]::Match($trimmed, $pattern)
         if (-not $match.Success) {
-            throw "${Path}:${lineNumber}: expected '<GHSA id> <YYYY-MM-DD> <reason>', got: $trimmed"
+            throw "${Path}:${lineNumber}: expected '<GHSA id> <package id> <YYYY-MM-DD> <reason>', got: $trimmed"
         }
 
-        $advisory = $match.Groups['advisory'].Value.ToLowerInvariant()
-        if ($seen.ContainsKey($advisory)) {
-            throw "${Path}:${lineNumber}: $($match.Groups['advisory'].Value) is already allowed on line $($seen[$advisory])."
+        $advisory = $match.Groups['advisory'].Value
+        $package = $match.Groups['package'].Value
+        $key = "$advisory|$package".ToLowerInvariant()
+        if ($seen.ContainsKey($key)) {
+            throw "${Path}:${lineNumber}: $advisory is already allowed for $package on line $($seen[$key])."
         }
-        $seen[$advisory] = $lineNumber
+        $seen[$key] = $lineNumber
 
         $expires = [datetime]::MinValue
         $text = $match.Groups['expires'].Value
@@ -129,34 +163,38 @@ function Read-AllowlistFile {
             throw "${Path}:${lineNumber}: '$text' is not a calendar date."
         }
 
+        if (($expires - $today).TotalDays -gt $MaxDays) {
+            throw "${Path}:${lineNumber}: $text is more than $MaxDays days away; an exception has to be short lived."
+        }
+
         $entries.Add([pscustomobject]@{
-                # Advisory is lower cased so that matching is case insensitive; Text keeps the
-                # identifier as written for anything that ends up in a message.
-                Advisory = $advisory
-                Text     = $match.Groups['advisory'].Value
-                Expires  = $expires
-                Reason   = $match.Groups['reason'].Value
-                Line     = $lineNumber
+                # Key is lower cased so that matching is case insensitive; Text keeps the entry as
+                # written for anything that ends up in a message.
+                Key     = $key
+                Text    = "$advisory $package"
+                Expires = $expires
+                Reason  = $match.Groups['reason'].Value
+                Line    = $lineNumber
             })
     }
 
     return $entries.ToArray()
 }
 
-function Get-SolutionVulnerability {
-    param([string] $Path, [string] $Label)
+function Get-TargetVulnerability {
+    param([string] $Path, [string] $RootPath, [string] $Label)
 
     if (-not (Test-Path -LiteralPath $Path)) {
-        throw "$Label not found: $Path"
+        throw "$Label target not found: $Path"
     }
 
-    Write-Host "Restoring $Label ($Path)"
+    Write-Host "Restoring $Label target $Path"
     & dotnet restore $Path | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet restore failed for $Path with exit code $LASTEXITCODE."
     }
 
-    Write-Host "Listing vulnerable packages for $Label"
+    Write-Host "Listing vulnerable packages for $Label target $Path"
     $output = & dotnet list $Path package --vulnerable --include-transitive --format json --output-version 1
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet list package failed for $Path with exit code $LASTEXITCODE."
@@ -170,17 +208,30 @@ function Get-SolutionVulnerability {
         throw "dotnet list package did not return JSON for ${Path}: $text"
     }
 
+    # Anything dotnet has to say about the scan itself is fatal, warnings included. An audit source
+    # that serves no vulnerability data reports as a warning and would otherwise leave a target that
+    # was never really scanned looking clean.
     foreach ($problem in (Get-OptionalArray -InputObject $report -Name 'problems')) {
-        if ((Get-OptionalProperty -InputObject $problem -Name 'level') -eq 'error') {
-            throw "dotnet list package reported an error for ${Path}: $(Get-OptionalProperty -InputObject $problem -Name 'text')"
-        }
+        $level = [string](Get-OptionalProperty -InputObject $problem -Name 'level')
+        $message = [string](Get-OptionalProperty -InputObject $problem -Name 'text')
+        throw "dotnet list package reported a $level for ${Path}: $message"
     }
 
-    $found = [System.Collections.Generic.List[object]]::new()
-    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $projects = @(Get-OptionalArray -InputObject $report -Name 'projects')
+    if ($projects.Count -eq 0) {
+        throw "dotnet list package reported no project for $Path."
+    }
 
-    foreach ($project in (Get-OptionalArray -InputObject $report -Name 'projects')) {
+    $scanned = [System.Collections.Generic.List[string]]::new()
+    $found = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($project in $projects) {
+        $projectPath = ConvertTo-RepositoryPath -RootPath $RootPath `
+            -Path ([string](Get-OptionalProperty -InputObject $project -Name 'path'))
+        $scanned.Add($projectPath)
+
         foreach ($framework in (Get-OptionalArray -InputObject $project -Name 'frameworks')) {
+            $moniker = [string](Get-OptionalProperty -InputObject $framework -Name 'framework')
             $packages = @(Get-OptionalArray -InputObject $framework -Name 'topLevelPackages') +
                         @(Get-OptionalArray -InputObject $framework -Name 'transitivePackages')
 
@@ -192,34 +243,99 @@ function Get-SolutionVulnerability {
                     $url = [string](Get-OptionalProperty -InputObject $vulnerability -Name 'advisoryurl')
                     $advisory = ($url -split '/')[-1].ToLowerInvariant()
 
-                    # The same transitive package is reported once per project that pulls it in.
-                    if (-not $seen.Add("$id|$version|$advisory")) {
-                        continue
-                    }
-
                     $found.Add([pscustomobject]@{
-                            Package  = $id
-                            Version  = $version
-                            Severity = [string](Get-OptionalProperty -InputObject $vulnerability -Name 'severity')
-                            Advisory = $advisory
-                            Url      = $url
+                            Project   = $projectPath
+                            Framework = $moniker
+                            Package   = $id
+                            Version   = $version
+                            Severity  = [string](Get-OptionalProperty -InputObject $vulnerability -Name 'severity')
+                            Advisory  = $advisory
+                            Url       = $url
+                            # Scoped to the project and framework, so pulling a package that some
+                            # test project already carries into a shipped one still counts as new.
+                            # The version is deliberately absent: moving between two versions that
+                            # share one advisory makes nothing worse, and failing on it would block
+                            # the very bumps that eventually clear the advisory.
+                            Key       = "$projectPath|$moniker|$id|$advisory".ToLowerInvariant()
+                            Exception = "$advisory|$id".ToLowerInvariant()
                         })
                 }
             }
         }
     }
 
-    return $found.ToArray()
+    return [pscustomobject]@{
+        Scanned         = $scanned.ToArray()
+        Vulnerabilities = $found.ToArray()
+    }
+}
+
+function Get-ScanResult {
+    param([string[]] $Targets, [string] $RootPath, [string] $Label)
+
+    $scanned = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $found = [System.Collections.Generic.List[object]]::new()
+    $keys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($target in $Targets) {
+        $result = Get-TargetVulnerability -Path (Join-Path $RootPath $target) -RootPath $RootPath -Label $Label
+
+        foreach ($project in $result.Scanned) {
+            [void] $scanned.Add($project)
+        }
+
+        # A project can sit in more than one target, and a transitive package is reported once per
+        # project that pulls it in.
+        foreach ($item in $result.Vulnerabilities) {
+            if ($keys.Add($item.Key)) {
+                $found.Add($item)
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        Scanned         = $scanned
+        Vulnerabilities = $found.ToArray()
+    }
+}
+
+function Get-UnscannedProject {
+    param([string] $RootPath, [object] $Scanned, [string] $ExcludePath)
+
+    $unscanned = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($file in @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Force -ErrorAction SilentlyContinue)) {
+        if ($file.Extension -ne '.csproj') {
+            continue
+        }
+
+        $relative = ConvertTo-RepositoryPath -Path $file.FullName -RootPath $RootPath
+        if ($relative -match '(^|/)(bin|obj)/') {
+            continue
+        }
+
+        # On CI the baseline checkout lives inside the workspace and is not part of this revision.
+        if ($ExcludePath -and $relative.StartsWith("$ExcludePath/", [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+
+        if (-not $Scanned.Contains($relative)) {
+            $unscanned.Add($relative)
+        }
+    }
+
+    return $unscanned.ToArray()
 }
 
 function Format-Finding {
     param([object] $Finding)
 
-    return "- {0} {1} ({2}) {3}" -f $Finding.Package, $Finding.Version, $Finding.Severity, $Finding.Url
+    return "- {0} {1} ({2}) in {3} [{4}] {5}" -f
+        $Finding.Package, $Finding.Version, $Finding.Severity, $Finding.Project, $Finding.Framework, $Finding.Url
 }
 
 try {
-    $entries = Read-AllowlistFile -Path $Allowlist
+    $entries = @(Read-AllowlistFile -Path $Allowlist -MaxDays $MaxAllowlistDays)
 }
 catch {
     Write-Annotation -Level 'error' -Message "$($_.Exception.Message)"
@@ -232,40 +348,60 @@ $active = @($entries | Where-Object { $_.Expires -ge $today })
 $expired = @($entries | Where-Object { $_.Expires -lt $today })
 $allowed = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($entry in $active) {
-    [void] $allowed.Add($entry.Advisory)
+    [void] $allowed.Add($entry.Key)
 }
 
-$current = Get-SolutionVulnerability -Path $Solution -Label 'solution'
-
-$baselineKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+$rootPath = (Resolve-Path -LiteralPath $Root).Path
 $hasBaseline = -not [string]::IsNullOrWhiteSpace($BaselinePath)
+$baselineFull = ''
+$excludePath = ''
 if ($hasBaseline) {
-    # The baseline is the same repository at another revision, so the solution path is the same.
-    $baseline = Get-SolutionVulnerability -Path (Join-Path $BaselinePath $Solution) -Label 'baseline'
-
-    # Keyed without the version: moving between two versions that share an advisory makes nothing
-    # worse, while leaving a clean version for a vulnerable one adds a pair the baseline lacks.
-    foreach ($item in $baseline) {
-        [void] $baselineKeys.Add("$($item.Package)|$($item.Advisory)")
+    $baselineFull = (Resolve-Path -LiteralPath $BaselinePath).Path
+    $relativeBaseline = ConvertTo-RepositoryPath -Path $baselineFull -RootPath $rootPath
+    if (-not $relativeBaseline.StartsWith('..')) {
+        $excludePath = $relativeBaseline
     }
 }
 
-$suppressed = @($current | Where-Object { $allowed.Contains($_.Advisory) })
-$remaining = @($current | Where-Object { -not $allowed.Contains($_.Advisory) })
+$current = Get-ScanResult -Targets $targets -RootPath $rootPath -Label 'head'
+
+# A single returned path would arrive unrolled as a bare string, which has no Count.
+$unscanned = @(Get-UnscannedProject -RootPath $rootPath -Scanned $current.Scanned -ExcludePath $excludePath)
+if ($unscanned.Count -gt 0) {
+    foreach ($project in $unscanned) {
+        Write-Annotation -Level 'error' -Message "$project is not covered by the vulnerability scan; add it to a scanned solution."
+        Write-Host "Unscanned project: $project"
+    }
+    Write-Host 'Every project has to be reachable from a scanned target, otherwise its packages go unchecked.'
+    exit 2
+}
+
+$baselineKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+if ($hasBaseline) {
+    $baseline = Get-ScanResult -Targets $targets -RootPath $baselineFull -Label 'baseline'
+    foreach ($item in $baseline.Vulnerabilities) {
+        [void] $baselineKeys.Add($item.Key)
+    }
+}
+
+$suppressed = @($current.Vulnerabilities | Where-Object { $allowed.Contains($_.Exception) })
+$remaining = @($current.Vulnerabilities | Where-Object { -not $allowed.Contains($_.Exception) })
 $inherited = @()
 $findings = $remaining
 if ($hasBaseline) {
-    $inherited = @($remaining | Where-Object { $baselineKeys.Contains("$($_.Package)|$($_.Advisory)") })
-    $findings = @($remaining | Where-Object { -not $baselineKeys.Contains("$($_.Package)|$($_.Advisory)") })
+    $inherited = @($remaining | Where-Object { $baselineKeys.Contains($_.Key) })
+    $findings = @($remaining | Where-Object { -not $baselineKeys.Contains($_.Key) })
 }
+
+$targetList = ($targets -join ', ')
 
 Add-Summary '## Dependency vulnerability scan'
 Add-Summary
 if ($hasBaseline) {
-    Add-Summary "Scanned ``$Solution`` and failed on what is not already in the baseline revision."
+    Add-Summary "Scanned $targetList and failed on what is not already in the baseline revision."
 }
 else {
-    Add-Summary "Scanned ``$Solution`` and failed on every vulnerability that is not allowlisted."
+    Add-Summary "Scanned $targetList and failed on every vulnerability that is not allowlisted."
 }
 Add-Summary
 
@@ -275,11 +411,11 @@ if ($findings.Count -gt 0) {
     foreach ($finding in $findings) {
         Add-Summary (Format-Finding -Finding $finding)
         Write-Annotation -Level 'error' -Message (
-            "$($finding.Package) $($finding.Version) has a known $($finding.Severity) severity vulnerability: $($finding.Url)")
+            "$($finding.Package) $($finding.Version) in $($finding.Project) has a known $($finding.Severity) severity vulnerability: $($finding.Url)")
     }
     Add-Summary
     Add-Summary ("Remove the package or move to a fixed version. If neither is possible yet, add the " +
-        "advisory to ``$Allowlist`` with an expiry date and a reason.")
+        "advisory and the package to $Allowlist with an expiry date and a reason.")
     Add-Summary
 }
 else {
@@ -302,7 +438,7 @@ if ($suppressed.Count -gt 0) {
     Add-Summary "### Allowlisted ($($suppressed.Count))"
     Add-Summary
     foreach ($item in $suppressed) {
-        $entry = $active | Where-Object { $_.Advisory -eq $item.Advisory } | Select-Object -First 1
+        $entry = $active | Where-Object { $_.Key -eq $item.Exception } | Select-Object -First 1
         Add-Summary ("{0}, expires {1}: {2}" -f
             (Format-Finding -Finding $item), $entry.Expires.ToString('yyyy-MM-dd'), $entry.Reason)
     }
@@ -311,13 +447,12 @@ if ($suppressed.Count -gt 0) {
 
 $unusedEntries = @()
 if (-not $hasBaseline) {
-    # Only meaningful for a full scan: in a diff run the current set is the head revision's whole
-    # graph, but an entry may still be covering something the pull request has not touched.
-    $seenAdvisories = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($item in $current) {
-        [void] $seenAdvisories.Add($item.Advisory)
+    # Only meaningful for a full scan, where the current set is everything the repository resolves.
+    $seenExceptions = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($item in $current.Vulnerabilities) {
+        [void] $seenExceptions.Add($item.Exception)
     }
-    $unusedEntries = @($active | Where-Object { -not $seenAdvisories.Contains($_.Advisory) })
+    $unusedEntries = @($active | Where-Object { -not $seenExceptions.Contains($_.Key) })
 }
 
 if ($unusedEntries.Count -gt 0) {

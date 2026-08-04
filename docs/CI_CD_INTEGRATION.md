@@ -149,8 +149,14 @@ Two checks share one script, `.github/scripts/check-dependency-vulnerabilities.p
   no baseline, so it fails on every vulnerability the solution resolves. This is where packages
   already on `main` are held; a red nightly blocks nobody's pull request.
 
-A vulnerability is identified by the package and the advisory, not by the package version, so
-moving between two versions that share the same advisory is not treated as a new finding.
+A finding is identified by project, target framework, package, and advisory. Pulling a package that
+a test project already carries into a shipped project is therefore still new. The resolved version
+is deliberately not part of that identity: moving between two versions that share one advisory makes
+nothing worse, and failing on it would block the dependency bumps that eventually clear the advisory.
+
+Both jobs scan `NextUnit.slnx` plus the two package smoke projects, which belong to no solution. The
+script also fails when it finds a `.csproj` in the tree that none of its targets reach, so a new
+project cannot go unscanned by being left out of the solution.
 
 NuGet audit still runs on every restore, but `Directory.Build.props` keeps `NU1901` through `NU1904`
 out of `TreatWarningsAsErrors`. As errors they would fail restore for every contributor the moment
@@ -162,18 +168,22 @@ Advisories that cannot be cleared by upgrading a package this repository control
 `.github/vulnerability-allowlist.txt`, one entry per line:
 
 ```text
-GHSA-59j7-ghrg-fj52  2026-09-15  Reached only from the ASP.NET Core sample; upstream fix ships in 10.0.11.
+GHSA-59j7-ghrg-fj52  System.IdentityModel.Tokens.Jwt  2026-09-15  Only the sample reaches it; fixed in 10.0.11.
 ```
 
-The three fields are the GitHub advisory identifier, a UTC expiry date as `YYYY-MM-DD`, and a
-reason. Blank lines and lines starting with `#` are ignored; any other line that does not match the
-format fails the scan rather than being skipped, so a typo cannot silently change what is allowed.
-Because the file is committed, adding or extending an entry goes through pull request review.
+The four fields are the GitHub advisory identifier, the package the advisory is allowed for, a UTC
+expiry date as `YYYY-MM-DD`, and a reason. Naming the package keeps an exception from reaching
+further than it was reviewed for, since one advisory often affects several packages and each needs
+its own line. Blank lines and lines starting with `#` are ignored; any other line that does not
+match the format fails the scan rather than being skipped, so a typo cannot silently change what is
+allowed. Because the file is committed, adding or extending an entry goes through pull request
+review.
 
 Expiry is what keeps the list honest:
 
 - An entry is honored through the end of its expiry date and ignored afterwards, so an expired entry
   stops suppressing anything.
+- An expiry more than 90 days out is rejected outright, so a date cannot stand in for never.
 - The pull request gate reports an expired entry as a warning. It does not fail on expiry alone,
   since the date passing is not the fault of whoever opened the pull request.
 - The nightly scan fails on an expired entry, and keeps failing until the entry is removed, renewed

@@ -251,9 +251,15 @@ Delivered as `.github/scripts/check-dependency-vulnerabilities.ps1`, driven from
 `dotnet list package --vulnerable --include-transitive` and fails only on what the base revision
 does not already resolve, so adding a vulnerable package fails while an advisory published against a
 package `main` already carries does not. The nightly `Vulnerability Scan` job runs the same script
-without a baseline and owns those existing findings. `.github/vulnerability-allowlist.txt` carries
-per-advisory exceptions with an expiry date and a reason; an expired entry stops suppressing, warns
-on pull requests, and fails the nightly, so it cannot rot and cannot block unrelated work.
+without a baseline and owns those existing findings. A finding is keyed by project, target
+framework, package, and advisory, so pulling a package that a test project already carries into a
+shipped project still counts as new; the resolved version is left out of the key so that a bump
+between two versions sharing one advisory is not reported as a regression.
+`.github/vulnerability-allowlist.txt` carries exceptions scoped to one advisory and one package,
+with an expiry date at most 90 days out and a reason; an expired entry stops suppressing, warns on
+pull requests, and fails the nightly, so it cannot rot and cannot block unrelated work. Both jobs
+also fail when the tree holds a `.csproj` that none of the scanned targets reach, so a project
+cannot escape the gate by staying out of the solution.
 
 NuGet audit findings moved from errors to warnings in `Directory.Build.props` in the same change.
 They were already blocking, but as restore errors across every project: on the day an advisory
@@ -268,6 +274,23 @@ Measured against this repository, a branch adding one package produced exactly o
 entry, `Serilog.AspNetCore >= 0`: no transitive packages, and no resolved version, because central
 package management keeps versions in `Directory.Packages.props` rather than in the `.csproj`. A gate
 built on that would report almost nothing while looking like it worked.
+
+Three limits of the gate, surfaced by the Codex review of this change (2026-08-04) and left open
+because each needs a decision outside it:
+
+- [ ] Decide whether the `main` branch ruleset should require a review. A pull request supplies the
+  workflow, the script, and the allowlist that judge it, so a crafted pull request can weaken its own
+  `Security Scan` and still show it green. This is true of every check in the repository, not only
+  this one, and the fix is a repository setting rather than a code change: require an approval, or
+  require review of the last push.
+- [ ] Decide whether required status checks should be strict. `strict_required_status_checks_policy`
+  is off, so a pull request can merge on a `Security Scan` that ran before `main` moved. A vulnerable
+  resolution that only appears once two branches combine, such as a central version pin meeting a new
+  package reference, would not be seen until the nightly.
+- [ ] Extend the scan to configuration-dependent package references, or accept the gap.
+  `tools/speed-comparison/UnifiedTests` selects its test framework packages through
+  `ItemGroup Condition="'$(TestFramework)' == ...`, and the scan restores with the default property
+  values, so those references are never resolved. Covering them means one restore per value.
 
 ### Priority 2 — The release checklist misdescribes how `Directory.Packages.props` carries the version
 

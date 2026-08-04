@@ -254,7 +254,7 @@ jobs:
     - name: Scan resolved packages for known vulnerabilities
       run: >
         pwsh -NoProfile -File .github/scripts/check-dependency-vulnerabilities.ps1
-        -Solution NextUnit.slnx
+        -Target NextUnit.slnx,tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj,tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj
         -Allowlist .github/vulnerability-allowlist.txt
         -ExpiredEntryAction fail
 

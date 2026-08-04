@@ -161,11 +161,13 @@ jobs:
         path: base-revision
 
     # NextUnit.slnx rather than NextUnit.CI.slnx: a pull request can add a vulnerable package to a
-    # test, benchmark, or tool project just as easily as to a shipped one.
+    # test, benchmark, or tool project just as easily as to a shipped one. The two package smoke
+    # projects belong to no solution, so they are named directly; the script fails on any project it
+    # finds in the tree that none of these targets reach.
     - name: Fail on newly introduced vulnerable packages
       run: >
         pwsh -NoProfile -File .github/scripts/check-dependency-vulnerabilities.ps1
-        -Solution NextUnit.slnx
+        -Target NextUnit.slnx,tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj,tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj
         -Allowlist .github/vulnerability-allowlist.txt
         -BaselinePath base-revision
 
