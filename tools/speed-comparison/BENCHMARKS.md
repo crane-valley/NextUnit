@@ -15,6 +15,9 @@ Outputs:
 - `results/RUNTIME_COMPARISON.md`: environment and summary statistics
 - `results/runtime-comparison.json`: every accepted measurement with round and execution position
 
+Running `--analyze-regression` afterwards adds `results/REGRESSION_REPORT.md` and
+`results/history-record.json`; see [REGRESSION_GATE.md](REGRESSION_GATE.md).
+
 The runner rejects a framework if its process fails or does not report exactly 127 tests. It also
 requires a round count divisible by seven, which gives each participant the same number of runs in
 every execution position.

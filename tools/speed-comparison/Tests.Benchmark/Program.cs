@@ -1,11 +1,20 @@
 using BenchmarkDotNet.Running;
 using Tests.Benchmark;
 
-if (args.Length > 0 && args[0] == "--round-robin")
+if (args.Length > 0)
 {
-    var rounds = args.Length > 1 ? int.Parse(args[1]) : 21;
-    await RoundRobinComparison.RunAsync(rounds);
-    return;
+    switch (args[0])
+    {
+        case "--round-robin":
+            await RoundRobinComparison.RunAsync(args.Length > 1 ? int.Parse(args[1]) : 21);
+            return 0;
+        case "--analyze-regression":
+            return await RegressionCommand.AnalyzeAsync(args);
+        case "--append-history":
+            return await RegressionCommand.AppendAsync(args);
+        default:
+            break;
+    }
 }
 
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
@@ -21,3 +30,5 @@ if (!string.IsNullOrEmpty(file) && output != null)
 {
     await File.WriteAllTextAsync(file, await File.ReadAllTextAsync(output.FullName));
 }
+
+return 0;

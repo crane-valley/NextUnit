@@ -172,11 +172,20 @@ Weekly and pull-request round-robin comparisons already measure framework-depend
 executables and publish Markdown/JSON artifacts. The missing capability is a durable, noise-aware
 decision rather than more schedules or report formats.
 
-- [ ] Store a rolling history with runner, SDK, runtime, framework versions, commit, and raw samples.
-- [ ] Compare like-for-like baselines and fail only on a repeated, statistically meaningful
+- [x] Store a rolling history with runner, SDK, runtime, framework versions, commit, and raw samples.
+- [x] Compare like-for-like baselines and fail only on a repeated, statistically meaningful
   regression; never gate on one noisy median.
 - Guardrail: keep the existing weekly schedule and path-filtered pull-request run. Do not add a second daily
   comparison workflow.
+
+Delivered by `SpeedComparison.Analysis`, wired into `speed-comparison.yml`. The rolling history is a JSON
+Lines file on an orphan `benchmark-data` branch, capped at the most recent 100 runs, because artifacts
+expire and caches are evictable. Runs are compared on per-round ratios against the competing frameworks
+measured on the same machine, which cancels hosted-runner speed out of the decision. Failing requires a
+change that is at least 5% slower, exceeds three robust standard deviations of the observed run-to-run
+spread, clears a one-sided Mann-Whitney U test at p &lt; 0.01, and repeats across two recorded runs. Only
+default-branch runs append to the history, so a pull-request run can never reach the failing verdict; it
+reports into the job summary and a comment instead. See `tools/speed-comparison/REGRESSION_GATE.md`.
 
 ### Priority 2 — Adoption documentation
 

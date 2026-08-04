@@ -9,6 +9,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\SpeedComparison.Analysis\SpeedComparison.Analysis.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.6.0" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />

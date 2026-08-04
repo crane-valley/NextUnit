@@ -47,6 +47,9 @@
     <File Path="tools/speed-comparison/prepare-aot.bat" />
     <File Path="tools/speed-comparison/prepare-aot.ps1" />
     <File Path="tools/speed-comparison/README.md" />
+    <File Path="tools/speed-comparison/REGRESSION_GATE.md" />
+    <Project Path="tools/speed-comparison/SpeedComparison.Analysis/SpeedComparison.Analysis.csproj" />
+    <Project Path="tools/speed-comparison/SpeedComparison.Analysis.Tests/SpeedComparison.Analysis.Tests.csproj" />
     <Project Path="tools/speed-comparison/Tests.Benchmark/Tests.Benchmark.csproj" />
     <Project Path="tools/speed-comparison/UnifiedTests/UnifiedTests.csproj" />
   </Folder>

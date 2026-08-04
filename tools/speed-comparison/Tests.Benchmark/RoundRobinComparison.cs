@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using SpeedComparison.Analysis;
 
 namespace Tests.Benchmark;
 
@@ -54,18 +55,32 @@ internal static class RoundRobinComparison
             .OrderBy(summary => summary.MedianMilliseconds)
             .ToList();
 
-        var result = new ComparisonResult(
-            DateTimeOffset.UtcNow,
-            RuntimeInformation.OSDescription,
-            RuntimeInformation.OSArchitecture.ToString(),
-            RuntimeInformation.FrameworkDescription,
-            await CaptureProcessOutputAsync(repositoryRoot, "dotnet", "--version"),
-            Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? RuntimeInformation.ProcessArchitecture.ToString(),
-            rounds,
-            ExpectedTestCount,
-            "Cyclic round-robin across five framework-dependent and two Native AOT executables; publish/build time excluded; one untimed warm-up per participant; stdout/stderr redirected; --no-progress --no-ansi; telemetry disabled; TUnit HTML report disabled.",
-            summaries,
-            measurements);
+        var generatedAtUtc = DateTimeOffset.UtcNow;
+        var result = new ComparisonResult
+        {
+            GeneratedAtUtc = generatedAtUtc,
+            BenchmarkId = ComparisonResult.RoundRobinBenchmarkId,
+            MetricRevision = ComparisonResult.CurrentMetricRevision,
+            RunnerImage = EnvironmentValue("ImageOS") ?? "local",
+            RunnerImageVersion = EnvironmentValue("ImageVersion") ?? "local",
+            OperatingSystem = RuntimeInformation.OSDescription,
+            Architecture = RuntimeInformation.OSArchitecture.ToString(),
+            Runtime = RuntimeInformation.FrameworkDescription,
+            DotNetSdkVersion = await CaptureProcessOutputAsync(repositoryRoot, "dotnet", "--version"),
+            Processor = Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? RuntimeInformation.ProcessArchitecture.ToString(),
+            ProcessorCount = Environment.ProcessorCount,
+            Commit = EnvironmentValue("GITHUB_SHA") ?? await ReadGitOutputAsync(repositoryRoot, "rev-parse", "HEAD"),
+            Reference = EnvironmentValue("GITHUB_REF") ?? await ReadGitOutputAsync(repositoryRoot, "rev-parse", "--abbrev-ref", "HEAD"),
+            // The identifier has to stay unique off CI too: a run is excluded from its own baseline by
+            // identifier, so a fixed local value would make every locally recorded run exclude all the others.
+            RunId = EnvironmentValue("GITHUB_RUN_ID") ?? $"local-{generatedAtUtc:yyyyMMddTHHmmssfff}",
+            Trigger = EnvironmentValue("GITHUB_EVENT_NAME") ?? "local",
+            Rounds = rounds,
+            ExpectedTestCount = ExpectedTestCount,
+            Methodology = "Cyclic round-robin across five framework-dependent and two Native AOT executables; publish/build time excluded; one untimed warm-up per participant; stdout/stderr redirected; --no-progress --no-ansi; telemetry disabled; TUnit HTML report disabled.",
+            Summaries = summaries,
+            Measurements = measurements
+        };
 
         var resultsDirectory = Path.Join(repositoryRoot, "tools", "speed-comparison", "results");
         Directory.CreateDirectory(resultsDirectory);
@@ -195,6 +210,26 @@ internal static class RoundRobinComparison
         return (await RunProcessAsync(CreateProcessStartInfo(workingDirectory, fileName, arguments))).Trim();
     }
 
+    private static string? EnvironmentValue(string name)
+        => Environment.GetEnvironmentVariable(name) is { Length: > 0 } value ? value : null;
+
+    /// <summary>
+    /// Reads a value from git for local runs, where the workflow environment does not supply it. A local
+    /// run still has to produce a well-formed record, so a checkout without git degrades to a placeholder
+    /// rather than failing the measurement.
+    /// </summary>
+    private static async Task<string> ReadGitOutputAsync(string repositoryRoot, params string[] arguments)
+    {
+        try
+        {
+            return await CaptureProcessOutputAsync(repositoryRoot, "git", arguments);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return "unknown";
+        }
+    }
+
     private static ProcessStartInfo CreateProcessStartInfo(string workingDirectory, string fileName, params string[] arguments)
     {
         var startInfo = new ProcessStartInfo(fileName)
@@ -288,7 +323,7 @@ internal static class RoundRobinComparison
         return builder.ToString();
     }
 
-    private static string FindRepositoryRoot()
+    internal static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(Environment.CurrentDirectory);
         while (directory is not null)
@@ -313,27 +348,4 @@ internal static class RoundRobinComparison
     {
         public bool IsAot => RuntimeIdentifier is not null;
     }
-    private sealed record Measurement(int Round, int Position, string Framework, double ElapsedMilliseconds);
-    private sealed record FrameworkSummary(
-        string Framework,
-        string Version,
-        int Runs,
-        double MeanMilliseconds,
-        double MedianMilliseconds,
-        double StandardDeviationMilliseconds,
-        double MinimumMilliseconds,
-        double MaximumMilliseconds,
-        double RelativeToNextUnit);
-    private sealed record ComparisonResult(
-        DateTimeOffset GeneratedAtUtc,
-        string OperatingSystem,
-        string Architecture,
-        string Runtime,
-        string DotNetSdkVersion,
-        string Processor,
-        int Rounds,
-        int ExpectedTestCount,
-        string Methodology,
-        IReadOnlyList<FrameworkSummary> Summaries,
-        IReadOnlyList<Measurement> Measurements);
 }

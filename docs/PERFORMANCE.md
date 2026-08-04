@@ -155,3 +155,16 @@ dotnet run -c Release --project Tests.Benchmark -- --filter "*RuntimeBenchmarks*
 
 Set `AUTOBUILD_AOT=true` to include Native AOT NextUnit and TUnit in BenchmarkDotNet diagnostic runs.
 Round-robin mode always publishes and measures both AOT participants.
+
+## Regression detection
+
+CI keeps a rolling history of round-robin runs on a `benchmark-data` branch and compares each new run
+against the comparable runs recorded before it. To survive hosted-runner noise, the comparison is made on
+per-round ratios against the competing frameworks measured on the same machine rather than on raw
+milliseconds. The scheduled run fails only for a regression that is at least 5% slower, exceeds three
+robust standard deviations of the observed run-to-run spread, clears a one-sided Mann-Whitney U test at
+p &lt; 0.01, and repeats across two recorded runs. A pull-request run reports against the same baseline and
+never fails on performance.
+
+See [the regression gate reference](../tools/speed-comparison/REGRESSION_GATE.md) for the thresholds, their
+rationale, and how to accept an intentional change.

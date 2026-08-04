@@ -20,45 +20,97 @@ permissions:
   contents: read
   pull-requests: write
 
+# Runs that append to the history branch must not race each other, so runs on the same ref queue.
+# A superseded pull-request run has nothing to publish, so cancelling it only saves runner minutes.
+concurrency:
+  group: speed-comparison-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   DOTNET_VERSION: '10.0.x'
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # The rolling history lives on an orphan branch rather than in an artifact or a cache: artifacts
+  # expire and caches are evicted, while a branch survives runner churn and stays reviewable.
+  HISTORY_BRANCH: benchmark-data
+  HISTORY_PATH: history/round-robin-runtime.jsonl
 
 jobs:
   benchmark:
     name: Run Speed Comparison
     runs-on: ubuntu-latest
-    
+    outputs:
+      # Whether a record exists to hand to publish-history. Read from the file rather than inferred from
+      # the job's conclusion, because a confirmed regression fails the job after writing one.
+      history-record-produced: ${{ steps.history-record.outputs.produced }}
+      # The attempt that actually produced the artifacts. "Re-run failed jobs" bumps run_attempt without
+      # re-running this job, so a consumer that recomputed the attempt itself would look for an artifact
+      # nobody uploaded. Reading it from here pins the consumer to the producer.
+      artifact-attempt: ${{ github.run_attempt }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      
+
       - name: Display .NET info
         run: dotnet --info
-      
+
       - name: Restore dependencies
         run: dotnet restore tools/speed-comparison/Tests.Benchmark/Tests.Benchmark.csproj
-      
+
       - name: Build speed comparison projects
         run: |
           echo "Building speed comparison projects..."
           cd tools/speed-comparison
           dotnet build Tests.Benchmark/Tests.Benchmark.csproj --configuration Release --no-restore
-      
+
+      - name: Fetch the rolling performance history
+        shell: bash
+        run: |
+          # RUNNER_TEMP rather than the runner context: the latter is unavailable in job-level env,
+          # and an invalid context there silently removes the whole workflow from the check list.
+          history_file="$RUNNER_TEMP/round-robin-runtime.jsonl"
+          : > "$history_file"
+
+          # An absent branch and an unreachable remote must not look alike. Treating a network or
+          # authentication failure as "no history yet" would quietly analyse against an empty baseline
+          # and break the confirmation chain, so only ls-remote's specific "no such ref" exit code 2 is
+          # accepted as an empty baseline and anything else fails the job.
+          probe=0
+          git ls-remote --exit-code --heads origin "$HISTORY_BRANCH" >/dev/null 2>&1 || probe=$?
+          if [ "$probe" -eq 2 ]; then
+            echo "There is no $HISTORY_BRANCH branch yet, so the baseline starts empty."
+          elif [ "$probe" -ne 0 ]; then
+            echo "Could not reach the remote to look for $HISTORY_BRANCH (git ls-remote exit $probe)."
+            exit 1
+          else
+            # Not a shallow fetch: the branch is one small file, and keeping both this checkout and the
+            # publishing clone complete avoids shallow-update rejections on push.
+            git fetch --no-tags origin "$HISTORY_BRANCH"
+            if git cat-file -e "FETCH_HEAD:$HISTORY_PATH" 2>/dev/null; then
+              git show "FETCH_HEAD:$HISTORY_PATH" > "$history_file"
+            else
+              echo "The $HISTORY_BRANCH branch does not carry $HISTORY_PATH yet."
+            fi
+          fi
+
+          echo "HISTORY_FILE=$history_file" >> "$GITHUB_ENV"
+          echo "Recorded runs available: $(wc -l < "$history_file")"
+
       - name: Run round-robin speed comparison
+        id: round-robin
         env:
           ROUNDS: ${{ inputs.iterations || '21' }}
         run: dotnet run -c Release --no-build --project tools/speed-comparison/Tests.Benchmark -- --round-robin "$ROUNDS"
         continue-on-error: false
-      
+
       - name: Display benchmark results
         run: |
           echo "=== Benchmark Results ==="
@@ -70,71 +122,209 @@ jobs:
             exit 1
           fi
         if: success()
-      
+
+      # Fails the job only for a regression that this run and the recorded run before it both showed.
+      # Only a run that publish-history will actually append counts as the baseline series: a run that
+      # never enters the history has no predecessor of its own, so a pull request or a manual dispatch on
+      # a side branch reports against the baseline without ever being able to fail on it.
+      - name: Check for a performance regression
+        env:
+          SERIES: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'baseline' || 'pull-request' }}
+        run: |
+          dotnet run -c Release --no-build --project tools/speed-comparison/Tests.Benchmark -- \
+            --analyze-regression \
+            --history "$HISTORY_FILE" \
+            --series "$SERIES"
+
+      - name: Note whether a history record was produced
+        id: history-record
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          if [ -f tools/speed-comparison/results/history-record.json ]; then
+            echo "produced=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "produced=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload benchmark results
         uses: actions/upload-artifact@v7
         with:
-          name: speed-comparison-results
+          # Bound to the attempt, not just the run. A re-run keeps the previous attempt's artifacts, so a
+          # shared name would let a later attempt that produced nothing silently consume an earlier one.
+          name: speed-comparison-results-${{ github.run_attempt }}
           path: |
             tools/speed-comparison/results/RUNTIME_COMPARISON.md
             tools/speed-comparison/results/runtime-comparison.json
+            tools/speed-comparison/results/REGRESSION_REPORT.md
           retention-days: 90
-        if: success()
-      
+        # Guarded on the measurement step, not on the job: RUNTIME_COMPARISON.md is tracked in Git, so a
+        # run that failed before overwriting it would otherwise publish the committed numbers under
+        # today's timestamp. Publishing after the analysis step fails is intended and still happens.
+        if: ${{ !cancelled() && steps.round-robin.outcome == 'success' }}
+
+      - name: Upload the history record
+        uses: actions/upload-artifact@v7
+        with:
+          name: speed-comparison-history-${{ github.run_attempt }}
+          path: tools/speed-comparison/results/history-record.json
+          retention-days: 7
+        if: ${{ !cancelled() && steps.round-robin.outcome == 'success' && github.event_name != 'pull_request' }}
+
       - name: Comment PR with results (on pull requests)
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && steps.round-robin.outcome == 'success' && github.event_name == 'pull_request' }}
         uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
-            const resultPath = 'tools/speed-comparison/results/RUNTIME_COMPARISON.md';
-            if (!fs.existsSync(resultPath)) {
+            const read = (path) => (fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : null);
+            const results = read('tools/speed-comparison/results/RUNTIME_COMPARISON.md');
+            if (!results) {
               console.log('Round-robin result file not found');
               return;
             }
-            const results = fs.readFileSync(resultPath, 'utf8');
-            const comment = `## Speed Comparison Results (round-robin)\n\n${results}\n\n---\n*Benchmarks run on ${new Date().toISOString()}*`;
-            
+            const regression = read('tools/speed-comparison/results/REGRESSION_REPORT.md');
+            const sections = [`## Speed Comparison Results (round-robin)\n\n${results}`];
+            if (regression) {
+              sections.push(regression);
+            }
+            sections.push(`---\n*Benchmarks run on ${new Date().toISOString()}*`);
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: comment
+              body: sections.join('\n\n')
             });
         continue-on-error: true
+
+  # Appends the measured run to the rolling history. Kept apart from the benchmark job so the token
+  # that can write to a branch is never held by a job that builds and runs pull-request code.
+  publish-history:
+    name: Publish Benchmark History
+    runs-on: ubuntu-latest
+    needs: benchmark
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Download the history record
+        uses: actions/download-artifact@v8
+        with:
+          name: speed-comparison-history-${{ needs.benchmark.outputs.artifact-attempt }}
+          path: history-record
+        # Tolerated only when the benchmark never got far enough to write a record. Once one exists,
+        # losing it here would leave a gap in the history and silently break the confirmation chain,
+        # so the transfer has to fail loudly instead.
+        continue-on-error: ${{ needs.benchmark.outputs.history-record-produced != 'true' }}
+
+      - name: Append the run to the history branch
+        shell: bash
+        env:
+          GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RECORD_PRODUCED: ${{ needs.benchmark.outputs.history-record-produced }}
+        run: |
+          set -euo pipefail
+          record="$GITHUB_WORKSPACE/history-record/history-record.json"
+          if [ ! -f "$record" ]; then
+            if [ "$RECORD_PRODUCED" = "true" ]; then
+              echo "The benchmark job produced a history record but it did not arrive here."
+              echo "Refusing to pass silently: a missing run breaks the repeated-regression chain."
+              exit 1
+            fi
+            echo "The benchmark job produced no history record, so there is nothing to publish."
+            exit 0
+          fi
+
+          dotnet build tools/speed-comparison/Tests.Benchmark/Tests.Benchmark.csproj --configuration Release
+
+          work="$RUNNER_TEMP/benchmark-history"
+          remote="https://x-access-token:${GIT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # A rejected push means another run appended first, so the retry refetches and reapplies this
+          # run's record on top of theirs instead of overwriting it.
+          for attempt in 1 2 3; do
+            rm -rf "$work"
+            mkdir -p "$work"
+            git -C "$work" init -q -b "$HISTORY_BRANCH"
+            git -C "$work" config user.name "github-actions[bot]"
+            git -C "$work" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$work" remote add origin "$remote"
+            if git -C "$work" fetch -q --no-tags origin "$HISTORY_BRANCH" 2>/dev/null; then
+              git -C "$work" reset -q --hard FETCH_HEAD
+            fi
+
+            dotnet run -c Release --no-build --project tools/speed-comparison/Tests.Benchmark -- \
+              --append-history --history "$work/$HISTORY_PATH" --record "$record"
+
+            git -C "$work" add "$HISTORY_PATH"
+            if git -C "$work" diff --cached --quiet; then
+              echo "The history already contains this run."
+              exit 0
+            fi
+
+            git -C "$work" commit -q -m "chore: record speed comparison run $GITHUB_RUN_ID"
+            if git -C "$work" push -q origin "HEAD:refs/heads/$HISTORY_BRANCH"; then
+              echo "Recorded the run on $HISTORY_BRANCH."
+              exit 0
+            fi
+
+            echo "Push rejected on attempt $attempt; refetching and retrying."
+            sleep 5
+          done
+
+          echo "Could not record the run on $HISTORY_BRANCH after 3 attempts."
+          exit 1
 
   summary:
     name: Benchmark Summary
     runs-on: ubuntu-latest
     needs: benchmark
     if: always()
-    
+
     steps:
       - name: Download results
         uses: actions/download-artifact@v8
         with:
-          name: speed-comparison-results
+          name: speed-comparison-results-${{ needs.benchmark.outputs.artifact-attempt }}
           path: results
         continue-on-error: true
-      
+
       - name: Generate job summary
         run: |
           echo "# Speed Comparison Benchmark Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           LATEST_MD=$(find results -name "RUNTIME_COMPARISON.md" -type f 2>/dev/null | head -1)
-          
+
           if [ -n "$LATEST_MD" ] && [ -f "$LATEST_MD" ]; then
             cat "$LATEST_MD" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ Benchmarks completed successfully" >> $GITHUB_STEP_SUMMARY
+            # The results now survive a failing job, because a confirmed regression fails after measuring.
+            # The message therefore reports the measurement, not the job.
+            echo "✅ Benchmarks measured successfully" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Benchmark results not found" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Available files:" >> $GITHUB_STEP_SUMMARY
             find results -type f 2>/dev/null || echo "No files found" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
+          REGRESSION_MD=$(find results -name "REGRESSION_REPORT.md" -type f 2>/dev/null | head -1)
+
+          if [ -n "$REGRESSION_MD" ] && [ -f "$REGRESSION_MD" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            cat "$REGRESSION_MD" >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Job Status**: ${{ needs.benchmark.result }}" >> $GITHUB_STEP_SUMMARY
         continue-on-error: true
