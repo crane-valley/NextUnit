@@ -35,6 +35,18 @@ internal static class AttributeHelper
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
             miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
 
+    /// <summary>
+    /// Format for an object-creation expression: no nullable annotations, which <c>new T()</c> rejects
+    /// the same way <c>typeof</c> does, and keyword identifiers escaped, because the emitted text is
+    /// parsed as C# rather than read by a human.
+    /// </summary>
+    public static readonly SymbolDisplayFormat ConstructorCallFormat =
+        new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
+            typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+            genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                                   SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers);
+
     public static readonly SymbolDisplayFormat TestIdTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
@@ -673,7 +685,7 @@ internal static class AttributeHelper
         // Formatted for a constructor call, not for a type reference: `new global::Policy?()` is not
         // valid C#, and `[Retry<Policy?>(2)]` is only a nullability warning at the attribute, so a
         // consumer that does not promote warnings would otherwise get a hard error in generated code.
-        return attributeClass.TypeArguments[0].ToDisplayString(TypeofCompatibleFormat);
+        return attributeClass.TypeArguments[0].ToDisplayString(ConstructorCallFormat);
     }
 
     /// <summary>

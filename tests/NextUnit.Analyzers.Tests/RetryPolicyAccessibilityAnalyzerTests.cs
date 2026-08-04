@@ -100,6 +100,65 @@ public class Tests
         await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
+    /// <summary>
+    /// A reachable generic policy still cannot be named when one of its type arguments is not, so the
+    /// arguments are walked as well as the containing chain.
+    /// </summary>
+    [Fact]
+    public async Task PolicyWithInaccessibleTypeArgument_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    private sealed class Secret
+    {
+    }
+
+    public sealed class Wrapper<T> : IRetryPolicy
+    {" + PolicyBody + @"    }
+
+    [Test]
+    [Retry<Wrapper<Secret>>(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>
+            .Diagnostic("NU0016")
+            .WithSpan(17, 6, 17, 31)
+            .WithArguments("Tests.Wrapper<Tests.Secret>");
+
+        await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task PolicyWithAccessibleTypeArgument_NoDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    public sealed class Visible
+    {
+    }
+
+    public sealed class Wrapper<T> : IRetryPolicy
+    {" + PolicyBody + @"    }
+
+    [Test]
+    [Retry<Wrapper<Visible>>(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
     [Fact]
     public async Task InternalNestedPolicy_NoDiagnosticAsync()
     {

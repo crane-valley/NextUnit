@@ -106,6 +106,39 @@ public class RetryPolicyEmissionTests
             registry);
     }
 
+    /// <summary>
+    /// The emitted text is parsed as C#, so an identifier that is a keyword has to keep its escape.
+    /// </summary>
+    [Fact]
+    public async Task KeywordNamedPolicy_EmitsAnEscapedConstructorCallAsync()
+    {
+        var registry = await GenerateRegistryAsync("""
+            using System.Threading.Tasks;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public sealed class @event : IRetryPolicy
+            {
+                public ValueTask<bool> ShouldRetryAsync(RetryContext context) =>
+                    ValueTask.FromResult(true);
+            }
+
+            public class RetryTests
+            {
+                [Test]
+                [Retry<@event>(2)]
+                public void Flaky()
+                {
+                }
+            }
+            """);
+
+        Assert.Contains(
+            "PolicyFactory = static () => new global::TestProject.@event(),",
+            registry);
+    }
+
     [Fact]
     public async Task ClassLevelPolicyRetry_AppliesToEveryTestInTheClassAsync()
     {

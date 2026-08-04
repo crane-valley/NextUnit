@@ -266,6 +266,20 @@ decision, and none of them was introduced by that change.
   async sources -- it affects synchronous `[TestData]` and `[ClassDataSource<T>]` the same way -- but
   the fix is a deliberate precedence rule, not a tie-break chosen at random.
 
+### Priority 2 — Emitted type names do not escape keyword identifiers
+
+Surfaced by the Codex review of the selective retry change (2026-08-04) and confirmed to pre-date it.
+`AttributeHelper.FullyQualifiedTypeFormat` and `TypeofCompatibleFormat` both omit
+`SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers`, so a test class, data source type, or
+parameter type whose identifier is an escaped keyword (`public class @event`) is emitted as
+`global::event`. The generated registry then fails to parse in the consumer's build, with the error
+pointing at a file the user did not write. The retry change added a `ConstructorCallFormat` that does
+escape, because its emission was new; the pre-existing formats were left alone because changing them
+rewrites every emission path and every snapshot baseline at once.
+
+- [ ] Escape keyword identifiers in the shared emission formats, and cover a keyword-named test class,
+  data source type, and parameter type.
+
 ### Priority 2 — Data source member lookup is narrower than C# member access
 
 Both items were surfaced by the async data source review (2026-08-03) and verified against `main` to
