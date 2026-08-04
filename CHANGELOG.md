@@ -32,6 +32,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the value, but the generated path reads the attribute arguments without ever constructing the
   attribute, so a `[Retry(0)]` previously reached the engine and aborted the run with an internal
   error instead of failing the build.
+- Deterministic culture control. `[Culture(name)]` and `[UICulture(name)]` pin the current culture and
+  the UI culture a test runs under, and `[InvariantCulture]` is shorthand for pinning both to the
+  invariant culture. All three apply at assembly, class, and method level. The two axes resolve
+  independently and the most specific declaration wins, so a method can override the culture while
+  inheriting the UI culture; `[InvariantCulture]` supplies only the axes its level leaves unspecified,
+  which makes combining it with an explicit `[UICulture]` a composition rather than a conflict. The
+  culture covers the whole attempt -- constructor, test-scoped hooks, test method, and disposal -- and
+  is reapplied per `[Retry]` attempt, so an attempt that changes it cannot decide what the next one
+  starts from. Because it is set inside the test's own asynchronous flow, tests running in parallel
+  never observe each other's culture, and the previous culture is put back after a pass, a failure, a
+  timeout, and a cancellation alike. Names are emitted as literals and resolved with
+  `CultureInfo.GetCultureInfo`, so nothing on the path reflects and it stays usable under Native AOT.
+  A name matching no culture on the executing machine fails that test with a message naming it,
+  instead of ending the run. Display names are built during discovery, so a declared culture does not
+  change them.
+- `NU0018` reports a malformed culture name on `[Culture]` or `[UICulture]`. Only names no machine
+  could accept are rejected at build time -- whether a well-formed name matches an installed culture
+  depends on the machine running the tests, not the one running the build.
 
 ## [1.18.0] - 2026-07-26
 

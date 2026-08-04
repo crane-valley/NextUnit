@@ -46,7 +46,9 @@ internal sealed record TestMethodDescriptor
         EquatableArray<MatrixParameterDescriptor> matrixParameters,
         EquatableArray<MatrixExclusionDescriptor> matrixExclusions,
         EquatableArray<ParameterDataSourceDescriptor> combinedParameterSources,
-        int priority)
+        int priority,
+        string? cultureName,
+        string? uiCultureName)
     {
         Id = id;
         DisplayName = displayName;
@@ -87,6 +89,8 @@ internal sealed record TestMethodDescriptor
         MatrixExclusions = matrixExclusions;
         CombinedParameterSources = combinedParameterSources;
         Priority = priority;
+        CultureName = cultureName;
+        UICultureName = uiCultureName;
     }
 
     public string Id { get; }
@@ -128,6 +132,8 @@ internal sealed record TestMethodDescriptor
     public EquatableArray<MatrixExclusionDescriptor> MatrixExclusions { get; }
     public EquatableArray<ParameterDataSourceDescriptor> CombinedParameterSources { get; }
     public int Priority { get; }
+    public string? CultureName { get; }
+    public string? UICultureName { get; }
 }
 
 /// <summary>

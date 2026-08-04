@@ -95,12 +95,76 @@ retry decisions based on the exception, while MSTest exposes the current run cou
 
 ### Priority 1 — Deterministic culture isolation
 
-- [ ] Add assembly-, class-, and method-level culture control for current culture and UI culture,
-  including an invariant-culture shorthand.
-- [ ] Restore the original culture after pass, failure, timeout, and cancellation, and prevent
-  culture-changing tests from contaminating concurrently running tests.
-- [ ] Add representative `en-US`, `ja-JP`, and invariant test runs for formatting, parsing, display
-  names, and assertion messages.
+- [x] Add assembly-, class-, and method-level culture control for current culture and UI culture,
+  including an invariant-culture shorthand. Shipped as `[Culture(name)]`, `[UICulture(name)]`, and
+  `[InvariantCulture]`. The two axes resolve independently, most specific first, so a method can
+  override the culture while inheriting the UI culture; `[InvariantCulture]` supplies only the axes
+  its own level leaves unspecified, which makes it compose with an explicit `[UICulture]` instead of
+  conflicting with it. Names flow to the descriptors as literals and resolve through
+  `CultureInfo.GetCultureInfo`, so the path stays reflection-free under Native AOT.
+- [x] Restore the original culture after pass, failure, timeout, and cancellation, and prevent
+  culture-changing tests from contaminating concurrently running tests. A per-attempt scope inside the
+  retry loop applies the declared cultures and puts back what it captured, so every attempt starts
+  from the declared culture rather than from whatever the previous attempt left. Concurrent isolation
+  comes from `CultureInfo.CurrentCulture` being `AsyncLocal`-backed and the assignment happening
+  inside the test's own flow; that is proven by a test where two overlapping tests hold different
+  cultures across sixty suspension points, and which fails if the two never actually overlap.
+  Measured while building it: the restore itself is not observable today, because the engine's own
+  await points already discard the assignment; it is kept so the guarantee is structural rather than a
+  side effect of which internals happen to suspend.
+- [x] Add representative `en-US`, `ja-JP`, and invariant test runs for formatting, parsing, display
+  names, and assertion messages. Covered by `TestExecutionEngineCultureTests`, which pins the ambient
+  culture to a known baseline first so an assertion never compares a culture against itself on a
+  machine that already defaults to it. Display names are covered by the decision rather than a run:
+  they are built during discovery, outside any test's culture scope, so a declared culture does not
+  change them and test identity stays stable.
+
+### Priority 2 — Attribute metadata claims inheritance the generator does not implement
+
+Surfaced by the Codex review of the culture isolation change (2026-08-04) against the new
+`[Culture]`, `[UICulture]`, and `[InvariantCulture]` attributes, and then confirmed to apply equally
+to every existing NextUnit attribute, so it pre-dates that change.
+
+No NextUnit attribute specifies `Inherited` in its `[AttributeUsage]`, so all of them inherit the
+default of `true` and advertise that a derived class or an overriding method picks them up. Nothing
+implements that: `AttributeHelper` reads `ISymbol.GetAttributes()`, which returns only directly
+applied attributes and never walks `INamedTypeSymbol.BaseType` or `IMethodSymbol.OverriddenMethod`.
+A `[Timeout]`, `[Retry]`, `[Category]`, `[ExecutionPriority]`, or `[Culture]` on a base test class is
+therefore silently ignored by everything derived from it.
+
+The culture attributes deliberately match the existing behavior rather than diverging. Fixing only
+them would make one family of attributes inherit while the rest do not, and marking only them
+`Inherited = false` would make one family honest while the rest keep advertising something untrue --
+either way the framework becomes harder to predict than it is today. The fix belongs at the level of
+the shared lookup, once, for all of them.
+
+- [ ] Decide between walking the base type and overridden method chain in `AttributeHelper` and
+  declaring `Inherited = false` on the attributes, then apply the decision to every NextUnit
+  attribute at once and cover a base test class and an overriding method.
+
+### Priority 2 — Display names are formatted with whichever culture happens to be ambient
+
+Surfaced while adding culture isolation (2026-08-04) and confirmed to pre-date it. Nothing in the
+display-name path passes an `IFormatProvider`, so an argument that formats differently per culture
+produces a different display name, and therefore a different reported test name, depending on the
+machine rather than on the test.
+
+Both ends have the problem, with different blast radii. At build time,
+`DisplayNameFormatter.FormatPrimitiveForDisplay` falls through to `argument.Value?.ToString()`, so a
+`[Arguments(1234.5)]` display name is baked as `1234,5` when the build machine is `de-DE` and
+`1234.5` when it is `en-US`. At run time, `DisplayNameBuilder.FormatArgument` ends in
+`arg.ToString()`, so a `[TestData]`, `[ClassDataSource<T>]`, or combined-source row is named using
+the executing machine's ambient culture. `ArgumentFormatter` already got this right for the emitted
+*literals* (`G17` with `InvariantCulture`); only the display strings were left.
+
+The culture attributes do not reach either one, by design: display names are built during discovery,
+outside any test's culture scope, so that test identity stays stable and filtering keeps working.
+That is also why this was left alone here -- switching both paths to the invariant culture changes
+existing display names, and therefore test IDs, for anyone building or running on a non-invariant
+machine, which is a compatibility decision rather than a drive-by fix.
+
+- [ ] Format display-name arguments with `CultureInfo.InvariantCulture` at both ends, and cover a
+  double, a decimal, and a `DateTime` argument under a non-invariant ambient culture.
 
 ### Priority 1 — Performance regression detection
 

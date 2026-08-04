@@ -22,6 +22,8 @@ A modern, high-performance test framework for .NET 10+ with zero-reflection exec
 - **Category/Tag filtering** - `[Category]`, `[Tag]` with CLI and environment variable support
 - **Selective retry** - `[Retry(N)]`, or `[Retry<TPolicy>(N)]` with an async `IRetryPolicy` that decides
   per exception; the attempt number is on `ITestContext` and the attempt count reaches the failure output
+- **Deterministic culture** - `[Culture]`, `[UICulture]`, `[InvariantCulture]` at assembly, class, or
+  method level, restored after every test and isolated from tests running in parallel
 - **Test dependencies** - `[DependsOn]` for ordered execution with `ProceedOnFailure` option
 - **Explicit tests** - `[Explicit]` to exclude from default runs
 - **Roslyn analyzers** - Compile-time test validation

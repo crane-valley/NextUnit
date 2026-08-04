@@ -202,4 +202,16 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "The retry count is the total number of attempts, including the first, so it must be at least 1. The attribute constructor rejects a smaller value, but the generated execution path reads the attribute arguments without ever constructing the attribute, so the guard never runs.");
+
+    /// <summary>
+    /// NU0018: Malformed culture name.
+    /// </summary>
+    public static readonly DiagnosticDescriptor MalformedCultureName = new(
+        id: "NU0018",
+        title: "Malformed culture name",
+        messageFormat: "Culture name '{0}' is not well formed",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "A culture name may contain only letters, digits, '-' and '_', and may not begin or end with a separator or run two together. Whether a well-formed name matches an installed culture depends on the machine running the test, so only names that no machine could accept are reported at build time; the rest are reported against the test that declared them when it runs.");
 }

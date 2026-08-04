@@ -34,6 +34,7 @@ internal sealed class TestCaseSeed
         RequiresTestContext = descriptor.RequiresTestContext;
         TimeoutMs = descriptor.TimeoutMs;
         Retry = descriptor.Retry;
+        Culture = descriptor.Culture;
         CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate;
         DisplayNameFormatterType = descriptor.DisplayNameFormatterType;
         Priority = descriptor.Priority;
@@ -60,6 +61,7 @@ internal sealed class TestCaseSeed
         RequiresTestContext = descriptor.RequiresTestContext;
         TimeoutMs = descriptor.TimeoutMs;
         Retry = descriptor.Retry;
+        Culture = descriptor.Culture;
         CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate;
         DisplayNameFormatterType = descriptor.DisplayNameFormatterType;
         Priority = descriptor.Priority;
@@ -86,6 +88,7 @@ internal sealed class TestCaseSeed
         RequiresTestContext = descriptor.RequiresTestContext;
         TimeoutMs = descriptor.TimeoutMs;
         Retry = descriptor.Retry;
+        Culture = descriptor.Culture;
         CustomDisplayNameTemplate = descriptor.CustomDisplayNameTemplate;
         DisplayNameFormatterType = descriptor.DisplayNameFormatterType;
         Priority = descriptor.Priority;
@@ -131,6 +134,8 @@ internal sealed class TestCaseSeed
     public int? TimeoutMs { get; }
 
     public RetryInfo Retry { get; }
+
+    public TestCultureInfo Culture { get; }
 
     public string? CustomDisplayNameTemplate { get; }
 
@@ -196,6 +201,7 @@ internal sealed class TestCaseSeed
             RequiresTestContext = RequiresTestContext,
             TimeoutMs = TimeoutMs,
             Retry = Retry,
+            Culture = Culture,
             CustomDisplayNameTemplate = CustomDisplayNameTemplate,
             DisplayNameFormatterType = DisplayNameFormatterType,
             Priority = Priority
@@ -237,6 +243,7 @@ internal sealed class TestCaseSeed
             RequiresTestContext = RequiresTestContext,
             TimeoutMs = TimeoutMs,
             Retry = Retry,
+            Culture = Culture,
             CustomDisplayNameTemplate = CustomDisplayNameTemplate,
             DisplayNameFormatterType = DisplayNameFormatterType,
             Priority = Priority,

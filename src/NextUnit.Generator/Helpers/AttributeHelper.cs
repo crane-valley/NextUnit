@@ -455,6 +455,86 @@ internal static class AttributeHelper
         return null;
     }
 
+    /// <summary>
+    /// Resolves the cultures a test runs under from the method, its class, and its assembly.
+    /// </summary>
+    /// <remarks>
+    /// Each axis resolves on its own, so a method that overrides only the current culture keeps the
+    /// UI culture its class or assembly declared. Within one level an explicit
+    /// <c>[Culture]</c>/<c>[UICulture]</c> wins over <c>[InvariantCulture]</c>, which fills in the
+    /// axes that level left unspecified; that is what lets <c>[InvariantCulture]</c> combine with
+    /// <c>[UICulture("ja-JP")]</c> to mean invariant formatting with Japanese resources.
+    /// </remarks>
+    public static (string? CultureName, string? UICultureName) GetCultureNames(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol)
+    {
+        string? cultureName = null;
+        string? uiCultureName = null;
+
+        foreach (var symbol in new ISymbol[] { methodSymbol, typeSymbol, typeSymbol.ContainingAssembly })
+        {
+            var isInvariant = HasAttribute(symbol, NextUnitAttributeNames.InvariantCulture);
+
+            cultureName ??= GetCultureNameFromSymbol(symbol, NextUnitAttributeNames.Culture)
+                ?? (isInvariant ? "" : null);
+            uiCultureName ??= GetCultureNameFromSymbol(symbol, NextUnitAttributeNames.UICulture)
+                ?? (isInvariant ? "" : null);
+
+            if (cultureName is not null && uiCultureName is not null)
+            {
+                break;
+            }
+        }
+
+        return (cultureName, uiCultureName);
+    }
+
+    private static string? GetCultureNameFromSymbol(ISymbol symbol, string attributeName)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (!IsAttribute(attribute, attributeName))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length == 0)
+            {
+                continue;
+            }
+
+            // The attribute's own ArgumentNullException never runs here, because nothing on this
+            // path constructs the attribute, so NU0018 reports a null name instead - and the C#
+            // nullable warning already flags it before that. Reaching this line therefore means both
+            // were suppressed, and the safe reading is that the level declared nothing, exactly as a
+            // suppressed NU0017 falls back to running the test once rather than aborting the run.
+            // Carrying "declared, but unusable" through to the descriptors as a distinct state was
+            // considered and rejected: it adds public surface to every descriptor to distinguish a
+            // case that needs two deliberate suppressions to reach, and whose only consequence is
+            // inheriting the enclosing declaration instead of overriding it.
+            if (attribute.ConstructorArguments[0].Value is string name)
+            {
+                return name;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool HasAttribute(ISymbol symbol, string attributeName)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (IsAttribute(attribute, attributeName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static int GetExecutionPriority(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
         var methodPriority = GetExecutionPriorityFromSymbol(methodSymbol);

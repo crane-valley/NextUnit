@@ -36,3 +36,25 @@ static NextUnit.Internal.TestDataExpander.ExpandDeferredAsync(NextUnit.Internal.
 static NextUnit.Internal.TestDataExpander.ExpandSingle(NextUnit.Internal.TestDataDescriptor! descriptor, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
 virtual NextUnit.Internal.AsyncDataSourceProviderDelegate.Invoke(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
 virtual NextUnit.Internal.RetryPolicyFactoryDelegate.Invoke() -> NextUnit.IRetryPolicy!
+NextUnit.CultureAttribute
+NextUnit.CultureAttribute.CultureAttribute(string! name) -> void
+NextUnit.CultureAttribute.Name.get -> string!
+NextUnit.InvariantCultureAttribute
+NextUnit.InvariantCultureAttribute.InvariantCultureAttribute() -> void
+NextUnit.UICultureAttribute
+NextUnit.UICultureAttribute.Name.get -> string!
+NextUnit.UICultureAttribute.UICultureAttribute(string! name) -> void
+NextUnit.Internal.TestCultureInfo
+NextUnit.Internal.TestCultureInfo.TestCultureInfo() -> void
+NextUnit.Internal.TestCultureInfo.CultureName.get -> string?
+NextUnit.Internal.TestCultureInfo.CultureName.init -> void
+NextUnit.Internal.TestCultureInfo.UICultureName.get -> string?
+NextUnit.Internal.TestCultureInfo.UICultureName.init -> void
+NextUnit.Internal.TestCaseDescriptor.Culture.get -> NextUnit.Internal.TestCultureInfo!
+NextUnit.Internal.TestCaseDescriptor.Culture.init -> void
+NextUnit.Internal.TestDataDescriptor.Culture.get -> NextUnit.Internal.TestCultureInfo!
+NextUnit.Internal.TestDataDescriptor.Culture.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.Culture.get -> NextUnit.Internal.TestCultureInfo!
+NextUnit.Internal.ClassDataSourceDescriptor.Culture.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.Culture.get -> NextUnit.Internal.TestCultureInfo!
+NextUnit.Internal.CombinedDataSourceDescriptor.Culture.init -> void

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
@@ -740,6 +741,24 @@ public sealed class TestExecutionEngine
         var maxAttempts = Math.Max(1, testCase.Retry.Count ?? 1);
         var retryDelayMs = testCase.Retry.DelayMs;
 
+        // Resolved once, before any attempt: whether a culture exists does not change between
+        // attempts, and a machine missing it should be reported once rather than retried.
+        CultureInfo? declaredCulture;
+        CultureInfo? declaredUICulture;
+        try
+        {
+            (declaredCulture, declaredUICulture) = CultureScope.Resolve(testCase.Culture);
+        }
+        catch (CultureNotFoundException ex)
+        {
+            await sink.ReportErrorAsync(
+                testCase,
+                new InvalidOperationException(
+                    $"Test '{testCase.Id.Value}' declares culture '{ex.InvalidCultureName}', which is not available on this machine.",
+                    ex)).ConfigureAwait(false);
+            return;
+        }
+
         // Created on the first decision and reused for the rest of this test, so a policy sees the
         // attempts of one test case as one sequence. Never shared with another test case: the field
         // would then have to be synchronized, and a policy's state would leak across tests.
@@ -747,6 +766,12 @@ public sealed class TestExecutionEngine
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
+            // Entered per attempt rather than around the loop so every attempt starts from the
+            // declared culture: an attempt that changed it must not decide what the next one sees.
+            // Disposal covers every way an attempt ends - pass, failure, timeout, cancellation, and
+            // the early returns below - because the loop body is the using scope.
+            using var cultureScope = CultureScope.Enter(declaredCulture, declaredUICulture);
+
             // A fresh timeout source per attempt makes [Timeout] a per-attempt budget; a single
             // source shared across retries would leave later attempts starting already-cancelled.
             using var timeoutCts = testCase.TimeoutMs.HasValue
