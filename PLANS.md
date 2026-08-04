@@ -2,7 +2,7 @@
 
 ## Current state
 
-**Current version**: 1.18.0 (stable)
+**Current version**: 1.19.0 (stable)
 
 **Last audited**: 2026-07-23 (Asia/Tokyo, UTC+09:00)
 

@@ -5,10 +5,45 @@ All notable changes to NextUnit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.19.0] - 2026-08-05
 
 ### Added
 
+- `[TestData]` binds a member that yields its rows asynchronously: `IAsyncEnumerable<T>`, which may
+  take the cancellation token, and `Task<TCollection>` or `ValueTask<TCollection>`. The generator
+  classifies the member's shape and emits a typed provider with the element type bound statically, so
+  the path neither reflects nor instantiates a generic at runtime and stays usable under trimming and
+  Native AOT. A synchronous collection still wins the classification, so an existing source that also
+  implements `IAsyncEnumerable<T>` keeps its meaning, and rows are still materialized at discovery, so
+  each row remains an individually selectable and filterable test case. Cancellation is observed at
+  every await point rather than only between rows -- a pending move and the enumerator's disposal are
+  each raced against the token -- and rows are never returned to a caller whose token was cancelled.
+  The contract that follows is documented on `TestDataAttribute` and in `docs/GETTING_STARTED.md`: a
+  data source must not block its calling thread, because no token can interrupt a thread that never
+  reaches an await.
+- `NU0014` reports an awaitable `[TestData]` member the generated path cannot read rows from, such as
+  a bare `Task`. The reflection fallback is deliberately synchronous, because reading an
+  `IAsyncEnumerable<T>` reflectively needs runtime generic instantiation that trimming cannot see, so
+  the statically detectable cases are reported at build time instead of failing at run time.
+- `DeferredEnumeration = true` on `[TestData]` moves a member's enumeration from discovery to
+  execution, for a source large or slow enough that reading it at startup is itself the problem.
+  Discovery reports one placeholder per source and never calls the member, and the execution engine
+  replaces that placeholder with the real rows before it builds the dependency graph, so the graph,
+  the scheduler, retry, and reporting all see ordinary test cases. Filtering is group-level by design:
+  a deferred source is filtered by the test method's own name, categories, and tags, never by row
+  metadata that does not exist yet, and no filter silently restores eager enumeration. A source that
+  fails is reported on its own placeholder instead of aborting the run, and one that yields no rows is
+  reported as skipped rather than disappearing. Eager enumeration remains the default, and the
+  lifecycle difference is stated rather than papered over: an eager source is read before any hook
+  runs, a deferred one at the start of the run. At 10,000 rows the benchmark records deferred
+  discovery at 1.3 KB in 18us against eager's 9,407.88 KB in 5.767ms, with the fan-out cost moving to
+  execution rather than multiplying.
+- `NextUnit.Templates` packages a `dotnet new nextunit` project template, so a new test project starts
+  from one command as it already does for MSTest, NUnit, and xUnit. The generated project targets
+  Microsoft.Testing.Platform, references only the `NextUnit` meta-package, and carries one passing
+  example test. The NextUnit version in the template content is a pinned literal, because a generated
+  project lives outside this repository and never sees `Directory.Packages.props`; CI compares that
+  literal against `Directory.Build.props` and fails the build when the two diverge.
 - Selective retry. `[Retry<TPolicy>(count)]` attaches an `IRetryPolicy` that is asked, after each
   failed attempt that has a further attempt available, whether to run the test again. The decision is
   asynchronous and receives the exception, the attempt's `ITestContext`, the one-based attempt number,
@@ -50,6 +85,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NU0018` reports a malformed culture name on `[Culture]` or `[UICulture]`. Only names no machine
   could accept are rejected at build time -- whether a well-formed name matches an installed culture
   depends on the machine running the tests, not the one running the build.
+
+### Technical Notes
+
+- Gate performance regressions on a repeated, noise-aware decision backed by a rolling history on the
+  `benchmark-data` branch. Runs are compared on per-round ratios against the competing frameworks
+  measured on the same machine in the same round, so hosted-runner speed cancels out of the metric. A
+  finding must be at least 5% slower, exceed three robust standard deviations of the observed
+  run-to-run spread, and clear a one-sided Mann-Whitney U test at p < 0.01 before it is flagged, and
+  failing additionally requires the preceding recorded run to have regressed as well. Only
+  default-branch runs append to the history, so a pull request reports into the job summary and a
+  comment rather than failing on its own noise.
+- Block pull requests that introduce vulnerable packages. The Security Scan job now diffs the head
+  against the base revision and fails only on vulnerabilities the base does not already resolve, so an
+  advisory landing on a package the repository already resolves no longer breaks unrelated work; the
+  nightly job runs the same scan without a baseline and owns the existing findings. `NuGetAuditMode`
+  is `all` and audit findings are warnings, so restore no longer fails for everyone. Exceptions live
+  in an allowlist scoped to a single package per entry, each with a reason and an expiry capped at 90
+  days.
+- Add NUnit and MSTest migration guides covering project setup, lifecycle, data sources, filtering,
+  assertions, parallelism, retry, culture, context, and the features NextUnit deliberately does not
+  replicate. Every fenced C# block in the guides is extracted and run through a `GeneratorDriver` in
+  CI, so a published sample cannot drift from a compiled copy of itself.
+- Update the Microsoft.Testing, Microsoft.CodeAnalysis, and Microsoft.OpenApi dependencies.
 
 ## [1.18.0] - 2026-07-26
 
