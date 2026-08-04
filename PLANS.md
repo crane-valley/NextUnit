@@ -197,12 +197,15 @@ reports into the job summary and a comment instead. See `tools/speed-comparison/
 
 Delivered as `docs/MIGRATION_FROM_NUNIT.md` and `docs/MIGRATION_FROM_MSTEST.md`, guarded by
 `tests/NextUnit.Docs.Tests`. That project extracts every fenced C# block from the guides and compiles
-it through a `GeneratorDriver`, so the Markdown is the single source of truth and a sample cannot
-drift from a compiled copy of itself. Blocks whose info string annotates the language with a source
-framework name are the code being migrated away from and are excluded; any other annotation fails the
-check, so a typo cannot silently drop a sample. Running the generator rather than only the compiler
-is what makes the check meaningful for a guide that is mostly attributes: a data source without
-`[Test]`, a misnamed `[TestData]` member, or an unreachable retry policy is reported here.
+it through the NextUnit generator and analyzers, so the Markdown is the single source of truth and a
+sample cannot drift from a compiled copy of itself. Blocks whose info string annotates the language
+with a source framework name are the code being migrated away from and are excluded; any other
+annotation, and any unrecognized fence language, fails the check, so a typo cannot silently drop a
+sample. Running the generator and analyzers rather than only the compiler is what makes the check
+meaningful for a guide that is mostly attributes: a data source without `[Test]`, a misnamed
+`[TestData]` member, or an unreachable retry policy is reported here. The reference set is narrowed
+to the shared framework plus the NextUnit package, so a sample cannot compile against something only
+the test host has.
 
 - [ ] Bring `docs/MIGRATION_FROM_XUNIT.md` under the same compile check. Its samples are bare method
   and statement fragments rather than compilation units, and two blocks are API listings with

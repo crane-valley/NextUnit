@@ -1,6 +1,9 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.Testing.Platform.Builder;
+using NextUnit.Analyzers.Analyzers;
 using NextUnit.Generator;
 
 namespace NextUnit.Docs.Tests;
@@ -14,10 +17,10 @@ namespace NextUnit.Docs.Tests;
 /// mirrored in a parallel project, so a published sample cannot drift from a compiled one.
 /// </para>
 /// <para>
-/// The extracted samples run through the NextUnit source generator as well as the compiler, which
-/// proves they are usable tests rather than merely valid C#: a data source attribute without
-/// <c>[Test]</c>, a misnamed <c>[TestData]</c> member, or an unreachable retry policy is reported
-/// here exactly as it would be in a reader's project.
+/// The extracted samples run through the NextUnit source generator and the NextUnit analyzers as
+/// well as the compiler, which proves they are usable tests rather than merely valid C#: a data
+/// source without <c>[Test]</c>, a misnamed <c>[TestData]</c> member, or an unreachable retry policy
+/// is reported here exactly as it would be in a reader's project.
 /// </para>
 /// </remarks>
 public class MigrationGuideSampleTests
@@ -31,6 +34,12 @@ public class MigrationGuideSampleTests
         "MIGRATION_FROM_NUNIT.md",
         "MIGRATION_FROM_MSTEST.md",
     ];
+
+    /// <summary>
+    /// Fence languages the guides may use. An unlisted language fails the check, so a typo such as
+    /// <c>cs</c> or <c>cshrap</c> cannot quietly remove a sample from compilation.
+    /// </summary>
+    private static readonly string[] _knownLanguages = ["bash", "csharp", "json", "text", "xml"];
 
     /// <summary>
     /// Info-string annotations marking a C# block as another framework's code, shown for comparison
@@ -52,13 +61,21 @@ public class MigrationGuideSampleTests
 
     private static readonly Lazy<ImmutableArray<MetadataReference>> _references = new(CreateReferences);
 
+    private static readonly Lazy<ImmutableArray<DiagnosticAnalyzer>> _analyzers = new(CreateAnalyzers);
+
     /// <summary>
     /// A guide that stopped contributing samples would otherwise pass silently, so require a floor.
     /// </summary>
     private const int MinimumSamplesPerGuide = 10;
 
+    /// <summary>
+    /// The category both the NextUnit analyzers and the NextUnit generator stamp on their
+    /// diagnostics.
+    /// </summary>
+    private const string NextUnitCategory = "NextUnit";
+
     [Fact]
-    public void EveryNextUnitSampleCompiles()
+    public async Task EveryNextUnitSampleCompilesAsync()
     {
         var cancellationToken = Xunit.TestContext.Current.CancellationToken;
         var samples = _guides.SelectMany(LoadBlocks).Where(IsNextUnitSample).ToArray();
@@ -79,11 +96,14 @@ public class MigrationGuideSampleTests
             out var driverDiagnostics,
             cancellationToken);
 
-        // Errors only. Warnings would drag the samples' style toward this repository's analyzer
-        // settings rather than toward what a reader's project accepts.
+        var analyzerDiagnostics = await generated
+            .WithAnalyzers(_analyzers.Value)
+            .GetAnalyzerDiagnosticsAsync(cancellationToken);
+
         var failures = generated.GetDiagnostics(cancellationToken)
             .AddRange(driverDiagnostics)
-            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .AddRange(analyzerDiagnostics)
+            .Where(IsFailure)
             .Select(Describe)
             .ToArray();
 
@@ -107,10 +127,20 @@ public class MigrationGuideSampleTests
     }
 
     [Fact]
-    public void CodeBlockAnnotationsAreRecognized()
+    public void CodeFenceInfoStringsAreRecognized()
     {
-        foreach (var block in _guides.SelectMany(LoadBlocks).Where(block => block.Language == "csharp"))
+        foreach (var block in _guides.SelectMany(LoadBlocks))
         {
+            Xunit.Assert.True(
+                _knownLanguages.Contains(block.Language, StringComparer.Ordinal),
+                $"{block.Location}: unknown fence language '{block.Language}'. " +
+                $"Expected one of {string.Join(", ", _knownLanguages)}.");
+
+            if (block.Language != "csharp")
+            {
+                continue;
+            }
+
             Xunit.Assert.True(
                 block.Annotations.Count <= 1,
                 $"{block.Location}: a C# block takes at most one annotation, found '{block.InfoString}'.");
@@ -118,12 +148,24 @@ public class MigrationGuideSampleTests
             foreach (var annotation in block.Annotations)
             {
                 Xunit.Assert.True(
-                    _foreignFrameworks.Contains(annotation),
+                    _foreignFrameworks.Contains(annotation, StringComparer.Ordinal),
                     $"{block.Location}: unknown annotation '{annotation}'. " +
                     $"Expected one of {string.Join(", ", _foreignFrameworks)}, or none for a compiled NextUnit sample.");
             }
         }
     }
+
+    /// <summary>
+    /// A compiler error always fails. A NextUnit diagnostic fails from warning severity upwards,
+    /// because several of them -- a data source without <c>[Test]</c>, an unresolved
+    /// <c>[DependsOn]</c> target -- ship as warnings, and a published sample that trips one is wrong
+    /// even though a reader's build would only warn. Non-NextUnit warnings are left alone so the
+    /// samples are not dragged toward this repository's own analyzer settings.
+    /// </summary>
+    private static bool IsFailure(Diagnostic diagnostic) =>
+        diagnostic.Severity == DiagnosticSeverity.Error ||
+        (diagnostic.Severity == DiagnosticSeverity.Warning &&
+            string.Equals(diagnostic.Descriptor.Category, NextUnitCategory, StringComparison.Ordinal));
 
     private static bool IsNextUnitSample(MarkdownCodeBlock block) =>
         block.Language == "csharp" && block.Annotations.Count == 0;
@@ -181,19 +223,51 @@ public class MigrationGuideSampleTests
             .Select(character => char.IsLetterOrDigit(character) ? character : '_')
             .ToArray());
 
+    private static ImmutableArray<DiagnosticAnalyzer> CreateAnalyzers() =>
+    [
+        .. typeof(MissingTestAttributeAnalyzer).Assembly.GetTypes()
+            .Where(type => !type.IsAbstract && typeof(DiagnosticAnalyzer).IsAssignableFrom(type))
+            .Select(type => (DiagnosticAnalyzer)Activator.CreateInstance(type)!),
+    ];
+
     private static ImmutableArray<MetadataReference> CreateReferences()
     {
-        // The running test application already carries the shared framework, NextUnit.Core, and
-        // NextUnit.Platform, which is exactly the reference set a reader's project has.
+        // The reference set is the shared framework plus what the NextUnit package brings, which is
+        // what a reader's project has. Referencing everything the test host loaded would let a
+        // sample compile against xUnit or Roslyn and still be published as NextUnit-only code.
+        var sharedFramework = Path.GetDirectoryName(typeof(object).Assembly.Location)
+            ?? throw new InvalidOperationException("The shared framework directory could not be resolved.");
+
+        if (PathsMatch(sharedFramework, AppContext.BaseDirectory))
+        {
+            throw new InvalidOperationException(
+                "The shared framework resolves to the test output directory, so the reference set " +
+                "cannot be narrowed to what a NextUnit consumer has. Run this check on a " +
+                "framework-dependent build.");
+        }
+
         var trusted = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string
             ?? throw new InvalidOperationException("TRUSTED_PLATFORM_ASSEMBLIES is unavailable, so samples cannot be compiled.");
+
+        // The trusted list is the managed subset of the framework directory; enumerating the
+        // directory instead would pick up native libraries that carry no metadata.
+        var candidates = trusted
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(path => PathsMatch(Path.GetDirectoryName(path), sharedFramework))
+            .Concat(
+            [
+                typeof(NextUnit.TestAttribute).Assembly.Location,
+                typeof(NextUnit.Platform.NextUnitApplicationBuilderExtensions).Assembly.Location,
+                typeof(TestApplication).Assembly.Location,
+            ]);
 
         var references = ImmutableArray.CreateBuilder<MetadataReference>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var path in trusted.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        foreach (var path in candidates)
         {
-            if (path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) && seen.Add(Path.GetFileName(path)))
+            if (seen.Add(Path.GetFileName(path)))
             {
                 references.Add(MetadataReference.CreateFromFile(path));
             }
@@ -201,4 +275,12 @@ public class MigrationGuideSampleTests
 
         return references.ToImmutable();
     }
+
+    private static bool PathsMatch(string? left, string? right) =>
+        left is not null &&
+        right is not null &&
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
+            StringComparison.OrdinalIgnoreCase);
 }

@@ -13,12 +13,16 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <!-- NextUnit.Analyzers ships its code fixes in the same assembly as its analyzers, so
+         enumerating its types needs the Workspaces assembly those code fixes derive from. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- NextUnit.Generator is referenced as a library, not as an analyzer: the samples are compiled
-         in-process through a GeneratorDriver, which needs the generator type at run time. -->
+    <!-- NextUnit.Analyzers and NextUnit.Generator are referenced as libraries, not as analyzers: the
+         samples are compiled in-process, which needs the analyzer and generator types at run time. -->
+    <ProjectReference Include="..\..\src\NextUnit.Analyzers\NextUnit.Analyzers.csproj" />
     <ProjectReference Include="..\..\src\NextUnit.Core\NextUnit.Core.csproj" />
     <ProjectReference Include="..\..\src\NextUnit.Generator\NextUnit.Generator.csproj" />
     <ProjectReference Include="..\..\src\NextUnit.Platform\NextUnit.Platform.csproj" />
