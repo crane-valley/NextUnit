@@ -41,7 +41,7 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[Order]` | `[ExecutionPriority]` | Higher runs first, the opposite of `[Order]` |
 | `[Parallelizable]` | default behavior | |
 | `[NonParallelizable]` | `[NotInParallel]` | |
-| `[LevelOfParallelism]` | `[ParallelLimit]` | Applies at assembly, class, or method level |
+| `[LevelOfParallelism]` | `[ParallelLimit]` on each class | No suite-wide equivalent; see [Parallelism and ordering](#parallelism-and-ordering) |
 | `[SetCulture]` | `[Culture]` | |
 | `[SetUICulture]` | `[UICulture]` | |
 | `[Culture]` (filter) | none | NUnit's `[Culture]` selects tests; NextUnit's sets one |
@@ -606,9 +606,14 @@ public class GroupedTests
 ```
 
 `[NotInParallel]` also accepts constraint keys, so classes that share one resource can exclude each
-other without serializing the whole run. `[ParallelLimit]` and `[Timeout]` also apply at assembly
-level, so an assembly-wide `[LevelOfParallelism(4)]` becomes `[assembly: ParallelLimit(4)]` rather
-than the same attribute repeated on every class.
+other without serializing the whole run.
+
+There is no suite-wide parallelism setting. `ParallelLimitAttribute` accepts an assembly target, but
+the generator reads `[ParallelLimit]` only from a test method and its containing class, so an
+assembly-level declaration compiles and is then ignored. An assembly-wide `[LevelOfParallelism(4)]`
+therefore becomes `[ParallelLimit(4)]` on each class that needs it; a class without one is bounded by
+the processor count. `[Timeout]` is the attribute that does resolve from the assembly as well as the
+class and method.
 
 Ordering is expressed as a dependency or a priority rather than an index.
 

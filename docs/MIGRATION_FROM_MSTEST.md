@@ -36,7 +36,7 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[ExpectedException]` | `Assert.Throws<T>` | |
 | `[Retry]` | `[Retry]`, `[Retry<TPolicy>]` | |
 | `[DoNotParallelize]` | `[NotInParallel]` | |
-| `[Parallelize(Workers = n)]` | `[ParallelLimit(n)]` | Applies at assembly, class, or method level |
+| `[Parallelize(Workers = n)]` | `[ParallelLimit(n)]` on each class | No suite-wide equivalent; see [Parallelism and ordering](#parallelism-and-ordering) |
 | `[DescriptionAttribute]` | `[DisplayName]` | Changes the reported name |
 | `Assert.AreEqual` | `Assert.Equal` | Same argument order |
 | `StringAssert.*` | `Assert.StartsWith`, `EndsWith`, `Contains` | |
@@ -595,9 +595,13 @@ public class GroupedTests
 
 `[NotInParallel]` is the equivalent of `[DoNotParallelize]`, and it also accepts constraint keys, so
 classes that share one resource can exclude each other without serializing the whole run.
-`[ParallelLimit]` and `[Timeout]` also apply at assembly level, so an assembly-wide
-`[Parallelize(Workers = 4)]` becomes `[assembly: ParallelLimit(4)]` rather than the same attribute
-repeated on every class.
+
+There is no suite-wide parallelism setting. `ParallelLimitAttribute` accepts an assembly target, but
+the generator reads `[ParallelLimit]` only from a test method and its containing class, so an
+assembly-level declaration compiles and is then ignored. An assembly-wide
+`[Parallelize(Workers = 4)]` therefore becomes `[ParallelLimit(4)]` on each class that needs it; a
+class without one is bounded by the processor count. `[Timeout]` is the attribute that does resolve
+from the assembly as well as the class and method.
 
 MSTest has no built-in ordering. NextUnit expresses order as a dependency or a priority:
 

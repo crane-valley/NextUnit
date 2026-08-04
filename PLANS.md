@@ -210,6 +210,13 @@ the test host has.
 - [ ] Bring `docs/MIGRATION_FROM_XUNIT.md` under the same compile check. Its samples are bare method
   and statement fragments rather than compilation units, and two blocks are API listings with
   undeclared identifiers, so inclusion means rewriting the samples rather than annotating them.
+- [ ] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
+  declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiles, but
+  `NextUnitGenerator` resolves the limit from the test method and its containing type only and never
+  from `ContainingAssembly`, so a suite-wide limit is silently dropped and the run falls back to the
+  processor count. `[Timeout]` and the culture attributes already read the assembly, so the fix is
+  either to do the same here or to drop the assembly target. Surfaced by the Codex review of the
+  migration guides (2026-08-04); the guides document the current behavior meanwhile.
 - [ ] Decide how documentation on `main` should present APIs that are not in the released package.
   `README.md`, `docs/GETTING_STARTED.md`, and both new migration guides describe `[Retry<TPolicy>]`,
   the culture attributes, `DeferredEnumeration`, and `ITestContext.RetryAttempt` while pinning
