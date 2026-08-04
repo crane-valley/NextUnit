@@ -34,7 +34,7 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[Ignore]` | `[Skip]` | |
 | `Assert.Inconclusive` | `Assert.Skip` | Reported as skipped; there is no inconclusive outcome |
 | `[ExpectedException]` | `Assert.Throws<T>` | |
-| `[Retry]` | `[Retry]`, `[Retry<TPolicy>]` | |
+| `[Retry]` | `[Retry]`, `[Retry<TPolicy>]` | The counts differ; see [Retry, repeat, timeout, and culture](#retry-repeat-timeout-and-culture) |
 | `[DoNotParallelize]` | `[NotInParallel]` | |
 | `[Parallelize(Workers = n)]` | `[ParallelLimit(n)]` on each class | No suite-wide equivalent; see [Parallelism and ordering](#parallelism-and-ordering) |
 | `[DescriptionAttribute]` | `[DisplayName]` | Changes the reported name |
@@ -646,6 +646,10 @@ public class ApiTests
 `[Retry(count)]` counts the first attempt, so `[Retry(3)]` means at most three runs, and the optional
 second argument is a delay in milliseconds between attempts. A `[Timeout]` budget applies to each
 attempt separately, and timeouts, runtime skips, and cancellation are never retried.
+
+The two frameworks count differently, so do not copy the number across. MSTest's `[Retry(n)]` counts
+the reruns that follow the first attempt, which is `n + 1` runs in total, while NextUnit's count is
+the total. Convert on totals rather than on the literal, and confirm against your MSTest version.
 
 To decide per failure rather than retrying everything, implement `IRetryPolicy` and attach it with
 `[Retry<TPolicy>(count)]`:

@@ -36,7 +36,7 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `Assert.Ignore` | `Assert.Skip` | |
 | `[Timeout]` | `[Timeout]` | |
 | `[MaxTime]` | none | Assert on your own stopwatch, or use `[Timeout]` |
-| `[Retry]` | `[Retry]`, `[Retry<TPolicy>]` | |
+| `[Retry]` | `[Retry]`, `[Retry<TPolicy>]` | Retries a wider set of failures; see [Retry, repeat, timeout, and culture](#retry-repeat-timeout-and-culture) |
 | `[Repeat]` | `[Repeat]` | |
 | `[Order]` | `[ExecutionPriority]` | Higher runs first, the opposite of `[Order]` |
 | `[Parallelizable]` | default behavior | |
@@ -659,8 +659,11 @@ convention of NUnit's `tryCount`. The optional second argument is a delay in mil
 attempts. A `[Timeout]` budget applies to each attempt separately, and
 timeouts, runtime skips, and cancellation are never retried.
 
-NUnit retries every failure. To decide per failure, implement `IRetryPolicy` and attach it with
-`[Retry<TPolicy>(count)]`:
+The retryable set is wider here than in NUnit. NextUnit's `[Retry]` re-runs a test after any failure
+except a timeout, a runtime skip, and cancellation, including one that threw an unexpected exception.
+NUnit's `[Retry]` re-runs an assertion failure and leaves an error alone, so a test that used to fail
+at once can now be retried into passing. Restore the narrower behavior by implementing `IRetryPolicy`
+and attaching it with `[Retry<TPolicy>(count)]`:
 
 ```csharp
 using NextUnit;
