@@ -105,8 +105,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   days.
 - Add NUnit and MSTest migration guides covering project setup, lifecycle, data sources, filtering,
   assertions, parallelism, retry, culture, context, and the features NextUnit deliberately does not
-  replicate. Every fenced C# block in the guides is extracted and run through a `GeneratorDriver` in
-  CI, so a published sample cannot drift from a compiled copy of itself.
+  replicate. The NextUnit samples in both guides -- every C# block that carries no annotation -- are
+  extracted and run through a `GeneratorDriver` in CI, so a published sample cannot drift from a
+  compiled copy of itself. A block annotated with the source framework is the code being migrated
+  away from and is excluded, and any other annotation fails the check, so a typo cannot quietly drop
+  a sample from coverage.
 - Update the Microsoft.Testing, Microsoft.CodeAnalysis, and Microsoft.OpenApi dependencies.
 
 ## [1.18.0] - 2026-07-26

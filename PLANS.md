@@ -224,10 +224,12 @@ the test host has.
   either to do the same here or to drop the assembly target. Surfaced by the Codex review of the
   migration guides (2026-08-04); the guides document the current behavior meanwhile.
 - [ ] Decide how documentation on `main` should present APIs that are not in the released package.
-  `README.md`, `docs/GETTING_STARTED.md`, and both new migration guides describe `[Retry<TPolicy>]`,
-  the culture attributes, `DeferredEnumeration`, and `ITestContext.RetryAttempt` while pinning
-  `Version="1.18.0"`, and `PublicAPI.Unshipped.txt` shows all of them are unreleased, so a reader who
-  installs the pinned version cannot compile those samples. The pin is correct by the Version Update
+  Between releases, `README.md`, `docs/GETTING_STARTED.md`, and the migration guides describe what
+  `main` implements while pinning the last published version, so a reader who installs the pinned
+  version cannot compile those samples. The v1.19.0 cycle was the clear case: those documents
+  described `[Retry<TPolicy>]`, the culture attributes, `DeferredEnumeration`, and
+  `ITestContext.RetryAttempt` against a `Version="1.18.0"` pin for the whole cycle, and
+  `PublicAPI.Unshipped.txt` listed all of them. The pin is correct by the Version Update
   Checklist, which bumps every document at release; the gap is that `main` documents `main` without
   saying so. Options are an unreleased marker on the affected sections, or accepting the gap and
   saying so once. This spans four documents and the release process, so it is not a per-guide fix.
