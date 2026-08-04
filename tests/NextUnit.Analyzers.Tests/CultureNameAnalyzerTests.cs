@@ -201,6 +201,62 @@ public class Tests
     }
 
     /// <summary>
+    /// The generated path never constructs the attribute, so the constructor's
+    /// <c>ArgumentNullException</c> never runs. Left unreported, a null name would silently fall
+    /// through to the class or assembly culture instead of overriding it.
+    /// </summary>
+    [Fact]
+    public async Task NullName_ReportsDiagnosticAsync()
+    {
+        var source = @"
+#nullable disable
+using NextUnit;
+
+public class Tests
+{
+    [Test]
+    [Culture(null)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<CultureNameAnalyzer>
+            .Diagnostic("NU0018")
+            .WithSpan(8, 14, 8, 18)
+            .WithArguments("<null>");
+
+        await CSharpAnalyzerVerifier<CultureNameAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The attribute is matched by symbol, not by how it is spelled, so an alias is still checked.
+    /// </summary>
+    [Fact]
+    public async Task AliasedCultureAttribute_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+using Locale = NextUnit.CultureAttribute;
+
+public class Tests
+{
+    [Test]
+    [Locale(""not a culture"")]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<CultureNameAnalyzer>
+            .Diagnostic("NU0018")
+            .WithSpan(8, 13, 8, 28)
+            .WithArguments("not a culture");
+
+        await CSharpAnalyzerVerifier<CultureNameAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// A same-named attribute from another namespace is not this rule's business.
     /// </summary>
     [Fact]

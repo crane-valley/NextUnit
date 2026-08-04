@@ -504,8 +504,11 @@ internal static class AttributeHelper
                 continue;
             }
 
-            // A null argument is left to the attribute's own ArgumentNullException rather than
-            // silently emitted as "no culture declared".
+            // A null argument cannot reach a well-formed build: the attribute's own
+            // ArgumentNullException never runs here, because nothing on this path constructs the
+            // attribute, so NU0018 reports it instead. If that diagnostic is suppressed the level
+            // reads as undeclared, which is the conservative reading - the alternative would be to
+            // invent a culture name the runtime is guaranteed to reject.
             if (attribute.ConstructorArguments[0].Value is string name)
             {
                 return name;
