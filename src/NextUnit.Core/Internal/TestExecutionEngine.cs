@@ -731,7 +731,13 @@ public sealed class TestExecutionEngine
         ITestExecutionSink sink,
         CancellationToken cancellationToken)
     {
-        var maxAttempts = testCase.Retry.Count ?? 1;
+        // A non-positive count would leave the loop below with nothing to execute and fall through to
+        // its invariant throw, reporting an internal error for what is really a bad attempt budget.
+        // NU0017 rejects the value at the attribute, but a descriptor built by hand reaches the engine
+        // without passing an analyzer, and a suppressed diagnostic does too. Running the test once is
+        // the safe reading: a node discovery advertised must not vanish from the run, and the throw at
+        // the end of the loop keeps meaning "the engine broke" rather than "the user typed 0".
+        var maxAttempts = Math.Max(1, testCase.Retry.Count ?? 1);
         var retryDelayMs = testCase.Retry.DelayMs;
 
         // Created on the first decision and reused for the rest of this test, so a policy sees the

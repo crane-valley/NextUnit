@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis.Testing;
 using NextUnit.Analyzers.Analyzers;
 using NextUnit.Analyzers.Tests.Verifiers;
 using Xunit;
@@ -199,6 +200,33 @@ public class Tests
 }";
 
         await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// An unresolved policy type already has its own compiler error, so NU0016 must not pile a
+    /// visibility complaint on top of it.
+    /// </summary>
+    [Fact]
+    public async Task UnresolvedPolicyType_ReportsOnlyTheCompilerErrorAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    [Test]
+    [Retry<Undefined>(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var missingType = DiagnosticResult
+            .CompilerError("CS0246")
+            .WithSpan(7, 12, 7, 21)
+            .WithArguments("Undefined");
+
+        await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source, missingType);
     }
 
     [Fact]

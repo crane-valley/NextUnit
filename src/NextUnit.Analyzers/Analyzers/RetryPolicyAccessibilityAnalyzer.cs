@@ -64,6 +64,14 @@ public sealed class RetryPolicyAccessibilityAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool IsReachableFromGeneratedCode(ITypeSymbol policyType, Compilation compilation)
     {
+        // An unresolved type carries no accessibility to judge and already has its own compiler error.
+        // Reporting NU0016 on top would add a visibility complaint the user cannot act on and bury the
+        // error that actually needs fixing.
+        if (policyType.TypeKind == TypeKind.Error)
+        {
+            return true;
+        }
+
         // An array is named through its element type, and a type parameter is substituted at the use
         // site, so neither has a visibility of its own to check.
         if (policyType is IArrayTypeSymbol array)

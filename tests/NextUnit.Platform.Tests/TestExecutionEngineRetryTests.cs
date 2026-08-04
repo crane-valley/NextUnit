@@ -235,6 +235,33 @@ public sealed class TestExecutionEngineRetryTests
         Assert.Empty(sink.Errors);
     }
 
+    /// <summary>
+    /// A descriptor built by hand bypasses NU0017, and a suppressed diagnostic reaches the engine too,
+    /// so a non-positive budget must not abort the run with an internal error.
+    /// </summary>
+    [Test]
+    public async Task NonPositiveRetryCount_StillRunsTheTestOnceAsync()
+    {
+        var attempts = 0;
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("retry.count.zero")
+            .WithRetry(0)
+            .WithMethod((_, _) =>
+            {
+                Interlocked.Increment(ref attempts);
+                return Task.CompletedTask;
+            })
+            .Build();
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        // A node discovery advertised must still report, and it must report its real outcome.
+        Assert.Equal(1, attempts);
+        Assert.Single(sink.Passed);
+        Assert.Empty(sink.Errors);
+    }
+
     [Test]
     public async Task RetryAttempt_IsOneBasedAndIncrementsPerAttemptAsync()
     {
