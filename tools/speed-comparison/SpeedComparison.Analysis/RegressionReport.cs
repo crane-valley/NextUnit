@@ -90,7 +90,13 @@ public static class RegressionReport
         if (result.Assessments.Any(assessment => assessment.Verdict == RegressionVerdict.Suspected))
         {
             var frameworks = Join(result.Assessments, RegressionVerdict.Suspected);
-            return $"**Suspected regression** in {frameworks}. Not failing: no earlier recorded run regressed.";
+            // The two series stay suspected for different reasons, and saying the wrong one misleads.
+            // A read-only run is capped at suspected whatever the recorded runs show, because it never
+            // enters the history; only a baseline run is suspected because its predecessor was clean.
+            var reason = result.Series == GateSeries.Baseline
+                ? "Not failing: the run recorded before it did not regress."
+                : "Not failing: this run is not appended to the history, so it can never confirm a repeat.";
+            return $"**Suspected regression** in {frameworks}. {reason}";
         }
 
         if (result.Assessments.All(assessment => assessment.Verdict == RegressionVerdict.InsufficientBaseline))

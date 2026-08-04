@@ -66,7 +66,7 @@ record one measurement twice, and the baseline would count it as two independent
 A run is compared only against recorded runs with the same baseline key:
 
 ```text
-round-robin-runtime | metric r1 | 127 tests | 21 rounds | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, xUnit
+round-robin-runtime | metric r1 | 127 tests | 21 rounds | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, TUnit (AOT), xUnit
 ```
 
 The key holds the benchmark, its metric revision, the size and shape of the workload, the runner image
