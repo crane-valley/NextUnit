@@ -173,11 +173,11 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor ConflictingRetryAttributes = new(
         id: "NU0015",
         title: "Conflicting retry attributes",
-        messageFormat: "'{0}' has both [Retry] and [Retry<TPolicy>]; keep one, because only one attempt budget can apply",
+        messageFormat: "'{0}' has more than one retry attribute; keep one, because only one attempt budget and policy can apply",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "[Retry] and [Retry<TPolicy>] both declare the attempt budget and delay for the same target, so applying both leaves the retry policy and the budget ambiguous.");
+        description: "[Retry] and every constructed [Retry<TPolicy>] declare the attempt budget and delay for the same target, so applying more than one leaves the retry policy and the budget ambiguous.");
 
     /// <summary>
     /// NU0016: Retry policy type is not reachable from the generated registry.

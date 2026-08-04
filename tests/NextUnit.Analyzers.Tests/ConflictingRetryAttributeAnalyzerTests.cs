@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis.Testing;
 using NextUnit.Analyzers.Analyzers;
 using NextUnit.Analyzers.Tests.Verifiers;
 using Xunit;
@@ -32,7 +33,7 @@ public class Tests
 
         var expected = CSharpAnalyzerVerifier<ConflictingRetryAttributeAnalyzer>
             .Diagnostic("NU0015")
-            .WithSpan(13, 6, 13, 14)
+            .WithSpan(14, 6, 14, 27)
             .WithArguments("TestMethod");
 
         await CSharpAnalyzerVerifier<ConflictingRetryAttributeAnalyzer>.VerifyAnalyzerAsync(source, expected);
@@ -56,10 +57,56 @@ public class Tests
 
         var expected = CSharpAnalyzerVerifier<ConflictingRetryAttributeAnalyzer>
             .Diagnostic("NU0015")
-            .WithSpan(10, 2, 10, 10)
+            .WithSpan(11, 2, 11, 23)
             .WithArguments("Tests");
 
         await CSharpAnalyzerVerifier<ConflictingRetryAttributeAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// Two constructed generic attributes share one generic definition, so the compiler's own
+    /// duplicate check (<c>CS0579</c>) already rejects them.
+    /// </summary>
+    /// <remarks>
+    /// Pinned because it is the boundary of what NU0015 is for: the rule exists for the combination
+    /// the compiler cannot see, a plain <c>[Retry]</c> next to a <c>[Retry&lt;TPolicy&gt;]</c>, which
+    /// are separate attribute definitions. The analyzer reports this shape too rather than special-
+    /// casing it, so a second declaration is ambiguous by one rule however it is spelled.
+    /// </remarks>
+    [Fact]
+    public async Task TwoPolicyRetryAttributes_ReportsDiagnosticAlongsideTheCompilerAsync()
+    {
+        var source = @"
+using NextUnit;
+" + Policy + @"
+public class NeverRetry : IRetryPolicy
+{
+    public System.Threading.Tasks.ValueTask<bool> ShouldRetryAsync(RetryContext context) =>
+        System.Threading.Tasks.ValueTask.FromResult(false);
+}
+
+public class Tests
+{
+    [Test]
+    [Retry<AlwaysRetry>(2)]
+    [Retry<NeverRetry>(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<ConflictingRetryAttributeAnalyzer>
+            .Diagnostic("NU0015")
+            .WithSpan(20, 6, 20, 26)
+            .WithArguments("TestMethod");
+
+        var duplicateAttribute = DiagnosticResult
+            .CompilerError("CS0579")
+            .WithSpan(20, 6, 20, 23)
+            .WithArguments("Retry<>");
+
+        await CSharpAnalyzerVerifier<ConflictingRetryAttributeAnalyzer>.VerifyAnalyzerAsync(
+            source, expected, duplicateAttribute);
     }
 
     [Fact]

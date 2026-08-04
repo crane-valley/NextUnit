@@ -83,6 +83,14 @@ public sealed class RetryPolicyAccessibilityAnalyzer : DiagnosticAnalyzer
 
         for (INamedTypeSymbol? type = policyType; type is not null; type = type.ContainingType)
         {
+            // A file-local type reports internal accessibility but has a mangled metadata name and can
+            // only be named inside its own source file, so the generated registry cannot construct it
+            // however visible it looks.
+            if (type.IsFileLocal)
+            {
+                return false;
+            }
+
             switch (type.DeclaredAccessibility)
             {
                 case Accessibility.Public:

@@ -76,6 +76,36 @@ public class RetryPolicyEmissionTests
             "A retry without a policy must not emit a policy factory.");
     }
 
+    /// <summary>
+    /// A nullable-annotated type argument is only a nullability warning at the attribute, so the
+    /// emitted constructor call has to drop the annotation: <c>new global::Policy?()</c> is not valid
+    /// C# and would break a consumer that does not promote warnings to errors.
+    /// </summary>
+    [Fact]
+    public async Task NullableAnnotatedPolicy_EmitsAnUnannotatedConstructorCallAsync()
+    {
+        var registry = await GenerateRegistryAsync(PolicySource + """
+
+
+            namespace TestProject;
+
+            #pragma warning disable CS8714
+            public class RetryTests
+            {
+                [Test]
+                [Retry<RetryOnTimeout?>(3)]
+                public void Flaky()
+                {
+                }
+            }
+            #pragma warning restore CS8714
+            """);
+
+        Assert.Contains(
+            "PolicyFactory = static () => new global::TestProject.RetryOnTimeout(),",
+            registry);
+    }
+
     [Fact]
     public async Task ClassLevelPolicyRetry_AppliesToEveryTestInTheClassAsync()
     {

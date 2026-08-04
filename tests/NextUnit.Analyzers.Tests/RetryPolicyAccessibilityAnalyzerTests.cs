@@ -70,6 +70,36 @@ public class Tests
         await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
+    /// <summary>
+    /// A file-local type reports internal accessibility but can only be named inside its own file,
+    /// so visibility alone is not the whole test.
+    /// </summary>
+    [Fact]
+    public async Task FileLocalPolicy_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+file sealed class AlwaysRetry : IRetryPolicy
+{" + PolicyBody + @"}
+
+public class Tests
+{
+    [Test]
+    [Retry<AlwaysRetry>(3)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>
+            .Diagnostic("NU0016")
+            .WithSpan(13, 6, 13, 27)
+            .WithArguments("AlwaysRetry");
+
+        await CSharpAnalyzerVerifier<RetryPolicyAccessibilityAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
     [Fact]
     public async Task InternalNestedPolicy_NoDiagnosticAsync()
     {

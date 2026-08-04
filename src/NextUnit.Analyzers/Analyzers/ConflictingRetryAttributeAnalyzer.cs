@@ -6,13 +6,15 @@ using NextUnit.CodeAnalysis.Shared;
 namespace NextUnit.Analyzers.Analyzers;
 
 /// <summary>
-/// Analyzer that detects a target carrying both <c>[Retry]</c> and <c>[Retry&lt;TPolicy&gt;]</c>.
+/// Analyzer that detects a target carrying more than one retry attribute.
 /// </summary>
 /// <remarks>
-/// The two attributes are distinct types, so the compiler's <c>AllowMultiple = false</c> check does
-/// not catch the combination even though both declare the same attempt budget and delay. The
-/// generator resolves it by honoring the policy-bearing attribute, but nothing in the source says
-/// which one the author meant, so it is reported rather than silently picked.
+/// <c>[Retry]</c> and every constructed <c>[Retry&lt;TPolicy&gt;]</c> are distinct types, so the
+/// compiler's <c>AllowMultiple = false</c> check does not catch the combination even though all of
+/// them declare the same attempt budget and delay. Two different policies are just as ambiguous as a
+/// policy alongside a plain budget. The generator has to resolve it somehow and picks the first
+/// policy-bearing declaration, but nothing in the source says which one the author meant, so it is
+/// reported rather than silently picked.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ConflictingRetryAttributeAnalyzer : DiagnosticAnalyzer
@@ -30,36 +32,37 @@ public sealed class ConflictingRetryAttributeAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeSymbol(SymbolAnalysisContext context)
     {
-        AttributeData? plainRetry = null;
-        AttributeData? policyRetry = null;
+        var seen = false;
 
         foreach (var attribute in context.Symbol.GetAttributes())
         {
-            if (IsPolicyRetry(attribute))
+            if (!IsRetry(attribute))
             {
-                policyRetry ??= attribute;
+                continue;
             }
-            else if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.Retry)
+
+            if (!seen)
             {
-                plainRetry ??= attribute;
+                // The first declaration is the anchor; every later one is what makes the budget
+                // ambiguous, so the diagnostic points at the redundant declaration rather than at
+                // the one a reader would naturally treat as the intended setting.
+                seen = true;
+                continue;
             }
+
+            var location = attribute.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
+                ?? context.Symbol.Locations[0];
+
+            context.ReportDiagnostic(Diagnostic.Create(
+                DiagnosticDescriptors.ConflictingRetryAttributes,
+                location,
+                context.Symbol.Name));
         }
-
-        if (plainRetry is null || policyRetry is null)
-        {
-            return;
-        }
-
-        // Reported on the policy-free attribute: it is the one the generator drops, so the location
-        // points at the declaration that has no effect.
-        var location = plainRetry.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
-            ?? context.Symbol.Locations[0];
-
-        context.ReportDiagnostic(Diagnostic.Create(
-            DiagnosticDescriptors.ConflictingRetryAttributes,
-            location,
-            context.Symbol.Name));
     }
+
+    private static bool IsRetry(AttributeData attribute) =>
+        IsPolicyRetry(attribute) ||
+        attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.Retry;
 
     private static bool IsPolicyRetry(AttributeData attribute)
     {

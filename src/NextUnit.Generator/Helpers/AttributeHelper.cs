@@ -619,9 +619,10 @@ internal static class AttributeHelper
     /// Reads the retry declaration from one symbol, from either <c>[Retry]</c> or <c>[Retry&lt;TPolicy&gt;]</c>.
     /// </summary>
     /// <remarks>
-    /// The policy-bearing form wins when both are applied to the same symbol. That combination is
-    /// reported as <c>NU0015</c>, but the analyzer can be suppressed and the generator still has to
-    /// produce one deterministic answer; the more specific declaration is the one to honor.
+    /// The first policy-bearing form wins when a symbol carries more than one retry attribute -- a
+    /// policy alongside a plain budget, or two different policies. Both are reported as
+    /// <c>NU0015</c>, but the analyzer can be suppressed and the generator still has to produce one
+    /// deterministic answer; the more specific declaration, in declaration order, is the one to honor.
     /// </remarks>
     private static RetryDeclaration GetRetryFromSymbol(ISymbol symbol)
     {
@@ -669,7 +670,10 @@ internal static class AttributeHelper
             return null;
         }
 
-        return attributeClass.TypeArguments[0].ToDisplayString(FullyQualifiedTypeFormat);
+        // Formatted for a constructor call, not for a type reference: `new global::Policy?()` is not
+        // valid C#, and `[Retry<Policy?>(2)]` is only a nullability warning at the attribute, so a
+        // consumer that does not promote warnings would otherwise get a hard error in generated code.
+        return attributeClass.TypeArguments[0].ToDisplayString(TypeofCompatibleFormat);
     }
 
     /// <summary>
