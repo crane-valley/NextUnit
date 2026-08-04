@@ -141,6 +141,12 @@ the shared lookup, once, for all of them.
 - [ ] Decide between walking the base type and overridden method chain in `AttributeHelper` and
   declaring `Inherited = false` on the attributes, then apply the decision to every NextUnit
   attribute at once and cover a base test class and an overriding method.
+- [ ] Include lifecycle methods in that decision. `RegistryEmitter.LifecycleMethodsFor` looks the
+  hooks up by the test's exact `FullyQualifiedTypeName`, so a `[Before]` or `[After]` declared on a
+  base test class never runs for the derived classes holding the tests. The failure is silent -- the
+  tests still run, without their setup -- and both xUnit and MSTest run inherited hooks, so it is a
+  migration hazard as well as a surprise. Surfaced by the Codex review of the migration guides
+  (2026-08-04); the guides tell readers to declare hooks on each concrete class meanwhile.
 
 ### Priority 2 — Display names are formatted with whichever culture happens to be ambient
 

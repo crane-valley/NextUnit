@@ -241,6 +241,13 @@ Hooks may return `void`, `Task`, `Task<T>`, `ValueTask`, or `ValueTask<T>`, so t
 MSTest supports convert directly. A class-scoped hook takes no `TestContext` parameter; inject
 `ITestContext` into the test class when a test needs the context.
 
+Hooks are not inherited, which matters if your suite puts them on a shared base class. MSTest runs an
+inherited `[TestInitialize]`; NextUnit's generator attaches lifecycle methods to the exact type that
+declares them, so converting a base-class hook in place stops it running for the derived classes that
+hold the tests -- silently, because the tests still run, just without their setup. Declare `[Before]`
+and `[After]` on each concrete test class, or have a base-class method do the work and call it from a
+hook on each derived class.
+
 ## Data sources
 
 ### Inline rows
@@ -457,7 +464,7 @@ MSTest splits assertions across `Assert`, `StringAssert`, and `CollectionAssert`
 | `Assert.IsNotNull(value)` | `Assert.NotNull(value)` |
 | `Assert.AreSame(expected, actual)` | `Assert.Same(expected, actual)` |
 | `Assert.AreNotSame(other, actual)` | `Assert.NotSame(other, actual)` |
-| `Assert.ThrowsException<T>(() => ...)` | `Assert.Throws<T>(() => ...)` |
+| `Assert.ThrowsException<T>(() => ...)` | `Assert.Throws<T>(() => ...)` (matches subtypes too) |
 | `Assert.ThrowsExceptionAsync<T>(...)` | `await Assert.ThrowsAsync<T>(...)` |
 | `Assert.Fail(message)` | `Assert.Fail(message)` |
 | `Assert.Inconclusive(reason)` | `Assert.Skip(reason)` |
@@ -472,6 +479,11 @@ MSTest splits assertions across `Assert`, `StringAssert`, and `CollectionAssert`
 Note the argument order in the string and collection rows: MSTest passes the value under test first,
 and NextUnit passes the expected value first. That reversal still compiles, so it is the mistake to
 watch for during a bulk rewrite.
+
+`Assert.Throws<T>` matches more widely than MSTest's does. NextUnit catches `TException`, so a
+subtype satisfies it: `Assert.Throws<ArgumentException>` accepts an `ArgumentNullException`, where
+`Assert.ThrowsExactly<T>` would not. Where the exact type is the point of the test, assert it on the
+returned exception with `Assert.Equal(typeof(ArgumentException), error.GetType())`.
 
 `[ExpectedException]` has no equivalent, because it passes whenever the exception escapes anywhere in
 the method. Assert on the call that should throw, and use the returned exception for further checks.

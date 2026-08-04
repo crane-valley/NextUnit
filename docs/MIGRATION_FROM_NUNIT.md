@@ -19,10 +19,10 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[OneTimeSetUp]` | `[Before(LifecycleScope.Class)]` | |
 | `[OneTimeTearDown]` | `[After(LifecycleScope.Class)]` | |
 | `[SetUpFixture]` | `[Before(LifecycleScope.Assembly)]`, `LifecycleScope.Session` | |
-| `[TestCase]` | `[Arguments]` | |
+| `[TestCase]` | `[Arguments]` | `ExpectedResult` has no equivalent; see [Inline rows](#inline-rows) |
 | `[TestCaseSource]` | `[TestData]`, `[ClassDataSource<T>]` | |
 | `TestCaseData` row metadata | `TestDataRow<T>` | |
-| `[Values]` | `[Values]` | Cartesian product by default, as in NUnit |
+| `[Values]` | `[Values]` | Cartesian product by default, as in NUnit, but the parameterless form needs values spelled out |
 | `[ValueSource]` | `[ValuesFromMember]`, `[ValuesFrom<T>]` | |
 | `[Combinatorial]` | default behavior, `[Matrix]` | |
 | `[Sequential]`, `[Pairwise]` | none | Write the rows out with `[Arguments]` or `[TestData]` |
@@ -37,7 +37,7 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[Timeout]` | `[Timeout]` | |
 | `[MaxTime]` | none | Assert on your own stopwatch, or use `[Timeout]` |
 | `[Retry]` | `[Retry]`, `[Retry<TPolicy>]` | Retries a wider set of failures; see [Retry, repeat, timeout, and culture](#retry-repeat-timeout-and-culture) |
-| `[Repeat]` | `[Repeat]` | |
+| `[Repeat]` | `[Repeat]` | Repetitions become independent test cases; see [Retry, repeat, timeout, and culture](#retry-repeat-timeout-and-culture) |
 | `[Order]` | `[ExecutionPriority]` | Higher runs first, the opposite of `[Order]` |
 | `[Parallelizable]` | default behavior | |
 | `[NonParallelizable]` | `[NotInParallel]` | |
@@ -253,6 +253,12 @@ fields therefore needs its state moved as well as its attribute changed: make th
 hold the fixture in a type of its own and reach it through `[ClassDataSource<T>]` with
 `Shared = SharedType.PerClass`.
 
+Hooks are also not inherited. The generator attaches lifecycle methods to the exact type that
+declares them, so a `[SetUp]` on an abstract base class that you convert in place stops running for
+the derived classes that hold the tests -- silently, because the tests still run, just without their
+setup. Declare `[Before]` and `[After]` on each concrete test class, or have a base-class method do
+the work and call it from a hook on each derived class.
+
 ## Data sources
 
 ### Inline rows
@@ -291,6 +297,37 @@ public class AdditionTests
 
 `[Test]` is required alongside `[Arguments]`. NUnit infers the test from `[TestCase]` alone; NextUnit
 does not, and reports a data-source attribute without `[Test]` as `NU0013` at build time.
+
+`ExpectedResult` needs care, because nothing warns you when it is lost. NUnit compares the returned
+value against the expected one; NextUnit awaits a test's return value and discards it, so a method
+migrated as-is passes whatever it returns. Carry the expectation across as one more argument and
+assert it in the body:
+
+```csharp nunit
+using NUnit.Framework;
+
+public class AdditionTests
+{
+    [TestCase(1, 2, ExpectedResult = 3)]
+    [TestCase(5, 5, ExpectedResult = 10)]
+    public int Add(int a, int b) => a + b;
+}
+```
+
+```csharp
+using NextUnit;
+
+public class AdditionTests
+{
+    [Test]
+    [Arguments(1, 2, 3)]
+    [Arguments(5, 5, 10)]
+    public void Add(int a, int b, int expected) => Assert.Equal(expected, a + b);
+}
+```
+
+The same applies to a `[TestCaseSource]` whose rows use `TestCaseData.Returns`: the expected value
+becomes an ordinary column of the row.
 
 ### Member sources
 
@@ -404,6 +441,12 @@ public class RenderingTests
 }
 ```
 
+Spell the values out. NUnit fills in the cases for a parameterless `[Values]` on a `bool` or an enum
+parameter; NextUnit's `[Values]` stores exactly what you pass, and a parameter with no values
+contributes nothing to the product, so the whole method expands to zero test cases and disappears
+from the run without failing. Write `[Values(false, true)]`, or point `[ValuesFromMember]` at
+`Enum.GetValues<T>()`.
+
 `[Sequential]` and `[Pairwise]` have no equivalent. Write the combinations you want as `[Arguments]`
 rows or as a `[TestData]` member, which makes the intended pairing visible instead of implied by an
 attribute.
@@ -477,13 +520,33 @@ expected value.
 | `Assert.That(items, Is.SubsetOf(other))` | `Assert.Subset(items, other)` |
 | `Assert.That(text, Does.StartWith(prefix))` | `Assert.StartsWith(prefix, text)` |
 | `Assert.That(text, Does.Contain(part))` | `Assert.Contains(part, text)` |
-| `Assert.Throws<T>(() => ...)` | `Assert.Throws<T>(() => ...)` |
+| `Assert.Throws<T>(() => ...)` | `Assert.Throws<T>(() => ...)` (matches subtypes too) |
 | `Assert.ThrowsAsync<T>(async () => ...)` | `await Assert.ThrowsAsync<T>(async () => ...)` |
 | `Assert.Fail(message)` | `Assert.Fail(message)` |
 | `Assert.Ignore(reason)` | `Assert.Skip(reason)` |
 
 The classic NUnit forms -- `Assert.AreEqual`, `Assert.IsTrue`, `Assert.IsNull` -- keep their argument
 order, so those rewrites are pure renames.
+
+`Assert.Throws<T>` matches more widely than NUnit's does. NextUnit catches `TException`, so a subtype
+satisfies it: `Assert.Throws<ArgumentException>` accepts an `ArgumentNullException`. NUnit's
+`Assert.Throws<T>` requires the exact type and has `Assert.Catch<T>` for the assignable case. A
+migrated test can therefore pass on an exception it used to reject. Where the exact type is the point
+of the test, assert it on the returned exception:
+
+```csharp
+using NextUnit;
+
+public class ExactTypeTests
+{
+    [Test]
+    public void RejectsASubtype()
+    {
+        var error = Assert.Throws<ArgumentException>(() => throw new ArgumentException("bad"));
+        Assert.Equal(typeof(ArgumentException), error.GetType());
+    }
+}
+```
 
 `Assert.Throws<T>` returns the exception, which is how you assert on its message. The async form
 returns a `Task<TException>` rather than the exception itself, so it has to be awaited: an
@@ -685,6 +748,13 @@ public class ApiTests
 convention of NUnit's `tryCount`. The optional second argument is a delay in milliseconds between
 attempts. A `[Timeout]` budget applies to each attempt separately, and
 timeouts, runtime skips, and cancellation are never retried.
+
+`[Repeat]` changes shape rather than meaning. NUnit runs the repetitions in sequence and stops at the
+first failure, so one repeated test produces one result. NextUnit expands them at build time into
+independent test cases, each with its own id and result, and the scheduler may run them in parallel
+with everything else. A repeated test that mutates shared state can therefore overlap with itself,
+and a failing repetition no longer stops the ones after it. Add `[NotInParallel]` when the overlap is
+the problem, and write an ordinary loop inside one test when you need stop-on-first-failure.
 
 The retryable set is wider here than in NUnit. NextUnit's `[Retry]` re-runs a test after any failure
 except a timeout, a runtime skip, and cancellation, including one that threw an unexpected exception.
