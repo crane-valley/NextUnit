@@ -504,11 +504,15 @@ internal static class AttributeHelper
                 continue;
             }
 
-            // A null argument cannot reach a well-formed build: the attribute's own
-            // ArgumentNullException never runs here, because nothing on this path constructs the
-            // attribute, so NU0018 reports it instead. If that diagnostic is suppressed the level
-            // reads as undeclared, which is the conservative reading - the alternative would be to
-            // invent a culture name the runtime is guaranteed to reject.
+            // The attribute's own ArgumentNullException never runs here, because nothing on this
+            // path constructs the attribute, so NU0018 reports a null name instead - and the C#
+            // nullable warning already flags it before that. Reaching this line therefore means both
+            // were suppressed, and the safe reading is that the level declared nothing, exactly as a
+            // suppressed NU0017 falls back to running the test once rather than aborting the run.
+            // Carrying "declared, but unusable" through to the descriptors as a distinct state was
+            // considered and rejected: it adds public surface to every descriptor to distinguish a
+            // case that needs two deliberate suppressions to reach, and whose only consequence is
+            // inheriting the enclosing declaration instead of overriding it.
             if (attribute.ConstructorArguments[0].Value is string name)
             {
                 return name;
