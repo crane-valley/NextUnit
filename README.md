@@ -192,6 +192,8 @@ and [raw timings](tools/speed-comparison/results/runtime-comparison.json).
 
 - [Getting Started](docs/GETTING_STARTED.md)
 - [Migration from xUnit](docs/MIGRATION_FROM_XUNIT.md)
+- [Migration from NUnit](docs/MIGRATION_FROM_NUNIT.md)
+- [Migration from MSTest](docs/MIGRATION_FROM_MSTEST.md)
 - [ASP.NET Core Testing](docs/ASPNETCORE_TESTING.md)
 - [Best Practices](docs/BEST_PRACTICES.md)
 - [Performance Analysis](docs/PERFORMANCE.md)

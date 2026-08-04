@@ -189,11 +189,29 @@ reports into the job summary and a comment instead. See `tools/speed-comparison/
 
 ### Priority 2 — Adoption documentation
 
-- [ ] Add concise NUnit-to-NextUnit and MSTest-to-NextUnit migration guides covering project setup,
+- [x] Add concise NUnit-to-NextUnit and MSTest-to-NextUnit migration guides covering project setup,
   lifecycle, data sources, filtering, assertions, and deliberate non-equivalents.
-- [ ] Link the guides from the README and NuGet README and compile every code sample in CI.
+- [x] Link the guides from the README and NuGet README and compile every code sample in CI.
 - Guardrail: defer an automated Roslyn migration tool until issues or real migrations demonstrate repeated
   mechanical work that documentation cannot solve.
+
+Delivered as `docs/MIGRATION_FROM_NUNIT.md` and `docs/MIGRATION_FROM_MSTEST.md`, guarded by
+`tests/NextUnit.Docs.Tests`. That project extracts every fenced C# block from the guides and compiles
+it through a `GeneratorDriver`, so the Markdown is the single source of truth and a sample cannot
+drift from a compiled copy of itself. Blocks whose info string annotates the language with a source
+framework name are the code being migrated away from and are excluded; any other annotation fails the
+check, so a typo cannot silently drop a sample. Running the generator rather than only the compiler
+is what makes the check meaningful for a guide that is mostly attributes: a data source without
+`[Test]`, a misnamed `[TestData]` member, or an unreachable retry policy is reported here.
+
+- [ ] Bring `docs/MIGRATION_FROM_XUNIT.md` under the same compile check. Its samples are bare method
+  and statement fragments rather than compilation units, and two blocks are API listings with
+  undeclared identifiers, so inclusion means rewriting the samples rather than annotating them.
+- [ ] Fix two claims in `docs/GETTING_STARTED.md` that the current code contradicts, both pre-dating
+  this work: the skip section states that runtime conditional skipping is unsupported, while
+  `Assert.Skip`, `Assert.SkipWhen`, and `Assert.SkipUnless` ship and are exercised by
+  `samples/NextUnit.SampleTests/SkipTests.cs`; and the samples omit `using NextUnit;`, which compiles
+  in `samples/NextUnit.SampleTests` only because that namespace nests under `NextUnit`.
 
 ### Priority 2 — Make dependency findings actionable
 
