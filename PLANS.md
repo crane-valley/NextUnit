@@ -119,6 +119,29 @@ retry decisions based on the exception, while MSTest exposes the current run cou
   they are built during discovery, outside any test's culture scope, so a declared culture does not
   change them and test identity stays stable.
 
+### Priority 2 — Attribute metadata claims inheritance the generator does not implement
+
+Surfaced by the Codex review of the culture isolation change (2026-08-04) against the new
+`[Culture]`, `[UICulture]`, and `[InvariantCulture]` attributes, and then confirmed to apply equally
+to every existing NextUnit attribute, so it pre-dates that change.
+
+No NextUnit attribute specifies `Inherited` in its `[AttributeUsage]`, so all of them inherit the
+default of `true` and advertise that a derived class or an overriding method picks them up. Nothing
+implements that: `AttributeHelper` reads `ISymbol.GetAttributes()`, which returns only directly
+applied attributes and never walks `INamedTypeSymbol.BaseType` or `IMethodSymbol.OverriddenMethod`.
+A `[Timeout]`, `[Retry]`, `[Category]`, `[ExecutionPriority]`, or `[Culture]` on a base test class is
+therefore silently ignored by everything derived from it.
+
+The culture attributes deliberately match the existing behavior rather than diverging. Fixing only
+them would make one family of attributes inherit while the rest do not, and marking only them
+`Inherited = false` would make one family honest while the rest keep advertising something untrue --
+either way the framework becomes harder to predict than it is today. The fix belongs at the level of
+the shared lookup, once, for all of them.
+
+- [ ] Decide between walking the base type and overridden method chain in `AttributeHelper` and
+  declaring `Inherited = false` on the attributes, then apply the decision to every NextUnit
+  attribute at once and cover a base test class and an overriding method.
+
 ### Priority 2 — Display names are formatted with whichever culture happens to be ambient
 
 Surfaced while adding culture isolation (2026-08-04) and confirmed to pre-date it. Nothing in the
