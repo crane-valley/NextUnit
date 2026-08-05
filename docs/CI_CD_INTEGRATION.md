@@ -64,9 +64,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
-    - uses: actions/setup-dotnet@v5
+    - uses: actions/setup-dotnet@v6
       with:
         dotnet-version: '10.0.x'
 
@@ -82,7 +82,7 @@ jobs:
 
     - name: Upload test results
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: test-results
         path: TestResults/**/*.trx

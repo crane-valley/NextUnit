@@ -233,7 +233,7 @@ the test host has.
   Checklist, which bumps every document at release; the gap is that `main` documents `main` without
   saying so. Options are an unreleased marker on the affected sections, or accepting the gap and
   saying so once. This spans four documents and the release process, so it is not a per-guide fix.
-- [ ] Fix two claims in `docs/GETTING_STARTED.md` that the current code contradicts, both pre-dating
+- [x] Fix two claims in `docs/GETTING_STARTED.md` that the current code contradicts, both pre-dating
   this work: the skip section states that runtime conditional skipping is unsupported, while
   `Assert.Skip`, `Assert.SkipWhen`, and `Assert.SkipUnless` ship and are exercised by
   `samples/NextUnit.SampleTests/SkipTests.cs`; and the samples omit `using NextUnit;`, which compiles

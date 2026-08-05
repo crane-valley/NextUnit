@@ -232,7 +232,12 @@ Edit `Console.Sample.Tests.csproj`:
 </Project>
 ```
 
-### 4. Add Program.cs for Test Initialization
+### 4. No Program.cs Required
+
+No `Program.cs` is needed. The NextUnit source generator emits one whenever the project has no entry
+point of its own, and that generated `Program` is what calls `builder.AddNextUnit()`. This sample
+therefore contains only test files. Writing your own `Program.cs` suppresses the generated entry
+point, so it then has to make that call itself:
 
 ```csharp
 using Microsoft.Testing.Platform.Builder;

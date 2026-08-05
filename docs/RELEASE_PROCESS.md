@@ -11,7 +11,7 @@ NextUnit consists of seven NuGet packages:
 - **NextUnit.Core** - Core attributes, assertions, execution engine
 - **NextUnit.Generator** - Source generator for test discovery
 - **NextUnit.TestAdapter** - VSTest adapter for Visual Studio Test Explorer
-- **NextUnit.Platform** - Microsoft.Testing.Platform integration (legacy)
+- **NextUnit.Platform** - Microsoft.Testing.Platform integration
 - **NextUnit.AspNetCore** - ASP.NET Core integration testing support
 - **NextUnit.Templates** - `dotnet new nextunit` project template
 
@@ -39,13 +39,12 @@ When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following
 
 2. **Directory.Packages.props**
    - Location: `/Directory.Packages.props`
-   - Update: All six NextUnit package versions
-     - `<PackageVersion Include="NextUnit" Version="X.Y.Z" />`
-     - `<PackageVersion Include="NextUnit.Core" Version="X.Y.Z" />`
-     - `<PackageVersion Include="NextUnit.Generator" Version="X.Y.Z" />`
-     - `<PackageVersion Include="NextUnit.TestAdapter" Version="X.Y.Z" />`
-     - `<PackageVersion Include="NextUnit.Platform" Version="X.Y.Z" />`
-     - `<PackageVersion Include="NextUnit.AspNetCore" Version="X.Y.Z" />`
+   - Update: `<NextUnitVersion>X.Y.Z</NextUnitVersion>` in the opening `PropertyGroup`
+   - Example: `<NextUnitVersion>1.6.1</NextUnitVersion>`
+   - This one property feeds every in-repo `PackageVersion` for a NextUnit package
+     (`NextUnit`, `NextUnit.Core`, `NextUnit.Generator`, `NextUnit.TestAdapter`,
+     `NextUnit.Platform`, `NextUnit.AspNetCore`), each of which reads `$(NextUnitVersion)` rather
+     than carrying its own literal, so the six cannot drift apart.
    - `NextUnit.Templates` is deliberately absent. Central package management describes packages this
      repository *consumes*, and nothing here references the template package; it takes its version
      from `Directory.Build.props` like every other package.
@@ -99,7 +98,9 @@ Handle each pair on its own:
 
 1. **README.md**
    - Location: `/README.md`
-   - Update: `**Current Version**: X.Y.Z (Stable)` near the top of the file
+   - Update: `<PackageReference Include="NextUnit" Version="X.Y.Z" />` in the Project Configuration
+     snippet under Quick Start. That snippet is the only version literal in the file; the NuGet
+     badge resolves the published version on its own and needs no edit.
 
 2. **NUGET_README.md**
    - Location: `/NUGET_README.md`
@@ -434,7 +435,9 @@ dependencies so their compile and runtime assets reach consuming test projects.
 
 ### Issue: Version mismatch warnings during build
 
-**Solution**: Ensure all six package versions in `Directory.Packages.props` are identical and match `Directory.Build.props`.
+**Solution**: Ensure `<NextUnitVersion>` in `Directory.Packages.props` matches `<Version>` in
+`Directory.Build.props`. The six NextUnit `PackageVersion` items all read that property, so a
+mismatch between the two files is the only way they can disagree.
 
 ### Issue: NuGet push fails with "package already exists"
 

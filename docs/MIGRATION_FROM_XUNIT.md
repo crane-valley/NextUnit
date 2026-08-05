@@ -346,9 +346,9 @@ Assert.InRange(value, min, max);
 Assert.NotInRange(value, min, max);
 ```
 
-### Assertions Not Yet Implemented (v1.0)
+### Assertions Without a NextUnit Equivalent
 
-These will be added in future versions:
+As of 1.19.0, these xUnit assertions have no NextUnit counterpart. Rewrite them:
 
 ```csharp
 // Advanced collection assertions (use alternatives)
@@ -579,8 +579,11 @@ public class AsyncTests
 ### "Test not discovered"
 
 - Ensure `[Test]` attribute is applied
-- Verify the generator is referenced correctly in `.csproj`
-- Check that `Program.cs` calls `builder.AddNextUnit()`
+- Verify the `NextUnit` package reference is present. It brings in the source generator, which
+  emits the test registry and, when the project has no entry point of its own, a `Program` that
+  calls `builder.AddNextUnit()`. You do not write that file yourself.
+- Check that a hand-written `Program.cs`, if you kept one, calls `builder.AddNextUnit()`. Its
+  presence suppresses the generated entry point.
 
 ### "Tests run in wrong order"
 
