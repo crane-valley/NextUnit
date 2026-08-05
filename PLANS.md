@@ -306,11 +306,16 @@ one value to change is the `<NextUnitVersion>` property. Following the instructi
 six indirections with literals and leaves `NextUnitVersion` at the old value, which the release
 workflow's tag-versus-version gate then rejects.
 
-Left as-is here because it is orthogonal to the template package and touches instructions this change
-does not otherwise alter.
+Left as-is by the template change because it was orthogonal to that package and touched instructions
+the change did not otherwise alter.
 
-- [ ] Rewrite the `Directory.Packages.props` checklist item and its Troubleshooting counterpart around
+- [x] Rewrite the `Directory.Packages.props` checklist item and its Troubleshooting counterpart around
   the single `<NextUnitVersion>` property.
+
+Done in the 2026-08-05 documentation audit. The same audit found a second stale entry in the same
+checklist: the `README.md` item named a `**Current Version**: X.Y.Z (Stable)` line that the file does
+not contain, while omitting the `PackageReference` snippet the v1.19.0 release commit `de2034f`
+actually bumped.
 
 ### Priority 2 — `--list-tests` reports no tests under Microsoft.Testing.Platform
 
