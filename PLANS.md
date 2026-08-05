@@ -333,6 +333,16 @@ VSTest adapter — sees an empty assembly.
 Because of this, the `template-smoke` job proves discovery with `--minimum-expected-tests`, which
 fails when fewer tests than expected are reported, rather than with `--list-tests`.
 
+The 2026-08-05 documentation audit reproduced this on three more projects, so it is not specific to
+the package smoke project or to consuming NextUnit as a package. `samples/Console.Sample.Tests` and
+`samples/ClassLibrary.Sample.Tests` each report `0 tests found` for `--list-tests` while an ordinary
+run reports 25 and 44 passing tests respectively, and `samples/NextUnit.SampleTests` reports the same
+`0 tests found` while running its full suite. The audit reached the missing
+`DiscoveredTestNodeStateProperty` independently, which corroborates the diagnosis above. This also
+puts a caveat under `docs/GETTING_STARTED.md`, whose deferred-data-source section describes what
+`--list-tests` reports for a deferred source; that description is correct about the intended
+behavior and unobservable until this is fixed.
+
 - [ ] Attach `DiscoveredTestNodeStateProperty` to the nodes published by `DiscoverAsync` and cover
   `--list-tests` for a project that consumes NextUnit as a package.
 
