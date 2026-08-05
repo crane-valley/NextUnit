@@ -76,6 +76,8 @@ No `OutputType=Exe`, `Program.cs`, or separate analyzer reference is needed.
 Create a new file `CalculatorTests.cs`:
 
 ```csharp
+using NextUnit;
+
 namespace MyProject.Tests;
 
 public class CalculatorTests
@@ -269,8 +271,12 @@ dotnet run
 dotnet run --no-build
 
 # Run specific tests
-dotnet run -- --test-name "*Calculator*"
+dotnet run -- --test-name "Add_*"
 ```
+
+`--test-name` matches the test's display name, which defaults to the method name. The class name is
+not part of it, so `"*CalculatorTests*"` selects nothing; filter by class through
+`[Category]` or `[Tag]` instead.
 
 To use `dotnet test` across a repository with the .NET 10 SDK, add this `global.json` at the
 repository root:
@@ -532,6 +538,8 @@ public class ModeratelyImportantTests
 
 ## Skipping Tests
 
+`[Skip]` keeps a test out of the run entirely, and the reason travels to the result:
+
 ```csharp
 // Skip with reason
 [Test]
@@ -539,7 +547,29 @@ public class ModeratelyImportantTests
 public void PendingTest() { }
 ```
 
-**Note**: Use the `[Skip]` attribute to skip tests at compile time. Runtime conditional skipping is not currently supported.
+When only the running test can decide, skip from inside it. `Assert.Skip` always skips,
+`Assert.SkipWhen` skips when the condition holds, and `Assert.SkipUnless` skips when it does not:
+
+```csharp
+[Test]
+public void ReadsFromTheDatabase()
+{
+    Assert.SkipUnless(
+        Environment.GetEnvironmentVariable("DB_CONNECTION") is not null,
+        "DB_CONNECTION is not configured");
+
+    // Reaches here only when the connection string is present.
+}
+```
+
+`Assert.SkipOnWindows`, `Assert.SkipOnLinux`, `Assert.SkipOnMacOS`, and `Assert.SkipOnFreeBSD` are
+shorthands for the platform case. Each takes an optional reason and falls back to a default message.
+
+The two forms differ in more than syntax. A runtime skip starts the test, so the constructor,
+the test-scoped `[Before]` hooks, and everything before the skip call have already run, and any
+artifacts collected up to that point are kept. The result is reported as skipped rather than failed,
+and it is never retried: `[Retry]` ends the sequence on a runtime skip the same way it ends on a
+pass.
 
 ## Retrying Failed Tests
 

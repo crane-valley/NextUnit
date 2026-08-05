@@ -232,7 +232,15 @@ Edit `Console.Sample.Tests.csproj`:
 </Project>
 ```
 
-### 4. Add Program.cs for Test Initialization
+### 4. No Program.cs Required
+
+Delete the `Program.cs` that `dotnet new console` created in step 2. It is dead code once the
+project is a test project, and it is the only file from the template you do not want.
+
+Nothing replaces it. The `NextUnit` package's MSBuild props mark the project as a
+Microsoft.Testing.Platform application and register `NextUnit.Platform.TestingPlatformBuilderHook`,
+so `Microsoft.Testing.Platform.MSBuild` generates the entry point and the hook adds NextUnit to the
+builder. That is why this sample contains only test files. The equivalent hand-written file would be:
 
 ```csharp
 using Microsoft.Testing.Platform.Builder;
@@ -243,6 +251,8 @@ builder.AddNextUnit();
 using var app = await builder.BuildAsync();
 return await app.RunAsync();
 ```
+
+Write that only if you need an entry point of your own; otherwise leave it out.
 
 ## Advanced Testing Scenarios
 

@@ -10,11 +10,11 @@ This project shows how to use `NextUnit.AspNetCore` for integration testing of A
 
 ```text
 WebApi.Sample/              # The Web API under test
-    Program.cs              # Minimal API with weather endpoints
-    IWeatherService.cs      # Service interface
-    WeatherService.cs       # Service implementation
+    Program.cs              # Minimal API endpoints, IWeatherService,
+                            # WeatherService, and the WeatherForecast record
 
 WebApi.Sample.Tests/        # Integration tests
+    WebApiTestBase.cs           # Shared base class for the test classes below
     WeatherApiTests.cs          # Basic API tests
     WeatherApiWithMockTests.cs  # Service mocking examples
     ServiceResolutionTests.cs   # DI container access examples
@@ -24,14 +24,16 @@ WebApi.Sample.Tests/        # Integration tests
 
 ### 1. Basic Integration Testing
 
-`WeatherApiTests.cs` shows basic HTTP testing:
+`WeatherApiTests.cs` shows basic HTTP testing. It derives from the shared `WebApiTestBase`, which
+derives from `WebApplicationTest<Program>` and points the host at the sample application's content
+root:
 
 ```csharp
 [NotInParallel("WebApplicationFactory")]
-public class WeatherApiTests : WebApplicationTest<Program>
+public class WeatherApiTests : WebApiTestBase
 {
     [Test]
-    public async Task GetWeatherForecast_ReturnsOk()
+    public async Task GetWeatherForecast_ReturnsOkAsync()
     {
         var response = await Client.GetAsync("/weatherforecast");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -39,13 +41,17 @@ public class WeatherApiTests : WebApplicationTest<Program>
 }
 ```
 
+`[NotInParallel("WebApplicationFactory")]` sits on the concrete class, not on the base. The source
+generator reads attributes from the test method and its containing type only, so an attribute on a
+base class is not inherited.
+
 ### 2. Service Mocking
 
 `WeatherApiWithMockTests.cs` shows how to replace services:
 
 ```csharp
 [NotInParallel("WebApplicationFactory")]
-public class WeatherApiWithMockTests : WebApplicationTest<Program>
+public class WeatherApiWithMockTests : WebApiTestBase
 {
     protected override void ConfigureTestServices(IServiceCollection services)
     {
@@ -53,7 +59,7 @@ public class WeatherApiWithMockTests : WebApplicationTest<Program>
     }
 
     [Test]
-    public async Task GetWeatherForecast_WithMock_ReturnsMockedData()
+    public async Task GetWeatherForecast_WithMock_ReturnsMockedDataAsync()
     {
         var forecasts = await Client.GetFromJsonAsync<WeatherForecast[]>("/weatherforecast");
         Assert.Equal("MockCity", forecasts![0].City);
@@ -67,7 +73,7 @@ public class WeatherApiWithMockTests : WebApplicationTest<Program>
 
 ```csharp
 [NotInParallel("WebApplicationFactory")]
-public class ServiceResolutionTests : WebApplicationTest<Program>
+public class ServiceResolutionTests : WebApiTestBase
 {
     [Test]
     public void GetRequiredService_ReturnsWeatherService()

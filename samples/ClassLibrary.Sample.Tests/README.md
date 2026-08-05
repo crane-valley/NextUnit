@@ -61,10 +61,18 @@ public void Divide_SmallNumbers_UsesPrecisionComparison()
 
 ### 4. Parameterized Tests with TestData
 
+`[TestData]` names a member that supplies the rows. For inline values, use `[Arguments]` instead:
+
 ```csharp
-[TestData("hello", "olleh")]
-[TestData("NextUnit", "tinUtxeN")]
-[TestData("a", "a")]
+public static IEnumerable<object[]> ReverseTestCases()
+{
+    yield return new object[] { "hello", "olleh" };
+    yield return new object[] { "NextUnit", "tinUtxeN" };
+    yield return new object[] { "a", "a" };
+}
+
+[Test]
+[TestData(nameof(ReverseTestCases))]
 public void Reverse_VariousInputs_ReturnsExpectedOutput(string input, string expected)
 {
     string result = StringHelpers.Reverse(input);
@@ -105,9 +113,12 @@ dotnet test
 
 ### Run Specific Tests
 
+`--test-name` matches the test's display name, which defaults to the method name. The class name is
+not part of it, so filter on the method:
+
 ```bash
-# Run only Calculator tests
-dotnet test --test-name "*CalculatorTests*"
+# Run only the Add tests
+dotnet test --test-name "Add_*"
 
 # Run only tests with "Coupon" in the name
 dotnet test --test-name "*Coupon*"

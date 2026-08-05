@@ -233,7 +233,7 @@ the test host has.
   Checklist, which bumps every document at release; the gap is that `main` documents `main` without
   saying so. Options are an unreleased marker on the affected sections, or accepting the gap and
   saying so once. This spans four documents and the release process, so it is not a per-guide fix.
-- [ ] Fix two claims in `docs/GETTING_STARTED.md` that the current code contradicts, both pre-dating
+- [x] Fix two claims in `docs/GETTING_STARTED.md` that the current code contradicts, both pre-dating
   this work: the skip section states that runtime conditional skipping is unsupported, while
   `Assert.Skip`, `Assert.SkipWhen`, and `Assert.SkipUnless` ship and are exercised by
   `samples/NextUnit.SampleTests/SkipTests.cs`; and the samples omit `using NextUnit;`, which compiles
@@ -306,11 +306,16 @@ one value to change is the `<NextUnitVersion>` property. Following the instructi
 six indirections with literals and leaves `NextUnitVersion` at the old value, which the release
 workflow's tag-versus-version gate then rejects.
 
-Left as-is here because it is orthogonal to the template package and touches instructions this change
-does not otherwise alter.
+Left as-is by the template change because it was orthogonal to that package and touched instructions
+the change did not otherwise alter.
 
-- [ ] Rewrite the `Directory.Packages.props` checklist item and its Troubleshooting counterpart around
+- [x] Rewrite the `Directory.Packages.props` checklist item and its Troubleshooting counterpart around
   the single `<NextUnitVersion>` property.
+
+Done in the 2026-08-05 documentation audit. The same audit found a second stale entry in the same
+checklist: the `README.md` item named a `**Current Version**: X.Y.Z (Stable)` line that the file does
+not contain, while omitting the `PackageReference` snippet the v1.19.0 release commit `de2034f`
+actually bumped.
 
 ### Priority 2 — `--list-tests` reports no tests under Microsoft.Testing.Platform
 
@@ -327,6 +332,16 @@ VSTest adapter — sees an empty assembly.
 
 Because of this, the `template-smoke` job proves discovery with `--minimum-expected-tests`, which
 fails when fewer tests than expected are reported, rather than with `--list-tests`.
+
+The 2026-08-05 documentation audit reproduced this on three more projects, so it is not specific to
+the package smoke project or to consuming NextUnit as a package. `samples/Console.Sample.Tests` and
+`samples/ClassLibrary.Sample.Tests` each report `0 tests found` for `--list-tests` while an ordinary
+run reports 25 and 44 passing tests respectively, and `samples/NextUnit.SampleTests` reports the same
+`0 tests found` while running its full suite. The audit reached the missing
+`DiscoveredTestNodeStateProperty` independently, which corroborates the diagnosis above. This also
+puts a caveat under `docs/GETTING_STARTED.md`, whose deferred-data-source section describes what
+`--list-tests` reports for a deferred source; that description is correct about the intended
+behavior and unobservable until this is fixed.
 
 - [ ] Attach `DiscoveredTestNodeStateProperty` to the nodes published by `DiscoverAsync` and cover
   `--list-tests` for a project that consumes NextUnit as a package.
