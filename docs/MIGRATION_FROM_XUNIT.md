@@ -579,11 +579,11 @@ public class AsyncTests
 ### "Test not discovered"
 
 - Ensure `[Test]` attribute is applied
-- Verify the `NextUnit` package reference is present. It brings in the source generator, which
-  emits the test registry and, when the project has no entry point of its own, a `Program` that
-  calls `builder.AddNextUnit()`. You do not write that file yourself.
-- Check that a hand-written `Program.cs`, if you kept one, calls `builder.AddNextUnit()`. Its
-  presence suppresses the generated entry point.
+- Verify the `NextUnit` package reference is present. It supplies the source generator that builds
+  the test registry, and it registers NextUnit with the entry point
+  `Microsoft.Testing.Platform.MSBuild` generates, so there is no `Program.cs` to write or check.
+- If you kept an entry point of your own from the xUnit project, make sure it calls
+  `builder.AddNextUnit()`.
 
 ### "Tests run in wrong order"
 

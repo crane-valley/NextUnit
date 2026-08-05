@@ -234,10 +234,10 @@ Edit `Console.Sample.Tests.csproj`:
 
 ### 4. No Program.cs Required
 
-No `Program.cs` is needed. The NextUnit source generator emits one whenever the project has no entry
-point of its own, and that generated `Program` is what calls `builder.AddNextUnit()`. This sample
-therefore contains only test files. Writing your own `Program.cs` suppresses the generated entry
-point, so it then has to make that call itself:
+The sample contains only test files, and your project does not need an entry point either. The
+`NextUnit` package's MSBuild props set `GenerateProgramFile=false` and register
+`NextUnit.Platform.TestingPlatformBuilderHook`, so `Microsoft.Testing.Platform.MSBuild` generates the
+entry point and the hook adds NextUnit to the builder. The equivalent hand-written file would be:
 
 ```csharp
 using Microsoft.Testing.Platform.Builder;
@@ -248,6 +248,8 @@ builder.AddNextUnit();
 using var app = await builder.BuildAsync();
 return await app.RunAsync();
 ```
+
+Write that only if you need an entry point of your own; otherwise leave it out.
 
 ## Advanced Testing Scenarios
 
