@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Escape keyword identifiers in every emitted type name. A test class, data source type, or parameter
+  type whose identifier is an escaped keyword (`public class @event`) reached the generated registry
+  as `global::event`, which does not parse, so the consumer's build failed with errors pointing at a
+  file the user did not write. Test ids and display names are unaffected: they are string literals,
+  so they keep the unescaped spelling they already had.
 - Mark the test nodes published by discovery with `DiscoveredTestNodeStateProperty`.
   Microsoft.Testing.Platform counts only nodes that carry it, so `--list-tests` reported
   `found 0 test(s)` and exited with code 8 on assemblies whose ordinary run discovered and passed
