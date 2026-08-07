@@ -475,8 +475,9 @@ rewrites every emission path and every snapshot baseline at once.
   data source type, and parameter type. Done 2026-08-07: both shared formats now escape, and
   `TypeofCompatibleFormat` and `ConstructorCallFormat` became byte-identical once they did, so they
   merged into one `TypeExpressionFormat`. No snapshot baseline moved -- escaping only changes output
-  for identifiers that are reserved keywords, and `UseSpecialTypes` still renders `int` as `int`.
-  Test ids keep the unescaped spelling: an id is a string literal, never parsed as C#.
+  for identifiers that are keywords, and `UseSpecialTypes` still renders `int` as `int`. Test ids and
+  display names keep the unescaped spelling, pinned by test: an id is a string literal matched by
+  filter expressions, never parsed as C#.
 
 ### Priority 2 — Data source member lookup is narrower than C# member access
 

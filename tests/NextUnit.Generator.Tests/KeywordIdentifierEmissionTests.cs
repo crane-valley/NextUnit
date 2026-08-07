@@ -85,6 +85,31 @@ public sealed class KeywordIdentifierEmissionTests
         Xunit.Assert.Contains("(global::TestProject.@int)0", registry, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The escaping must not leak into ids and display names.
+    /// </summary>
+    /// <remarks>
+    /// An id reaches the registry as a string literal and is what a filter expression matches, so
+    /// escaping it would rewrite every existing filter without buying any parseability. Compiling
+    /// the registry cannot catch that regression, which is why the spellings are pinned exactly.
+    /// </remarks>
+    [Fact]
+    public async Task KeywordNamedTypes_KeepIdsAndDisplayNamesUnescapedAsync()
+    {
+        var registry = await GenerateRegistryAsync(KeywordNamedTypesSource);
+
+        Xunit.Assert.Contains(
+            """new global::NextUnit.Internal.TestCaseId("TestProject.class.FromArguments[0]")""",
+            registry,
+            StringComparison.Ordinal);
+        Xunit.Assert.Contains(
+            """BaseId = "TestProject.class.FromMemberSource",""",
+            registry,
+            StringComparison.Ordinal);
+        Xunit.Assert.Contains("""DisplayName = "FromArguments(int.0)",""", registry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("\"TestProject.@class", registry, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task KeywordNamedTypes_ProduceCompilableRegistryAsync()
     {
