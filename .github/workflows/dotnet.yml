@@ -233,6 +233,26 @@ jobs:
           --no-restore \
           -p:UseLocalNextUnitPackage=true \
           -- --minimum-expected-tests 8
+        # Discovery is checked separately from the run because the two report different totals and
+        # only the run total was ever verified: a discovery request that publishes nodes the platform
+        # does not count reports an empty assembly while the run still passes every test. Seven, not
+        # eight, because the deferred source is one placeholder until the run expands it.
+        # errexit is suspended around the capture on purpose: a regression exits 8 here, and under
+        # bash -e the failing assignment would end the step before the captured output is echoed,
+        # losing the diagnostic in exactly the case worth diagnosing.
+        set +e
+        list_output=$(dotnet run --project tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+          --configuration Release \
+          --no-restore \
+          -p:UseLocalNextUnitPackage=true \
+          -- --list-tests)
+        list_status=$?
+        set -e
+        echo "$list_output"
+        if [ "$list_status" -ne 0 ] || ! grep -q "found 7 test(s)" <<<"$list_output"; then
+          echo "Error: --list-tests did not report the seven discoverable tests of the package smoke project (exit $list_status)."
+          exit 1
+        fi
         dotnet restore tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
           --configfile .github/NextUnit.PackageSmoke.NuGet.Config \
           --runtime linux-x64 \
@@ -348,6 +368,24 @@ jobs:
           --configuration Release \
           --no-build \
           -- --minimum-expected-tests 1
+        # A discovery-only request is its own code path, and a consumer's IDE takes it before it ever
+        # runs anything: the platform reports no tests and exits non-zero when a published node is
+        # not marked as discovered, however well the run behaves.
+        # errexit is suspended around the capture on purpose: a regression exits 8 here, and under
+        # bash -e the failing assignment would end the step before the captured output is echoed,
+        # losing the diagnostic in exactly the case worth diagnosing.
+        set +e
+        list_output=$(dotnet run --project "$project" \
+          --configuration Release \
+          --no-build \
+          -- --list-tests)
+        list_status=$?
+        set -e
+        echo "$list_output"
+        if [ "$list_status" -ne 0 ] || ! grep -q "found 1 test(s)" <<<"$list_output"; then
+          echo "Error: --list-tests did not report the example test of the generated project (exit $list_status)."
+          exit 1
+        fi
 
     - name: Uninstall the template
       shell: bash

@@ -1,3 +1,5 @@
+using Microsoft.Testing.Platform.Extensions.Messages;
+using Microsoft.Testing.Platform.Messages;
 using NextUnit.Internal;
 
 namespace NextUnit.Platform.Tests;
@@ -94,4 +96,28 @@ internal sealed class ThrowingReportSink : ITestExecutionSink
 internal sealed class NullServiceProvider : IServiceProvider
 {
     public object? GetService(Type serviceType) => null;
+}
+
+/// <summary>
+/// Captures every message the framework publishes, standing in for the platform's message bus.
+/// </summary>
+/// <remarks>
+/// No synchronization: the framework publishes from one sequential loop per request, and a double
+/// that locked would hide a future change that stopped doing so.
+/// </remarks>
+internal sealed class RecordingMessageBus : IMessageBus
+{
+    private readonly List<TestNodeUpdateMessage> _testNodeUpdates = [];
+
+    public IReadOnlyList<TestNodeUpdateMessage> TestNodeUpdates => _testNodeUpdates;
+
+    public Task PublishAsync(IDataProducer dataProducer, IData data)
+    {
+        if (data is TestNodeUpdateMessage update)
+        {
+            _testNodeUpdates.Add(update);
+        }
+
+        return Task.CompletedTask;
+    }
 }
