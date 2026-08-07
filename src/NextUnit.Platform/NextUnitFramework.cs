@@ -123,7 +123,7 @@ internal sealed class NextUnitFramework :
         switch (context.Request)
         {
             case DiscoverTestExecutionRequest discover:
-                await DiscoverAsync(discover, context.MessageBus, context.CancellationToken).ConfigureAwait(false);
+                await DiscoverAsync(discover.Session.SessionUid, context.MessageBus, context.CancellationToken).ConfigureAwait(false);
                 break;
 
             case RunTestExecutionRequest run:
@@ -498,8 +498,16 @@ internal sealed class NextUnitFramework :
             ? new List<TDescriptor>()
             : descriptors.Where(shouldExpand).ToList();
 
-    private async Task DiscoverAsync(
-        DiscoverTestExecutionRequest request,
+    /// <summary>
+    /// Publishes one node per discovered test case.
+    /// </summary>
+    /// <remarks>
+    /// Takes the session uid rather than the request because <see cref="TestSessionContext"/> has no
+    /// public constructor, so a test can only reach this loop through a signature that does not
+    /// require one.
+    /// </remarks>
+    internal async Task DiscoverAsync(
+        SessionUid sessionUid,
         IMessageBus messageBus,
         CancellationToken cancellationToken)
     {
@@ -507,12 +515,19 @@ internal sealed class NextUnitFramework :
 
         foreach (var testCase in testCases)
         {
-            var testNode = TestNodeFactory.Create(testCase);
+            // Microsoft.Testing.Platform counts a node as discovered only when it carries
+            // DiscoveredTestNodeStateProperty. Without it a discovery-only request reports an empty
+            // assembly and exits with code 8, however many nodes were published, so every consumer
+            // that lists before running -- --list-tests, and any IDE that discovers through the
+            // platform -- sees no tests at all.
+            var testNode = TestNodeFactory.Create(
+                testCase,
+                [DiscoveredTestNodeStateProperty.CachedInstance]);
 
             await messageBus.PublishAsync(
                 this,
                 new TestNodeUpdateMessage(
-                    request.Session.SessionUid,
+                    sessionUid,
                     testNode)).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();

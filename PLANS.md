@@ -343,8 +343,22 @@ puts a caveat under `docs/GETTING_STARTED.md`, whose deferred-data-source sectio
 `--list-tests` reports for a deferred source; that description is correct about the intended
 behavior and unobservable until this is fixed.
 
-- [ ] Attach `DiscoveredTestNodeStateProperty` to the nodes published by `DiscoverAsync` and cover
+- [x] Attach `DiscoveredTestNodeStateProperty` to the nodes published by `DiscoverAsync` and cover
   `--list-tests` for a project that consumes NextUnit as a package.
+
+Done. `DiscoverAsync` now publishes each node with `DiscoveredTestNodeStateProperty.CachedInstance`
+as its first property; the run path is untouched. Measured against the published 1.19.0 package,
+`tests/NextUnit.PackageSmoke` reported `0 tests found` for `--list-tests` with exit code 8; against
+the locally packed fix it reports seven, and the `package-smoke` job now asserts that count.
+`samples/Console.Sample.Tests` and `samples/ClassLibrary.Sample.Tests` list 25 and 44, matching what
+an ordinary run reports, and `samples/NextUnit.SampleTests` lists its full suite. Discovery reports
+seven for the package smoke project where a run reports eight because its deferred source stays one
+placeholder until the run expands it, which is the documented behavior. The `template-smoke` job
+keeps `--minimum-expected-tests` and adds a `--list-tests` assertion beside it, so the workaround is
+no longer the only proof of discovery. The `docs/GETTING_STARTED.md` deferred-source description was
+checked against the now-observable output and needs no change: `--list-tests` reports
+`Add_FromDeferredSource (deferred data source: WideAdditionRows)`, one entry per source and no row
+count, exactly as written.
 
 ### Priority 2 — Assert API defects found in the 2026-07-24 review
 

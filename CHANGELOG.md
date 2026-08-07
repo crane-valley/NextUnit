@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Mark the test nodes published by discovery with `DiscoveredTestNodeStateProperty`.
+  Microsoft.Testing.Platform counts only nodes that carry it, so `--list-tests` reported
+  `found 0 test(s)` and exited with code 8 on assemblies whose ordinary run discovered and passed
+  every test, and any IDE that discovers through the platform rather than the VSTest adapter saw the
+  same empty assembly. The run path is unchanged, and a deferred `[TestData]` source still lists as
+  one placeholder because its rows do not exist until the run expands them.
+
 ## [1.19.0] - 2026-08-05
 
 ### Added
