@@ -120,7 +120,7 @@ internal static class DataSourceAttributeReader
 
             foreach (var typeArg in attrClass.TypeArguments)
             {
-                var typeName = typeArg.ToDisplayString(AttributeHelper.TypeofCompatibleFormat);
+                var typeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
                 builder.Add(new ClassDataSource(typeName, sharedType, key));
             }
         }
@@ -239,7 +239,7 @@ internal static class DataSourceAttributeReader
                     .FirstOrDefault(t => t is not null);
 
                 var memberType = memberTypeArg ?? parameter.ContainingSymbol.ContainingType;
-                string? memberTypeName = memberTypeArg?.ToDisplayString(AttributeHelper.TypeofCompatibleFormat);
+                string? memberTypeName = memberTypeArg?.ToDisplayString(AttributeHelper.TypeExpressionFormat);
 
                 return new ParameterDataSourceDescriptor(
                     parameterIndex: index,
@@ -264,7 +264,7 @@ internal static class DataSourceAttributeReader
                     constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace)
                 {
                     var typeArg = attrClass.TypeArguments[0];
-                    var classTypeName = typeArg.ToDisplayString(AttributeHelper.TypeofCompatibleFormat);
+                    var classTypeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
                     var sharedType = 0;
                     var key = (string?)null;
 

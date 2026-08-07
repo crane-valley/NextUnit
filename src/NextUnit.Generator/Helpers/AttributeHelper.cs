@@ -19,34 +19,35 @@ internal static class AttributeHelper
     public const string ITestContextTypeName =
         NextUnitAttributeNames.GlobalPrefix + NextUnitAttributeNames.ITestContext;
 
+    /// <summary>
+    /// Format for a type name emitted where a variable or cast type is expected. Keyword identifiers
+    /// are escaped because the emitted text is parsed as C# rather than read by a human.
+    /// </summary>
     public static readonly SymbolDisplayFormat FullyQualifiedTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
             miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
-                                   SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+                                   SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier |
+                                   SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers);
 
     /// <summary>
-    /// Format for typeof() expressions - excludes nullable reference type annotations since C# typeof() does not support them.
+    /// Format for a type name emitted inside <c>typeof(T)</c>, <c>new T()</c>, or a type argument
+    /// list. Nullable reference annotations are dropped because <c>typeof</c> and <c>new</c> reject
+    /// them outright, and a type argument carries no meaning from one. Keyword identifiers are
+    /// escaped for the same reason as <see cref="FullyQualifiedTypeFormat"/>.
     /// </summary>
-    public static readonly SymbolDisplayFormat TypeofCompatibleFormat =
-        new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
-            typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
-            genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
-            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
-
-    /// <summary>
-    /// Format for an object-creation expression: no nullable annotations, which <c>new T()</c> rejects
-    /// the same way <c>typeof</c> does, and keyword identifiers escaped, because the emitted text is
-    /// parsed as C# rather than read by a human.
-    /// </summary>
-    public static readonly SymbolDisplayFormat ConstructorCallFormat =
+    public static readonly SymbolDisplayFormat TypeExpressionFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
             miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                                    SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers);
 
+    /// <summary>
+    /// Format for the type part of a test id. Keyword identifiers stay unescaped: an id is a string
+    /// literal read by humans and matched by filters, never parsed as C#.
+    /// </summary>
     public static readonly SymbolDisplayFormat TestIdTypeFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
@@ -628,7 +629,7 @@ internal static class AttributeHelper
         {
             builder.Add(new ParameterDescriptor(
                 parameter.Name,
-                parameter.Type.ToDisplayString(TypeofCompatibleFormat),
+                parameter.Type.ToDisplayString(TypeExpressionFormat),
                 parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                 parameter.Type.ToDisplayString(),
                 parameter.Type.IsValueType));
@@ -753,7 +754,7 @@ internal static class AttributeHelper
         // Formatted for a constructor call, not for a type reference: `new global::Policy?()` is not
         // valid C#, and `[Retry<Policy?>(2)]` is only a nullability warning at the attribute, so a
         // consumer that does not promote warnings would otherwise get a hard error in generated code.
-        return RetryAttributeMatcher.GetPolicyType(attribute)?.ToDisplayString(ConstructorCallFormat);
+        return RetryAttributeMatcher.GetPolicyType(attribute)?.ToDisplayString(TypeExpressionFormat);
     }
 
     /// <summary>

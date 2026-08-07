@@ -471,8 +471,13 @@ pointing at a file the user did not write. The retry change added a `Constructor
 escape, because its emission was new; the pre-existing formats were left alone because changing them
 rewrites every emission path and every snapshot baseline at once.
 
-- [ ] Escape keyword identifiers in the shared emission formats, and cover a keyword-named test class,
-  data source type, and parameter type.
+- [x] Escape keyword identifiers in the shared emission formats, and cover a keyword-named test class,
+  data source type, and parameter type. Done 2026-08-07: both shared formats now escape, and
+  `TypeofCompatibleFormat` and `ConstructorCallFormat` became byte-identical once they did, so they
+  merged into one `TypeExpressionFormat`. No snapshot baseline moved -- escaping only changes output
+  for identifiers that are keywords, and `UseSpecialTypes` still renders `int` as `int`. Test ids and
+  display names keep the unescaped spelling, pinned by test: an id is a string literal matched by
+  filter expressions, never parsed as C#.
 
 ### Priority 2 — Data source member lookup is narrower than C# member access
 
