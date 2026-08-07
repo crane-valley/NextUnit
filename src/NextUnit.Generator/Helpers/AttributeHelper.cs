@@ -33,8 +33,9 @@ internal static class AttributeHelper
 
     /// <summary>
     /// Format for a type name emitted inside <c>typeof(T)</c>, <c>new T()</c>, or a type argument
-    /// list. Nullable reference annotations are dropped because all three positions reject them, and
-    /// keyword identifiers are escaped for the same reason as <see cref="FullyQualifiedTypeFormat"/>.
+    /// list. Nullable reference annotations are dropped because <c>typeof</c> and <c>new</c> reject
+    /// them outright, and a type argument carries no meaning from one. Keyword identifiers are
+    /// escaped for the same reason as <see cref="FullyQualifiedTypeFormat"/>.
     /// </summary>
     public static readonly SymbolDisplayFormat TypeExpressionFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
