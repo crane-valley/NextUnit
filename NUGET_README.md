@@ -36,7 +36,7 @@ This meta-package includes everything you need:
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NextUnit" Version="1.19.0" />
+    <PackageReference Include="NextUnit" Version="1.19.1" />
   </ItemGroup>
 </Project>
 ```

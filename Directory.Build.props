@@ -38,7 +38,7 @@
 
   <!-- Shared Package Metadata -->
   <PropertyGroup>
-    <Version>1.19.0</Version>
+    <Version>1.19.1</Version>
     <Authors>NextUnit Contributors</Authors>
     <Company>NextUnit</Company>
     <Product>NextUnit</Product>

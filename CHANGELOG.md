@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.1] - 2026-08-10
+
 ### Fixed
 
 - Escape keyword identifiers in every emitted type name. A test class, data source type, or parameter
@@ -1366,6 +1368,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 1.19.1 | 2026-08-10 | 1342 | --list-tests discovery reporting, keyword identifier escaping in generated type names | Released |
 | 1.19.0 | 2026-08-05 | 1333 | Async and deferred [TestData] sources, selective retry with IRetryPolicy, deterministic culture isolation, dotnet new nextunit template | Released |
 | 1.18.0 | 2026-07-26 | 1105 | Session hook failure reporting, engine reuse hardening, Assert tolerance unification, deterministic generator output | Released |
 | 1.17.0 | 2026-07-25 | 956 | Assert.Throws expectedMessage overload deprecation, per-test disposal and assembly teardown failure reporting | Released |
