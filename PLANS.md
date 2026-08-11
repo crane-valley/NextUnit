@@ -479,7 +479,7 @@ decision, and none of them was introduced by that change.
   already has the shape this needs: a fault-only continuation whose whole body reads
   `task.Exception`. Applying it here means deciding whether an abandoned source's failure should stay
   silent or be logged, which is a reporting decision rather than a drive-by fix.
-- [ ] A cancellation-token-taking member returning a type that implements both `IEnumerable<T>` and
+- [x] A cancellation-token-taking member returning a type that implements both `IEnumerable<T>` and
   `IAsyncEnumerable<T>` binds to nothing, with no diagnostic. `KnownDataSourceTypes.Classify` matches
   the synchronous interface first, deliberately, so that a type which meant `IEnumerable<T>` before
   async sources existed keeps meaning it. `DataSourceMemberResolver` then admits a token-taking
@@ -489,13 +489,36 @@ decision, and none of them was introduced by that change.
   method with no arguments and reports a parameter-count failure that mentions neither the token nor
   the reason. Closing it means either widening the resolver or reporting the combination as a
   diagnostic, and that choice depends on which interface such a type is meant to be read through --
-  which is exactly what the sync-first rule already decided for the parameterless case.
-- [ ] Ambiguous row-type selection when a collection implements more than one `IEnumerable<T>`.
+  which is exactly what the sync-first rule already decided for the parameterless case. Done
+  2026-08-12: reported as `NU0021`, keeping the sync-first classification. Widening the resolver was
+  rejected because it would answer the question the sync-first rule already answered, and answer it
+  the other way for the token-taking overload alone. The resolver records the combination as a
+  `DataSourceBindingIssue` so the generator withholds the provider it was already withholding and
+  the analyzer names the fix -- drop the parameter, or return a type that is only
+  `IAsyncEnumerable<T>`. A member returning a plainly synchronous collection with a token stays
+  unbound and unreported: the token was never meaningful there, and that shape predates async
+  sources.
+- [x] Ambiguous row-type selection when a collection implements more than one `IEnumerable<T>`.
   `NU0009` validates row values against the first constructed interface it finds, so a source type
   implementing, say, both `IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>` is validated
   against whichever the symbol enumeration happens to return first. Pre-existing and not specific to
   async sources -- it affects synchronous `[TestData]` and `[ClassDataSource<T>]` the same way -- but
-  the fix is a deliberate precedence rule, not a tie-break chosen at random.
+  the fix is a deliberate precedence rule, not a tie-break chosen at random. Done 2026-08-12: one
+  ordering rule, `KnownDataSourceTypes.SelectRowType`, applied to both element-type walks --
+  `TestDataRow<T>` wins as the more specific contract, and remaining ties go to the ordinally first
+  fully qualified element type name. Declaration order was rejected as the tie-break because
+  `AllInterfaces` does not expose one. The non-generic `IEnumerable` walk needed no change: it
+  answers a yes-or-no question, so the order it visits candidates in cannot affect the answer.
+- [ ] The selected row type does not reach the emitted provider. `TestDataSource` carries the shape
+  but not the row type, so `BuildAsyncTestDataSourceProvider` emits a bare
+  `AsyncDataSourceAdapter.FromAsyncEnumerableAsync(source, ct)`. A source implementing
+  `IAsyncEnumerable<T>` more than once therefore fails the consumer's build with `CS0411`, because
+  the type argument cannot be inferred, and a synchronous source read through the non-generic
+  `IEnumerable` can yield rows of a different arm than the one `NU0009` validated. Pre-existing --
+  the row type has never reached the generator -- and surfaced by the Codex review of the row-type
+  precedence work (2026-08-12). Closing it means threading the selected row type through the
+  descriptor model and emitting an explicitly typed adapter call, which moves every async snapshot
+  baseline, so it is its own change with its own review.
 
 ### Priority 2 — Emitted type names do not escape keyword identifiers
 
@@ -532,12 +555,34 @@ not walk the base type chain, so a `[TestData]` member declared on a base test c
 `NU0003` even though C# resolves `Derived.Rows` fine. The runtime reflection fallback misses it the
 same way, because `Type.GetMethod` does not return inherited statics without `FlattenHierarchy`.
 
-- [ ] Decide between emitting an accessibility-safe accessor and reporting non-public data source
-  members as a diagnostic, then align `TestDataMemberAnalyzer` with the decision.
+- [x] Decide between emitting an accessibility-safe accessor and reporting non-public data source
+  members as a diagnostic, then align `TestDataMemberAnalyzer` with the decision. Done 2026-08-12:
+  reported as `NU0020`. An accessibility-safe accessor was rejected because reaching a `private`
+  member without reflection means emitting something into the user's type, which the generator has
+  never done and which no diagnostic could then explain. The rule is scoped to what actually breaks
+  the build: the registry is emitted into the test assembly, so `internal` members and members of
+  `internal` types are reachable and are not reported; `private`, `protected`, `private protected`,
+  a member of a type nested in one of those, a file-local type, and another assembly's `internal`
+  without `InternalsVisibleTo` are. `GeneratedRegistryAccess` decides it once for the resolver and
+  the analyzer, and the resolver records the verdict so the generator withholds the direct access
+  that used to fail with `CS0122`. The runtime reflection fallback still reads whatever reaches it.
 - [ ] Walk the base type chain during member lookup, preserving the parameterless-overload precedence
   the generator and the analyzer now share.
-- [ ] Cover `private`, `protected`, `internal`, and inherited members on the synchronous and
-  asynchronous paths once the decisions are made.
+- [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
+  `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
+  with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths
+  no longer do this -- an unreachable `MemberType` is withheld from the descriptor and from the
+  `DynamicDependency`, and `NU0020` names the fix -- but the same treatment cannot be applied here:
+  the factory is the only way a class data source is constructed, so dropping the type would turn a
+  build error into a source that silently supplies nothing. It needs a diagnostic instead, which is
+  a new rule ID and its own change. `GeneratedRegistryAccess` already answers the question, so only
+  the rule is missing. Surfaced by the Codex review of the accessibility work (2026-08-12).
+- [x] Cover `private`, `protected`, `internal`, and inherited members on the synchronous and
+  asynchronous paths once the decisions are made. Done 2026-08-12 for accessibility:
+  `private`, `protected`, a public member of a `private` nested type, and `[ValuesFromMember]` are
+  covered as `NU0020`, and `internal` is covered as the negative case in both the analyzer and the
+  emission tests. Inherited members are still not found at all, so their coverage belongs to the
+  base-chain bullet above and moves with it.
 
 ### Priority 2 — Lifecycle follow-ups deferred by the 2026-07-26 refactor review
 

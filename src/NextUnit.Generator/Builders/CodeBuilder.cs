@@ -218,6 +218,24 @@ internal static class CodeBuilder
         };
     }
 
+    /// <summary>
+    /// Builds the provider for a data source whose declaring type the generated registry cannot
+    /// name.
+    /// </summary>
+    /// <remarks>
+    /// The type appears only inside a string literal, so nothing here needs the visibility the
+    /// source lacks. A provider is emitted rather than none, because a source with no provider falls
+    /// back to reflecting over the test class, which would read a same-named member of that class
+    /// and silently supply the wrong rows. This fails on the row that asked for it and names both
+    /// the type and the rule that explains it.
+    /// </remarks>
+    public static string BuildUnreachableDataSourceProvider(string typeName, string memberName) =>
+        "static () => throw new global::System.InvalidOperationException(" +
+        AttributeHelper.ToLiteral(
+            $"Data source '{memberName}' is declared on '{typeName}', which is not accessible from " +
+            "the generated test registry. Make it public, or internal in the test assembly. See NU0020.") +
+        ")";
+
     public static string BuildDataSourceFactory(string typeName) =>
         $"static () => new {typeName}()";
 

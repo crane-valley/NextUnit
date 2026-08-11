@@ -140,6 +140,25 @@ Method- and class-level categories or tags are combined with row metadata. A row
 skip reason apply only to that generated test case. Tuple values expand across parameters; other
 values, including `null` and collections, remain a single argument.
 
+A source type may offer more than one row type, for instance by implementing both
+`IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>`. Build-time row validation reads it through
+the `TestDataRow<T>` arm, because that is the more specific contract: it carries each row's metadata
+as well as its values. If a source offers several row types and none of them is a `TestDataRow<T>`,
+the one whose fully qualified type name sorts first ordinally is used. The rule depends only on the
+types themselves, so the row type a source is checked against does not change between builds. The
+selection governs what `NU0009` validates; a synchronous source is still enumerated through the
+non-generic `IEnumerable` at run time, so prefer a source type that offers one row type.
+
+### Data source member accessibility
+
+A `[TestData]` or `[ValuesFromMember]` member must be reachable from the generated test registry,
+which is compiled into your test assembly. `public` and `internal` members qualify, as do members of
+`internal` types. A `private`, `protected`, or `private protected` member does not, nor does a
+property whose getter is not accessible or which has no getter, nor a member of a type nested in a
+private or protected scope; those are reported at build time as `NU0020`. `internal` is enough for a
+member of the test assembly itself, or of an assembly that grants it `InternalsVisibleTo`; a member
+of any other referenced assembly has to be `public`.
+
 ### Async Data Rows
 
 A `[TestData]` member can produce its rows asynchronously. Three shapes are supported:
@@ -188,6 +207,13 @@ trimming- and Native AOT-compatible.
 The awaited value has to be a collection of rows. A member returning bare `Task`, or a task wrapping
 something that is not enumerable such as `Task<int>`, cannot supply rows and is reported at build
 time as `NU0014`.
+
+The token parameter is only meaningful for a source NextUnit reads asynchronously. A type that
+implements `IEnumerable`, generic or not, as well as `IAsyncEnumerable<T>` is read synchronously, so
+that a type which meant `IEnumerable` before async sources existed keeps meaning it, and the
+synchronous read has no token to pass. A member returning such a type and taking a
+`CancellationToken` binds to nothing, and is reported at build time as `NU0021`. Drop the parameter,
+or return a type that implements only `IAsyncEnumerable<T>`.
 
 A data source must not block synchronously. Cancellation is honored at every genuine await point, so
 a source that awaits its I/O can always be interrupted. Code that blocks the calling thread cannot

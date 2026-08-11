@@ -124,7 +124,10 @@ internal static class TestCaseEmitter
         EmitRuntimeDescriptorHeader(writer, test, lifecycleMethods);
         writer.WriteLine($"DataSourceName = {AttributeHelper.ToLiteral(dataSource.MemberName)},");
         writer.WriteLine($"DataSourceType = typeof({dataSourceType}),");
-        writer.WriteLine($"DataSourceProvider = {CodeBuilder.BuildTestDataSourceProvider(dataSourceType, dataSource.MemberName, dataSource.MemberKind, dataSource.Shape)},");
+        var dataSourceProvider = dataSource.UnreachableMemberTypeName is { } unreachableTypeName
+            ? CodeBuilder.BuildUnreachableDataSourceProvider(unreachableTypeName, dataSource.MemberName)
+            : CodeBuilder.BuildTestDataSourceProvider(dataSourceType, dataSource.MemberName, dataSource.MemberKind, dataSource.Shape);
+        writer.WriteLine($"DataSourceProvider = {dataSourceProvider},");
 
         // Emitted only for an asynchronous source. The descriptor property already defaults to
         // null, so writing it for every synchronous source would be pure noise in the generated
@@ -421,7 +424,10 @@ internal static class TestCaseEmitter
                 sb.Append($"MemberName = {AttributeHelper.ToLiteral(source.MemberName!)}, ");
                 var memberType = source.MemberTypeName ?? testClassName;
                 sb.Append($"MemberType = typeof({memberType}), ");
-                sb.Append($"MemberProvider = {CodeBuilder.BuildDataSourceProvider(memberType, source.MemberName!, source.MemberKind)}, ");
+                var memberProvider = source.UnreachableMemberTypeName is { } unreachableMemberType
+                    ? CodeBuilder.BuildUnreachableDataSourceProvider(unreachableMemberType, source.MemberName!)
+                    : CodeBuilder.BuildDataSourceProvider(memberType, source.MemberName!, source.MemberKind);
+                sb.Append($"MemberProvider = {memberProvider}, ");
                 sb.Append("ClassDataSourceType = null, ");
                 sb.Append("ClassDataSourceFactory = null, ");
                 sb.Append("SharedType = global::NextUnit.SharedType.None, ");

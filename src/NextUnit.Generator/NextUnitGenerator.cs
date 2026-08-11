@@ -119,7 +119,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var repeatCount = AttributeHelper.GetRepeatCount(methodSymbol);
         var matrixParameters = DataSourceAttributeReader.GetMatrixParameters(methodSymbol);
         var matrixExclusions = DataSourceAttributeReader.GetMatrixExclusions(methodSymbol);
-        var combinedParameterSources = DataSourceAttributeReader.GetCombinedParameterSources(methodSymbol);
+        var combinedParameterSources = DataSourceAttributeReader.GetCombinedParameterSources(methodSymbol, knownDataSourceTypes);
         var priority = AttributeHelper.GetExecutionPriority(methodSymbol, typeSymbol);
         var (cultureName, uiCultureName) = AttributeHelper.GetCultureNames(methodSymbol, typeSymbol);
 
