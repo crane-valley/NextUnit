@@ -370,7 +370,9 @@ public class MultiplicationTests
 ```
 
 `SharedType` offers `None`, `PerClass`, `PerAssembly`, `PerSession`, and `Keyed` with a `Key`, which
-covers the sharing patterns MSTest expresses through static fields and `[ClassInitialize]`.
+control how often the data source type is instantiated. The instance is enumerated for its rows
+rather than handed to the test, so state the test body itself needs belongs in a `static` field with
+[lifecycle hooks](#lifecycle), not in a data source.
 
 ### Combinatorial parameters
 
