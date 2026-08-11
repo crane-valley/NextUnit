@@ -700,8 +700,9 @@ other without serializing the whole run.
 
 `[ParallelLimit]` resolves from the test method, then its containing class, then the assembly, so an
 assembly-wide `[LevelOfParallelism(4)]` maps to `[assembly: ParallelLimit(4)]`. A test that no level
-declares a limit for is bounded by the processor count. `[Timeout]` and the culture attributes
-resolve across the same three levels.
+declares a limit for is bounded by the processor count, except inside a `[ParallelGroup]`, which runs
+at the smallest limit declared anywhere in the group even when that is larger than the processor
+count. `[Timeout]` and the culture attributes resolve across the same three levels.
 
 The two are not exact equivalents. `[LevelOfParallelism]` is an assembly-wide maximum, while the
 NextUnit value is the default a test inherits when neither its method nor its class declares one --
