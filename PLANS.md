@@ -568,15 +568,15 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   that used to fail with `CS0122`. The runtime reflection fallback still reads whatever reaches it.
 - [ ] Walk the base type chain during member lookup, preserving the parameterless-overload precedence
   the generator and the analyzer now share.
-- [ ] Emitted type references are not accessibility-checked. `NU0020` covers the member, but the
-  descriptor still emits `typeof(MemberType)` for a `[TestData]` member and `new T()` for a
-  `[ClassDataSource<T>]`, so an unreachable type is named in generated code either way. For a
-  `[TestData]` member the build fails with `NU0020` alongside the `CS0122`, and fixing the
-  accessibility clears both; for `[ClassDataSource<T>]` and `[ValuesFrom<T>]` there is no diagnostic
-  at all and the user gets only the `CS0122` in a file they did not write. `GeneratedRegistryAccess`
-  already answers the question -- `NU0016` and `NU0020` both use it -- so closing this is a matter of
-  deciding which rule reports a class data source type, which is a new rule ID and its own change.
-  Surfaced by the Codex review of the accessibility work (2026-08-12).
+- [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
+  `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
+  with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths
+  no longer do this -- an unreachable `MemberType` is withheld from the descriptor and from the
+  `DynamicDependency`, and `NU0020` names the fix -- but the same treatment cannot be applied here:
+  the factory is the only way a class data source is constructed, so dropping the type would turn a
+  build error into a source that silently supplies nothing. It needs a diagnostic instead, which is
+  a new rule ID and its own change. `GeneratedRegistryAccess` already answers the question, so only
+  the rule is missing. Surfaced by the Codex review of the accessibility work (2026-08-12).
 - [x] Cover `private`, `protected`, `internal`, and inherited members on the synchronous and
   asynchronous paths once the decisions are made. Done 2026-08-12 for accessibility:
   `private`, `protected`, a public member of a `private` nested type, and `[ValuesFromMember]` are

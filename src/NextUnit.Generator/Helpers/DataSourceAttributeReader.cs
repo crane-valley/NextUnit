@@ -63,7 +63,10 @@ internal static class DataSourceAttributeReader
                 .FirstOrDefault();
 
             var memberType = memberTypeArg ?? methodSymbol.ContainingType;
-            string? memberTypeName = memberTypeArg?.ToDisplayString(AttributeHelper.FullyQualifiedTypeFormat);
+            var memberTypeName = GetEmittableTypeName(
+                memberTypeArg,
+                knownDataSourceTypes,
+                AttributeHelper.FullyQualifiedTypeFormat);
 
             var deferredEnumeration = attribute.NamedArguments
                 .Any(arg => arg.Key == "DeferredEnumeration" && arg.Value.Value is true);
@@ -244,7 +247,10 @@ internal static class DataSourceAttributeReader
                     .FirstOrDefault(t => t is not null);
 
                 var memberType = memberTypeArg ?? parameter.ContainingSymbol.ContainingType;
-                string? memberTypeName = memberTypeArg?.ToDisplayString(AttributeHelper.TypeExpressionFormat);
+                var memberTypeName = GetEmittableTypeName(
+                    memberTypeArg,
+                    knownDataSourceTypes,
+                    AttributeHelper.TypeExpressionFormat);
 
                 return new ParameterDataSourceDescriptor(
                     parameterIndex: index,
@@ -302,6 +308,34 @@ internal static class DataSourceAttributeReader
 
         return null;
     }
+
+    /// <summary>
+    /// Names an explicit <c>MemberType</c> for emission, or <c>null</c> when the generated registry
+    /// cannot name it.
+    /// </summary>
+    /// <remarks>
+    /// Every use of this name is a <c>typeof()</c> in the generated registry -- the descriptor's own
+    /// type reference, and the <c>DynamicDependency</c> that keeps the type from being trimmed --
+    /// and <c>typeof</c> on an unreachable type fails the consumer's build with <c>CS0122</c>. That
+    /// is the failure <c>NU0020</c> exists to replace, so withholding the provider is not enough:
+    /// the name has to go too.
+    /// <para>
+    /// The runtime reads a missing type as the test class -- <c>TestDataExpander</c> and
+    /// <c>CombinedDataSourceExpander</c> both fall back to it -- so a suite that suppresses
+    /// <c>NU0020</c> gets a data source reported as not found on the test class rather than a build
+    /// error inside generated code. Trimming loses nothing either: reflecting over a private type is
+    /// what the dropped <c>DynamicDependency</c> would have preserved, and that never worked under
+    /// Native AOT to begin with.
+    /// </para>
+    /// </remarks>
+    private static string? GetEmittableTypeName(
+        INamedTypeSymbol? memberTypeArg,
+        KnownDataSourceTypes knownDataSourceTypes,
+        SymbolDisplayFormat format) =>
+        memberTypeArg is not null &&
+        GeneratedRegistryAccess.CanReachType(memberTypeArg, knownDataSourceTypes.CompilingAssembly)
+            ? memberTypeArg.ToDisplayString(format)
+            : null;
 
     /// <summary>
     /// Resolves how a data source member is accessed, ignoring the shape of what it returns.

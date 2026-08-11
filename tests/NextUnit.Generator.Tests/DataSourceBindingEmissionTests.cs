@@ -158,6 +158,142 @@ public class DataSourceBindingEmissionTests
         Xunit.Assert.DoesNotContain("DataTests.Rows", registry, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// An explicit <c>MemberType</c> the registry cannot name is withheld from the descriptor as
+    /// well as from the provider. Naming it in a <c>typeof</c> would fail the consumer's build with
+    /// CS0122, which is the failure NU0020 exists to replace.
+    /// </summary>
+    [Fact]
+    public async Task PrivateMemberType_EmitsNoTypeReferenceAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                private static class Fixtures
+                {
+                    public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+                }
+
+                [Test]
+                [TestData("Rows", MemberType = typeof(Fixtures))]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Xunit.Assert.DoesNotContain("Fixtures", registry, StringComparison.Ordinal);
+        Assert.Contains("DataSourceName = \"Rows\",", registry);
+        Assert.Contains("DataSourceProvider = null,", registry);
+
+        // The descriptor falls back to the test class, which the runtime already does for a
+        // descriptor carrying no type of its own, so the id stays stable and the lookup reports the
+        // member as missing rather than the build failing in a file the user did not write.
+        Assert.Contains("DataSourceType = typeof(global::TestProject.DataTests),", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    [Fact]
+    public async Task PrivateMemberTypeOnParameterSource_EmitsNoTypeReferenceAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                private static class Fixtures
+                {
+                    public static IEnumerable<int> Values => new[] { 1, 2, 3 };
+                }
+
+                [Test]
+                public void Consumes([ValuesFromMember("Values", MemberType = typeof(Fixtures))] int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Xunit.Assert.DoesNotContain("Fixtures", registry, StringComparison.Ordinal);
+        Assert.Contains("MemberType = typeof(global::TestProject.DataTests), ", registry);
+        Assert.Contains("MemberProvider = null, ", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A reachable <c>MemberType</c> is still named, so the withholding is scoped to what would not
+    /// compile.
+    /// </summary>
+    [Fact]
+    public async Task InternalMemberType_EmitsTypeReferenceAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            internal static class Fixtures
+            {
+                internal static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests
+            {
+                [Test]
+                [TestData("Rows", MemberType = typeof(Fixtures))]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("DataSourceType = typeof(global::TestProject.Fixtures),", registry);
+        Assert.Contains("DataSourceProvider = static () => (object?)global::TestProject.Fixtures.Rows", registry);
+        Assert.Contains("typeof(global::TestProject.Fixtures))]", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// Compiles the user's source together with everything the generator emitted for it. Asserting
+    /// on the registry text alone would not catch a type reference emitted somewhere the assertions
+    /// do not look, and CS0122 inside generated code is exactly the failure being prevented.
+    /// </summary>
+    private static async Task AssertGeneratedOutputCompilesAsync(string source)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var compilation = await GeneratorDriverHarness.CreateCompilationAsync(
+            source,
+            OutputKind.DynamicallyLinkedLibrary,
+            cancellationToken);
+
+        GeneratorDriverHarness.CreateDriver(trackIncrementalGeneratorSteps: false)
+            .RunGeneratorsAndUpdateCompilation(compilation, out var updated, out _, cancellationToken);
+
+        var errors = updated.GetDiagnostics(cancellationToken)
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(static diagnostic => diagnostic.ToString())
+            .ToArray();
+
+        Assert.Empty(errors);
+    }
+
     private static async Task<string> GenerateRegistryAsync(string source)
     {
         var cancellationToken = TestContext.Current.CancellationToken;

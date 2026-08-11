@@ -94,6 +94,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `internal` members of that assembly, and members of `internal` types, are reachable and are not
   reported. The generator now emits no provider for an unreachable member rather than emitting
   access it cannot compile, so the runtime reflection fallback still resolves whatever reaches it.
+  An explicit `MemberType` the registry cannot name is withheld from the descriptor and from its
+  `DynamicDependency` as well, since a `typeof` on it would fail the build just as the member access
+  did; the runtime reads a descriptor with no type of its own as the test class, which it already
+  did for a `[TestData]` member that names none.
 - `NU0021` rejects a `CancellationToken`-taking `[TestData]` member whose return type implements
   `IEnumerable`, generic or not, as well as `IAsyncEnumerable<T>`. This is a breaking change, and the
   next release is 2.0.0. Such a type is classified as synchronous, deliberately, so that a type which
