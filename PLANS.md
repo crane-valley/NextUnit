@@ -633,9 +633,9 @@ baselines freeze the current surface until then.
   `InternalsVisibleTo` and carving out the members that must stay public: `ArgumentConverter` (the
   generated user code calls it) and the expanders (the platform adapter reaches them).
 - [x] Remove the two `[Obsolete]` expectedMessage-validation overloads of `Assert.Throws` and
-  `Assert.ThrowsAsync` (`Assert.Throws.cs`). They are unreachable with two arguments, which is why
-  they were obsoleted in 1.x rather than deleted; their removal notice already promises NextUnit 2.0,
-  so it is tracked here.
+  `Assert.ThrowsAsync` (`Assert.Throws.cs`). They are unreachable with two positional arguments,
+  which is why they were obsoleted in 1.x rather than deleted; their removal notice already promises
+  NextUnit 2.0, so it is tracked here.
 
 Delivered by deleting both overloads and the ten tests that covered them: eight that reached the
 message validation through an explicit third argument, and two that pinned the `[Obsolete]` attribute
