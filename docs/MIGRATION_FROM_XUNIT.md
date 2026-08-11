@@ -10,7 +10,7 @@ The good news: NextUnit is designed to be familiar to xUnit users, so migration 
 - **Better parallel control** - Fine-grained `[ParallelLimit]` and `[NotInParallel]`
 - **Multi-scope lifecycle** - Test, Class, and Assembly scopes
 - **Clearer attribute names** - `[Test]` instead of `[Fact]`, no confusing `[Theory]`
-- **Familiar assertion API** - The `Assert.*` calls listed in [Step 4](#step-4-update-assertions) keep their shape
+- **Familiar assertion API** - The `Assert.*` calls listed in [Step 4](#assertions-that-compile-unchanged) keep their shape
 
 ## Quick Migration Checklist
 
@@ -385,7 +385,7 @@ public class SecondDatabaseTests
 
 ## Step 4: Update Assertions
 
-Good news: **most assertions carry over with their call shape unchanged.** That is a narrower promise
+Good news: **the assertions listed below carry over with their call shape unchanged.** That is a narrower promise
 than "identical", and the difference matters during a bulk rewrite: a call that still compiles can
 still decide differently. The listing below is what the compile check guarantees, and
 [Where the behavior differs](#where-the-behavior-differs) is the part to read before you trust a
@@ -825,7 +825,7 @@ public class AsyncTests
 | Collection Fixture | `ICollectionFixture<T>` | `[Before(LifecycleScope.Assembly)]` |
 | Parallelization | JSON config | `[ParallelLimit]`, `[NotInParallel]` |
 | Test Ordering | Third-party | `[DependsOn]`, `[ExecutionPriority]` (built-in) |
-| Assertions | `Assert.*` | `Assert.*` (the calls listed in [Step 4](#step-4-update-assertions) keep their shape) |
+| Assertions | `Assert.*` | `Assert.*` (the calls in [Assertions That Compile Unchanged](#assertions-that-compile-unchanged) keep their shape) |
 | Test Discovery | Runtime reflection | Source generator (faster) |
 | Native AOT | Limited | Full support |
 
