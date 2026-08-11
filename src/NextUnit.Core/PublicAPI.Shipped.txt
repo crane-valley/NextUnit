@@ -60,6 +60,7 @@ NextUnit.Core.ITestContext.ClassName.get -> string!
 NextUnit.Core.ITestContext.FullyQualifiedName.get -> string!
 NextUnit.Core.ITestContext.Output.get -> NextUnit.Core.ITestOutput!
 NextUnit.Core.ITestContext.RepeatIndex.get -> int?
+NextUnit.Core.ITestContext.RetryAttempt.get -> int
 NextUnit.Core.ITestContext.StateBag.get -> System.Collections.Generic.IDictionary<string!, object?>!
 NextUnit.Core.ITestContext.Tags.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NextUnit.Core.ITestContext.TestName.get -> string!
@@ -68,6 +69,9 @@ NextUnit.Core.ITestOutput
 NextUnit.Core.ITestOutput.WriteLine(string! format, params object?[]! args) -> void
 NextUnit.Core.ITestOutput.WriteLine(string! message) -> void
 NextUnit.Core.TestContext
+NextUnit.CultureAttribute
+NextUnit.CultureAttribute.CultureAttribute(string! name) -> void
+NextUnit.CultureAttribute.Name.get -> string!
 NextUnit.DependsOnAttribute
 NextUnit.DependsOnAttribute.DependsOnAttribute(params string![]! methodNames) -> void
 NextUnit.DependsOnAttribute.MethodNames.get -> string![]!
@@ -106,12 +110,16 @@ NextUnit.FlakyAttribute.Reason.get -> string?
 NextUnit.IDisplayNameFormatter
 NextUnit.IDisplayNameFormatter.Format(NextUnit.DisplayNameContext context) -> string!
 NextUnit.Internal.ArgumentConverter
+NextUnit.Internal.AsyncDataSourceAdapter
+NextUnit.Internal.AsyncDataSourceProviderDelegate
 NextUnit.Internal.ClassDataSourceDescriptor
 NextUnit.Internal.ClassDataSourceDescriptor.BaseId.get -> string!
 NextUnit.Internal.ClassDataSourceDescriptor.BaseId.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NextUnit.Internal.ClassDataSourceDescriptor.Categories.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.ClassDataSourceDescriptor() -> void
+NextUnit.Internal.ClassDataSourceDescriptor.Culture.get -> NextUnit.Internal.TestCultureInfo!
+NextUnit.Internal.ClassDataSourceDescriptor.Culture.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.CustomDisplayNameTemplate.get -> string?
 NextUnit.Internal.ClassDataSourceDescriptor.CustomDisplayNameTemplate.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.DataSourceFactories.get -> NextUnit.Internal.DataSourceProviderDelegate?[]!
@@ -171,6 +179,8 @@ NextUnit.Internal.CombinedDataSourceDescriptor.BaseId.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NextUnit.Internal.CombinedDataSourceDescriptor.Categories.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.CombinedDataSourceDescriptor() -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.Culture.get -> NextUnit.Internal.TestCultureInfo!
+NextUnit.Internal.CombinedDataSourceDescriptor.Culture.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.CustomDisplayNameTemplate.get -> string?
 NextUnit.Internal.CombinedDataSourceDescriptor.CustomDisplayNameTemplate.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.Dependencies.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseId!>!
@@ -318,7 +328,10 @@ NextUnit.Internal.RetryInfo.FlakyReason.get -> string?
 NextUnit.Internal.RetryInfo.FlakyReason.init -> void
 NextUnit.Internal.RetryInfo.IsFlaky.get -> bool
 NextUnit.Internal.RetryInfo.IsFlaky.init -> void
+NextUnit.Internal.RetryInfo.PolicyFactory.get -> NextUnit.Internal.RetryPolicyFactoryDelegate?
+NextUnit.Internal.RetryInfo.PolicyFactory.init -> void
 NextUnit.Internal.RetryInfo.RetryInfo() -> void
+NextUnit.Internal.RetryPolicyFactoryDelegate
 NextUnit.Internal.TestBatch
 NextUnit.Internal.TestBatch.ConstraintKeys.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NextUnit.Internal.TestBatch.ConstraintKeys.init -> void
@@ -338,8 +351,12 @@ NextUnit.Internal.TestCaseDescriptor.Arguments.get -> object?[]?
 NextUnit.Internal.TestCaseDescriptor.Arguments.init -> void
 NextUnit.Internal.TestCaseDescriptor.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NextUnit.Internal.TestCaseDescriptor.Categories.init -> void
+NextUnit.Internal.TestCaseDescriptor.Culture.get -> NextUnit.Internal.TestCultureInfo!
+NextUnit.Internal.TestCaseDescriptor.Culture.init -> void
 NextUnit.Internal.TestCaseDescriptor.CustomDisplayNameTemplate.get -> string?
 NextUnit.Internal.TestCaseDescriptor.CustomDisplayNameTemplate.init -> void
+NextUnit.Internal.TestCaseDescriptor.DeferredDataSource.get -> NextUnit.Internal.TestDataDescriptor?
+NextUnit.Internal.TestCaseDescriptor.DeferredDataSource.init -> void
 NextUnit.Internal.TestCaseDescriptor.Dependencies.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseId!>!
 NextUnit.Internal.TestCaseDescriptor.Dependencies.init -> void
 NextUnit.Internal.TestCaseDescriptor.DependencyInfos.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.DependencyInfo!>!
@@ -396,11 +413,21 @@ NextUnit.Internal.TestCaseId.TestCaseId(string! Value) -> void
 NextUnit.Internal.TestCaseId.Value.get -> string!
 NextUnit.Internal.TestCaseId.Value.init -> void
 NextUnit.Internal.TestClassFactoryDelegate
+NextUnit.Internal.TestCultureInfo
+NextUnit.Internal.TestCultureInfo.CultureName.get -> string?
+NextUnit.Internal.TestCultureInfo.CultureName.init -> void
+NextUnit.Internal.TestCultureInfo.TestCultureInfo() -> void
+NextUnit.Internal.TestCultureInfo.UICultureName.get -> string?
+NextUnit.Internal.TestCultureInfo.UICultureName.init -> void
 NextUnit.Internal.TestDataDescriptor
+NextUnit.Internal.TestDataDescriptor.AsyncDataSourceProvider.get -> NextUnit.Internal.AsyncDataSourceProviderDelegate?
+NextUnit.Internal.TestDataDescriptor.AsyncDataSourceProvider.init -> void
 NextUnit.Internal.TestDataDescriptor.BaseId.get -> string!
 NextUnit.Internal.TestDataDescriptor.BaseId.init -> void
 NextUnit.Internal.TestDataDescriptor.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NextUnit.Internal.TestDataDescriptor.Categories.init -> void
+NextUnit.Internal.TestDataDescriptor.Culture.get -> NextUnit.Internal.TestCultureInfo!
+NextUnit.Internal.TestDataDescriptor.Culture.init -> void
 NextUnit.Internal.TestDataDescriptor.CustomDisplayNameTemplate.get -> string?
 NextUnit.Internal.TestDataDescriptor.CustomDisplayNameTemplate.init -> void
 NextUnit.Internal.TestDataDescriptor.DataSourceName.get -> string!
@@ -409,6 +436,8 @@ NextUnit.Internal.TestDataDescriptor.DataSourceProvider.get -> NextUnit.Internal
 NextUnit.Internal.TestDataDescriptor.DataSourceProvider.init -> void
 NextUnit.Internal.TestDataDescriptor.DataSourceType.get -> System.Type?
 NextUnit.Internal.TestDataDescriptor.DataSourceType.init -> void
+NextUnit.Internal.TestDataDescriptor.DeferredEnumeration.get -> bool
+NextUnit.Internal.TestDataDescriptor.DeferredEnumeration.init -> void
 NextUnit.Internal.TestDataDescriptor.Dependencies.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseId!>!
 NextUnit.Internal.TestDataDescriptor.Dependencies.init -> void
 NextUnit.Internal.TestDataDescriptor.DependencyInfos.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.DependencyInfo!>!
@@ -465,6 +494,10 @@ NextUnit.Internal.TestOutcome.Failed = 3 -> NextUnit.Internal.TestOutcome
 NextUnit.Internal.TestOutcome.NotRun = 0 -> NextUnit.Internal.TestOutcome
 NextUnit.Internal.TestOutcome.Passed = 2 -> NextUnit.Internal.TestOutcome
 NextUnit.Internal.TestOutcome.Skipped = 1 -> NextUnit.Internal.TestOutcome
+NextUnit.InvariantCultureAttribute
+NextUnit.InvariantCultureAttribute.InvariantCultureAttribute() -> void
+NextUnit.IRetryPolicy
+NextUnit.IRetryPolicy.ShouldRetryAsync(NextUnit.RetryContext! context) -> System.Threading.Tasks.ValueTask<bool>
 NextUnit.ITestDataRow
 NextUnit.ITestDataRow.Categories.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NextUnit.ITestDataRow.Data.get -> object?
@@ -501,6 +534,19 @@ NextUnit.RetryAttribute.Count.get -> int
 NextUnit.RetryAttribute.DelayMs.get -> int
 NextUnit.RetryAttribute.RetryAttribute(int count, int delayMs) -> void
 NextUnit.RetryAttribute.RetryAttribute(int count) -> void
+NextUnit.RetryAttribute<TPolicy>
+NextUnit.RetryAttribute<TPolicy>.Count.get -> int
+NextUnit.RetryAttribute<TPolicy>.DelayMs.get -> int
+NextUnit.RetryAttribute<TPolicy>.PolicyType.get -> System.Type!
+NextUnit.RetryAttribute<TPolicy>.RetryAttribute(int count, int delayMs) -> void
+NextUnit.RetryAttribute<TPolicy>.RetryAttribute(int count) -> void
+NextUnit.RetryContext
+NextUnit.RetryContext.Attempt.get -> int
+NextUnit.RetryContext.CancellationToken.get -> System.Threading.CancellationToken
+NextUnit.RetryContext.Exception.get -> System.Exception!
+NextUnit.RetryContext.MaxAttempts.get -> int
+NextUnit.RetryContext.RetryContext(System.Exception! exception, NextUnit.Core.ITestContext! testContext, int attempt, int maxAttempts, System.Threading.CancellationToken cancellationToken) -> void
+NextUnit.RetryContext.TestContext.get -> NextUnit.Core.ITestContext!
 NextUnit.SharedType
 NextUnit.SharedType.Keyed = 1 -> NextUnit.SharedType
 NextUnit.SharedType.None = 0 -> NextUnit.SharedType
@@ -516,6 +562,8 @@ NextUnit.TagAttribute.TagAttribute(string! name) -> void
 NextUnit.TestAttribute
 NextUnit.TestAttribute.TestAttribute() -> void
 NextUnit.TestDataAttribute
+NextUnit.TestDataAttribute.DeferredEnumeration.get -> bool
+NextUnit.TestDataAttribute.DeferredEnumeration.set -> void
 NextUnit.TestDataAttribute.MemberName.get -> string!
 NextUnit.TestDataAttribute.MemberType.get -> System.Type?
 NextUnit.TestDataAttribute.MemberType.set -> void
@@ -540,6 +588,9 @@ NextUnit.TestTimeoutException.TimeoutMs.get -> int
 NextUnit.TimeoutAttribute
 NextUnit.TimeoutAttribute.Milliseconds.get -> int
 NextUnit.TimeoutAttribute.TimeoutAttribute(int milliseconds) -> void
+NextUnit.UICultureAttribute
+NextUnit.UICultureAttribute.Name.get -> string!
+NextUnit.UICultureAttribute.UICultureAttribute(string! name) -> void
 NextUnit.ValuesAttribute
 NextUnit.ValuesAttribute.Values.get -> object?[]!
 NextUnit.ValuesAttribute.ValuesAttribute(params object?[]! values) -> void
@@ -605,6 +656,8 @@ static NextUnit.Assert.ThrowsAsync<TException>(System.Func<System.Threading.Task
 static NextUnit.Assert.True(bool condition, string? message = null) -> void
 static NextUnit.Core.TestContext.Current.get -> NextUnit.Core.ITestContext?
 static NextUnit.Internal.ArgumentConverter.Convert<T>(object? value, string! parameterName, string! methodName) -> T
+static NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync<TRow>(System.Collections.Generic.IAsyncEnumerable<TRow>! source, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
+static NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync<TRows>(System.Threading.Tasks.Task<TRows>! source, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
 static NextUnit.Internal.ClassDataSourceExpander.ClearClassInstances(System.Type! testClass) -> void
 static NextUnit.Internal.ClassDataSourceExpander.ClearSharedInstances() -> void
 static NextUnit.Internal.ClassDataSourceExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.ClassDataSourceDescriptor!>! descriptors) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
@@ -618,10 +671,16 @@ static NextUnit.Internal.GeneratedTestRegistryStore.Current.get -> NextUnit.Inte
 static NextUnit.Internal.GeneratedTestRegistryStore.Register(NextUnit.Internal.IGeneratedTestRegistry! registry) -> void
 static NextUnit.Internal.TestCaseId.operator !=(NextUnit.Internal.TestCaseId? left, NextUnit.Internal.TestCaseId? right) -> bool
 static NextUnit.Internal.TestCaseId.operator ==(NextUnit.Internal.TestCaseId? left, NextUnit.Internal.TestCaseId? right) -> bool
+static NextUnit.Internal.TestDataExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestDataDescriptor!>! testDataDescriptors, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
 static NextUnit.Internal.TestDataExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestDataDescriptor!>! testDataDescriptors) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+static NextUnit.Internal.TestDataExpander.ExpandAsync(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestDataDescriptor!>! testDataDescriptors, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!>
+static NextUnit.Internal.TestDataExpander.ExpandDeferredAsync(NextUnit.Internal.TestDataDescriptor! descriptor, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!>
+static NextUnit.Internal.TestDataExpander.ExpandSingle(NextUnit.Internal.TestDataDescriptor! descriptor, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
 static NextUnit.Internal.TestDataExpander.ExpandSingle(NextUnit.Internal.TestDataDescriptor! descriptor) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
+virtual NextUnit.Internal.AsyncDataSourceProviderDelegate.Invoke(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
 virtual NextUnit.Internal.DataSourceProviderDelegate.Invoke() -> object?
 virtual NextUnit.Internal.LifecycleMethodDelegate.Invoke(object! instance, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+virtual NextUnit.Internal.RetryPolicyFactoryDelegate.Invoke() -> NextUnit.IRetryPolicy!
 virtual NextUnit.Internal.TestClassFactoryDelegate.Invoke(NextUnit.Core.ITestOutput! output, NextUnit.Core.ITestContext! context) -> object!
 virtual NextUnit.Internal.TestMethodDelegate.Invoke(object! instance, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 virtual NextUnit.Internal.TestMethodWithArgumentsDelegate.Invoke(object! instance, object?[]! arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!

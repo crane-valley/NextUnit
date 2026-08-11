@@ -3,6 +3,10 @@ NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer
 NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer.ArgumentsCountAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer
 NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer.AsyncVoidTestAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer
+NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.ConflictingRetryAttributeAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.CultureNameAnalyzer
+NextUnit.Analyzers.Analyzers.CultureNameAnalyzer.CultureNameAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.DependsOnAnalyzer
 NextUnit.Analyzers.Analyzers.DependsOnAnalyzer.DependsOnAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.LifecycleMethodAnalyzer
@@ -11,6 +15,10 @@ NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer
 NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer.MatrixExclusionAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer
 NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer.MissingTestAttributeAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.RetryCountAnalyzer
+NextUnit.Analyzers.Analyzers.RetryCountAnalyzer.RetryCountAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer
+NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer.RetryPolicyAccessibilityAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.TestDataMemberAnalyzer
 NextUnit.Analyzers.Analyzers.TestDataMemberAnalyzer.TestDataMemberAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.TestDataRowAnalyzer
@@ -29,6 +37,10 @@ override NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer.Initialize(Microsof
 override NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
 override NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.CultureNameAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.CultureNameAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.DependsOnAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
 override NextUnit.Analyzers.Analyzers.DependsOnAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.LifecycleMethodAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
@@ -37,6 +49,10 @@ override NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer.Initialize(Microso
 override NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
 override NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.RetryCountAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.RetryCountAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.TestDataMemberAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
 override NextUnit.Analyzers.Analyzers.TestDataMemberAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.TestDataRowAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
