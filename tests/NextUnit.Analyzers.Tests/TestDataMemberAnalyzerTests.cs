@@ -398,6 +398,38 @@ public class TestDataMemberAnalyzerTests
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
+    /// <summary>
+    /// A parameter-level source binds only a parameterless member, so a token-taking overload is out
+    /// of its reach whatever its accessibility. Widening it would not make it bind, so NU0020 stays
+    /// quiet rather than naming a fix that does not work.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromMemberWithPrivateCancellableOverload_NoDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                private static async IAsyncEnumerable<int> Values(CancellationToken cancellationToken)
+                {
+                    await Task.Yield();
+                    yield return 1;
+                }
+
+                [Test]
+                public void TestMethod([ValuesFromMember("Values")] int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
     [Fact]
     public async Task NoTestDataAttribute_NoDiagnosticAsync()
     {

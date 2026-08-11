@@ -233,11 +233,11 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor DataSourceMemberNotAccessible = new(
         id: "NU0020",
         title: "Data source member is not accessible to generated code",
-        messageFormat: "Data source member '{0}' on type '{1}' is not accessible from the generated test registry; make it public or internal, and not nested in a private or protected scope",
+        messageFormat: "Data source member '{0}' on type '{1}' is not accessible from the generated test registry; make the member, a property's getter, and every containing type public or internal",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "The generator emits direct member access rather than reflecting, which is what keeps data sources AOT-safe, so the member has to be visible from the generated registry. Internal is enough: the registry is emitted into the test assembly itself. A private, protected, or private protected member, or one declared in a type that is not visible there, compiles as written and then fails the build with CS0122 inside generated code.");
+        description: "The generator emits direct member access rather than reflecting, which is what keeps data sources AOT-safe, so the member has to be readable from the generated registry. Internal is enough: the registry is emitted into the test assembly itself. A private, protected, or private protected member, a property whose getter is not accessible or which has no getter at all, and a member declared in a type that is not visible there all compile as written and then fail the build inside generated code.");
 
     /// <summary>
     /// NU0021: Cancellation-aware data source member returns a synchronous collection.

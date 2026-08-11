@@ -142,7 +142,13 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         // build that compiles and runs correctly.
         var resolved = DataSourceMemberResolver.Resolve(targetType, memberName, knownDataSourceTypes);
 
-        if (resolved.Issue == DataSourceBindingIssue.MemberNotAccessible)
+        // A parameter-level source binds only a parameterless member, so a token-taking overload is
+        // out of its reach whatever its accessibility. Reporting NU0020 there would name a fix --
+        // widen the member -- that does not make it bind.
+        var boundHere = isTestDataSource ||
+            resolved.Symbol is IMethodSymbol { Parameters.Length: 0 } or IPropertySymbol or IFieldSymbol;
+
+        if (boundHere && resolved.Issue == DataSourceBindingIssue.MemberNotAccessible)
         {
             ReportDiagnostic(
                 context,

@@ -141,11 +141,13 @@ skip reason apply only to that generated test case. Tuple values expand across p
 values, including `null` and collections, remain a single argument.
 
 A source type may offer more than one row type, for instance by implementing both
-`IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>`. NextUnit reads it through the
-`TestDataRow<T>` arm, because that is the more specific contract: it carries each row's metadata as
-well as its values. If a source offers several row types and none of them is a `TestDataRow<T>`, the
-one whose fully qualified type name sorts first ordinally is used. The rule depends only on the
-types themselves, so the row type a source is validated against does not change between builds.
+`IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>`. Build-time row validation reads it through
+the `TestDataRow<T>` arm, because that is the more specific contract: it carries each row's metadata
+as well as its values. If a source offers several row types and none of them is a `TestDataRow<T>`,
+the one whose fully qualified type name sorts first ordinally is used. The rule depends only on the
+types themselves, so the row type a source is checked against does not change between builds. The
+selection governs what `NU0009` validates; a synchronous source is still enumerated through the
+non-generic `IEnumerable` at run time, so prefer a source type that offers one row type.
 
 ### Data source member accessibility
 

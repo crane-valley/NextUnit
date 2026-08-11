@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.CodeAnalysis;
 
 namespace NextUnit.CodeAnalysis.Shared;
@@ -305,8 +306,46 @@ internal readonly struct KnownDataSourceTypes
         return order < 0 ? candidate : selected;
     }
 
-    private static string AssemblyKey(ITypeSymbol type) =>
-        type.ContainingAssembly?.Identity.GetDisplayName() ?? string.Empty;
+    /// <summary>
+    /// Builds the second sort key: the declaring assemblies of a type and of everything it is
+    /// composed from.
+    /// </summary>
+    /// <remarks>
+    /// A fully qualified name carries no assembly, so two assemblies reached through
+    /// <c>extern alias</c> can contribute the same one. The key is structural rather than the outer
+    /// type's assembly alone, because the difference can sit in an array element or a type argument
+    /// -- <c>List&lt;A::Row&gt;</c> and <c>List&lt;B::Row&gt;</c> are both declared by the assembly
+    /// that declares <c>List</c>. A containing type needs no entry of its own: it is declared by the
+    /// same assembly as the type it contains.
+    /// </remarks>
+    private static string AssemblyKey(ITypeSymbol type)
+    {
+        var builder = new StringBuilder();
+        AppendAssemblyKey(type, builder);
+        return builder.ToString();
+    }
+
+    private static void AppendAssemblyKey(ITypeSymbol type, StringBuilder builder)
+    {
+        if (type is IArrayTypeSymbol array)
+        {
+            AppendAssemblyKey(array.ElementType, builder);
+            return;
+        }
+
+        if (type is INamedTypeSymbol namedType)
+        {
+            builder.Append(namedType.ContainingAssembly?.Identity.GetDisplayName());
+
+            foreach (var typeArgument in namedType.TypeArguments)
+            {
+                AppendAssemblyKey(typeArgument, builder);
+            }
+        }
+
+        // A separator after every node, so that two different shapes cannot flatten to one key.
+        builder.Append(';');
+    }
 
     private static bool IsGenericEnumerable(INamedTypeSymbol type) =>
         type.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T;

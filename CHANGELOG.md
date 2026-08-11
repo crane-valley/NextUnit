@@ -11,14 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Select the row type of a data source deterministically when its type implements the same element
   interface more than once. `TestDataRow<T>` now wins over a plain element type, because it is the
-  more specific contract; remaining ties go to the element type whose fully qualified name sorts
-  first ordinally. The row type used to be whichever interface `AllInterfaces` happened to return
-  first, which Roslyn does not order by contract, so a source implementing both, say,
-  `IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>` could be validated against either one.
-  `NU0009` verdicts can therefore flip for such a source: one that used to be checked against
-  `object[]`, and so was never checked at all, is now checked against its typed row and may start
-  reporting a genuine mismatch. A source implementing one element interface, which is nearly all of
-  them, is unaffected. The rule applies to the synchronous and asynchronous paths alike.
+  more specific contract; remaining ties go to the element type whose fully qualified name, and then
+  whose declaring assembly, sorts first ordinally. The row type used to be whichever interface
+  `AllInterfaces` happened to return first, which Roslyn does not order by contract, so a source
+  implementing both, say, `IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>` could be
+  validated against either one. `NU0009` verdicts can therefore flip for such a source: one that used
+  to be checked against `object[]`, and so was never checked at all, is now checked against its typed
+  row and may start reporting a genuine mismatch. A source implementing one element interface, which
+  is nearly all of them, is unaffected. The selection governs what `NU0009` validates, on the
+  synchronous and asynchronous paths alike; it does not change how rows are read at run time, where a
+  synchronous source is still enumerated through the non-generic `IEnumerable`.
 
 - Share one instance per sharing scope between `[ClassDataSource<T>]` and `[ValuesFrom<T>]`, and
   dispose the shared instances at the end of the test session. This is a breaking change, and the
