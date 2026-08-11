@@ -604,7 +604,7 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   hiding only: none can be read as a data source, but each hides the base member of the same name,
   and a candidate list that leaves them out reads the member they hide. Nothing non-static is ever
   returned.
-- [ ] Two accepted divergences from C# member lookup, both narrow, both reported by the Codex review
+- [ ] Three accepted divergences from C# member lookup, all narrow, all reported by the Codex review
   and left deliberately. A derived overload that is applicable to a no-argument call without being
   parameterless -- `Rows(int value = 0)` or `Rows(params int[])` -- does not win over an inherited
   `Rows()`, because the resolver tests `Parameters.Length: 0` rather than applicability; that rule
@@ -614,7 +614,18 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   favour of the ancestor C# would bind. Closing either one means selecting candidates by
   applicability and by accessibility before hiding -- two staged passes rather than one walk -- which
   is a rewrite of the resolver rather than an extension of it, and neither divergence emits code that
-  fails to compile or silently supplies the wrong rows.
+  fails to compile or silently supplies the wrong rows. The third is in the runtime fallback alone:
+  `BindingFlags.FlattenHierarchy` does not return nested types declared on a base class, so a nested
+  type on an intermediate base does not block a same-named static source further up, though one on
+  the type the attribute names does. It fails loudly rather than silently, which is why it is
+  deferred: the compile-time walk does see that nested type, because `GetMembers` returns nested
+  types, so the source resolves to nothing and `NU0003` fails the build before the fallback can run.
+  `TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync` pins that guard. Closing the
+  fallback side means reflecting for nested types level by level, which needs
+  `PublicNestedTypes`/`NonPublicNestedTypes` added to the trimming annotations on every entry point
+  into the fallback and reflection over a base `Type` those annotations do not flow to -- an AOT and
+  trimming cost against a data source name that is also a nested type name on an intermediate base,
+  and one the analyzer already stops. Deferred per the review circuit breaker after round 5.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

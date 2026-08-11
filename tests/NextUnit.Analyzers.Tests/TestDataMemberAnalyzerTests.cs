@@ -1324,6 +1324,49 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// A nested type on an intermediate base hides a same-named source further up, and the
+    /// compile-time walk sees it because <c>GetMembers</c> returns nested types. This is the guard
+    /// on the one place the runtime fallback cannot follow: reflection's <c>FlattenHierarchy</c>
+    /// does not return a base class's nested types, so the build has to fail before that path runs.
+    /// </summary>
+    [Fact]
+    public async Task TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                public new class TestCases
+                {
+                }
+            }
+
+            public class Tests : Middle
+            {
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(19, 6, 19, 27)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// C# member lookup never sees a base type's private member from a derived type, so it neither
     /// binds nor hides. Letting it win would report NU0020 for a name that resolves further up the
     /// chain and compiles.
