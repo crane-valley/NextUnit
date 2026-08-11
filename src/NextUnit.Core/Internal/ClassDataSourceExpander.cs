@@ -1,7 +1,4 @@
 using System.Collections;
-using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 
 namespace NextUnit.Internal;
 
@@ -10,22 +7,13 @@ namespace NextUnit.Internal;
 /// by instantiating data source classes and enumerating their data at runtime.
 /// </summary>
 /// <remarks>
-/// Shared-instance caching is scoped to this expander. <c>[ClassDataSource]</c> and <c>[ValuesFrom]</c>
-/// keep separate caches (the latter in <see cref="CombinedDataSourceExpander"/>), so the same data
-/// source type used through both attributes with <c>SharedType.PerSession</c>, <c>PerAssembly</c>,
-/// <c>PerClass</c>, or <c>Keyed</c> yields one instance per attribute kind, not one overall. Nothing
-/// in the run lifecycle clears these caches, so a shared instance lives for the process lifetime
-/// unless a caller invokes <see cref="ClearSharedInstances"/> or <see cref="ClearClassInstances"/>,
-/// which dispose what they remove.
+/// Shared instances come from <see cref="SharedInstanceStore"/>, which <c>[ValuesFrom]</c> shares
+/// through <see cref="CombinedDataSourceExpander"/>: one data source type used through both
+/// attributes under the same sharing scope is one instance, and the store disposes it at the end of
+/// the session.
 /// </remarks>
 internal static class ClassDataSourceExpander
 {
-    // Caches for shared instances by sharing scope
-    private static readonly ConcurrentDictionary<string, object> _keyedInstances = new();
-    private static readonly ConcurrentDictionary<(Type TestClass, Type SourceType), object> _perClassInstances = new();
-    private static readonly ConcurrentDictionary<Type, object> _perAssemblyInstances = new();
-    private static readonly ConcurrentDictionary<Type, object> _perSessionInstances = new();
-
     /// <summary>
     /// Expands a collection of class data source descriptors into test case descriptors.
     /// </summary>
@@ -58,7 +46,7 @@ internal static class ClassDataSourceExpander
             var factory = sourceIndex < descriptor.DataSourceFactories.Length
                 ? descriptor.DataSourceFactories[sourceIndex]
                 : null;
-            var instance = GetOrCreateInstance(
+            var instance = SharedInstanceStore.GetOrCreate(
                 sourceType,
                 descriptor.SharedType,
                 descriptor.SharedKey,
@@ -99,108 +87,6 @@ internal static class ClassDataSourceExpander
         {
             yield return seed.CreateTestCase($"{idPrefix}[{index}]", row.Arguments, index, testMethod, row);
             index++;
-        }
-    }
-
-    /// <summary>
-    /// Clears all shared instances. Call this at the end of a test session to release resources.
-    /// </summary>
-    public static void ClearSharedInstances()
-    {
-        DisposeHelper.DisposeAllIn(_keyedInstances.Values);
-        DisposeHelper.DisposeAllIn(_perClassInstances.Values);
-        DisposeHelper.DisposeAllIn(_perAssemblyInstances.Values);
-        DisposeHelper.DisposeAllIn(_perSessionInstances.Values);
-
-        _keyedInstances.Clear();
-        _perClassInstances.Clear();
-        _perAssemblyInstances.Clear();
-        _perSessionInstances.Clear();
-    }
-
-    /// <summary>
-    /// Clears class-level shared instances for the specified test class.
-    /// Call this after all tests in a class have completed.
-    /// </summary>
-    /// <param name="testClass">The test class whose instances should be cleared.</param>
-    public static void ClearClassInstances(Type testClass)
-    {
-        var keysToRemove = _perClassInstances.Keys
-            .Where(k => k.TestClass == testClass)
-            .ToList();
-
-        foreach (var key in keysToRemove)
-        {
-            if (_perClassInstances.TryRemove(key, out var instance))
-            {
-                DisposeHelper.DisposeIfNeeded(instance);
-            }
-        }
-    }
-
-    private static object GetOrCreateInstance(
-        Type sourceType,
-        SharedType sharedType,
-        string? key,
-        Type testClass,
-        DataSourceProviderDelegate? factory)
-    {
-        return sharedType switch
-        {
-            SharedType.None => CreateInstance(sourceType, factory),
-
-            SharedType.Keyed => _keyedInstances.GetOrAdd(
-                $"{sourceType.FullName}:{key ?? "default"}",
-                _ => CreateInstance(sourceType, factory)),
-
-            SharedType.PerClass => _perClassInstances.GetOrAdd(
-                (testClass, sourceType),
-                _ => CreateInstance(sourceType, factory)),
-
-            SharedType.PerAssembly => _perAssemblyInstances.GetOrAdd(
-                sourceType,
-                _ => CreateInstance(sourceType, factory)),
-
-            SharedType.PerSession => _perSessionInstances.GetOrAdd(
-                sourceType,
-                _ => CreateInstance(sourceType, factory)),
-
-            _ => CreateInstance(sourceType, factory)
-        };
-    }
-
-    [UnconditionalSuppressMessage(
-        "Trimming",
-        "IL2067",
-        Justification = "The source generator roots class data source constructors with DynamicDependency.")]
-    private static object CreateInstance(
-        Type sourceType,
-        DataSourceProviderDelegate? factory)
-    {
-        try
-        {
-            if (factory is not null)
-            {
-                return factory()
-                    ?? throw new InvalidOperationException(
-                        $"Failed to create instance of '{sourceType.FullName}': factory returned null");
-            }
-
-            return Activator.CreateInstance(sourceType)
-                ?? throw new InvalidOperationException(
-                    $"Failed to create instance of '{sourceType.FullName}': Activator returned null");
-        }
-        catch (TargetInvocationException ex)
-        {
-            throw new InvalidOperationException(
-                $"Failed to create instance of '{sourceType.FullName}'",
-                ex.InnerException ?? ex);
-        }
-        catch (Exception ex) when (ex is not InvalidOperationException)
-        {
-            throw new InvalidOperationException(
-                $"Failed to create instance of '{sourceType.FullName}'",
-                ex);
         }
     }
 

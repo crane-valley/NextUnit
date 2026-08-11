@@ -54,4 +54,20 @@ internal static class AdapterDiagnostics
             TestMessageLevel.Error,
             $"NextUnit: Error {operation} in {source}: {exception.GetType().FullName}: {exception}");
     }
+
+    /// <summary>
+    /// Reports that a shared data source instance failed to dispose at the end of a run.
+    /// </summary>
+    /// <remarks>
+    /// Reported rather than thrown: the tests have already run and been recorded, and letting a
+    /// cleanup failure escape would abandon the run's results over a resource nobody is waiting for.
+    /// Under Microsoft.Testing.Platform the same failure reaches the session result instead, which
+    /// VSTest has no equivalent of.
+    /// </remarks>
+    public static void ReportSharedInstanceDisposalFailure(IMessageLogger logger, Exception exception)
+    {
+        logger.SendMessage(
+            TestMessageLevel.Error,
+            $"NextUnit: Error disposing shared data source instances: {exception.GetType().FullName}: {exception}");
+    }
 }

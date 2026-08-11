@@ -8,6 +8,13 @@ namespace NextUnit.TestAdapter;
 /// <summary>
 /// VSTest adapter for discovering NextUnit tests.
 /// </summary>
+/// <remarks>
+/// Expanding a class or combined data source instantiates it, so discovery can populate the shared
+/// instance store. Nothing here disposes what it created: <c>ITestDiscoverer</c> has no end-of-run
+/// callback, and a discovery that is followed by a run in the same process hands its instances to
+/// that run, which does dispose them. A discovery with no run after it therefore leaves its
+/// instances alive until the process exits, which is what every path did before 2.0.
+/// </remarks>
 [DefaultExecutorUri(NextUnitTestExecutor.ExecutorUri)]
 [FileExtension(".dll")]
 [FileExtension(".exe")]

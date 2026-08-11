@@ -57,6 +57,11 @@ public sealed class ValuesFromAttribute<T> : Attribute
     /// </summary>
     /// <remarks>
     /// <para>Default is <see cref="SharedType.None"/> (new instance per parameter).</para>
+    /// <para>
+    /// A scope other than <see cref="SharedType.None"/> shares one instance with
+    /// <see cref="ClassDataSourceAttribute{T}"/> as well, and the instance is disposed at the end of
+    /// the session; see <see cref="SharedType"/>.
+    /// </para>
     /// <para>Use higher scopes to share expensive data sources:</para>
     /// <list type="bullet">
     ///   <item><see cref="SharedType.None"/>: New instance per parameter</item>

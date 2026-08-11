@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Share one instance per sharing scope between `[ClassDataSource<T>]` and `[ValuesFrom<T>]`, and
+  dispose the shared instances at the end of the test session. This is a breaking change, and the
+  next release is 2.0.0. Each attribute used to keep its own `PerSession`/`PerAssembly`/`PerClass`/
+  `Keyed` cache, so a data source type reached through both attributes was instantiated twice; it is
+  now instantiated once, and a suite that counted on the two copies being independent sees one
+  shared object. `PerAssembly` and `PerSession` still keep separate instances from each other, and
+  `SharedType.None` still creates an instance per expansion and is not owned by the framework.
+  Nothing in 1.x ever released a shared instance, so a data source holding a connection, a container,
+  or a temporary directory leaked it for the life of the process. Under Microsoft.Testing.Platform
+  the instances are disposed during session close, after every `[After(LifecycleScope.Session)]` hook
+  has run, and a disposal failure is reported through the session result alongside any hook failure.
+  Under VSTest, which has no session boundary, the end of a run stands in for it, and a disposal
+  failure is reported to the run's message logger; instances created by a discovery that no run
+  follows are still released only when the process exits. `IAsyncDisposable` is preferred over
+  `IDisposable` when a data source implements both, so an async-only data source is now disposed
+  without blocking.
+
 ### Removed
 
 - Remove the execution and expansion types in the `NextUnit.Internal` namespace from the public API.

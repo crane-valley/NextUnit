@@ -620,7 +620,7 @@ sized separately.
 Breaking changes that are agreed in principle but cannot ship in 1.x. The `PublicAPI.Shipped.txt`
 baselines freeze the current surface until then.
 
-- [ ] Unify the shared-instance caches behind `[ClassDataSource]` and `[ValuesFrom]` and wire
+- [x] Unify the shared-instance caches behind `[ClassDataSource]` and `[ValuesFrom]` and wire
   disposal to session end. `ClassDataSourceExpander` and `CombinedDataSourceExpander` each keep
   their own `PerSession`/`PerAssembly`/`PerClass`/`Keyed` caches, so one data source type used
   through both attributes is instantiated twice, and nothing in the run lifecycle ever clears them:
@@ -665,6 +665,29 @@ settled empirically rather than by inspection: demoting `TestMethodDelegate`,
 and `RetryPolicyFactoryDelegate` produced eleven CS0053 errors, because each one is the type of a
 property on a descriptor that has to stay public. The removals are recorded as 59 `*REMOVED*`
 entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt`.
+
+The cache unification is delivered as `SharedInstanceStore`, one process-wide store both expanders
+call, keyed by sharing scope, data source type, and whatever else that scope shares by: the test
+class for `PerClass`, the key for `Keyed`, nothing more for `PerAssembly` and `PerSession`. The scope
+is part of the key, so `PerAssembly` and `PerSession` still hold separate instances even though a
+single-assembly run cannot tell the two lifetimes apart; collapsing them would change which tests
+share an instance rather than only which attribute they arrived through, which is more than this item
+agreed to break. Entries are `Lazy` values rather than bare `GetOrAdd` factories, because
+`ConcurrentDictionary` may run a losing factory and throw its result away, and an instance the store
+never records is an instance nothing ever disposes; a failed creation is evicted so the next
+expansion retries, as it did in 1.x. Disposal runs in reverse creation order, prefers
+`IAsyncDisposable`, and reports every failure together. The four `Clear*` methods are deleted rather
+than repurposed: they had no caller, and `ClearClassInstances` described a per-class release that no
+lifecycle event ever reached. The wiring is asymmetric by necessity.
+`SessionLifecycleRunner.RunTeardownAsync` disposes after the `[After(Session)]` hooks and through the
+same failure aggregation, so a hook can still read a shared instance and a disposal failure reaches
+the session result; VSTest has no session boundary, so `NextUnitTestExecutor` disposes at the end of
+the whole run and reports failures to the message logger. A VSTest discovery with no run after it
+still leaves its instances until the process exits, which is what every path did in 1.x. Pinned by
+twelve tests in `tests/NextUnit.Generator.Tests/SharedInstanceStoreTests.cs`, written first against
+1.x behavior, where the same type through both attributes produced two instances and a keyed pair
+produced three, and five more in `SessionLifecycleRunnerTests` for the ordering and the failure
+reporting.
 
 ## Explicitly not planned
 

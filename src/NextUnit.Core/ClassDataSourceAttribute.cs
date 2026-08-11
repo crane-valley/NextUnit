@@ -3,6 +3,19 @@ namespace NextUnit;
 /// <summary>
 /// Specifies how a ClassDataSource instance is shared across tests.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The scope is shared across attributes, not per attribute: one data source type used by both
+/// <see cref="ClassDataSourceAttribute{T}"/> and <see cref="ValuesFromAttribute{T}"/> under the same
+/// scope is one instance.
+/// </para>
+/// <para>
+/// Every shared instance is disposed at the end of the test session, after the
+/// <c>[After(LifecycleScope.Session)]</c> hooks have run, preferring <see cref="IAsyncDisposable"/>
+/// over <see cref="IDisposable"/> when a data source implements both. An instance created for
+/// <see cref="None"/> is not shared and is not disposed by the framework.
+/// </para>
+/// </remarks>
 public enum SharedType
 {
     /// <summary>

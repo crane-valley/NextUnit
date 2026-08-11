@@ -263,6 +263,89 @@ public sealed class SessionLifecycleRunnerTests
     }
 
     [Test]
+    public async Task RunTeardownAsync_DisposesSharedInstancesAfterEveryHookAsync()
+    {
+        var calls = new List<string>();
+        var runner = new SessionLifecycleRunner(() =>
+        {
+            calls.Add("dispose");
+            return ValueTask.CompletedTask;
+        });
+        runner.AddMethods(
+            null,
+            [
+                (_, _) => { calls.Add("first"); return Task.CompletedTask; },
+                (_, _) => { calls.Add("second"); return Task.CompletedTask; }
+            ]);
+
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        // An [After(Session)] hook may still read what a session-shared data source is holding, so the
+        // instances outlive every hook and are released only once the last one has run.
+        Assert.Null(error);
+        Assert.Equal("second,first,dispose", string.Join(",", calls));
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_DisposesSharedInstancesEvenAfterAHookFailsAsync()
+    {
+        var disposed = false;
+        var runner = new SessionLifecycleRunner(() =>
+        {
+            disposed = true;
+            return ValueTask.CompletedTask;
+        });
+        runner.AddMethods(null, [(_, _) => throw new InvalidOperationException("teardown boom")]);
+
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        Assert.NotNull(error);
+        Assert.True(disposed);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_ReportsADisposalFailureAsync()
+    {
+        var runner = new SessionLifecycleRunner(
+            () => throw new InvalidOperationException("dispose boom"));
+
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        // Session close has no sink, so a data source that failed to release its resources is only
+        // ever visible through the session result.
+        Assert.NotNull(error);
+        Assert.Contains("dispose boom", error!);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_AggregatesAHookFailureWithADisposalFailureAsync()
+    {
+        var runner = new SessionLifecycleRunner(
+            () => throw new InvalidOperationException("dispose boom"));
+        runner.AddMethods(null, [(_, _) => throw new InvalidOperationException("teardown boom")]);
+
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        Assert.NotNull(error);
+        Assert.Contains("teardown boom", error!);
+        Assert.Contains("dispose boom", error!);
+        Assert.Contains("One or more session teardown methods failed.", error!);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_ReportsDisposalOwnCancellationAsAFailureAsync()
+    {
+        var runner = new SessionLifecycleRunner(
+            () => throw new OperationCanceledException("disposer gave up"));
+
+        using var cts = new CancellationTokenSource();
+        var error = await runner.RunTeardownAsync(cts.Token);
+
+        Assert.NotNull(error);
+        Assert.Contains("does not represent run cancellation", error!);
+    }
+
+    [Test]
     public async Task TryReportSessionSkipAsync_ReportsNothingWithoutASkipReasonAsync()
     {
         var runner = new SessionLifecycleRunner();

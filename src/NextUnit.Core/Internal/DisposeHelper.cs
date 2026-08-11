@@ -32,6 +32,35 @@ internal static class DisposeHelper
     }
 
     /// <summary>
+    /// Disposes an object, preferring IAsyncDisposable over IDisposable.
+    /// </summary>
+    /// <param name="instance">The object to dispose.</param>
+    /// <returns>A task representing the asynchronous dispose operation.</returns>
+    /// <remarks>
+    /// Why not <see cref="DisposeAsync(object?)"/>: that overload prefers IDisposable so a test class
+    /// implementing both keeps the synchronous path it had before either interface was awaited. Shared
+    /// data source instances were never disposed at all before 2.0, so there is no such expectation to
+    /// preserve, and a type that implements both is taken at its word that the async path is the one
+    /// it wants an async caller to use.
+    /// </remarks>
+    public static async ValueTask PreferAsyncDisposeAsync(object? instance)
+    {
+        if (instance is null)
+        {
+            return;
+        }
+
+        if (instance is IAsyncDisposable asyncDisposable)
+        {
+            await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+        }
+        else if (instance is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+    }
+
+    /// <summary>
     /// Disposes an object synchronously if it implements IDisposable.
     /// Falls back to blocking on IAsyncDisposable if only that interface is implemented.
     /// </summary>

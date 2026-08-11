@@ -26,6 +26,10 @@ namespace NextUnit.Platform;
 /// <see cref="OperationCanceledException"/> the platform expects, which is how the engine surfaces
 /// the cancellation its own teardown observes.
 /// </para>
+/// <para>
+/// Session end is also where the shared data source instances are released, because the session is
+/// the widest scope <c>[ClassDataSource]</c> and <c>[ValuesFrom]</c> can share an instance across.
+/// </para>
 /// </remarks>
 internal sealed class SessionLifecycleRunner
 {
@@ -33,7 +37,19 @@ internal sealed class SessionLifecycleRunner
     private readonly AsyncOnceGate _setupGate = new();
     private readonly List<LifecycleMethodDelegate> _beforeMethods = new();
     private readonly List<LifecycleMethodDelegate> _afterMethods = new();
+    private readonly Func<ValueTask> _disposeSharedInstances;
     private string? _skipReason;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SessionLifecycleRunner"/> class.
+    /// </summary>
+    /// <param name="disposeSharedInstances">
+    /// Releases the shared data source instances once teardown has run every hook. Defaults to the
+    /// process-wide <see cref="SharedInstanceStore"/>; a test passes its own to observe the ordering
+    /// without emptying the store the rest of the process is using.
+    /// </param>
+    public SessionLifecycleRunner(Func<ValueTask>? disposeSharedInstances = null) =>
+        _disposeSharedInstances = disposeSharedInstances ?? SharedInstanceStore.DisposeAllAsync;
 
     /// <summary>
     /// Gets the reason a session setup hook gave for skipping the session, or <see langword="null"/>
@@ -96,7 +112,7 @@ internal sealed class SessionLifecycleRunner
 
     /// <summary>
     /// Runs the session teardown hooks in reverse order, running every remaining hook even after one
-    /// of them fails.
+    /// of them fails, then releases the shared data source instances.
     /// </summary>
     /// <returns>
     /// An error message describing the failures, or <see langword="null"/> when teardown succeeded.
@@ -116,31 +132,21 @@ internal sealed class SessionLifecycleRunner
         // Catch per hook so a hook observing cancellation (or failing) still runs every remaining hook.
         for (var i = _afterMethods.Count - 1; i >= 0; i--)
         {
-            try
-            {
-                await _afterMethods[i](null!, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException ex) when (RunCancellationClassifier.IsRunCancellation(ex, cancellationToken))
-            {
-                // Genuine run cancellation (the OCE carries the run token). Held rather than returned
-                // at once so the remaining hooks still release their resources, and rethrown below:
-                // dropping it would let a cancelled close report as a clean session, which is what
-                // assembly teardown avoids by handing its cancellation back to the run.
-                cancellation ??= ex;
-            }
-            catch (OperationCanceledException ex)
-            {
-                // An OCE carrying a different token (or none) is the hook's own unrelated cancellation,
-                // so it is wrapped in a non-OCE and surfaced as a teardown failure.
-                failures.Add(RunCancellationClassifier.ToFailure(
-                    ex,
-                    "A session teardown method threw OperationCanceledException that does not represent run cancellation."));
-            }
-            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
-            {
-                failures.Add(ex);
-            }
+            var afterMethod = _afterMethods[i];
+
+            await RunGuardedAsync(
+                () => afterMethod(null!, cancellationToken),
+                "A session teardown method threw OperationCanceledException that does not represent run cancellation.")
+                .ConfigureAwait(false);
         }
+
+        // Disposal follows the hooks rather than preceding them: an [After(Session)] hook is entitled
+        // to read whatever a session-shared data source is still holding, and releasing the instances
+        // first would hand that hook an already-disposed object.
+        await RunGuardedAsync(
+            () => _disposeSharedInstances().AsTask(),
+            "Disposing a shared data source instance threw OperationCanceledException that does not represent run cancellation.")
+            .ConfigureAwait(false);
 
         if (failures.Count == 0)
         {
@@ -161,6 +167,35 @@ internal sealed class SessionLifecycleRunner
         return cancellation is null
             ? $"Session teardown failed: {error}"
             : $"The test run was cancelled and session teardown failed: {error}";
+
+        // Every step of teardown is classified the same way, so the classification lives here once
+        // rather than beside each step: cancellation carrying the run token is held for the caller,
+        // any other failure joins the aggregate, and the remaining steps still run.
+        async Task RunGuardedAsync(Func<Task> operation, string cancellationMessage)
+        {
+            try
+            {
+                await operation().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException ex) when (RunCancellationClassifier.IsRunCancellation(ex, cancellationToken))
+            {
+                // Genuine run cancellation (the OCE carries the run token). Held rather than returned
+                // at once so the remaining hooks still release their resources, and rethrown above:
+                // dropping it would let a cancelled close report as a clean session, which is what
+                // assembly teardown avoids by handing its cancellation back to the run.
+                cancellation ??= ex;
+            }
+            catch (OperationCanceledException ex)
+            {
+                // An OCE carrying a different token (or none) is the step's own unrelated cancellation,
+                // so it is wrapped in a non-OCE and surfaced as a teardown failure.
+                failures.Add(RunCancellationClassifier.ToFailure(ex, cancellationMessage));
+            }
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            {
+                failures.Add(ex);
+            }
+        }
     }
 
     /// <summary>
