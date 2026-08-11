@@ -172,7 +172,6 @@ NextUnit.Internal.ClassDataSourceDescriptor.TestMethodWithArguments.get -> NextU
 NextUnit.Internal.ClassDataSourceDescriptor.TestMethodWithArguments.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.TimeoutMs.get -> int?
 NextUnit.Internal.ClassDataSourceDescriptor.TimeoutMs.init -> void
-NextUnit.Internal.ClassDataSourceExpander
 NextUnit.Internal.CombinedDataSourceDescriptor
 NextUnit.Internal.CombinedDataSourceDescriptor.BaseId.get -> string!
 NextUnit.Internal.CombinedDataSourceDescriptor.BaseId.init -> void
@@ -227,16 +226,7 @@ NextUnit.Internal.CombinedDataSourceDescriptor.TestMethodWithArguments.get -> Ne
 NextUnit.Internal.CombinedDataSourceDescriptor.TestMethodWithArguments.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.TimeoutMs.get -> int?
 NextUnit.Internal.CombinedDataSourceDescriptor.TimeoutMs.init -> void
-NextUnit.Internal.CombinedDataSourceExpander
 NextUnit.Internal.DataSourceProviderDelegate
-NextUnit.Internal.DependencyGraph
-NextUnit.Internal.DependencyGraph.Node
-NextUnit.Internal.DependencyGraph.Node.Dependents.get -> System.Collections.Generic.List<NextUnit.Internal.DependencyGraph.Node!>!
-NextUnit.Internal.DependencyGraph.Node.Node(NextUnit.Internal.TestCaseDescriptor! test) -> void
-NextUnit.Internal.DependencyGraph.Node.RemainingPrerequisites.get -> int
-NextUnit.Internal.DependencyGraph.Node.RemainingPrerequisites.set -> void
-NextUnit.Internal.DependencyGraph.Node.Test.get -> NextUnit.Internal.TestCaseDescriptor!
-NextUnit.Internal.DependencyGraph.Nodes.get -> System.Collections.Generic.IReadOnlyDictionary<NextUnit.Internal.TestCaseId!, NextUnit.Internal.DependencyGraph.Node!>!
 NextUnit.Internal.DependencyInfo
 NextUnit.Internal.DependencyInfo.DependencyInfo() -> void
 NextUnit.Internal.DependencyInfo.DependsOnId.get -> NextUnit.Internal.TestCaseId!
@@ -253,11 +243,6 @@ NextUnit.Internal.IGeneratedTestRegistry.GlobalBeforeAssemblyMethods.get -> Next
 NextUnit.Internal.IGeneratedTestRegistry.GlobalBeforeSessionMethods.get -> NextUnit.Internal.LifecycleMethodDelegate![]!
 NextUnit.Internal.IGeneratedTestRegistry.TestCases.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!
 NextUnit.Internal.IGeneratedTestRegistry.TestDataDescriptors.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestDataDescriptor!>!
-NextUnit.Internal.ITestExecutionSink
-NextUnit.Internal.ITestExecutionSink.ReportErrorAsync(NextUnit.Internal.TestCaseDescriptor! test, System.Exception! ex, string? output = null, System.Collections.Generic.IReadOnlyList<NextUnit.Artifact!>? artifacts = null) -> System.Threading.Tasks.Task!
-NextUnit.Internal.ITestExecutionSink.ReportFailedAsync(NextUnit.Internal.TestCaseDescriptor! test, NextUnit.AssertionFailedException! ex, string? output = null, System.Collections.Generic.IReadOnlyList<NextUnit.Artifact!>? artifacts = null) -> System.Threading.Tasks.Task!
-NextUnit.Internal.ITestExecutionSink.ReportPassedAsync(NextUnit.Internal.TestCaseDescriptor! test, string? output = null, System.Collections.Generic.IReadOnlyList<NextUnit.Artifact!>? artifacts = null) -> System.Threading.Tasks.Task!
-NextUnit.Internal.ITestExecutionSink.ReportSkippedAsync(NextUnit.Internal.TestCaseDescriptor! test, System.Collections.Generic.IReadOnlyList<NextUnit.Artifact!>? artifacts = null) -> System.Threading.Tasks.Task!
 NextUnit.Internal.LifecycleInfo
 NextUnit.Internal.LifecycleInfo.AfterAssemblyMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
 NextUnit.Internal.LifecycleInfo.AfterAssemblyMethods.init -> void
@@ -287,10 +272,6 @@ NextUnit.Internal.ParallelInfo.ParallelGroup.init -> void
 NextUnit.Internal.ParallelInfo.ParallelInfo() -> void
 NextUnit.Internal.ParallelInfo.ParallelLimit.get -> int?
 NextUnit.Internal.ParallelInfo.ParallelLimit.init -> void
-NextUnit.Internal.ParallelScheduler
-NextUnit.Internal.ParallelScheduler.GetExecutionBatchesAsync(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<NextUnit.Internal.TestBatch!>!
-NextUnit.Internal.ParallelScheduler.ParallelScheduler(NextUnit.Internal.DependencyGraph! graph, int? maxDegreeOfParallelism = null) -> void
-NextUnit.Internal.ParallelScheduler.ReportOutcome(NextUnit.Internal.TestCaseId! testId, NextUnit.Internal.TestOutcome outcome) -> void
 NextUnit.Internal.ParameterDataSource
 NextUnit.Internal.ParameterDataSource.ClassDataSourceFactory.get -> NextUnit.Internal.DataSourceProviderDelegate?
 NextUnit.Internal.ParameterDataSource.ClassDataSourceFactory.init -> void
@@ -332,20 +313,6 @@ NextUnit.Internal.RetryInfo.PolicyFactory.get -> NextUnit.Internal.RetryPolicyFa
 NextUnit.Internal.RetryInfo.PolicyFactory.init -> void
 NextUnit.Internal.RetryInfo.RetryInfo() -> void
 NextUnit.Internal.RetryPolicyFactoryDelegate
-NextUnit.Internal.TestBatch
-NextUnit.Internal.TestBatch.ConstraintKeys.get -> System.Collections.Generic.IReadOnlyList<string!>!
-NextUnit.Internal.TestBatch.ConstraintKeys.init -> void
-NextUnit.Internal.TestBatch.IsSerial.get -> bool
-NextUnit.Internal.TestBatch.IsSerial.init -> void
-NextUnit.Internal.TestBatch.IsSkipBatch.get -> bool
-NextUnit.Internal.TestBatch.IsSkipBatch.init -> void
-NextUnit.Internal.TestBatch.MaxDegreeOfParallelism.get -> int
-NextUnit.Internal.TestBatch.MaxDegreeOfParallelism.init -> void
-NextUnit.Internal.TestBatch.ParallelGroup.get -> string?
-NextUnit.Internal.TestBatch.ParallelGroup.init -> void
-NextUnit.Internal.TestBatch.TestBatch() -> void
-NextUnit.Internal.TestBatch.Tests.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!
-NextUnit.Internal.TestBatch.Tests.init -> void
 NextUnit.Internal.TestCaseDescriptor
 NextUnit.Internal.TestCaseDescriptor.Arguments.get -> object?[]?
 NextUnit.Internal.TestCaseDescriptor.Arguments.init -> void
@@ -481,19 +448,8 @@ NextUnit.Internal.TestDataDescriptor.TestMethodWithArguments.get -> NextUnit.Int
 NextUnit.Internal.TestDataDescriptor.TestMethodWithArguments.init -> void
 NextUnit.Internal.TestDataDescriptor.TimeoutMs.get -> int?
 NextUnit.Internal.TestDataDescriptor.TimeoutMs.init -> void
-NextUnit.Internal.TestDataExpander
-NextUnit.Internal.TestExecutionEngine
-NextUnit.Internal.TestExecutionEngine.RunAsync(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>! testCases, NextUnit.Internal.ITestExecutionSink! sink, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-NextUnit.Internal.TestExecutionEngine.SetGlobalAssemblyLifecycle(System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>? beforeMethods, System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>? afterMethods) -> void
-NextUnit.Internal.TestExecutionEngine.TestExecutionEngine() -> void
 NextUnit.Internal.TestMethodDelegate
 NextUnit.Internal.TestMethodWithArgumentsDelegate
-NextUnit.Internal.TestOutcome
-NextUnit.Internal.TestOutcome.Error = 4 -> NextUnit.Internal.TestOutcome
-NextUnit.Internal.TestOutcome.Failed = 3 -> NextUnit.Internal.TestOutcome
-NextUnit.Internal.TestOutcome.NotRun = 0 -> NextUnit.Internal.TestOutcome
-NextUnit.Internal.TestOutcome.Passed = 2 -> NextUnit.Internal.TestOutcome
-NextUnit.Internal.TestOutcome.Skipped = 1 -> NextUnit.Internal.TestOutcome
 NextUnit.InvariantCultureAttribute
 NextUnit.InvariantCultureAttribute.InvariantCultureAttribute() -> void
 NextUnit.IRetryPolicy
@@ -649,34 +605,17 @@ static NextUnit.Assert.SkipUnless(bool condition, string! reason) -> void
 static NextUnit.Assert.SkipWhen(bool condition, string! reason) -> void
 static NextUnit.Assert.StartsWith(string! expectedStart, string? actual, string? message = null) -> void
 static NextUnit.Assert.Subset<T>(System.Collections.Generic.IEnumerable<T>! subset, System.Collections.Generic.IEnumerable<T>! superset, string? message = null) -> void
-static NextUnit.Assert.Throws<TException>(System.Action! action, string! expectedMessage, string? message = null) -> TException!
 static NextUnit.Assert.Throws<TException>(System.Action! action, string? message = null) -> TException!
-static NextUnit.Assert.ThrowsAsync<TException>(System.Func<System.Threading.Tasks.Task!>! action, string! expectedMessage, string? message = null) -> System.Threading.Tasks.Task<TException!>!
 static NextUnit.Assert.ThrowsAsync<TException>(System.Func<System.Threading.Tasks.Task!>! action, string? message = null) -> System.Threading.Tasks.Task<TException!>!
 static NextUnit.Assert.True(bool condition, string? message = null) -> void
 static NextUnit.Core.TestContext.Current.get -> NextUnit.Core.ITestContext?
 static NextUnit.Internal.ArgumentConverter.Convert<T>(object? value, string! parameterName, string! methodName) -> T
 static NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync<TRow>(System.Collections.Generic.IAsyncEnumerable<TRow>! source, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
 static NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync<TRows>(System.Threading.Tasks.Task<TRows>! source, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
-static NextUnit.Internal.ClassDataSourceExpander.ClearClassInstances(System.Type! testClass) -> void
-static NextUnit.Internal.ClassDataSourceExpander.ClearSharedInstances() -> void
-static NextUnit.Internal.ClassDataSourceExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.ClassDataSourceDescriptor!>! descriptors) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
-static NextUnit.Internal.ClassDataSourceExpander.ExpandSingle(NextUnit.Internal.ClassDataSourceDescriptor! descriptor) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
-static NextUnit.Internal.CombinedDataSourceExpander.ClearClassInstances(System.Type! testClass) -> void
-static NextUnit.Internal.CombinedDataSourceExpander.ClearSharedInstances() -> void
-static NextUnit.Internal.CombinedDataSourceExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.CombinedDataSourceDescriptor!>! descriptors) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
-static NextUnit.Internal.CombinedDataSourceExpander.ExpandSingle(NextUnit.Internal.CombinedDataSourceDescriptor! descriptor) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
-static NextUnit.Internal.DependencyGraph.Build(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>! tests) -> NextUnit.Internal.DependencyGraph!
 static NextUnit.Internal.GeneratedTestRegistryStore.Current.get -> NextUnit.Internal.IGeneratedTestRegistry?
 static NextUnit.Internal.GeneratedTestRegistryStore.Register(NextUnit.Internal.IGeneratedTestRegistry! registry) -> void
 static NextUnit.Internal.TestCaseId.operator !=(NextUnit.Internal.TestCaseId? left, NextUnit.Internal.TestCaseId? right) -> bool
 static NextUnit.Internal.TestCaseId.operator ==(NextUnit.Internal.TestCaseId? left, NextUnit.Internal.TestCaseId? right) -> bool
-static NextUnit.Internal.TestDataExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestDataDescriptor!>! testDataDescriptors, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
-static NextUnit.Internal.TestDataExpander.Expand(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestDataDescriptor!>! testDataDescriptors) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
-static NextUnit.Internal.TestDataExpander.ExpandAsync(System.Collections.Generic.IEnumerable<NextUnit.Internal.TestDataDescriptor!>! testDataDescriptors, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!>
-static NextUnit.Internal.TestDataExpander.ExpandDeferredAsync(NextUnit.Internal.TestDataDescriptor! descriptor, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!>
-static NextUnit.Internal.TestDataExpander.ExpandSingle(NextUnit.Internal.TestDataDescriptor! descriptor, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
-static NextUnit.Internal.TestDataExpander.ExpandSingle(NextUnit.Internal.TestDataDescriptor! descriptor) -> System.Collections.Generic.IEnumerable<NextUnit.Internal.TestCaseDescriptor!>!
 virtual NextUnit.Internal.AsyncDataSourceProviderDelegate.Invoke(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
 virtual NextUnit.Internal.DataSourceProviderDelegate.Invoke() -> object?
 virtual NextUnit.Internal.LifecycleMethodDelegate.Invoke(object! instance, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!

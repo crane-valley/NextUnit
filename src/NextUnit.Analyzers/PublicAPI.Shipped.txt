@@ -15,6 +15,8 @@ NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer
 NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer.MatrixExclusionAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer
 NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer.MissingTestAttributeAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.ParallelLimitValueAnalyzer
+NextUnit.Analyzers.Analyzers.ParallelLimitValueAnalyzer.ParallelLimitValueAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.RetryCountAnalyzer
 NextUnit.Analyzers.Analyzers.RetryCountAnalyzer.RetryCountAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer
@@ -49,6 +51,8 @@ override NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer.Initialize(Microso
 override NextUnit.Analyzers.Analyzers.MatrixExclusionAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
 override NextUnit.Analyzers.Analyzers.MissingTestAttributeAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.ParallelLimitValueAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.ParallelLimitValueAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.RetryCountAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
 override NextUnit.Analyzers.Analyzers.RetryCountAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.RetryPolicyAccessibilityAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void

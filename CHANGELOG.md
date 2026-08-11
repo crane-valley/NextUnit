@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-12
+
 ### Changed
 
 - Select the row type of a data source deterministically when its type implements the same element
@@ -21,17 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is nearly all of them, is unaffected. The selection governs what `NU0009` validates, on the
   synchronous and asynchronous paths alike; it does not change how rows are read at run time, where a
   synchronous source is still enumerated through the non-generic `IEnumerable`.
-
 - Share one instance per sharing scope between `[ClassDataSource<T>]` and `[ValuesFrom<T>]`, and
-  dispose the shared instances at the end of the test session. This is a breaking change, and the
-  next release is 2.0.0. Each attribute used to keep its own `PerSession`/`PerAssembly`/`PerClass`/
-  `Keyed` cache, so a data source type reached through both attributes was instantiated twice; it is
-  now instantiated once, and a suite that counted on the two copies being independent sees one
-  shared object. `PerAssembly` and `PerSession` still keep separate instances from each other, and
-  `SharedType.None` still creates an instance per expansion and is not owned by the framework.
-  `PerAssembly` is now keyed by the test assembly as well, which is what its name has always
-  promised: a data source type that two test assemblies both reference used to be one instance for
-  both in a run that loaded both, which only VSTest can do. Single-assembly runs are unaffected.
+  dispose the shared instances at the end of the test session. This is a breaking change. Each
+  attribute used to keep its own `PerSession`/`PerAssembly`/`PerClass`/`Keyed` cache, so a data
+  source type reached through both attributes was instantiated twice; it is now instantiated once,
+  and a suite that counted on the two copies being independent sees one shared object. `PerAssembly`
+  and `PerSession` still keep separate instances from each other, and `SharedType.None` still
+  creates an instance per expansion and is not owned by the framework. `PerAssembly` is now keyed
+  by the test assembly as well, which is what its name has always promised: a data source type that
+  two test assemblies both reference used to be one instance for both in a run that loaded both,
+  which only VSTest can do. Single-assembly runs are unaffected.
   Nothing in 1.x ever released a shared instance, so a data source holding a connection, a container,
   or a temporary directory leaked it for the life of the process. Under Microsoft.Testing.Platform
   the instances are disposed during session close, after every `[After(LifecycleScope.Session)]` hook
@@ -49,11 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove the execution and expansion types in the `NextUnit.Internal` namespace from the public API.
   `TestExecutionEngine`, `ITestExecutionSink`, `TestOutcome`, `DependencyGraph` (and its nested
   `Node`), `ParallelScheduler`, `TestBatch`, `TestDataExpander`, `ClassDataSourceExpander`, and
-  `CombinedDataSourceExpander` are now `internal`. This is a breaking change, and the next release
-  is 2.0.0. The namespace has always signalled that these types are the framework's own plumbing,
-  and nothing a test project writes refers to them: the generator emits no reference to any of them,
-  so an ordinary suite recompiles unchanged. Code that drove the engine directly has no supported
-  replacement and has to move to the `dotnet test` or Microsoft.Testing.Platform entry points.
+  `CombinedDataSourceExpander` are now `internal`. This is a breaking change. The namespace has
+  always signalled that these types are the framework's own plumbing, and nothing a test project
+  writes refers to them: the generator emits no reference to any of them, so an ordinary suite
+  recompiles unchanged. Code that drove the engine directly has no supported replacement and has to
+  move to the `dotnet test` or Microsoft.Testing.Platform entry points.
   The rest of `NextUnit.Internal` stays public because it is the contract between the generated
   registry in your assembly and the runtime: the descriptors (`TestCaseDescriptor`,
   `TestDataDescriptor`, `ClassDataSourceDescriptor`, `CombinedDataSourceDescriptor`), `TestCaseId`,
@@ -63,8 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `GeneratedTestRegistryStore`, and `IGeneratedTestRegistry`.
 - Remove the `Assert.Throws<TException>(Action, string expectedMessage, string? message)` and
   `Assert.ThrowsAsync<TException>(Func<Task>, string expectedMessage, string? message)` overloads,
-  `[Obsolete]` since 1.17.0. This is a breaking change, and the next release is 2.0.0. Assert on the
-  returned exception's `Message` instead, which is what the deprecation notice directed callers to.
+  `[Obsolete]` since 1.17.0. This is a breaking change. Assert on the returned exception's
+  `Message` instead, which is what the deprecation notice directed callers to.
   A call that passes two positional arguments is unaffected: it has always bound to the corresponding
   custom-message overload, `(Action, string? message)` or `(Func<Task>, string? message)`, because
   overload resolution prefers the candidate that leaves no optional parameter unfilled. The removed
@@ -79,35 +80,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only, so `[assembly: ParallelLimit(4)]` compiled and was then dropped and the run fell back to the
   processor count. The limit now resolves method first, then class, then assembly, matching
   `[Timeout]` and the culture attributes. A suite that declares no limit anywhere is unaffected.
+- Report a `[TestData]` or `[ValuesFromMember]` member that exists only as a generic method as not
+  found. The generator emits an unadorned `Rows()` call and the reflection fallback supplies no type
+  argument, so a `Rows<T>()` is unusable either way, and C# member lookup agrees: it binds the
+  non-generic overload when both are declared. Arity is now part of the member lookup, so a member
+  that is only ever generic is reported as `NU0003` at build time, the way an instance member has
+  always been reported, instead of failing at run time on an open generic method.
 
 ### Added
 
-- `NU0020` rejects a `[TestData]` or `[ValuesFromMember]` member the generated test registry cannot
-  reach. This is a breaking change, and the next release is 2.0.0. The generator emits direct member
-  access rather than reflecting, which is what keeps data sources AOT-safe, so a `private`,
-  `protected`, or `private protected` member -- or one declared in a type that is not visible from
-  the registry -- compiled as written and then failed the build with `CS0122` inside generated code.
-  The analyzer used to accept those members because the runtime reflection fallback reads them with
-  `BindingFlags.NonPublic`, so the analyzer and the generator disagreed about what was valid; a
-  member that only ever worked through that fallback is now rejected at build time instead. Making
-  the member `internal` is enough: the registry is emitted into the test assembly itself, so
-  `internal` members of that assembly, and members of `internal` types, are reachable and are not
-  reported. The generator now emits no provider for an unreachable member rather than emitting
-  access it cannot compile, so the runtime reflection fallback still resolves whatever reaches it.
-  An explicit `MemberType` the registry cannot name is withheld from the descriptor and from its
-  `DynamicDependency` as well, since a `typeof` on it would fail the build just as the member access
-  did. Such a source is given a provider that throws, naming the type and the rule, rather than none:
-  a source with no provider is resolved by reflecting over the test class, and a suite that both
-  suppresses `NU0020` and declares a same-named member there would otherwise run against the wrong
-  rows.
-- `NU0021` rejects a `CancellationToken`-taking `[TestData]` member whose return type implements
-  `IEnumerable`, generic or not, as well as `IAsyncEnumerable<T>`. This is a breaking change, and the
-  next release is 2.0.0. Such a type is classified as synchronous, deliberately, so that a type which
-  meant `IEnumerable` before asynchronous sources existed keeps meaning it; the synchronous provider
-  takes no arguments, so there is no token to pass and the member bound to nothing. The only
-  previous symptom was a parameter-count failure from the runtime reflection fallback, which
-  mentioned neither the token nor the reason. Drop the parameter, or return a type that implements
-  only `IAsyncEnumerable<T>`.
 - `NU0019` rejects a non-positive `[ParallelLimit]` value. The value becomes
   `ParallelOptions.MaxDegreeOfParallelism`, whose setter throws for `0` and for anything below `-1`,
   and that throw aborts the whole run rather than failing the test that declared it; resolving the
@@ -118,6 +99,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   count that may be higher. The rule covers the method, class, and assembly forms alike, and the generator
   drops a value it reports so that a suppressed error bounds the run by the enclosing declaration
   instead.
+- `NU0020` rejects a `[TestData]` or `[ValuesFromMember]` member the generated test registry cannot
+  reach. This is a breaking change. The generator emits direct member access rather than reflecting,
+  which is what keeps data sources AOT-safe, so a `private`, `protected`, or `private protected`
+  member -- or one declared in a type that is not visible from the registry -- compiled as written
+  and then failed the build with `CS0122` inside generated code. The analyzer used to accept those
+  members because the runtime reflection fallback reads them with `BindingFlags.NonPublic`, so the
+  analyzer and the generator disagreed about what was valid; a member that only ever worked through
+  that fallback is now rejected at build time instead. `internal` is enough for a member of the
+  test assembly itself, or of an assembly that grants it `InternalsVisibleTo`, as are members of
+  `internal` types there; a member of any other referenced assembly has to be `public`. The
+  generator now emits no provider for an unreachable member rather than emitting access it cannot
+  compile, so the runtime reflection fallback still resolves whatever reaches it. An explicit
+  `MemberType` the registry cannot name is withheld from the descriptor and from its
+  `DynamicDependency` as well, since a `typeof` on it would fail the build just as the member
+  access did. Such a source is given a provider that throws, naming the type and the rule, rather
+  than none: a source with no provider is resolved by reflecting over the test class, and a suite
+  that both suppresses `NU0020` and declares a same-named member there would otherwise run against
+  the wrong rows.
+- `NU0021` rejects a `CancellationToken`-taking `[TestData]` member whose return type implements
+  `IEnumerable`, generic or not, as well as `IAsyncEnumerable<T>`. This is a breaking change. Such a
+  type is classified as synchronous, deliberately, so that a type which meant `IEnumerable` before
+  asynchronous sources existed keeps meaning it; the synchronous provider takes no arguments, so
+  there is no token to pass and the member bound to nothing. The only previous symptom was a
+  parameter-count failure from the runtime reflection fallback, which mentioned neither the token
+  nor the reason. Drop the parameter, or return a type that implements only `IAsyncEnumerable<T>`.
 
 ## [1.19.1] - 2026-08-10
 
@@ -1480,6 +1486,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 2.0.0 | 2026-08-12 | 1402 | Unified shared data source instances with session-end disposal, NextUnit.Internal execution types demoted to internal, obsolete Assert.Throws expectedMessage overloads removed, deterministic data source row-type selection, assembly-level ParallelLimit resolution, NU0019-NU0021 | Released |
 | 1.19.1 | 2026-08-10 | 1342 | --list-tests discovery reporting, keyword identifier escaping in generated type names | Released |
 | 1.19.0 | 2026-08-05 | 1333 | Async and deferred [TestData] sources, selective retry with IRetryPolicy, deterministic culture isolation, dotnet new nextunit template | Released |
 | 1.18.0 | 2026-07-26 | 1105 | Session hook failure reporting, engine reuse hardening, Assert tolerance unification, deterministic generator output | Released |
