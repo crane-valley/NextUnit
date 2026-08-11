@@ -213,9 +213,31 @@ meaningful for a guide that is mostly attributes: a data source without `[Test]`
 to the shared framework plus the NextUnit package, so a sample cannot compile against something only
 the test host has.
 
-- [ ] Bring `docs/MIGRATION_FROM_XUNIT.md` under the same compile check. Its samples are bare method
-  and statement fragments rather than compilation units, and two blocks are API listings with
-  undeclared identifiers, so inclusion means rewriting the samples rather than annotating them.
+- [x] Bring `docs/MIGRATION_FROM_XUNIT.md` under the same compile check. Its samples were bare method
+  and statement fragments rather than compilation units, and two blocks were API listings with
+  undeclared identifiers, so inclusion meant rewriting the samples rather than annotating them.
+
+Delivered by rewriting every sample in the guide into a compilation unit and registering the guide in
+`tests/NextUnit.Docs.Tests` alongside the other two. The xUnit-side blocks carry the `xunit`
+annotation so they stay out of the compilation, and thirteen NextUnit-side blocks now compile through
+the generator and analyzers. The two API listings took different shapes because they are different
+claims: the assertions that survive migration unchanged became a class of signature listings, one
+method per group, so the compile check proves that `Assert` still carries them; the assertions with
+no counterpart became a table, because there is nothing to compile when the point of the section is
+that the calls do not exist. `[assembly: ParallelLimit(4)]` moved into prose as an inline code span,
+since a fenced block compiles inside a generated namespace where an assembly-level attribute is
+`CS1730`. Several content bugs surfaced in the rewrite and are fixed here: the class-scoped lifecycle
+sample held its connection in an instance field that no test would ever observe; the suggested
+rewrites for `Assert.IsType<T>` and `Assert.Collection` dropped the exact-type and element-count
+checks those calls perform, and ignored that the xUnit originals return the typed value; and the
+NextUnit `.csproj` omitted the `ImplicitUsings` and `Nullable` properties the other two guides set,
+without which the samples do not build in a reader's project. The larger correction is that
+"assertions that work exactly the same" was an unbounded claim the compile gate cannot check. It now
+says what the gate does prove -- that the calls compile unchanged -- and a `Where the Behavior
+Differs` table carries the three that keep their shape and change their rule: exception matching is
+by subtype here and exact in xUnit, the string assertions are ordinal here and culture-aware in
+xUnit, and `Assert.All` stops at the first failure instead of aggregating.
+
 - [x] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
   declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiled, but
   `NextUnitGenerator` resolved the limit from the test method and its containing type only and never

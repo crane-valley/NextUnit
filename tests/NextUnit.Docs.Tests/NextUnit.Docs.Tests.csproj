@@ -32,6 +32,7 @@
     <!-- The guides are the compile input, so they have to reach the test output directory. -->
     <None Include="..\..\docs\MIGRATION_FROM_NUNIT.md" Link="Guides\MIGRATION_FROM_NUNIT.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\docs\MIGRATION_FROM_MSTEST.md" Link="Guides\MIGRATION_FROM_MSTEST.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\docs\MIGRATION_FROM_XUNIT.md" Link="Guides\MIGRATION_FROM_XUNIT.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
