@@ -119,14 +119,26 @@ Handle each pair on its own:
   are ordered by `StringComparer.InvariantCulture`, which is not ordinal order: the comparer sorts
   `,` ahead of `)`, so `NextUnit.RetryAttribute.RetryAttribute(int count, int delayMs) -> void`
   precedes its `(int count)` overload. `NextUnit.Core` and `NextUnit.TestAdapter` both depend on that
-  distinction today. Sort on .NET, which collates through ICU; Windows PowerShell 5.1 collates
-  through NLS and orders those overloads the other way. Existing lines never move, so the diff is a
-  pure insertion.
+  distinction today. Existing shipped lines never move, so an added API reaches
+  `PublicAPI.Shipped.txt` as a pure insertion.
 - An unshipped line carrying the `*REMOVED*` prefix names an API that was deleted. Delete the
   matching line from `PublicAPI.Shipped.txt` and drop the `*REMOVED*` line with it, rather than
   appending either one.
 - Skip a pair whose unshipped file holds only the header, which is the case for a release that
   changes no public API in that project. Skip the step entirely when all six are in that state.
+
+The repository carries no sorter, so check the order after editing. Run this under PowerShell 7,
+whose collation is ICU; Windows PowerShell 5.1 collates through NLS and reports the overloads above
+as out of order:
+
+```powershell
+foreach ($file in Get-ChildItem src -Recurse -Filter PublicAPI.Shipped.txt) {
+    $lines = @([System.IO.File]::ReadAllLines($file.FullName) | Where-Object { $_ -ne '#nullable enable' })
+    $sorted = [System.Collections.Generic.List[string]]::new([string[]]$lines)
+    $sorted.Sort([StringComparer]::InvariantCulture)
+    if (($sorted -join "`n") -ne ($lines -join "`n")) { "OUT OF ORDER: $($file.FullName)" }
+}
+```
 
 `RS0016` is satisfied by an entry in either file, so the build stays green whether or not the
 promotion happens, and nothing else flags the omission. What the promotion buys is the distinction
@@ -134,9 +146,12 @@ the two files exist to draw: `PublicAPI.Shipped.txt` is the record of what has b
 API left unshipped loses the release that first carried it, and a later deletion reads in review as
 withdrawing an API that never shipped.
 
-Added to this checklist after PR #217, which caught up 75 entries that had accumulated across 1.17.0
-through 1.19.1; the promotion had last run for 1.16.0. Only `NextUnit.Core` and `NextUnit.Analyzers`
-had anything to promote in that catch-up, and neither listed a `*REMOVED*` entry.
+Added to this checklist after PR #217, the first promotion these files ever saw. PR #171 created them
+after the 1.16.0 release, seeded with the surface that version had already published. The 1.17.0 and
+1.18.0 cycles added no public API, so their unshipped files were header-only and correctly left
+alone; the 1.19.0 cycle then added 75 entries, which shipped in 1.19.0 and sat unshipped through
+1.19.1 until PR #217 moved them. Only `NextUnit.Core` (59) and `NextUnit.Analyzers` (16) had anything
+to promote, and neither listed a `*REMOVED*` entry.
 
 ### Documentation Files
 
@@ -498,9 +513,9 @@ Investigate what other changes were made. Revert to previous version if needed.
 When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
-2. **Use the checklist**: Update all twelve version-reference files/locations listed above, and
-   promote each analyzer release ledger pair and each public API pair whose unshipped file lists any
-   entries
+2. **Use the checklist**: Update all twelve version-reference files/locations listed above, promote
+   each analyzer release ledger pair whose unshipped file lists any rules, and promote each public
+   API pair whose unshipped file lists any entries
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
