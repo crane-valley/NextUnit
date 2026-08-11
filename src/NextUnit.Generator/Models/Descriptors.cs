@@ -197,7 +197,8 @@ internal sealed record TestDataSource
         DataSourceMemberKind memberKind,
         DataSourceShape shape,
         bool acceptsCancellationToken,
-        bool deferredEnumeration)
+        bool deferredEnumeration,
+        string? unreachableMemberTypeName = null)
     {
         MemberName = memberName;
         MemberTypeName = memberTypeName;
@@ -205,11 +206,24 @@ internal sealed record TestDataSource
         Shape = shape;
         AcceptsCancellationToken = acceptsCancellationToken;
         DeferredEnumeration = deferredEnumeration;
+        UnreachableMemberTypeName = unreachableMemberTypeName;
     }
 
     public string MemberName { get; }
     public string? MemberTypeName { get; }
     public DataSourceMemberKind MemberKind { get; }
+
+    /// <summary>
+    /// Gets the explicit <c>MemberType</c> that was dropped from <see cref="MemberTypeName"/>
+    /// because the generated registry cannot name it, or <c>null</c> when nothing was dropped.
+    /// </summary>
+    /// <remarks>
+    /// Kept as a string so that it reaches the emitted message without being emitted as a
+    /// <c>typeof</c>. Telling this apart from a source that names no type at all is what stops the
+    /// runtime falling back to the test class, where a same-named member would silently supply the
+    /// wrong rows.
+    /// </remarks>
+    public string? UnreachableMemberTypeName { get; }
 
     /// <summary>
     /// Gets how the member hands over its rows, which decides whether the generator emits the
@@ -344,7 +358,8 @@ internal sealed record ParameterDataSourceDescriptor
         DataSourceMemberKind memberKind,
         string? classTypeName,
         int sharedType,
-        string? sharedKey)
+        string? sharedKey,
+        string? unreachableMemberTypeName = null)
     {
         ParameterIndex = parameterIndex;
         ParameterName = parameterName;
@@ -356,7 +371,14 @@ internal sealed record ParameterDataSourceDescriptor
         ClassTypeName = classTypeName;
         SharedType = sharedType;
         SharedKey = sharedKey;
+        UnreachableMemberTypeName = unreachableMemberTypeName;
     }
+
+    /// <summary>
+    /// Gets the explicit <c>MemberType</c> that was dropped from <see cref="MemberTypeName"/>
+    /// because the generated registry cannot name it, or <c>null</c> when nothing was dropped.
+    /// </summary>
+    public string? UnreachableMemberTypeName { get; }
 
     /// <summary>
     /// Gets the zero-based index of the parameter.

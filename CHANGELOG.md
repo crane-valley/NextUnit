@@ -96,8 +96,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   access it cannot compile, so the runtime reflection fallback still resolves whatever reaches it.
   An explicit `MemberType` the registry cannot name is withheld from the descriptor and from its
   `DynamicDependency` as well, since a `typeof` on it would fail the build just as the member access
-  did; the runtime reads a descriptor with no type of its own as the test class, which it already
-  did for a `[TestData]` member that names none.
+  did. Such a source is given a provider that throws, naming the type and the rule, rather than none:
+  a source with no provider is resolved by reflecting over the test class, and a suite that both
+  suppresses `NU0020` and declares a same-named member there would otherwise run against the wrong
+  rows.
 - `NU0021` rejects a `CancellationToken`-taking `[TestData]` member whose return type implements
   `IEnumerable`, generic or not, as well as `IAsyncEnumerable<T>`. This is a breaking change, and the
   next release is 2.0.0. Such a type is classified as synchronous, deliberately, so that a type which

@@ -63,7 +63,7 @@ internal static class DataSourceAttributeReader
                 .FirstOrDefault();
 
             var memberType = memberTypeArg ?? methodSymbol.ContainingType;
-            var memberTypeName = GetEmittableTypeName(
+            var (memberTypeName, unreachableMemberTypeName) = GetEmittableTypeName(
                 memberTypeArg,
                 knownDataSourceTypes,
                 AttributeHelper.FullyQualifiedTypeFormat);
@@ -79,7 +79,8 @@ internal static class DataSourceAttributeReader
                 member.Kind,
                 member.Shape,
                 member.AcceptsCancellationToken,
-                deferredEnumeration));
+                deferredEnumeration,
+                unreachableMemberTypeName));
         }
 
         return builder.ToImmutable();
@@ -247,7 +248,7 @@ internal static class DataSourceAttributeReader
                     .FirstOrDefault(t => t is not null);
 
                 var memberType = memberTypeArg ?? parameter.ContainingSymbol.ContainingType;
-                var memberTypeName = GetEmittableTypeName(
+                var (memberTypeName, unreachableMemberTypeName) = GetEmittableTypeName(
                     memberTypeArg,
                     knownDataSourceTypes,
                     AttributeHelper.TypeExpressionFormat);
@@ -262,7 +263,8 @@ internal static class DataSourceAttributeReader
                     memberKind: GetDataSourceMemberKind(memberType, memberName, knownDataSourceTypes),
                     classTypeName: null,
                     sharedType: 0,
-                    sharedKey: null);
+                    sharedKey: null,
+                    unreachableMemberTypeName: unreachableMemberTypeName);
             }
 
             var attrClass = attribute.AttributeClass;
@@ -310,32 +312,43 @@ internal static class DataSourceAttributeReader
     }
 
     /// <summary>
-    /// Names an explicit <c>MemberType</c> for emission, or <c>null</c> when the generated registry
-    /// cannot name it.
+    /// Splits an explicit <c>MemberType</c> into the name the generated registry may emit and the
+    /// name it may only mention in a message.
     /// </summary>
     /// <remarks>
-    /// Every use of this name is a <c>typeof()</c> in the generated registry -- the descriptor's own
-    /// type reference, and the <c>DynamicDependency</c> that keeps the type from being trimmed --
-    /// and <c>typeof</c> on an unreachable type fails the consumer's build with <c>CS0122</c>. That
-    /// is the failure <c>NU0020</c> exists to replace, so withholding the provider is not enough:
-    /// the name has to go too.
+    /// Every emitted use of this name is a <c>typeof()</c> -- the descriptor's own type reference,
+    /// and the <c>DynamicDependency</c> that keeps the type from being trimmed -- and <c>typeof</c>
+    /// on an unreachable type fails the consumer's build with <c>CS0122</c>. That is the failure
+    /// <c>NU0020</c> exists to replace, so withholding the provider is not enough: the name has to
+    /// go too.
     /// <para>
-    /// The runtime reads a missing type as the test class -- <c>TestDataExpander</c> and
-    /// <c>CombinedDataSourceExpander</c> both fall back to it -- so a suite that suppresses
-    /// <c>NU0020</c> gets a data source reported as not found on the test class rather than a build
-    /// error inside generated code. Trimming loses nothing either: reflecting over a private type is
-    /// what the dropped <c>DynamicDependency</c> would have preserved, and that never worked under
-    /// Native AOT to begin with.
+    /// It is returned separately rather than simply dropped, because the runtime reads a source that
+    /// names no type as one declared on the test class. A source whose named type was withheld is
+    /// not that: letting it fall through would read a same-named member of the test class and
+    /// silently supply the wrong rows. The emitters give it a provider that throws instead, which
+    /// carries the name as a string literal rather than as a type reference.
+    /// </para>
+    /// <para>
+    /// Trimming loses nothing: the dropped <c>DynamicDependency</c> would have preserved reflection
+    /// over a private type, which never worked under Native AOT to begin with.
     /// </para>
     /// </remarks>
-    private static string? GetEmittableTypeName(
+    private static (string? Emittable, string? Unreachable) GetEmittableTypeName(
         INamedTypeSymbol? memberTypeArg,
         KnownDataSourceTypes knownDataSourceTypes,
-        SymbolDisplayFormat format) =>
-        memberTypeArg is not null &&
-        GeneratedRegistryAccess.CanReachType(memberTypeArg, knownDataSourceTypes.CompilingAssembly)
-            ? memberTypeArg.ToDisplayString(format)
-            : null;
+        SymbolDisplayFormat format)
+    {
+        if (memberTypeArg is null)
+        {
+            return (null, null);
+        }
+
+        var name = memberTypeArg.ToDisplayString(format);
+
+        return GeneratedRegistryAccess.CanReachType(memberTypeArg, knownDataSourceTypes.CompilingAssembly)
+            ? (name, null)
+            : (null, name);
+    }
 
     /// <summary>
     /// Resolves how a data source member is accessed, ignoring the shape of what it returns.

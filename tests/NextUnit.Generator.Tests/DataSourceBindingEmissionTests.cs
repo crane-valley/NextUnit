@@ -189,14 +189,16 @@ public class DataSourceBindingEmissionTests
 
         var registry = await GenerateRegistryAsync(source);
 
-        Xunit.Assert.DoesNotContain("Fixtures", registry, StringComparison.Ordinal);
         Assert.Contains("DataSourceName = \"Rows\",", registry);
-        Assert.Contains("DataSourceProvider = null,", registry);
 
-        // The descriptor falls back to the test class, which the runtime already does for a
-        // descriptor carrying no type of its own, so the id stays stable and the lookup reports the
-        // member as missing rather than the build failing in a file the user did not write.
+        // The withheld type survives only inside the message, never as a type reference.
+        Xunit.Assert.DoesNotContain("typeof(global::TestProject.DataTests.Fixtures)", registry, StringComparison.Ordinal);
         Assert.Contains("DataSourceType = typeof(global::TestProject.DataTests),", registry);
+
+        // A provider that throws, rather than none: with none the runtime would reflect over the
+        // test class and a same-named member there would silently supply the wrong rows.
+        Assert.Contains("DataSourceProvider = static () => throw new global::System.InvalidOperationException(", registry);
+        Assert.Contains("is not accessible from the generated test registry", registry);
 
         await AssertGeneratedOutputCompilesAsync(source);
     }
@@ -226,9 +228,59 @@ public class DataSourceBindingEmissionTests
 
         var registry = await GenerateRegistryAsync(source);
 
-        Xunit.Assert.DoesNotContain("Fixtures", registry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("typeof(global::TestProject.DataTests.Fixtures)", registry, StringComparison.Ordinal);
         Assert.Contains("MemberType = typeof(global::TestProject.DataTests), ", registry);
-        Assert.Contains("MemberProvider = null, ", registry);
+        Assert.Contains("MemberProvider = static () => throw new global::System.InvalidOperationException(", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// The test class declares a member of the same name. Withholding the named type must not let
+    /// either attribute read that one: the runtime resolves a source with no provider by reflecting
+    /// over the test class, so a provider that throws is what keeps the wrong rows out.
+    /// </summary>
+    [Fact]
+    public async Task PrivateMemberTypeCollidingWithTestClassMember_DoesNotBindTheTestClassMemberAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                private static class Fixtures
+                {
+                    public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+
+                    public static IEnumerable<int> Values => new[] { 1 };
+                }
+
+                public static IEnumerable<object[]> Rows => new[] { new object[] { 99 } };
+
+                public static IEnumerable<int> Values => new[] { 99 };
+
+                [Test]
+                [TestData("Rows", MemberType = typeof(Fixtures))]
+                public void Consumes(int value)
+                {
+                }
+
+                [Test]
+                public void ConsumesParameter([ValuesFromMember("Values", MemberType = typeof(Fixtures))] int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Xunit.Assert.DoesNotContain("global::TestProject.DataTests.Rows", registry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("global::TestProject.DataTests.Values", registry, StringComparison.Ordinal);
+        Assert.Contains("DataSourceProvider = static () => throw new global::System.InvalidOperationException(", registry);
+        Assert.Contains("MemberProvider = static () => throw new global::System.InvalidOperationException(", registry);
 
         await AssertGeneratedOutputCompilesAsync(source);
     }
