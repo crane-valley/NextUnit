@@ -249,9 +249,31 @@ Class-, assembly-, and session-scoped hooks are declared `static` in the example
 not a style choice. NextUnit builds one instance of the class to run the class-scoped hooks on, and a
 separate instance for each test, so an instance `[Before(LifecycleScope.Class)]` compiles and runs but
 writes its fields on an object no test ever sees. An NUnit `[OneTimeSetUp]` that populates instance
-fields therefore needs its state moved as well as its attribute changed: make the field `static`, or
-hold the fixture in a type of its own and reach it through `[ClassDataSource<T>]` with
-`Shared = SharedType.PerClass`.
+fields therefore needs its state moved as well as its attribute changed: make the field `static`, so
+that the hook and the tests reach the same object.
+
+```csharp
+using NextUnit;
+
+public class SchemaTests
+{
+    private static string? _connectionString;
+
+    [Before(LifecycleScope.Class)]
+    public static void CreateSchema() => _connectionString = "server=localhost";
+
+    [After(LifecycleScope.Class)]
+    public static void DropSchema() => _connectionString = null;
+
+    [Test]
+    public void ReadsTheSchema() => Assert.NotNull(_connectionString);
+}
+```
+
+That `static` field is reachable from several tests at once, because NUnit runs tests serially unless
+you opt in and NextUnit runs them in parallel unless you opt out. Add `[NotInParallel]` to the class
+when the shared object cannot take concurrent use; see
+[Parallelism and ordering](#parallelism-and-ordering).
 
 Hooks are also not inherited. The generator attaches lifecycle methods to the exact type that
 declares them, so a `[SetUp]` on an abstract base class that you convert in place stops running for
@@ -413,7 +435,9 @@ public class MultiplicationTests
 ```
 
 `SharedType` offers `None`, `PerClass`, `PerAssembly`, `PerSession`, and `Keyed` with a `Key`, which
-covers the fixture-sharing patterns NUnit expresses through static state.
+control how often the data source type is instantiated. The instance is enumerated for its rows
+rather than handed to the test, so state the test body itself needs belongs in a `static` field with
+[lifecycle hooks](#lifecycle), not in a data source.
 
 ### Combinatorial parameters
 
@@ -889,7 +913,7 @@ These are absent by design rather than unimplemented. Each entry states what to 
 | ------------- | ------------------------------ | ----------- |
 | Constraint model (`Assert.That`, `Is`, `Has`, `Does`) | NextUnit ships one assertion style, matching xUnit, so there is nothing to choose between | The static `Assert` methods in the table above |
 | `Assert.Multiple` | Deferred failure aggregation needs its own execution scope and reporting shape | One assertion per behavior, or assert on a projection of the whole object |
-| `[TestFixture(args)]`, `[TestFixtureSource]` | Test identity is generated per method, not per fixture instance | `[Arguments]` or `[TestData]` on the method, or `[ClassDataSource<T>]` |
+| `[TestFixture(args)]`, `[TestFixtureSource]` | Test identity is generated per method, not per fixture instance | `[Arguments]`, `[TestData]`, or `[ClassDataSource<T>]` on the method |
 | `[Sequential]`, `[Pairwise]` | Implicit pairing hides which combinations run | Explicit `[Arguments]` rows or a `[TestData]` member |
 | `[Culture]` as a filter | Culture is set for a test, not used to select tests | `Assert.SkipUnless` on the ambient culture |
 | `[MaxTime]` | A soft duration report is a benchmarking concern, not a pass/fail one | `[Timeout]` for a hard limit, or a benchmark harness |
