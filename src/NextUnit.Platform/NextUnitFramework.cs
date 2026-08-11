@@ -343,6 +343,12 @@ internal sealed class NextUnitFramework :
     /// once the framework is gone, nothing can still want the result. A host that never disposes the
     /// framework loses nothing but the early cancellation, because the build dies with the process
     /// and every caller already cancels its own wait independently.
+    /// <para>
+    /// This is also the backstop for the shared data source instances. Session teardown releases them
+    /// on the normal path, but the platform closes a session only after the request completed, so a
+    /// cancelled or failed request would otherwise leave whatever they hold alive until the process
+    /// exits.
+    /// </para>
     /// </remarks>
     public void Dispose()
     {
@@ -363,6 +369,31 @@ internal sealed class NextUnitFramework :
         }
 
         CancelAndDispose(abandoned);
+        DisposeSharedInstances();
+    }
+
+    /// <summary>
+    /// Releases any shared data source instance session teardown did not get to.
+    /// </summary>
+    /// <remarks>
+    /// A no-op on the normal path: <see cref="SessionLifecycleRunner.RunTeardownAsync"/> already
+    /// emptied the store, and emptying it again removes nothing. Blocking is acceptable here for the
+    /// same reason it is in the VSTest adapter, and unavoidable in a synchronous
+    /// <see cref="IDisposable.Dispose"/>.
+    /// </remarks>
+    private static void DisposeSharedInstances()
+    {
+        try
+        {
+            SharedInstanceStore.DisposeAll();
+        }
+        catch (Exception ex) when (!IsCriticalFailure(ex))
+        {
+            // Nothing downstream can act on this. Dispose runs while the host is tearing the run
+            // down, often with an exception already propagating, and replacing that exception with a
+            // cleanup failure would hide why the run ended. Session close reports the same failure
+            // properly whenever it gets to run.
+        }
     }
 
     /// <summary>

@@ -16,8 +16,8 @@ namespace NextUnit.TestAdapter;
 /// semantics; that choice is deferred until a concrete need defines it.
 /// <para>
 /// Shared data source instances are not deferred the same way: they hold resources rather than user
-/// code, so the end of a run stands in for the end of a session and
-/// <see cref="DisposeSharedInstances"/> releases them there.
+/// code, so the end of a run stands in for the end of a session and <see cref="SharedInstanceCleanup"/>
+/// releases them there.
 /// </para>
 /// </remarks>
 [ExtensionUri(ExecutorUri)]
@@ -79,7 +79,12 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         }
         finally
         {
-            DisposeSharedInstances(frameworkHandle);
+            // The whole run is the session equivalent here: VSTest has no session boundary, but the
+            // end of the run is the point past which no test can still reach a shared instance. Every
+            // source is covered at once rather than one at a time, because PerAssembly and PerSession
+            // instances are keyed by data source type alone, so two sources referencing one shared
+            // library share an instance.
+            SharedInstanceCleanup.Run(frameworkHandle);
         }
     }
 
@@ -136,34 +141,12 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         }
         finally
         {
-            DisposeSharedInstances(frameworkHandle);
-        }
-    }
-
-    /// <summary>
-    /// Releases the shared data source instances the run created.
-    /// </summary>
-    /// <remarks>
-    /// The whole run is the session equivalent here: VSTest has no session boundary to hang
-    /// <c>[After(LifecycleScope.Session)]</c> on, but it does have an end of run, and that is the
-    /// point past which no test can still reach a shared instance. Disposal covers every source in
-    /// the run rather than each source in turn, because <c>PerAssembly</c> and <c>PerSession</c>
-    /// instances are keyed by data source type alone and two sources referencing one shared library
-    /// therefore share an instance.
-    /// <para>
-    /// Instances created by discovery alone are not covered: discovery expands the same descriptors
-    /// but has no run to end, so they live until the process exits, exactly as everything did in 1.x.
-    /// </para>
-    /// </remarks>
-    private static void DisposeSharedInstances(IFrameworkHandle frameworkHandle)
-    {
-        try
-        {
-            SharedInstanceStore.DisposeAll();
-        }
-        catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
-        {
-            AdapterDiagnostics.ReportSharedInstanceDisposalFailure(frameworkHandle, ex);
+            // The whole run is the session equivalent here: VSTest has no session boundary, but the
+            // end of the run is the point past which no test can still reach a shared instance. Every
+            // source is covered at once rather than one at a time, because PerAssembly and PerSession
+            // instances are keyed by data source type alone, so two sources referencing one shared
+            // library share an instance.
+            SharedInstanceCleanup.Run(frameworkHandle);
         }
     }
 

@@ -681,13 +681,14 @@ than repurposed: they had no caller, and `ClearClassInstances` described a per-c
 lifecycle event ever reached. The wiring is asymmetric by necessity.
 `SessionLifecycleRunner.RunTeardownAsync` disposes after the `[After(Session)]` hooks and through the
 same failure aggregation, so a hook can still read a shared instance and a disposal failure reaches
-the session result; VSTest has no session boundary, so `NextUnitTestExecutor` disposes at the end of
-the whole run and reports failures to the message logger. A VSTest discovery with no run after it
-still leaves its instances until the process exits, which is what every path did in 1.x. Pinned by
-twelve tests in `tests/NextUnit.Generator.Tests/SharedInstanceStoreTests.cs`, written first against
-1.x behavior, where the same type through both attributes produced two instances and a keyed pair
-produced three, and five more in `SessionLifecycleRunnerTests` for the ordering and the failure
-reporting.
+the session result, with `NextUnitFramework.Dispose` as the backstop for a request that is cancelled
+or fails and therefore never reaches session close. VSTest has no session boundary, so each adapter
+operation owns what it created: the executor disposes at the end of a run and the discoverer at the
+end of discovery, which costs a second instantiation when both happen in one process and is what
+already happens whenever VSTest discovers and runs in separate processes. Pinned by twelve tests in
+`tests/NextUnit.Generator.Tests/SharedInstanceStoreTests.cs`, written first against 1.x behavior,
+where the same type through both attributes produced two instances and a keyed pair produced three,
+and five more in `SessionLifecycleRunnerTests` for the ordering and the failure reporting.
 
 ## Explicitly not planned
 

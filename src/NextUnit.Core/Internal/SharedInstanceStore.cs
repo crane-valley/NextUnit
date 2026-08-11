@@ -22,9 +22,10 @@ namespace NextUnit.Internal;
 /// would change which tests share an instance rather than only which attribute they arrived through.
 /// </para>
 /// <para>
-/// Everything the store hands out is released by <see cref="DisposeAllAsync"/> at the end of the test
-/// session. Nothing called the 1.x equivalents, so a shared instance simply lived until the process
-/// exited.
+/// Everything the store hands out is released by <see cref="DisposeAllAsync"/> at the end of the
+/// test session, and by <see cref="DisposeAll"/> at the end of a VSTest discovery or run, which is
+/// the widest boundary that adapter has. Nothing called the 1.x equivalents, so a shared instance
+/// simply lived until the process exited.
 /// </para>
 /// </remarks>
 internal static class SharedInstanceStore

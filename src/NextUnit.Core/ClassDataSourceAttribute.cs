@@ -12,7 +12,8 @@ namespace NextUnit;
 /// <para>
 /// Every shared instance is disposed at the end of the test session, after the
 /// <c>[After(LifecycleScope.Session)]</c> hooks have run, preferring <see cref="IAsyncDisposable"/>
-/// over <see cref="IDisposable"/> when a data source implements both. An instance created for
+/// over <see cref="IDisposable"/> when a data source implements both. Under VSTest, which has no
+/// session, each discovery and each run releases what it created. An instance created for
 /// <see cref="None"/> is not shared and is not disposed by the framework.
 /// </para>
 /// </remarks>

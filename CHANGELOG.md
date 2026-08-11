@@ -19,12 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Nothing in 1.x ever released a shared instance, so a data source holding a connection, a container,
   or a temporary directory leaked it for the life of the process. Under Microsoft.Testing.Platform
   the instances are disposed during session close, after every `[After(LifecycleScope.Session)]` hook
-  has run, and a disposal failure is reported through the session result alongside any hook failure.
-  Under VSTest, which has no session boundary, the end of a run stands in for it, and a disposal
-  failure is reported to the run's message logger; instances created by a discovery that no run
-  follows are still released only when the process exits. `IAsyncDisposable` is preferred over
-  `IDisposable` when a data source implements both, so an async-only data source is now disposed
-  without blocking.
+  has run, and a disposal failure is reported through the session result alongside any hook failure;
+  a request that is cancelled or fails never reaches session close, so disposing the framework
+  releases them instead. Under VSTest, which has no session boundary, each adapter operation owns
+  what it created: a run disposes at the end of the run and a discovery at the end of discovery, and
+  a failure is reported to that operation's message logger. `IAsyncDisposable` is preferred over
+  `IDisposable` when a data source implements both, so a data source that only implements
+  `IAsyncDisposable` is now disposed at all; the platform path awaits it, while the synchronous
+  VSTest and `Dispose` paths block on it.
 
 ### Removed
 
