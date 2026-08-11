@@ -699,10 +699,15 @@ public class GroupedTests
 other without serializing the whole run.
 
 `[ParallelLimit]` resolves from the test method, then its containing class, then the assembly, so an
-assembly-wide `[LevelOfParallelism(4)]` becomes `[assembly: ParallelLimit(4)]`. The nearest
-declaration wins: a class or method carrying its own `[ParallelLimit]` overrides the assembly-wide
-one, and a test that no level declares a limit for is bounded by the processor count. `[Timeout]`
-and the culture attributes resolve across the same three levels.
+assembly-wide `[LevelOfParallelism(4)]` maps to `[assembly: ParallelLimit(4)]`. A test that no level
+declares a limit for is bounded by the processor count. `[Timeout]` and the culture attributes
+resolve across the same three levels.
+
+The two are not exact equivalents. `[LevelOfParallelism]` is an assembly-wide maximum, while the
+NextUnit value is the default a test inherits when neither its method nor its class declares one --
+and the nearest declaration replaces it with a larger value as readily as with a smaller one, so a
+class declaring `[ParallelLimit(8)]` runs 8. Porting a limit that protects a shared resource means
+auditing the class-level and method-level declarations too.
 
 Ordering is expressed as a dependency or a priority rather than an index.
 

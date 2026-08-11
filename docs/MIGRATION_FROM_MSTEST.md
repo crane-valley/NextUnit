@@ -620,10 +620,20 @@ public class GroupedTests
 classes that share one resource can exclude each other without serializing the whole run.
 
 `[ParallelLimit]` resolves from the test method, then its containing class, then the assembly, so an
-assembly-wide `[Parallelize(Workers = 4)]` becomes `[assembly: ParallelLimit(4)]`. The nearest
-declaration wins: a class or method carrying its own `[ParallelLimit]` overrides the assembly-wide
-one, and a test that no level declares a limit for is bounded by the processor count. `[Timeout]`
-and the culture attributes resolve across the same three levels.
+assembly-wide `[Parallelize(Workers = 4)]` maps to `[assembly: ParallelLimit(4)]`. A test that no
+level declares a limit for is bounded by the processor count. `[Timeout]` and the culture attributes
+resolve across the same three levels.
+
+The two differ on both halves of `[Parallelize]`. `Workers` is a maximum, while the NextUnit value is
+the default a test inherits when neither its method nor its class declares one -- and the nearest
+declaration replaces it with a larger value as readily as with a smaller one, so a class declaring
+`[ParallelLimit(8)]` runs 8. `Scope` has no counterpart at all: MSTest defaults to `ClassLevel`, which
+runs classes in parallel but the methods within one sequentially, whereas NextUnit schedules
+individual tests and so runs siblings in the same class concurrently. To get `ClassLevel` back for
+one class, give it a constraint key of its own -- `[NotInParallel("OrderServiceTests")]` -- which
+serializes that class against itself while leaving it parallel with the rest. Bare `[NotInParallel]`
+is stronger than `ClassLevel`: it serializes the class against every other `[NotInParallel]` test in
+the suite.
 
 MSTest has no built-in ordering. NextUnit expresses order as a dependency or a priority:
 

@@ -283,8 +283,10 @@ internal static class AttributeHelper
     /// <remarks>
     /// The assembly level is read because <c>ParallelLimitAttribute</c> declares
     /// <see cref="AttributeTargets.Assembly"/>, so <c>[assembly: ParallelLimit(n)]</c> compiles and a
-    /// reader expects it to bound the whole suite; reading only the method and its class dropped it
-    /// silently. The precedence matches <see cref="GetTimeout"/> and the culture attributes.
+    /// reader expects it to apply; reading only the method and its class dropped it silently. It is
+    /// the default a test inherits when neither nearer level declares one, not a ceiling over them:
+    /// a class or method declaration replaces it, upward as readily as downward. The precedence
+    /// matches <see cref="GetTimeout"/> and the culture attributes.
     /// </remarks>
     public static int? GetParallelLimit(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
