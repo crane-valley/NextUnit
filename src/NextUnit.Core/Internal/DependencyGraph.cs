@@ -3,7 +3,7 @@ namespace NextUnit.Internal;
 /// <summary>
 /// Represents a directed acyclic graph (DAG) of test case dependencies.
 /// </summary>
-public sealed class DependencyGraph
+internal sealed class DependencyGraph
 {
     /// <summary>
     /// Represents a node in the dependency graph, containing a test case and its relationships.

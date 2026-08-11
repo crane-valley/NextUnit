@@ -6,7 +6,7 @@ namespace NextUnit.Internal;
 /// <summary>
 /// Schedules and coordinates the parallel execution of test cases based on dependencies and parallel execution constraints.
 /// </summary>
-public sealed class ParallelScheduler
+internal sealed class ParallelScheduler
 {
     private readonly DependencyGraph _graph;
     private readonly int _globalMaxDegreeOfParallelism;
@@ -378,7 +378,7 @@ public sealed class ParallelScheduler
 /// <summary>
 /// Represents a batch of tests that can be executed in parallel.
 /// </summary>
-public sealed class TestBatch
+internal sealed class TestBatch
 {
     /// <summary>
     /// Gets or initializes the tests in this batch.

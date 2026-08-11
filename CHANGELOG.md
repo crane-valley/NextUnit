@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Remove the execution and expansion types in the `NextUnit.Internal` namespace from the public API.
+  `TestExecutionEngine`, `ITestExecutionSink`, `TestOutcome`, `DependencyGraph` (and its nested
+  `Node`), `ParallelScheduler`, `TestBatch`, `TestDataExpander`, `ClassDataSourceExpander`, and
+  `CombinedDataSourceExpander` are now `internal`. This is a breaking change, and the next release
+  is 2.0.0. The namespace has always signalled that these types are the framework's own plumbing,
+  and nothing a test project writes refers to them: the generator emits no reference to any of them,
+  so an ordinary suite recompiles unchanged. Code that drove the engine directly has no supported
+  replacement and has to move to the `dotnet test` or Microsoft.Testing.Platform entry points.
+  The rest of `NextUnit.Internal` stays public because it is the contract between the generated
+  registry in your assembly and the runtime: the descriptors (`TestCaseDescriptor`,
+  `TestDataDescriptor`, `ClassDataSourceDescriptor`, `CombinedDataSourceDescriptor`), `TestCaseId`,
+  the descriptor sub-objects (`LifecycleInfo`, `ParallelInfo`, `RetryInfo`, `DependencyInfo`,
+  `TestCultureInfo`, `ParameterDataSource`, `ParameterDataSourceKind`), the delegates the generator
+  assigns to descriptor properties, `ArgumentConverter`, `AsyncDataSourceAdapter`,
+  `GeneratedTestRegistryStore`, and `IGeneratedTestRegistry`.
 - Remove the `Assert.Throws<TException>(Action, string expectedMessage, string? message)` and
   `Assert.ThrowsAsync<TException>(Func<Task>, string expectedMessage, string? message)` overloads,
   `[Obsolete]` since 1.17.0. This is a breaking change, and the next release is 2.0.0. Assert on the

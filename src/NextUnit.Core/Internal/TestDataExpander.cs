@@ -20,7 +20,7 @@ namespace NextUnit.Internal;
 /// execution engine is allowed to pay the enumeration cost.
 /// </para>
 /// </remarks>
-public static class TestDataExpander
+internal static class TestDataExpander
 {
     /// <summary>
     /// Expands a collection of test data descriptors into test case descriptors.
