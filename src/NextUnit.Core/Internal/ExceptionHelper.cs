@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace NextUnit.Internal;
 
 /// <summary>
@@ -39,12 +41,20 @@ internal static class ExceptionHelper
     /// than <see cref="IsCriticalException"/>.
     /// </para>
     /// <para>
-    /// Both wrapping shapes are walked, because either can hide the same failure: an
-    /// <see cref="AggregateException"/> holds many inner exceptions, and an ordinary exception holds
-    /// one. The walk is bounded by the exceptions it has already seen rather than by a depth limit:
-    /// a limit would have to answer for a chain longer than itself, and the only safe answer there is
-    /// the one that stops the run, which makes the limit worse than useless. Reference identity ends
-    /// a hand-built cycle without capping anything.
+    /// The walk covers the three ways the base class library lets an exception carry others, which is
+    /// the whole set and is treated as closed: <see cref="AggregateException.InnerExceptions"/>,
+    /// <see cref="Exception.InnerException"/>, and
+    /// <see cref="ReflectionTypeLoadException.LoaderExceptions"/>, the last of which
+    /// leaves <see cref="Exception.InnerException"/> null and would otherwise look like an exception
+    /// carrying nothing. A custom exception type that invents a fourth container is out of contract:
+    /// nothing can enumerate a shape it does not know about, and guessing at one would mean
+    /// reflecting over arbitrary user types from inside an exception filter.
+    /// </para>
+    /// <para>
+    /// The walk is bounded by the exceptions it has already seen rather than by a depth limit: a limit
+    /// would have to answer for a chain longer than itself, and the only safe answer there is the one
+    /// that stops the run, which makes the limit worse than useless. Reference identity ends a
+    /// hand-built cycle without capping anything.
     /// </para>
     /// <para>
     /// An exception that wraps nothing is answered before anything is allocated, which is what nearly
@@ -63,7 +73,7 @@ internal static class ExceptionHelper
             return true;
         }
 
-        if (exception is not AggregateException && exception.InnerException is null)
+        if (exception is not (AggregateException or ReflectionTypeLoadException) && exception.InnerException is null)
         {
             return false;
         }
@@ -91,6 +101,18 @@ internal static class ExceptionHelper
                 foreach (var inner in aggregate.InnerExceptions)
                 {
                     pending.Push(inner);
+                }
+            }
+            else if (current is ReflectionTypeLoadException typeLoad)
+            {
+                // LoaderExceptions rather than InnerException, which this type leaves null: without
+                // this branch a loader failure looks like an exception carrying nothing at all.
+                foreach (var loaderException in typeLoad.LoaderExceptions)
+                {
+                    if (loaderException is not null)
+                    {
+                        pending.Push(loaderException);
+                    }
                 }
             }
             else if (current.InnerException is { } inner)

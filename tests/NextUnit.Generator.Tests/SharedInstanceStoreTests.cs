@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using NextUnit.Internal;
 
 namespace NextUnit.Generator.Tests;
@@ -189,6 +190,18 @@ public sealed class SharedInstanceStoreTests
             new InvalidOperationException("wrapped", new OutOfMemoryException())));
         Assert.True(ExceptionHelper.IsCriticalFailure(
             new AggregateException(new InvalidOperationException("first"), new OutOfMemoryException())));
+
+        // The third container the BCL has, and the one that hides best: InnerException stays null, so
+        // without the LoaderExceptions branch this looks like an exception carrying nothing.
+        var loaderFailure = new ReflectionTypeLoadException(
+            [null],
+            [new OutOfMemoryException()]);
+
+        Assert.Null(loaderFailure.InnerException);
+        Assert.True(ExceptionHelper.IsCriticalFailure(loaderFailure));
+        Assert.True(ExceptionHelper.IsCriticalFailure(new AggregateException(loaderFailure)));
+        Assert.False(ExceptionHelper.IsCriticalFailure(
+            new ReflectionTypeLoadException([null], [new InvalidOperationException("ordinary")])));
 
         Assert.False(ExceptionHelper.IsCriticalFailure(null));
         Assert.False(ExceptionHelper.IsCriticalFailure(new InvalidOperationException("ordinary")));
