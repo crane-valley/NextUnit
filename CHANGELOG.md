@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one, so a base property is never bound for a name a derived method has turned into a method group.
   Methods accumulate across levels instead, and the parameterless-first precedence runs over the
   whole flattened chain, so a base `Rows()` still beats a derived `Rows(CancellationToken)` -- the
-  overload a call supplying no arguments binds to in C#. A base type's `private` members are skipped,
+  overload a call supplying no arguments binds to in C# -- while a base method whose signature a
+  nearer declaration repeats is dropped, static or not. A base type's `private` members are skipped,
   since C# member lookup never sees them from a derived type, and interfaces are not walked, since a
   static interface member cannot be named through an implementing type. An inherited member the
   generated registry cannot reach is reported as `NU0020` instead of `NU0003`, naming the fix --

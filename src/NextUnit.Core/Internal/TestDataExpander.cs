@@ -22,9 +22,6 @@ namespace NextUnit.Internal;
 /// </remarks>
 internal static class TestDataExpander
 {
-    private const BindingFlags StaticMemberLookup =
-        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy;
-
     /// <summary>
     /// Expands a collection of test data descriptors into test case descriptors.
     /// </summary>
@@ -532,17 +529,8 @@ internal static class TestDataExpander
     /// it cannot see fails here for the same reason whether it is synchronous or asynchronous.
     /// The <c>NU0014</c> analyzer rule reports the statically detectable cases at build time.
     /// <para>
-    /// <see cref="BindingFlags.FlattenHierarchy"/> is what makes a member declared on a base test
-    /// class reachable: without it the lookup stops at <paramref name="sourceType"/>, so a source
-    /// C# resolves as <c>Derived.Rows</c> was reported as missing here. It also picks the
-    /// most-derived declaration when a derived type shadows the base member with <c>new</c>, which
-    /// is the precedence the compile-time resolver applies.
-    /// </para>
-    /// <para>
-    /// It does not return a base type's <c>private</c> members, so those stay unreachable here even
-    /// though the resolver names them in <c>NU0020</c>. That asymmetry costs nothing: the member is
-    /// out of reach of the generated registry either way, so the build fails on the diagnostic
-    /// before this path can run.
+    /// Which member the name means is decided by <see cref="DataSourceMemberLookup"/>, which walks
+    /// the base chain the way C# does so that this and the compile-time resolver cannot disagree.
     /// </para>
     /// </remarks>
     private static IEnumerable? GetTestData(
@@ -551,40 +539,9 @@ internal static class TestDataExpander
     {
         try
         {
-            // Try to find a static method first. Selected by signature rather than by name alone:
-            // with the hierarchy flattened, a base Rows() and a derived Rows(CancellationToken) are
-            // both candidates for the name, which throws AmbiguousMatchException. Naming the empty
-            // signature picks the parameterless overload, which is the one the compile-time resolver
-            // binds and the only one this can invoke.
-            var method = sourceType.GetMethod(
-                memberName,
-                StaticMemberLookup,
-                binder: null,
-                types: Type.EmptyTypes,
-                modifiers: null);
-
-            if (method is not null)
-            {
-                return method.Invoke(null, null) as IEnumerable;
-            }
-
-            // Try to find a static property
-            var property = sourceType.GetProperty(memberName, StaticMemberLookup);
-
-            if (property is not null)
-            {
-                return property.GetValue(null) as IEnumerable;
-            }
-
-            // Try to find a static field
-            var field = sourceType.GetField(memberName, StaticMemberLookup);
-
-            if (field is not null)
-            {
-                return field.GetValue(null) as IEnumerable;
-            }
-
-            return null;
+            return DataSourceMemberLookup.TryReadStaticMember(sourceType, memberName, out var value)
+                ? value as IEnumerable
+                : null;
         }
         catch (TargetInvocationException ex)
         {

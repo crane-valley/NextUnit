@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 
 namespace NextUnit.Internal;
 
@@ -16,20 +15,6 @@ namespace NextUnit.Internal;
 /// </remarks>
 internal static class CombinedDataSourceExpander
 {
-    /// <summary>
-    /// The lookup used for a <c>[ValuesFromMember]</c> member the generator emitted no provider for.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="BindingFlags.FlattenHierarchy"/> is what reaches a member declared on a base test
-    /// class: without it the lookup stops at the named type, so a source C# resolves as
-    /// <c>Derived.Values</c> was reported as missing. It picks the most-derived declaration when a
-    /// derived type shadows the base member with <c>new</c>, matching the compile-time resolver, and
-    /// it does not return a base type's <c>private</c> members -- which the resolver skips too,
-    /// because C# member lookup never sees them from a derived type.
-    /// </remarks>
-    private const BindingFlags StaticMemberLookup =
-        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy;
-
     /// <summary>
     /// Expands a collection of combined data source descriptors into test case descriptors.
     /// </summary>
@@ -116,35 +101,12 @@ internal static class CombinedDataSourceExpander
         var memberName = source.MemberName
             ?? throw new InvalidOperationException("MemberName is required for ValuesFromMember");
 
-        // Try to find property first
-        var property = memberType.GetProperty(memberName, StaticMemberLookup);
-
-        if (property is not null)
+        // Which member the name means is decided by DataSourceMemberLookup, which walks the base
+        // chain the way C# does. Searching kind by kind here instead -- every property, then every
+        // field, then every method -- would read a base property for a name a derived method has
+        // taken over once the hierarchy is in scope.
+        if (DataSourceMemberLookup.TryReadStaticMember(memberType, memberName, out var value))
         {
-            var value = property.GetValue(null);
-            return EnumerateToArray(value);
-        }
-
-        // Try to find field
-        var field = memberType.GetField(memberName, StaticMemberLookup);
-
-        if (field is not null)
-        {
-            var value = field.GetValue(null);
-            return EnumerateToArray(value);
-        }
-
-        // Try to find method
-        var method = memberType.GetMethod(
-            memberName,
-            StaticMemberLookup,
-            binder: null,
-            types: Type.EmptyTypes,
-            modifiers: null);
-
-        if (method is not null)
-        {
-            var value = method.Invoke(null, null);
             return EnumerateToArray(value);
         }
 

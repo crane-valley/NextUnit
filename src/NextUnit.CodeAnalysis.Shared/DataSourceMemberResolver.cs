@@ -211,7 +211,9 @@ internal static class DataSourceMemberResolver
     /// a base property is dropped once any derived type declares a method of the same name --
     /// binding it would emit a property read for a name the compiler reads as a method group, which
     /// does not compile. Methods accumulate across levels instead, which is what lets a base
-    /// <c>Rows()</c> stay a candidate beside a derived <c>Rows(CancellationToken)</c>.
+    /// <c>Rows()</c> stay a candidate beside a derived <c>Rows(CancellationToken)</c> -- but a base
+    /// method whose signature a nearer declaration repeats is dropped, static or not, because that
+    /// nearer declaration is the one the compiler binds.
     /// </para>
     /// <para>
     /// A base type's <c>private</c> members are skipped, because C# member lookup never sees them
@@ -237,6 +239,7 @@ internal static class DataSourceMemberResolver
         // and the builder is only paid for when a base type actually carries the name.
         ImmutableArray<ISymbol>.Builder? builder = null;
         var sawMethod = !members.IsEmpty;
+        var sawParameterless = DeclaresParameterlessMethod(members);
 
         for (var baseType = typeSymbol.BaseType;
             baseType is not null && baseType.SpecialType != SpecialType.System_Object;
@@ -244,6 +247,16 @@ internal static class DataSourceMemberResolver
         {
             var inherited = baseType.GetMembers(memberName)
                 .RemoveAll(static member => member.DeclaredAccessibility == Accessibility.Private);
+
+            // A method is hidden by a nearer declaration of the same signature, whether or not that
+            // one is static. Keeping the base method would bind a call the compiler resolves to the
+            // derived declaration instead: a derived instance Rows() makes the emitted Derived.Rows()
+            // a CS0120 in generated code, which is worse than the NU0003 that not binding produces.
+            if (sawParameterless)
+            {
+                inherited = inherited.RemoveAll(static member =>
+                    member is IMethodSymbol { Parameters.Length: 0, Arity: 0 });
+            }
 
             if (inherited.IsEmpty)
             {
@@ -266,6 +279,7 @@ internal static class DataSourceMemberResolver
             }
 
             sawMethod = true;
+            sawParameterless |= DeclaresParameterlessMethod(inherited);
         }
 
         return builder?.ToImmutable() ?? members;
@@ -276,6 +290,19 @@ internal static class DataSourceMemberResolver
         foreach (var member in members)
         {
             if (member is not IMethodSymbol)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool DeclaresParameterlessMethod(ImmutableArray<ISymbol> members)
+    {
+        foreach (var member in members)
+        {
+            if (member is IMethodSymbol { Parameters.Length: 0, Arity: 0 })
             {
                 return true;
             }

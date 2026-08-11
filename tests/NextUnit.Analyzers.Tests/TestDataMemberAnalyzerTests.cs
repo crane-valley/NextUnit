@@ -1248,6 +1248,44 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// A derived instance method hides a base static one of the same signature, so
+    /// <c>Tests.TestCases</c> is not a static reference at all. Binding the base member would emit
+    /// a call the compiler rejects with CS0120 inside generated code; reporting NU0003 is what the
+    /// same declaration produced before the base chain was walked.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedInstanceMethodHidingBaseStatic_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public new IEnumerable<object[]> TestCases() => new[] { new object[] { 2 } };
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 27)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// C# member lookup never sees a base type's private member from a derived type, so it neither
     /// binds nor hides. Letting it win would report NU0020 for a name that resolves further up the
     /// chain and compiles.

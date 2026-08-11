@@ -94,6 +94,22 @@ public sealed class InheritedDataSourceMemberTests
     }
 
     /// <summary>
+    /// A derived method takes the name over, so the base property it hides must not be read. The
+    /// fallback searching kind by kind would run the test against data C# says the name does not
+    /// refer to, which is worse than reporting the source as missing.
+    /// </summary>
+    [Fact]
+    public void ExpandSingle_DerivedMethodHidingInheritedProperty_ReportsNotFound()
+    {
+        var descriptor = CreateDescriptor(nameof(HidingBase.HiddenRows), typeof(HidingDerived));
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken).ToList());
+
+        Xunit.Assert.Contains("not found", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The parameter-level fallback reaches the base chain too. It is a separate lookup from the
     /// <c>[TestData]</c> one, so it needs its own coverage.
     /// </summary>
@@ -162,6 +178,16 @@ public sealed class InheritedDataSourceMemberTests
     private sealed class RowsDerived : RowsBase
     {
         public static new IEnumerable<object[]> ShadowedRows => [[8, 9, 17]];
+    }
+
+    private class HidingBase
+    {
+        public static IEnumerable<object[]> HiddenRows => [[5, 5, 10]];
+    }
+
+    private sealed class HidingDerived : HidingBase
+    {
+        public static new IEnumerable<object[]> HiddenRows(int count) => [[count, count, count * 2]];
     }
 
     private class TokenBase

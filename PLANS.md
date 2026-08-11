@@ -586,22 +586,32 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   would emit a property read where the compiler reads a method group, which does not compile.
   Methods accumulate across levels instead, and both resolver passes run over the whole flattened
   chain rather than per type, so a base `Rows()` still beats a derived `Rows(CancellationToken)` --
-  the overload C# binds for a call supplying no arguments. Interfaces are not walked: a static
+  the overload C# binds for a call supplying no arguments -- unless a nearer declaration repeats the
+  signature, static or not, since a derived instance `Rows()` makes the emitted `Derived.Rows()` a
+  `CS0120` in generated code and `NU0003` is the better answer. Interfaces are not walked: a static
   interface member cannot be named through an implementing type. A base type's `private` members are
   skipped, since C# member lookup never sees them from a derived type and they therefore neither
   bind nor hide; letting one win would report `NU0020` for a name that resolves further up the chain
   and compiles. A `private` member on the named type itself is still collected and refused, which is
   the existing rule and the reason an inherited `protected` source reports `NU0020` naming the fix
-  rather than `NU0003` describing it as missing. Both runtime reflection fallbacks --
-  `TestDataExpander` for `[TestData]` and `CombinedDataSourceExpander` for `[ValuesFromMember]` --
-  use `BindingFlags.FlattenHierarchy`, which resolves the same members, picks the same most-derived
-  declaration, and excludes base `private` members on its own. Both select a method by the empty
-  signature rather than by name alone, because a flattened `Rows()` and `Rows(CancellationToken)`
-  are otherwise an ambiguous match. Left as an accepted divergence: with the hierarchy flattened,
-  the fallbacks search by member kind rather than per level, so a derived property that hides a base
-  method of the same name is not preferred the way the resolver prefers it. That path only runs when
-  the generator emitted no provider, which for a resolvable member means the build already failed on
-  a diagnostic.
+  rather than `NU0003` describing it as missing. The runtime reflection fallback moved into one
+  `DataSourceMemberLookup` shared by `TestDataExpander` and `CombinedDataSourceExpander`, so
+  `[TestData]` and `[ValuesFromMember]` cannot disagree about which member a name means. It selects
+  over the flattened candidates by declaring type rather than by member kind: searching kind by kind
+  reads a base property for a name a derived method has taken over, which runs a test against data
+  the user never pointed at, and it also turns a flattened `Rows()` plus `Rows(CancellationToken)`
+  into an ambiguous match.
+- [ ] Two accepted divergences from C# member lookup, both narrow, both reported by the Codex review
+  and left deliberately. A derived overload that is applicable to a no-argument call without being
+  parameterless -- `Rows(int value = 0)` or `Rows(params int[])` -- does not win over an inherited
+  `Rows()`, because the resolver tests `Parameters.Length: 0` rather than applicability; that rule
+  predates the base chain and the same source declared on one type has always been treated this way.
+  And an inaccessible non-`private` intermediate declaration, such as a `protected new Rows()`
+  between the test class and an accessible ancestor, is reported as `NU0020` rather than skipped in
+  favour of the ancestor C# would bind. Closing either one means selecting candidates by
+  applicability and by accessibility before hiding -- two staged passes rather than one walk -- which
+  is a rewrite of the resolver rather than an extension of it, and neither divergence emits code that
+  fails to compile or silently supplies the wrong rows.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths
