@@ -402,7 +402,8 @@ public class SerialTests
     public void Test2() { }
 }
 
-// Default: tests run in parallel, bounded by the processor count
+// Declares nothing, so it inherits the assembly default of 4 above -- and would be
+// bounded by the processor count instead if no level declared a limit at all
 public class NormalTests
 {
     [Test]

@@ -634,7 +634,8 @@ equivalent: a constraint key of the class's own -- `[NotInParallel("OrderService
 serialize that class against itself, and it keeps the class out of the one serial group that bare
 `[NotInParallel]` shares with every other unkeyed test, but the run executes one batch at a time, so
 a serialized class does not overlap with the rest of the suite either way. Both forms are therefore
-stronger than `ClassLevel`; choose the key when you want the class serialized only against itself.
+stronger than `ClassLevel`. The key changes only how the serialized tests are grouped: keyed tests
+form their own batch instead of joining the single batch every unkeyed `[NotInParallel]` test shares.
 
 MSTest has no built-in ordering. NextUnit expresses order as a dependency or a priority:
 
