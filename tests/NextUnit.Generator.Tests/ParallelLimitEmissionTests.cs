@@ -131,6 +131,88 @@ public class ParallelLimitEmissionTests
         Assert.Contains("ParallelLimit = null", registry);
     }
 
+    /// <summary>
+    /// NU0019 rejects a limit the scheduler cannot use at build time, so a suppressed error is the
+    /// only way one reaches the generator. It must not be carried into the descriptor: the value
+    /// would reach <c>ParallelOptions.MaxDegreeOfParallelism</c> and its throw aborts the whole run.
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-2)]
+    public async Task AssemblyLimitTheSchedulerCannotUse_EmitsNoLimitAsync(int limit)
+    {
+        var registry = await GenerateRegistryAsync($$"""
+            using NextUnit;
+
+            [assembly: ParallelLimit({{limit}})]
+
+            namespace TestProject;
+
+            public class ThrottledTests
+            {
+                [Test]
+                public void Unbounded()
+                {
+                }
+            }
+            """);
+
+        Assert.Contains("ParallelLimit = null", registry);
+    }
+
+    /// <summary>
+    /// An unusable value reads as "this level declared nothing", so the enclosing declaration still
+    /// applies - the same reading <c>GetCultureNameFromSymbol</c> takes for a suppressed null name.
+    /// </summary>
+    [Fact]
+    public async Task ClassLimitTheSchedulerCannotUse_FallsBackToTheAssemblyLimitAsync()
+    {
+        var registry = await GenerateRegistryAsync("""
+            using NextUnit;
+
+            [assembly: ParallelLimit(4)]
+
+            namespace TestProject;
+
+            [ParallelLimit(0)]
+            public class ThrottledTests
+            {
+                [Test]
+                public void Inheriting()
+                {
+                }
+            }
+            """);
+
+        Assert.Contains("ParallelLimit = 4", registry);
+    }
+
+    /// <summary>
+    /// -1 is what <c>ParallelOptions</c> itself means by unlimited, so it is a usable limit and must
+    /// reach the descriptor rather than being dropped with the values that throw.
+    /// </summary>
+    [Fact]
+    public async Task AssemblyLimitOfMinusOne_ReachesTheDescriptorAsync()
+    {
+        var registry = await GenerateRegistryAsync("""
+            using NextUnit;
+
+            [assembly: ParallelLimit(-1)]
+
+            namespace TestProject;
+
+            public class UnlimitedTests
+            {
+                [Test]
+                public void Unlimited()
+                {
+                }
+            }
+            """);
+
+        Assert.Contains("ParallelLimit = -1", registry);
+    }
+
     private static async Task<string> GenerateRegistryAsync(string source)
     {
         var cancellationToken = TestContext.Current.CancellationToken;

@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   processor count. The limit now resolves method first, then class, then assembly, matching
   `[Timeout]` and the culture attributes. A suite that declares no limit anywhere is unaffected.
 
+### Added
+
+- `NU0019` rejects a `[ParallelLimit]` value that `ParallelOptions.MaxDegreeOfParallelism` cannot
+  accept: anything other than a positive degree of parallelism or `-1` for unlimited. The setter's
+  throw aborts the whole run rather than failing the test that declared the value, and resolving the
+  attribute from the assembly turned a previously inert `[assembly: ParallelLimit(0)]` into exactly
+  that. The rule covers the method, class, and assembly forms alike, and the generator drops a value
+  it reports so that a suppressed error bounds the run by the enclosing declaration instead.
+
 ## [1.19.1] - 2026-08-10
 
 ### Fixed

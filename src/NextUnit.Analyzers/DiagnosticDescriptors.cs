@@ -214,4 +214,16 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "A culture name may contain only letters, digits, '-' and '_', and may not begin or end with a separator or run two together. Whether a well-formed name matches an installed culture depends on the machine running the test, so only names that no machine could accept are reported at build time; the rest are reported against the test that declared them when it runs.");
+
+    /// <summary>
+    /// NU0019: Invalid parallel limit.
+    /// </summary>
+    public static readonly DiagnosticDescriptor InvalidParallelLimit = new(
+        id: "NU0019",
+        title: "Invalid parallel limit",
+        messageFormat: "Parallel limit must be positive, or -1 for unlimited, got {0}",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "The value in [ParallelLimit] becomes ParallelOptions.MaxDegreeOfParallelism, which accepts a positive degree of parallelism or -1 for unlimited and throws for anything else. Reported at build time because the throw would otherwise abort the whole run rather than fail the test that declared it.");
 }
