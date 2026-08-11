@@ -263,6 +263,155 @@ public sealed class SessionLifecycleRunnerTests
     }
 
     [Test]
+    public async Task RunTeardownAsync_DisposesSharedInstancesAfterEveryHookAsync()
+    {
+        var calls = new List<string>();
+        var runner = new SessionLifecycleRunner(() =>
+        {
+            calls.Add("dispose");
+            return ValueTask.CompletedTask;
+        });
+        runner.AddMethods(
+            null,
+            [
+                (_, _) => { calls.Add("first"); return Task.CompletedTask; },
+                (_, _) => { calls.Add("second"); return Task.CompletedTask; }
+            ]);
+
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        // An [After(Session)] hook may still read what a session-shared data source is holding, so the
+        // instances outlive every hook and are released only once the last one has run.
+        Assert.Null(error);
+        Assert.Equal("second,first,dispose", string.Join(",", calls));
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_DisposesSharedInstancesEvenAfterAHookFailsAsync()
+    {
+        var disposed = false;
+        var runner = new SessionLifecycleRunner(() =>
+        {
+            disposed = true;
+            return ValueTask.CompletedTask;
+        });
+        runner.AddMethods(null, [(_, _) => throw new InvalidOperationException("teardown boom")]);
+
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        Assert.NotNull(error);
+        Assert.True(disposed);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_ReportsADisposalFailureAsync()
+    {
+        var runner = new SessionLifecycleRunner(
+            () => throw new InvalidOperationException("dispose boom"));
+
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        // Session close has no sink, so a data source that failed to release its resources is only
+        // ever visible through the session result.
+        Assert.NotNull(error);
+        Assert.Contains("dispose boom", error!);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_AggregatesAHookFailureWithADisposalFailureAsync()
+    {
+        var runner = new SessionLifecycleRunner(
+            () => throw new InvalidOperationException("dispose boom"));
+        runner.AddMethods(null, [(_, _) => throw new InvalidOperationException("teardown boom")]);
+
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        Assert.NotNull(error);
+        Assert.Contains("teardown boom", error!);
+        Assert.Contains("dispose boom", error!);
+        Assert.Contains("One or more session teardown methods failed.", error!);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_LetsACriticalDisposalFailureEscapeAsync()
+    {
+        var runner = new SessionLifecycleRunner(
+            () => throw new AggregateException("cleanup failed", new OutOfMemoryException()));
+
+        // The store reports several disposal failures as one aggregate, so classifying only the outer
+        // exception would turn running out of memory into a teardown message the session reports and
+        // moves past.
+        var exception = await Assert.ThrowsAsync<AggregateException>(
+            () => runner.RunTeardownAsync(CancellationToken.None));
+
+        Assert.True(exception.InnerExceptions.Any(inner => inner is OutOfMemoryException));
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_LetsACriticalFailureEscapeThroughACancellationWrapperAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var laterHookRan = false;
+        var disposed = false;
+        var runner = new SessionLifecycleRunner(() =>
+        {
+            disposed = true;
+            return ValueTask.CompletedTask;
+        });
+        runner.AddMethods(
+            null,
+            [
+                (_, _) => { laterHookRan = true; return Task.CompletedTask; },
+                (_, _) => throw new OperationCanceledException("cancelled", new OutOfMemoryException(), cts.Token)
+            ]);
+
+        // Cancellation is classified before anything else, so an OCE carrying a critical exception
+        // would be held as run cancellation and the failure inside it never looked at. Reverse order
+        // runs the throwing hook first, so what separates escaping from being held is whether teardown
+        // carried on afterwards: cancellation is held and the rest still runs, a critical failure is
+        // not caught at all and nothing after it happens.
+        var exception = await Assert.ThrowsAsync<OperationCanceledException>(
+            () => runner.RunTeardownAsync(cts.Token));
+
+        Assert.True(exception.InnerException is OutOfMemoryException);
+        Assert.False(laterHookRan);
+        Assert.False(disposed);
+    }
+
+    [Test]
+    public async Task RunSetupOnceAsync_LetsACriticalFailureEscapeThroughASkipAsync()
+    {
+        var runner = new SessionLifecycleRunner();
+        runner.AddMethods(
+            [(_, _) => throw new TestSkippedException("no database available", new OutOfMemoryException())],
+            null);
+
+        // A skip is the most swallowing branch in setup, and TestSkippedException takes an inner
+        // exception, so a hook could hand one a critical failure and have the session report every
+        // test as skipped while the process is out of memory.
+        var exception = await Assert.ThrowsAsync<TestSkippedException>(
+            () => runner.RunSetupOnceAsync(CancellationToken.None));
+
+        Assert.True(exception.InnerException is OutOfMemoryException);
+        Assert.Null(runner.SkipReason);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_ReportsDisposalOwnCancellationAsAFailureAsync()
+    {
+        var runner = new SessionLifecycleRunner(
+            () => throw new OperationCanceledException("disposer gave up"));
+
+        using var cts = new CancellationTokenSource();
+        var error = await runner.RunTeardownAsync(cts.Token);
+
+        Assert.NotNull(error);
+        Assert.Contains("does not represent run cancellation", error!);
+    }
+
+    [Test]
     public async Task TryReportSessionSkipAsync_ReportsNothingWithoutASkipReasonAsync()
     {
         var runner = new SessionLifecycleRunner();

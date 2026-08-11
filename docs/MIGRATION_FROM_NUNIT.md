@@ -437,7 +437,10 @@ public class MultiplicationTests
 `SharedType` offers `None`, `PerClass`, `PerAssembly`, `PerSession`, and `Keyed` with a `Key`, which
 control how often the data source type is instantiated. The instance is enumerated for its rows
 rather than handed to the test, so state the test body itself needs belongs in a `static` field with
-[lifecycle hooks](#lifecycle), not in a data source.
+[lifecycle hooks](#lifecycle), not in a data source. The scope spans attributes: a type used by both
+`[ClassDataSource<T>]` and `[ValuesFrom<T>]` under the same scope is one instance. A shared instance
+is disposed at the end of the session, after the `[After(LifecycleScope.Session)]` hooks, and
+`IAsyncDisposable` is preferred over `IDisposable` when a data source implements both.
 
 ### Combinatorial parameters
 

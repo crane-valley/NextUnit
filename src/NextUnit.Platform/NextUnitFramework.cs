@@ -301,13 +301,11 @@ internal sealed class NextUnitFramework :
     /// <see cref="CancellationTokenSource.Cancel()"/> wraps callback failures in an
     /// <see cref="AggregateException"/>, which is itself never critical, so testing only the outer
     /// exception would swallow an <see cref="OutOfMemoryException"/> thrown by a data source's own
-    /// cancellation callback. The aggregate is flattened first because a callback is free to throw
-    /// an aggregate of its own.
+    /// cancellation callback. Every cleanup path in the framework needs that same classification, so
+    /// it lives in <see cref="ExceptionHelper"/> and this is the local name for it.
     /// </remarks>
     private static bool IsCriticalFailure(Exception exception) =>
-        exception is AggregateException aggregate
-            ? aggregate.Flatten().InnerExceptions.Any(ExceptionHelper.IsCriticalException)
-            : ExceptionHelper.IsCriticalException(exception);
+        ExceptionHelper.IsCriticalFailure(exception);
 
     private static void CancelAndDispose(CancellationTokenSource? cancellation)
     {
@@ -343,26 +341,71 @@ internal sealed class NextUnitFramework :
     /// once the framework is gone, nothing can still want the result. A host that never disposes the
     /// framework loses nothing but the early cancellation, because the build dies with the process
     /// and every caller already cancels its own wait independently.
+    /// <para>
+    /// This is also the backstop for the shared data source instances. Session teardown releases them
+    /// on the normal path, but the platform closes a session only after the request completed, so a
+    /// cancelled or failed request would otherwise leave whatever they hold alive until the process
+    /// exits.
+    /// </para>
     /// </remarks>
     public void Dispose()
     {
-        CancellationTokenSource? abandoned;
+        CancellationTokenSource? abandoned = null;
 
         // Idempotent: Cancel() on an already-disposed source throws, and a host is free to dispose
         // an extension more than once.
         lock (_testCasesGate)
         {
-            if (_disposed)
+            if (!_disposed)
             {
-                return;
+                _disposed = true;
+                abandoned = _currentBuild?.TakeCancellation();
+                _currentBuild = null;
             }
-
-            _disposed = true;
-            abandoned = _currentBuild?.TakeCancellation();
-            _currentBuild = null;
         }
 
         CancelAndDispose(abandoned);
+
+        // Deliberately outside the idempotence guard. A data source whose constructor finished after
+        // an earlier pass had taken its snapshot is left for the next cleanup by design, and a second
+        // Dispose is the only next cleanup it can still get.
+        DisposeSharedInstances();
+    }
+
+    /// <summary>
+    /// Releases any shared data source instance session teardown did not get to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A no-op on the normal path: <see cref="SessionLifecycleRunner.RunTeardownAsync"/> already
+    /// emptied the store, and emptying it again removes nothing. Blocking is acceptable here for the
+    /// same reason it is in the VSTest adapter, and unavoidable in a synchronous
+    /// <see cref="IDisposable.Dispose"/>.
+    /// </para>
+    /// <para>
+    /// One case is knowingly left alone. A cancelled request can leave a build detached and still
+    /// expanding, because a synchronous data source neither observes the token nor is awaited by the
+    /// waiter that walked away, so this can release an instance that build is enumerating. Releasing
+    /// the resources of a cancelled run is worth that: the detached build's rows are already
+    /// discarded, its failure is already swallowed by the continuation in
+    /// <see cref="StartBuild"/>, and the alternative is leaking a connection or a container on every
+    /// cancelled run. Arbitrating it properly means waiting on user code from
+    /// <see cref="IDisposable.Dispose"/>, which is worse than either.
+    /// </para>
+    /// </remarks>
+    private static void DisposeSharedInstances()
+    {
+        try
+        {
+            SharedInstanceStore.DisposeAll();
+        }
+        catch (Exception ex) when (!IsCriticalFailure(ex))
+        {
+            // Nothing downstream can act on this. Dispose runs while the host is tearing the run
+            // down, often with an exception already propagating, and replacing that exception with a
+            // cleanup failure would hide why the run ended. Session close reports the same failure
+            // properly whenever it gets to run.
+        }
     }
 
     /// <summary>

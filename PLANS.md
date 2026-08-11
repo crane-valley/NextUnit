@@ -620,7 +620,7 @@ sized separately.
 Breaking changes that are agreed in principle but cannot ship in 1.x. The `PublicAPI.Shipped.txt`
 baselines freeze the current surface until then.
 
-- [ ] Unify the shared-instance caches behind `[ClassDataSource]` and `[ValuesFrom]` and wire
+- [x] Unify the shared-instance caches behind `[ClassDataSource]` and `[ValuesFrom]` and wire
   disposal to session end. `ClassDataSourceExpander` and `CombinedDataSourceExpander` each keep
   their own `PerSession`/`PerAssembly`/`PerClass`/`Keyed` caches, so one data source type used
   through both attributes is instantiated twice, and nothing in the run lifecycle ever clears them:
@@ -665,6 +665,45 @@ settled empirically rather than by inspection: demoting `TestMethodDelegate`,
 and `RetryPolicyFactoryDelegate` produced eleven CS0053 errors, because each one is the type of a
 property on a descriptor that has to stay public. The removals are recorded as 59 `*REMOVED*`
 entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt`.
+
+The cache unification is delivered as `SharedInstanceStore`, one process-wide store both expanders
+call, keyed by sharing scope, data source type, and whatever else that scope shares by: the test
+class for `PerClass`, the key for `Keyed`, the test assembly for `PerAssembly`, nothing more for
+`PerSession`. The scope
+is part of the key, so `PerAssembly` and `PerSession` still hold separate instances even though a
+single-assembly run cannot tell the two lifetimes apart; collapsing them would change which tests
+share an instance rather than only which attribute they arrived through, which is more than this item
+agreed to break. `PerAssembly` gained the test assembly as a key component, which the scope's own
+documentation always promised and the type-only key did not deliver in a multi-assembly VSTest run.
+Entries are `Lazy` values rather than bare `GetOrAdd` factories, because
+`ConcurrentDictionary` may run a losing factory and throw its result away, and an instance the store
+never records is an instance nothing ever disposes; a failed creation is evicted so the next
+expansion retries, as it did in 1.x. Disposal runs in reverse creation order, prefers
+`IAsyncDisposable`, and reports every failure together. The four `Clear*` methods are deleted rather
+than repurposed: they had no caller, and `ClearClassInstances` described a per-class release that no
+lifecycle event ever reached. The wiring is asymmetric by necessity.
+`SessionLifecycleRunner.RunTeardownAsync` disposes after the `[After(Session)]` hooks and through the
+same failure aggregation, so a hook can still read a shared instance and a disposal failure reaches
+the session result, with `NextUnitFramework.Dispose` as the backstop for a request that is cancelled
+or fails and therefore never reaches session close. VSTest has no session boundary, so each adapter
+operation owns what it created: the executor disposes at the end of a run and the discoverer at the
+end of discovery, which costs a second instantiation when both happen in one process and is what
+already happens whenever VSTest discovers and runs in separate processes. Neither host expands
+concurrently with a cleanup - the platform closes a session after the requests that expand have
+finished, and the adapter expands synchronously before its own cleanup - so the store arbitrates no
+such race and an expansion that starts after a cleanup is a bug at its call site. Registration and
+retirement are still serialized on one lock, which is what keeps the store's own state consistent:
+an instance whose constructor was still running cannot be disposed and then handed to its caller, and
+cannot register where no cleanup will see it either. `NextUnitFramework.Dispose` runs the cleanup
+outside its idempotence guard so that second property has somewhere to land. One interleaving is
+knowingly accepted rather than arbitrated: a cancelled request can leave a build detached and still
+expanding, and the backstop in `Dispose` may release an instance that build is enumerating. Its rows
+are already discarded and its failure already swallowed, whereas the alternative leaks a connection
+or a container on every cancelled run, and arbitrating it means waiting on user code from
+`Dispose`. Pinned by fifteen tests in
+`tests/NextUnit.Generator.Tests/SharedInstanceStoreTests.cs`, written first against 1.x behavior,
+where the same type through both attributes produced two instances and a keyed pair produced three,
+and five more in `SessionLifecycleRunnerTests` for the ordering and the failure reporting.
 
 ## Explicitly not planned
 

@@ -8,6 +8,12 @@ namespace NextUnit.TestAdapter;
 /// <summary>
 /// VSTest adapter for discovering NextUnit tests.
 /// </summary>
+/// <remarks>
+/// Expanding a class or combined data source instantiates it, so discovery populates the shared
+/// instance store and owns what it put there: <see cref="SharedInstanceCleanup"/> empties the store
+/// once every source has been reported. Nothing else would, because a discovery is not always
+/// followed by a run in the same process.
+/// </remarks>
 [DefaultExecutorUri(NextUnitTestExecutor.ExecutorUri)]
 [FileExtension(".dll")]
 [FileExtension(".exe")]
@@ -25,23 +31,32 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
     {
         logger.SendMessage(TestMessageLevel.Informational, "NextUnit: Starting test discovery");
 
-        foreach (var source in sources)
+        try
         {
-            try
+            foreach (var source in sources)
             {
-                DiscoverTestsInAssembly(source, logger, discoverySink);
-            }
-            catch (Exception ex)
-            {
-                if (ExceptionHelper.IsCriticalException(ex))
+                try
                 {
-                    throw;
+                    DiscoverTestsInAssembly(source, logger, discoverySink);
                 }
+                catch (Exception ex)
+                {
+                    if (ExceptionHelper.IsCriticalException(ex))
+                    {
+                        throw;
+                    }
 
-                // Intentionally catch broadly to prevent a single bad assembly from
-                // aborting discovery of all test sources, but preserve full diagnostics
-                AdapterDiagnostics.ReportSourceFailure(logger, "discovering tests", source, ex);
+                    // Intentionally catch broadly to prevent a single bad assembly from
+                    // aborting discovery of all test sources, but preserve full diagnostics
+                    AdapterDiagnostics.ReportSourceFailure(logger, "discovering tests", source, ex);
+                }
             }
+        }
+        finally
+        {
+            // Every source has been reported by now, so nothing can still enumerate a data source the
+            // expansion above instantiated.
+            SharedInstanceCleanup.Run(logger);
         }
     }
 

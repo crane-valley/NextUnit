@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Share one instance per sharing scope between `[ClassDataSource<T>]` and `[ValuesFrom<T>]`, and
+  dispose the shared instances at the end of the test session. This is a breaking change, and the
+  next release is 2.0.0. Each attribute used to keep its own `PerSession`/`PerAssembly`/`PerClass`/
+  `Keyed` cache, so a data source type reached through both attributes was instantiated twice; it is
+  now instantiated once, and a suite that counted on the two copies being independent sees one
+  shared object. `PerAssembly` and `PerSession` still keep separate instances from each other, and
+  `SharedType.None` still creates an instance per expansion and is not owned by the framework.
+  `PerAssembly` is now keyed by the test assembly as well, which is what its name has always
+  promised: a data source type that two test assemblies both reference used to be one instance for
+  both in a run that loaded both, which only VSTest can do. Single-assembly runs are unaffected.
+  Nothing in 1.x ever released a shared instance, so a data source holding a connection, a container,
+  or a temporary directory leaked it for the life of the process. Under Microsoft.Testing.Platform
+  the instances are disposed during session close, after every `[After(LifecycleScope.Session)]` hook
+  has run, and a disposal failure is reported through the session result alongside any hook failure;
+  a request that is cancelled or fails never reaches session close, so disposing the framework
+  releases them instead. Under VSTest, which has no session boundary, each adapter operation owns
+  what it created: a run disposes at the end of the run and a discovery at the end of discovery, and
+  a failure is reported to that operation's message logger. `IAsyncDisposable` is preferred over
+  `IDisposable` when a data source implements both, so a data source that only implements
+  `IAsyncDisposable` is now disposed at all; the platform path awaits it, while the synchronous
+  VSTest and `Dispose` paths block on it.
+
 ### Removed
 
 - Remove the execution and expansion types in the `NextUnit.Internal` namespace from the public API.
