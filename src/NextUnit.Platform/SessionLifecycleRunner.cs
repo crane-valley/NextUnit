@@ -264,7 +264,10 @@ internal sealed class SessionLifecycleRunner
                 await beforeMethod(null!, cancellationToken).ConfigureAwait(false);
             }
         }
-        catch (TestSkippedException ex)
+        // The critical test guards this catch too, for the same reason it guards the cancellation
+        // filters: a skip is the most swallowing branch there is, and TestSkippedException accepts an
+        // inner exception, so a hook can hand one a critical failure to hide behind.
+        catch (TestSkippedException ex) when (!ExceptionHelper.IsCriticalFailure(ex))
         {
             // Swallowed inside the gate's operation on purpose: a requested skip is a decision, not a
             // failure, so the gate records setup as completed and no later caller re-runs the hooks.
