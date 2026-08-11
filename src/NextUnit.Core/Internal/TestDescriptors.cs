@@ -12,7 +12,7 @@ public sealed record TestCaseId(string Value);
 /// <summary>
 /// Represents the outcome of a test execution.
 /// </summary>
-public enum TestOutcome
+internal enum TestOutcome
 {
     /// <summary>
     /// The test has not been executed yet.

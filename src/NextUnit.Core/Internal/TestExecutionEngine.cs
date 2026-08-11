@@ -10,7 +10,7 @@ namespace NextUnit.Internal;
 /// <summary>
 /// Defines a sink for reporting test execution results.
 /// </summary>
-public interface ITestExecutionSink
+internal interface ITestExecutionSink
 {
     /// <summary>
     /// Reports that a test has passed successfully.
@@ -53,7 +53,7 @@ public interface ITestExecutionSink
 /// <summary>
 /// Orchestrates the execution of test cases with support for dependencies, parallelism, and lifecycle hooks.
 /// </summary>
-public sealed class TestExecutionEngine
+internal sealed class TestExecutionEngine
 {
     private static readonly ConditionalWeakTable<Assembly, string> _assemblyNames = new();
     private readonly ConcurrentDictionary<Type, ClassExecutionContext> _classContexts = new();

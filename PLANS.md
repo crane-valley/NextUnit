@@ -625,13 +625,13 @@ baselines freeze the current surface until then.
   their own `PerSession`/`PerAssembly`/`PerClass`/`Keyed` caches, so one data source type used
   through both attributes is instantiated twice, and nothing in the run lifecycle ever clears them:
   the `ClearSharedInstances`/`ClearClassInstances` methods that would dispose the instances have no
-  caller. Both the instance identity and the disposal timing are user-observable, and those methods
-  are public API, so unification is a breaking change. Documented as-is on both expanders for 1.x.
-- [ ] Demote the public types in the `NextUnit.Internal` namespace (`TestExecutionEngine`,
-  the descriptors, the expanders, the delegates) to `internal`. The namespace name already signals
-  the intent, but the types ship as public API today. Requires adding `NextUnit.Core.Tests` to
-  `InternalsVisibleTo` and carving out the members that must stay public: `ArgumentConverter` (the
-  generated user code calls it) and the expanders (the platform adapter reaches them).
+  caller. Both the instance identity and the disposal timing are user-observable, so unification is
+  a breaking change. The `Clear*` methods stopped being public API with the demotion below, which
+  leaves only the observable behavior to break. Documented as-is on both expanders for 1.x.
+- [x] Demote the public types in the `NextUnit.Internal` namespace (`TestExecutionEngine`, the
+  execution and expansion types) to `internal`. The namespace name already signals the intent, but
+  the types ship as public API today. The descriptors and the delegates have to stay public: the
+  generated registry in the user's assembly names them.
 - [x] Remove the two `[Obsolete]` expectedMessage-validation overloads of `Assert.Throws` and
   `Assert.ThrowsAsync` (`Assert.Throws.cs`). They are unreachable with two positional arguments,
   which is why they were obsoleted in 1.x rather than deleted; their removal notice already promises
@@ -646,6 +646,25 @@ recorded as two `*REMOVED*` entries in `src/NextUnit.Core/PublicAPI.Unshipped.tx
 `PublicAPI.Shipped.txt` lines come out at release-prep promotion, per the Public API Release Files
 step in `docs/RELEASE_PROCESS.md`. First of the breaking changes in this section to land, which is
 what makes the next release 2.0.0.
+
+The `NextUnit.Internal` demotion covers nine types: `TestExecutionEngine`, `ITestExecutionSink`,
+`TestOutcome`, `DependencyGraph` (with its nested `Node`), `ParallelScheduler`, `TestBatch`,
+`TestDataExpander`, `ClassDataSourceExpander`, and `CombinedDataSourceExpander`. Two parts of the
+plan above were wrong and were corrected against the compiler. The `InternalsVisibleTo` addition is
+`NextUnit.TestAdapter.Tests`, not `NextUnit.Core.Tests`: `NextUnit.Core.Tests` covers `Assert` and
+names no `NextUnit.Internal` type, while `NextUnit.TestAdapter.Tests` uses `TestDataExpander` and
+`TestDataDescriptor` directly. `NextUnit.Benchmarks` needed the same grant for `DependencyGraph`,
+`ParallelScheduler`, and `ITestExecutionSink`. The expanders are demoted rather than carved out: the
+platform adapter reaches them through `InternalsVisibleTo`, so nothing about the carve-out was load
+bearing, and demoting them takes the four uncalled `Clear*` methods out of the public surface, which
+is what shrinks the cache-unification item above. What stays public is the contract the generated
+code names: the descriptors, `TestCaseId`, `ArgumentConverter`, `AsyncDataSourceAdapter`,
+`GeneratedTestRegistryStore`, `IGeneratedTestRegistry`, and the delegates. The delegate set was
+settled empirically rather than by inspection: demoting `TestMethodDelegate`,
+`TestMethodWithArgumentsDelegate`, `TestClassFactoryDelegate`, `AsyncDataSourceProviderDelegate`,
+and `RetryPolicyFactoryDelegate` produced eleven CS0053 errors, because each one is the type of a
+property on a descriptor that has to stay public. The removals are recorded as 59 `*REMOVED*`
+entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt`.
 
 ## Explicitly not planned
 

@@ -18,7 +18,7 @@ namespace NextUnit.Internal;
 /// unless a caller invokes <see cref="ClearSharedInstances"/> or <see cref="ClearClassInstances"/>,
 /// which dispose what they remove.
 /// </remarks>
-public static class CombinedDataSourceExpander
+internal static class CombinedDataSourceExpander
 {
     // Caches for shared instances by sharing scope
     private static readonly ConcurrentDictionary<string, object> _keyedInstances = new();

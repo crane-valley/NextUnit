@@ -20,6 +20,8 @@
     <InternalsVisibleTo Include="NextUnit.Platform" />
     <InternalsVisibleTo Include="NextUnit.Platform.Tests" />
     <InternalsVisibleTo Include="NextUnit.Generator.Tests" />
+    <InternalsVisibleTo Include="NextUnit.TestAdapter.Tests" />
+    <InternalsVisibleTo Include="NextUnit.Benchmarks" />
   </ItemGroup>
 
   <ItemGroup>
