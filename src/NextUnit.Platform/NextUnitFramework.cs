@@ -378,10 +378,22 @@ internal sealed class NextUnitFramework :
     /// Releases any shared data source instance session teardown did not get to.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A no-op on the normal path: <see cref="SessionLifecycleRunner.RunTeardownAsync"/> already
     /// emptied the store, and emptying it again removes nothing. Blocking is acceptable here for the
     /// same reason it is in the VSTest adapter, and unavoidable in a synchronous
     /// <see cref="IDisposable.Dispose"/>.
+    /// </para>
+    /// <para>
+    /// One case is knowingly left alone. A cancelled request can leave a build detached and still
+    /// expanding, because a synchronous data source neither observes the token nor is awaited by the
+    /// waiter that walked away, so this can release an instance that build is enumerating. Releasing
+    /// the resources of a cancelled run is worth that: the detached build's rows are already
+    /// discarded, its failure is already swallowed by the continuation in
+    /// <see cref="StartBuild"/>, and the alternative is leaking a connection or a container on every
+    /// cancelled run. Arbitrating it properly means waiting on user code from
+    /// <see cref="IDisposable.Dispose"/>, which is worse than either.
+    /// </para>
     /// </remarks>
     private static void DisposeSharedInstances()
     {

@@ -695,7 +695,12 @@ such race and an expansion that starts after a cleanup is a bug at its call site
 retirement are still serialized on one lock, which is what keeps the store's own state consistent:
 an instance whose constructor was still running cannot be disposed and then handed to its caller, and
 cannot register where no cleanup will see it either. `NextUnitFramework.Dispose` runs the cleanup
-outside its idempotence guard so that second property has somewhere to land. Pinned by fifteen tests in
+outside its idempotence guard so that second property has somewhere to land. One interleaving is
+knowingly accepted rather than arbitrated: a cancelled request can leave a build detached and still
+expanding, and the backstop in `Dispose` may release an instance that build is enumerating. Its rows
+are already discarded and its failure already swallowed, whereas the alternative leaks a connection
+or a container on every cancelled run, and arbitrating it means waiting on user code from
+`Dispose`. Pinned by fifteen tests in
 `tests/NextUnit.Generator.Tests/SharedInstanceStoreTests.cs`, written first against 1.x behavior,
 where the same type through both attributes produced two instances and a keyed pair produced three,
 and five more in `SessionLifecycleRunnerTests` for the ordering and the failure reporting.
