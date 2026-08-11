@@ -180,9 +180,10 @@ public sealed class SharedInstanceStoreTests
     [Fact]
     public async Task DisposeAllAsync_StillOwnsAnInstanceCreatedWhileItWasRunningAsync()
     {
-        // The constructor empties the store from inside its own creation, which is what a cleanup
-        // racing a slow data source constructor does to it: the keyed entry is gone before the
-        // instance exists. The instance must still end up owned, not orphaned.
+        // The constructor empties the store from inside its own creation, which is the worst case a
+        // cleanup interleaving with a data source constructor can produce. Neither host does this,
+        // but the store's own state has to survive it: the instance must end up owned rather than
+        // orphaned, and must not be disposed before the caller that asked for it sees it.
         ExpandClassDataSource(typeof(SelfDisposingStoreSource<RacingScope>), SharedType.PerSession, typeof(FirstTestClass));
 
         Assert.Equal(new[] { "created" }, Entries<RacingScope>());

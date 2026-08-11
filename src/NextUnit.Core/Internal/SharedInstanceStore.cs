@@ -110,12 +110,13 @@ internal static class SharedInstanceStore
     /// failed to release its resources.
     /// </para>
     /// <para>
-    /// A constructor that is still running is neither awaited nor abandoned. Awaiting it would let a
-    /// data source that never returns hang the run at teardown, and disposing its instance out from
-    /// under the caller that is about to enumerate it would be worse than either. It is retired
-    /// instead: the barrier below means such an instance can only register after this pass took what
-    /// it is disposing, so it belongs to the next cleanup. The platform path always has one, because
-    /// <c>NextUnitFramework.Dispose</c> runs after session teardown.
+    /// Both hosts call this only once every expansion has finished: Microsoft.Testing.Platform closes
+    /// the session after the requests that expand are done, and the VSTest adapter expands
+    /// synchronously and disposes after the loop. Nothing here arbitrates a concurrent expansion, and
+    /// an expansion that starts after a cleanup is a bug at the call site rather than a case to guard
+    /// against. What the barrier below does buy is that the store's own state stays consistent: an
+    /// instance whose constructor was still running cannot end up disposed and handed to its caller,
+    /// nor registered where no cleanup will ever see it.
     /// </para>
     /// </remarks>
     /// <exception cref="AggregateException">More than one instance failed to dispose.</exception>

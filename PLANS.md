@@ -668,7 +668,8 @@ entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt`.
 
 The cache unification is delivered as `SharedInstanceStore`, one process-wide store both expanders
 call, keyed by sharing scope, data source type, and whatever else that scope shares by: the test
-class for `PerClass`, the key for `Keyed`, nothing more for `PerAssembly` and `PerSession`. The scope
+class for `PerClass`, the key for `Keyed`, the test assembly for `PerAssembly`, nothing more for
+`PerSession`. The scope
 is part of the key, so `PerAssembly` and `PerSession` still hold separate instances even though a
 single-assembly run cannot tell the two lifetimes apart; collapsing them would change which tests
 share an instance rather than only which attribute they arrived through, which is more than this item
@@ -687,11 +688,14 @@ the session result, with `NextUnitFramework.Dispose` as the backstop for a reque
 or fails and therefore never reaches session close. VSTest has no session boundary, so each adapter
 operation owns what it created: the executor disposes at the end of a run and the discoverer at the
 end of discovery, which costs a second instantiation when both happen in one process and is what
-already happens whenever VSTest discovers and runs in separate processes. Registering an instance and
-retiring the store are serialized on one lock, so a constructor that was running when a cleanup began
-can only register after that cleanup took what it disposes: its caller is never handed a released
-instance, and the instance belongs to the next cleanup, which `NextUnitFramework.Dispose` provides
-even when it is called twice. Pinned by fifteen tests in
+already happens whenever VSTest discovers and runs in separate processes. Neither host expands
+concurrently with a cleanup - the platform closes a session after the requests that expand have
+finished, and the adapter expands synchronously before its own cleanup - so the store arbitrates no
+such race and an expansion that starts after a cleanup is a bug at its call site. Registration and
+retirement are still serialized on one lock, which is what keeps the store's own state consistent:
+an instance whose constructor was still running cannot be disposed and then handed to its caller, and
+cannot register where no cleanup will see it either. `NextUnitFramework.Dispose` runs the cleanup
+outside its idempotence guard so that second property has somewhere to land. Pinned by fifteen tests in
 `tests/NextUnit.Generator.Tests/SharedInstanceStoreTests.cs`, written first against 1.x behavior,
 where the same type through both attributes produced two instances and a keyed pair produced three,
 and five more in `SessionLifecycleRunnerTests` for the ordering and the failure reporting.
