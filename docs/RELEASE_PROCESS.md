@@ -94,6 +94,50 @@ Handle each pair on its own:
   introduced the analyzer pair and PR #182 the generator pair, and so the first time the promotion
   was needed. Only the analyzer pair had rules to promote in that cycle.
 
+### Public API Release Files
+
+Six projects track their public surface for the Roslyn public API analyzers, and each owns a
+`PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` pair:
+
+- `src/NextUnit.Core/`
+- `src/NextUnit.Platform/`
+- `src/NextUnit.TestAdapter/`
+- `src/NextUnit.AspNetCore/`
+- `src/NextUnit.Analyzers/`
+- `src/NextUnit.Generator/`
+
+Promote these pairs in the release PR, alongside the version bump. Unlike the PackageSmoke fallback
+bump under Post-Release, the step needs nothing published first: it records what this release is
+about to ship, so doing it here keeps the shipped baseline and the released package in step.
+
+Handle each pair on its own:
+
+- Move every entry from that project's `PublicAPI.Unshipped.txt` into its `PublicAPI.Shipped.txt`,
+  then leave the unshipped file at its empty state, the single line `#nullable enable`. As with the
+  analyzer ledgers, test for entries below that header rather than for an empty file.
+- Merge each entry into its sorted position rather than appending at the end. All six shipped files
+  are ordered by `StringComparer.InvariantCulture`, which is not ordinal order: the comparer sorts
+  `,` ahead of `)`, so `NextUnit.RetryAttribute.RetryAttribute(int count, int delayMs) -> void`
+  precedes its `(int count)` overload. `NextUnit.Core` and `NextUnit.TestAdapter` both depend on that
+  distinction today. Sort on .NET, which collates through ICU; Windows PowerShell 5.1 collates
+  through NLS and orders those overloads the other way. Existing lines never move, so the diff is a
+  pure insertion.
+- An unshipped line carrying the `*REMOVED*` prefix names an API that was deleted. Delete the
+  matching line from `PublicAPI.Shipped.txt` and drop the `*REMOVED*` line with it, rather than
+  appending either one.
+- Skip a pair whose unshipped file holds only the header, which is the case for a release that
+  changes no public API in that project. Skip the step entirely when all six are in that state.
+
+`RS0016` is satisfied by an entry in either file, so the build stays green whether or not the
+promotion happens, and nothing else flags the omission. What the promotion buys is the distinction
+the two files exist to draw: `PublicAPI.Shipped.txt` is the record of what has been published, so an
+API left unshipped loses the release that first carried it, and a later deletion reads in review as
+withdrawing an API that never shipped.
+
+Added to this checklist after PR #217, which caught up 75 entries that had accumulated across 1.17.0
+through 1.19.1; the promotion had last run for 1.16.0. Only `NextUnit.Core` and `NextUnit.Analyzers`
+had anything to promote in that catch-up, and neither listed a `*REMOVED*` entry.
+
 ### Documentation Files
 
 1. **README.md**
@@ -191,7 +235,8 @@ git checkout -b release/vX.Y.Z main
 Follow the Version Update Checklist above and update all twelve version-reference files
 (two core version files, one template content file, four documentation files,
 five user documentation files), plus each analyzer release ledger pair whose
-`AnalyzerReleases.Unshipped.md` lists any rules.
+`AnalyzerReleases.Unshipped.md` lists any rules and each public API pair whose
+`PublicAPI.Unshipped.txt` lists any entries.
 
 **Automation Tip for Copilot Agents:**
 You can use the `edit` tool to make multiple updates in parallel for efficiency.
@@ -454,7 +499,8 @@ When asked to prepare a NuGet release:
 
 1. **Understand the version increment**: Ask the user or infer from the changes (patch/minor/major)
 2. **Use the checklist**: Update all twelve version-reference files/locations listed above, and
-   promote each analyzer release ledger pair whose unshipped file lists any rules
+   promote each analyzer release ledger pair and each public API pair whose unshipped file lists any
+   entries
 3. **Maintain consistency**: Ensure all version references are identical
 4. **Update dates**: Use current date for CHANGELOG.md and other dated fields
 5. **Preserve formatting**: Match existing formatting in all files
