@@ -12,7 +12,8 @@ markdownlint --config .markdownlint.json <file>.md
 ## Release (src/*.cs changes only)
 
 Ask user before release. Update the twelve release-time version files in a separate commit,
-plus each analyzer release ledger pair whose `AnalyzerReleases.Unshipped.md` lists any rules;
+plus each analyzer release ledger pair whose `AnalyzerReleases.Unshipped.md` lists any rules
+and each public API pair whose `PublicAPI.Unshipped.txt` lists any entries;
 the Version Update Checklist in `docs/RELEASE_PROCESS.md` is the single source of truth.
 
 After PR merge, create GitHub Release → auto-publishes to NuGet
