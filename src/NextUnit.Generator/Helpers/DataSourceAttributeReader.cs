@@ -329,9 +329,11 @@ internal static class DataSourceAttributeReader
                 continue;
             }
 
+            // Arity is part of the test for the same reason it is in DataSourceMemberResolver: the
+            // emitted call names no type argument, so a generic overload cannot be emitted.
             var kind = member switch
             {
-                IMethodSymbol { Parameters.Length: 0 } => DataSourceMemberKind.Method,
+                IMethodSymbol { Parameters.Length: 0, Arity: 0 } => DataSourceMemberKind.Method,
                 IPropertySymbol => DataSourceMemberKind.Property,
                 IFieldSymbol => DataSourceMemberKind.Field,
                 _ => DataSourceMemberKind.Unknown

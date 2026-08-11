@@ -154,8 +154,10 @@ non-generic `IEnumerable` at run time, so prefer a source type that offers one r
 A `[TestData]` or `[ValuesFromMember]` member must be reachable from the generated test registry,
 which is compiled into your test assembly. `public` and `internal` members qualify, as do members of
 `internal` types. A `private`, `protected`, or `private protected` member does not, nor does a
-member of a type nested in a private or protected scope; those are reported at build time as
-`NU0020`. Making the member `internal` is enough -- it does not have to be `public`.
+property whose getter is not accessible or which has no getter, nor a member of a type nested in a
+private or protected scope; those are reported at build time as `NU0020`. `internal` is enough for a
+member of the test assembly itself, or of an assembly that grants it `InternalsVisibleTo`; a member
+of any other referenced assembly has to be `public`.
 
 ### Async Data Rows
 

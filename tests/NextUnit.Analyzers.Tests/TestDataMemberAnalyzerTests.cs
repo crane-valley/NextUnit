@@ -430,6 +430,34 @@ public class TestDataMemberAnalyzerTests
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
     }
 
+    /// <summary>
+    /// The emitted call names no type argument, so a generic overload is not a candidate however it
+    /// is declared. C# binds the non-generic overload for the same call, and so does the resolver.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithPrivateGenericOverload_BindsNonGenericOverloadAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                private static IEnumerable<object[]> Rows<T>() => new[] { new object[] { 1 } };
+
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+
+                [Test]
+                [TestData("Rows")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
     [Fact]
     public async Task NoTestDataAttribute_NoDiagnosticAsync()
     {

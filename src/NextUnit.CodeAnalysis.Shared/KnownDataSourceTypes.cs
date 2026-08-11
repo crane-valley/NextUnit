@@ -315,8 +315,9 @@ internal readonly struct KnownDataSourceTypes
     /// <c>extern alias</c> can contribute the same one. The key is structural rather than the outer
     /// type's assembly alone, because the difference can sit in an array element or a type argument
     /// -- <c>List&lt;A::Row&gt;</c> and <c>List&lt;B::Row&gt;</c> are both declared by the assembly
-    /// that declares <c>List</c>. A containing type needs no entry of its own: it is declared by the
-    /// same assembly as the type it contains.
+    /// that declares <c>List</c>. The containing type chain is walked for its type arguments and not
+    /// for its assembly, which is always the assembly of the type it contains:
+    /// <c>Outer&lt;A::Row&gt;.Inner</c> carries its distinguishing argument one level up.
     /// </remarks>
     private static string AssemblyKey(ITypeSymbol type)
     {
@@ -337,9 +338,12 @@ internal readonly struct KnownDataSourceTypes
         {
             builder.Append(namedType.ContainingAssembly?.Identity.GetDisplayName());
 
-            foreach (var typeArgument in namedType.TypeArguments)
+            for (INamedTypeSymbol? current = namedType; current is not null; current = current.ContainingType)
             {
-                AppendAssemblyKey(typeArgument, builder);
+                foreach (var typeArgument in current.TypeArguments)
+                {
+                    AppendAssemblyKey(typeArgument, builder);
+                }
             }
         }
 

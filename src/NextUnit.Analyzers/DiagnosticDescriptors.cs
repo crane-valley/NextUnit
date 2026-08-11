@@ -233,7 +233,7 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor DataSourceMemberNotAccessible = new(
         id: "NU0020",
         title: "Data source member is not accessible to generated code",
-        messageFormat: "Data source member '{0}' on type '{1}' is not accessible from the generated test registry; make the member, a property's getter, and every containing type public or internal",
+        messageFormat: "Data source member '{0}' on type '{1}' is not accessible from the generated test registry; make the member, a property's getter, and every containing type public, or internal in the test assembly or one that grants it InternalsVisibleTo",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,

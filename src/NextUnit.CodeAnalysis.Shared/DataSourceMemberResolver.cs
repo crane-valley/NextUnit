@@ -80,9 +80,12 @@ internal static class DataSourceMemberResolver
                 continue;
             }
 
+            // Arity is part of the test: the generator emits an unadorned Rows() call, so a generic
+            // Rows<T>() could not be emitted even though it takes no value parameters. Skipping it
+            // also matches C# member lookup, which binds the non-generic overload for that call.
             ITypeSymbol? memberType = member switch
             {
-                IMethodSymbol { Parameters.Length: 0 } method => method.ReturnType,
+                IMethodSymbol { Parameters.Length: 0, Arity: 0 } method => method.ReturnType,
                 IPropertySymbol property => property.Type,
                 IFieldSymbol field => field.Type,
                 _ => null
@@ -111,7 +114,7 @@ internal static class DataSourceMemberResolver
         // be no token to pass and the call could not be emitted.
         foreach (var member in members)
         {
-            if (member is not IMethodSymbol { IsStatic: true, Parameters.Length: 1 } method ||
+            if (member is not IMethodSymbol { IsStatic: true, Parameters.Length: 1, Arity: 0 } method ||
                 !IsCancellationToken(method.Parameters[0]))
             {
                 continue;
