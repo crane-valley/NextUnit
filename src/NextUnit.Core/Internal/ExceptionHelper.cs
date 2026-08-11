@@ -41,17 +41,19 @@ internal static class ExceptionHelper
     /// <para>
     /// Both wrapping shapes are walked, because either can hide the same failure: an
     /// <see cref="AggregateException"/> holds many inner exceptions, and an ordinary exception holds
-    /// one. The depth limit is a guard against a hand-built cycle, not an expected shape; real
-    /// exception chains are a few links long.
+    /// one. The walk is bounded by the exceptions it has already seen rather than by a depth limit:
+    /// a limit would have to answer for a chain longer than itself, and the only safe answer there is
+    /// the one that stops the run, which makes the limit worse than useless. Reference identity ends
+    /// a hand-built cycle without capping anything.
+    /// </para>
+    /// <para>
+    /// An exception that wraps nothing is answered before anything is allocated, which is what nearly
+    /// every call is.
     /// </para>
     /// </remarks>
-    public static bool IsCriticalFailure(Exception? exception) => IsCriticalFailure(exception, depth: 0);
-
-    private static bool IsCriticalFailure(Exception? exception, int depth)
+    public static bool IsCriticalFailure(Exception? exception)
     {
-        const int MaxDepth = 16;
-
-        if (exception is null || depth > MaxDepth)
+        if (exception is null)
         {
             return false;
         }
@@ -61,19 +63,42 @@ internal static class ExceptionHelper
             return true;
         }
 
-        if (exception is AggregateException aggregate)
+        if (exception is not AggregateException && exception.InnerException is null)
         {
-            foreach (var inner in aggregate.InnerExceptions)
-            {
-                if (IsCriticalFailure(inner, depth + 1))
-                {
-                    return true;
-                }
-            }
-
             return false;
         }
 
-        return IsCriticalFailure(exception.InnerException, depth + 1);
+        var pending = new Stack<Exception>();
+        var seen = new HashSet<Exception>(ReferenceEqualityComparer.Instance);
+        pending.Push(exception);
+
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+
+            if (!seen.Add(current))
+            {
+                continue;
+            }
+
+            if (IsCriticalException(current))
+            {
+                return true;
+            }
+
+            if (current is AggregateException aggregate)
+            {
+                foreach (var inner in aggregate.InnerExceptions)
+                {
+                    pending.Push(inner);
+                }
+            }
+            else if (current.InnerException is { } inner)
+            {
+                pending.Push(inner);
+            }
+        }
+
+        return false;
     }
 }

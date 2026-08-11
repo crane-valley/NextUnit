@@ -194,19 +194,35 @@ public sealed class SharedInstanceStoreTests
         Assert.False(ExceptionHelper.IsCriticalFailure(new InvalidOperationException("ordinary")));
         Assert.False(ExceptionHelper.IsCriticalFailure(
             new AggregateException(new InvalidOperationException("first"), new InvalidOperationException("second"))));
+
+        // No depth at which the answer flips back to "ordinary": a bound would have to guess, and
+        // guessing wrong here is what swallows the failure.
+        Exception deeplyWrapped = new OutOfMemoryException();
+        for (var depth = 0; depth < 64; depth++)
+        {
+            deeplyWrapped = new InvalidOperationException($"layer {depth}", deeplyWrapped);
+        }
+
+        Assert.True(ExceptionHelper.IsCriticalFailure(deeplyWrapped));
     }
 
     [Fact]
     public async Task DisposeAllAsync_LetsACriticalFailureInsideAnAggregateEscapeAsync()
     {
+        // Reverse creation order disposes the critical one first, so whether the ordinary one is
+        // disposed after it is what separates escaping from being collected as a failure: filed as an
+        // ordinary disposal failure, this would be reported as one badly behaved data source while
+        // the process is actually out of memory, and the loop would carry on.
+        ExpandClassDataSource(typeof(RecordingSource<UntouchedScope>), SharedType.PerSession, typeof(FirstTestClass));
         ExpandClassDataSource(typeof(CriticallyFailingSource<CriticalScope>), SharedType.PerSession, typeof(FirstTestClass));
 
         var exception = await Assert.ThrowsAsync<AggregateException>(
             () => SharedInstanceStore.DisposeAllAsync().AsTask());
 
-        // Filed as an ordinary disposal failure, this would be reported as one badly behaved data
-        // source while the process is actually out of memory.
+        // The disposer's own aggregate, not the store's "one or more instances failed" wrapper.
+        Assert.True(exception.Message.StartsWith("cleanup failed", StringComparison.Ordinal));
         Assert.True(exception.InnerExceptions.Any(inner => inner is OutOfMemoryException));
+        Assert.Equal(new[] { "created" }, Entries<UntouchedScope>());
     }
 
     [Fact]
@@ -350,6 +366,8 @@ public sealed class SharedInstanceStoreTests
     private sealed class SessionScope;
 
     private sealed class CriticalScope;
+
+    private sealed class UntouchedScope;
 
     private sealed class FirstTestClass
     {

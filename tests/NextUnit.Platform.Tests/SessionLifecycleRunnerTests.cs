@@ -333,6 +333,21 @@ public sealed class SessionLifecycleRunnerTests
     }
 
     [Test]
+    public async Task RunTeardownAsync_LetsACriticalDisposalFailureEscapeAsync()
+    {
+        var runner = new SessionLifecycleRunner(
+            () => throw new AggregateException("cleanup failed", new OutOfMemoryException()));
+
+        // The store reports several disposal failures as one aggregate, so classifying only the outer
+        // exception would turn running out of memory into a teardown message the session reports and
+        // moves past.
+        var exception = await Assert.ThrowsAsync<AggregateException>(
+            () => runner.RunTeardownAsync(CancellationToken.None));
+
+        Assert.True(exception.InnerExceptions.Any(inner => inner is OutOfMemoryException));
+    }
+
+    [Test]
     public async Task RunTeardownAsync_ReportsDisposalOwnCancellationAsAFailureAsync()
     {
         var runner = new SessionLifecycleRunner(
