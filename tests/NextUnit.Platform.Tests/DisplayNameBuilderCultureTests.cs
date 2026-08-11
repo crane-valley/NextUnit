@@ -72,6 +72,14 @@ public sealed class DisplayNameBuilderCultureTests
         Assert.Equal("ratio is 1234.5", name);
     }
 
+    [Test]
+    public void Build_FormattableReturningNull_FallsBackToNullLiteral()
+    {
+        var name = Build(new NullReturningFormattable());
+
+        Assert.Equal("Run(null)", name);
+    }
+
     private static string Build(object? argument) =>
         DisplayNameBuilder.Build(
             "Run",
@@ -80,6 +88,15 @@ public sealed class DisplayNameBuilderCultureTests
             testClass: typeof(DisplayNameBuilderCultureTests),
             arguments: [argument],
             argumentSetIndex: 0);
+
+    /// <summary>
+    /// Models a user type that violates the non-null annotation on
+    /// <see cref="IFormattable.ToString(string?, IFormatProvider?)"/>.
+    /// </summary>
+    private sealed class NullReturningFormattable : IFormattable
+    {
+        public string ToString(string? format, IFormatProvider? formatProvider) => null!;
+    }
 
     /// <summary>
     /// Pins the ambient culture for the duration of a test and puts back what was there.

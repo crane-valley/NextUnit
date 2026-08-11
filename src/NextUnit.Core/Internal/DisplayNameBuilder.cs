@@ -133,7 +133,9 @@ internal static class DisplayNameBuilder
             // Data-source rows are formatted on whichever machine runs them, so anything culture
             // sensitive - a double, a decimal, a DateTime - would otherwise report a different name
             // per runner. The invariant culture keeps the reported name a property of the test.
-            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            // The interface annotates ToString as non-null, but user implementations can
+            // still return null; fall back to "null" like the general-object arm below.
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture) ?? "null",
             _ => arg.ToString() ?? "null"
         };
     }
