@@ -76,6 +76,56 @@ public sealed class InheritedDataSourceMemberTests
         Assert.Equal(new object?[] { 0, 1, 1 }, testCase.Arguments);
     }
 
+    /// <summary>
+    /// Flattening the hierarchy makes a base <c>Rows()</c> and a derived <c>Rows(CancellationToken)</c>
+    /// both candidates for the name, which a name-only lookup reports as an ambiguous match. The
+    /// parameterless overload is the one the compile-time resolver binds and the only one this path
+    /// can invoke.
+    /// </summary>
+    [Fact]
+    public void ExpandSingle_DerivedTokenOverload_ResolvesInheritedParameterlessMethod()
+    {
+        var descriptor = CreateDescriptor(nameof(TokenBase.OverloadedRows), typeof(TokenDerived));
+
+        var testCase = Assert.Single(
+            TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken));
+
+        Assert.Equal(new object?[] { 3, 4, 7 }, testCase.Arguments);
+    }
+
+    /// <summary>
+    /// The parameter-level fallback reaches the base chain too. It is a separate lookup from the
+    /// <c>[TestData]</c> one, so it needs its own coverage.
+    /// </summary>
+    [Fact]
+    public void ExpandSingle_InheritedParameterMember_ResolvesThroughBaseChain()
+    {
+        var descriptor = new CombinedDataSourceDescriptor
+        {
+            BaseId = "Tests.Single",
+            TestClass = typeof(Target),
+            MethodName = nameof(Target.Single),
+            ParameterTypes = [typeof(int)],
+            ParameterSources =
+            [
+                new ParameterDataSource
+                {
+                    ParameterIndex = 0,
+                    ParameterName = "value",
+                    Kind = ParameterDataSourceKind.Member,
+                    MemberName = nameof(RowsBase.ParameterValues),
+                    MemberType = typeof(RowsDerived)
+                }
+            ]
+        };
+
+        var testCases = CombinedDataSourceExpander.ExpandSingle(descriptor).ToList();
+
+        Assert.Equal(
+            new object?[] { 11, 12 },
+            testCases.Select(static testCase => testCase.Arguments![0]).ToArray());
+    }
+
     private static IEnumerable<TestCaseDescriptor> Expand(string dataSourceName) =>
         TestDataExpander.ExpandSingle(
             CreateDescriptor(dataSourceName, typeof(RowsDerived)),
@@ -104,6 +154,8 @@ public sealed class InheritedDataSourceMemberTests
 
         public static IEnumerable<object[]> ShadowedRows => [[0, 1, 1]];
 
+        public static IEnumerable<int> ParameterValues => [11, 12];
+
         public static IEnumerable<object[]> MethodRows() => [[4, 5, 9]];
     }
 
@@ -112,9 +164,23 @@ public sealed class InheritedDataSourceMemberTests
         public static new IEnumerable<object[]> ShadowedRows => [[8, 9, 17]];
     }
 
+    private class TokenBase
+    {
+        public static IEnumerable<object[]> OverloadedRows() => [[3, 4, 7]];
+    }
+
+    private sealed class TokenDerived : TokenBase
+    {
+        public static IEnumerable<object[]> OverloadedRows(CancellationToken cancellationToken) => [[9, 9, 18]];
+    }
+
     private sealed class Target
     {
         public void Add(int a, int b, int expected)
+        {
+        }
+
+        public void Single(int value)
         {
         }
     }

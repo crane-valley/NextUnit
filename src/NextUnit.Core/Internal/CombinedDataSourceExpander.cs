@@ -17,6 +17,20 @@ namespace NextUnit.Internal;
 internal static class CombinedDataSourceExpander
 {
     /// <summary>
+    /// The lookup used for a <c>[ValuesFromMember]</c> member the generator emitted no provider for.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="BindingFlags.FlattenHierarchy"/> is what reaches a member declared on a base test
+    /// class: without it the lookup stops at the named type, so a source C# resolves as
+    /// <c>Derived.Values</c> was reported as missing. It picks the most-derived declaration when a
+    /// derived type shadows the base member with <c>new</c>, matching the compile-time resolver, and
+    /// it does not return a base type's <c>private</c> members -- which the resolver skips too,
+    /// because C# member lookup never sees them from a derived type.
+    /// </remarks>
+    private const BindingFlags StaticMemberLookup =
+        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+
+    /// <summary>
     /// Expands a collection of combined data source descriptors into test case descriptors.
     /// </summary>
     /// <param name="descriptors">The combined data source descriptors to expand.</param>
@@ -103,9 +117,7 @@ internal static class CombinedDataSourceExpander
             ?? throw new InvalidOperationException("MemberName is required for ValuesFromMember");
 
         // Try to find property first
-        var property = memberType.GetProperty(
-            memberName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        var property = memberType.GetProperty(memberName, StaticMemberLookup);
 
         if (property is not null)
         {
@@ -114,9 +126,7 @@ internal static class CombinedDataSourceExpander
         }
 
         // Try to find field
-        var field = memberType.GetField(
-            memberName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        var field = memberType.GetField(memberName, StaticMemberLookup);
 
         if (field is not null)
         {
@@ -127,7 +137,7 @@ internal static class CombinedDataSourceExpander
         // Try to find method
         var method = memberType.GetMethod(
             memberName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+            StaticMemberLookup,
             binder: null,
             types: Type.EmptyTypes,
             modifiers: null);

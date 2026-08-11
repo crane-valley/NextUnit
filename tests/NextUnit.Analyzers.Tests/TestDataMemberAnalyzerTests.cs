@@ -1248,6 +1248,41 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// C# member lookup never sees a base type's private member from a derived type, so it neither
+    /// binds nor hides. Letting it win would report NU0020 for a name that resolves further up the
+    /// chain and compiles.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithPrivateMemberOnIntermediateBase_BindsAccessibleAncestorAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                private static IEnumerable<string> TestCases => new[] { "hidden" };
+            }
+
+            public class Tests : Middle
+            {
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
     /// The walk stops short of <c>object</c>, whose static members are never bindable, so a name
     /// that happens to match one of them is still reported as missing rather than silently
     /// supplying nothing.

@@ -551,8 +551,17 @@ internal static class TestDataExpander
     {
         try
         {
-            // Try to find a static method first
-            var method = sourceType.GetMethod(memberName, StaticMemberLookup);
+            // Try to find a static method first. Selected by signature rather than by name alone:
+            // with the hierarchy flattened, a base Rows() and a derived Rows(CancellationToken) are
+            // both candidates for the name, which throws AmbiguousMatchException. Naming the empty
+            // signature picks the parameterless overload, which is the one the compile-time resolver
+            // binds and the only one this can invoke.
+            var method = sourceType.GetMethod(
+                memberName,
+                StaticMemberLookup,
+                binder: null,
+                types: Type.EmptyTypes,
+                modifiers: null);
 
             if (method is not null)
             {

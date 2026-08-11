@@ -431,6 +431,89 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
+    /// A derived method hides a base member of the same name that is not one, so the base property
+    /// must not be bound: the emitted <c>DataTests.Rows</c> would be a method group where a property
+    /// read was written, and the consumer's build would fail on generated code. The compile check is
+    /// the assertion that matters here.
+    /// </summary>
+    [Fact]
+    public async Task DerivedMethodHidingInheritedProperty_EmitsNoProviderAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                public static new IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("DataSourceProvider = null,", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A base parameterless overload stays a candidate beside a derived token-taking one, because
+    /// methods accumulate across the chain instead of hiding each other by name. This is the
+    /// overload C# binds for a call that supplies no arguments.
+    /// </summary>
+    [Fact]
+    public async Task InheritedParameterlessOverload_BeatsDerivedTokenOverloadAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                public static async IAsyncEnumerable<object[]> Rows(CancellationToken token)
+                {
+                    await System.Threading.Tasks.Task.Yield();
+                    yield return new object[] { 2 };
+                }
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("DataSourceProvider = static () => (object?)global::TestProject.DataTests.Rows()", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
     /// Compiles the user's source together with everything the generator emitted for it. Asserting
     /// on the registry text alone would not catch a type reference emitted somewhere the assertions
     /// do not look, and CS0122 inside generated code is exactly the failure being prevented.

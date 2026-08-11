@@ -205,38 +205,90 @@ internal static class DataSourceMemberResolver
     /// nothing.
     /// </para>
     /// <para>
-    /// Members that are out of reach are collected too, private base members included, and left for
-    /// <see cref="GeneratedRegistryAccess.CanReachMember"/> to refuse. Dropping them here would
-    /// report a member the user can point at as missing instead of as unreachable.
+    /// C# hiding is applied as the chain is walked, because the generator emits <c>Derived.Rows</c>
+    /// and that name has to mean here what it means to the compiler. A member that is not a method
+    /// hides everything of that name below it, and a method hides a base member that is not one, so
+    /// a base property is dropped once any derived type declares a method of the same name --
+    /// binding it would emit a property read for a name the compiler reads as a method group, which
+    /// does not compile. Methods accumulate across levels instead, which is what lets a base
+    /// <c>Rows()</c> stay a candidate beside a derived <c>Rows(CancellationToken)</c>.
+    /// </para>
+    /// <para>
+    /// A base type's <c>private</c> members are skipped, because C# member lookup never sees them
+    /// from a derived type: they neither bind nor hide, so letting one win would report
+    /// <c>NU0020</c> for a name that in fact resolves further up the chain. A <c>private</c> member
+    /// on <paramref name="typeSymbol"/> itself is still collected and refused by
+    /// <see cref="GeneratedRegistryAccess.CanReachMember"/> -- it is the member the user named, so
+    /// naming it in a diagnostic beats silently binding a different one.
     /// </para>
     /// </remarks>
     public static ImmutableArray<ISymbol> GetCandidateMembers(INamedTypeSymbol typeSymbol, string memberName)
     {
         var members = typeSymbol.GetMembers(memberName);
 
+        // A declaration that is not a method ends the walk: it hides every same-named member below
+        // it, so nothing further up the chain can be a candidate.
+        if (DeclaresNonMethod(members))
+        {
+            return members;
+        }
+
         // The chain usually contributes nothing, so the declared members are returned as they are
         // and the builder is only paid for when a base type actually carries the name.
         ImmutableArray<ISymbol>.Builder? builder = null;
+        var sawMethod = !members.IsEmpty;
+
         for (var baseType = typeSymbol.BaseType;
             baseType is not null && baseType.SpecialType != SpecialType.System_Object;
             baseType = baseType.BaseType)
         {
-            var inherited = baseType.GetMembers(memberName);
+            var inherited = baseType.GetMembers(memberName)
+                .RemoveAll(static member => member.DeclaredAccessibility == Accessibility.Private);
+
             if (inherited.IsEmpty)
             {
                 continue;
             }
 
-            if (builder is null)
+            // Hidden by the methods already collected, and hiding whatever lies below it, so the
+            // walk ends here with nothing added.
+            if (sawMethod && DeclaresNonMethod(inherited))
             {
-                builder = ImmutableArray.CreateBuilder<ISymbol>();
-                builder.AddRange(members);
+                break;
             }
 
+            builder ??= CreateBuilderFrom(members);
             builder.AddRange(inherited);
+
+            if (DeclaresNonMethod(inherited))
+            {
+                break;
+            }
+
+            sawMethod = true;
         }
 
         return builder?.ToImmutable() ?? members;
+    }
+
+    private static bool DeclaresNonMethod(ImmutableArray<ISymbol> members)
+    {
+        foreach (var member in members)
+        {
+            if (member is not IMethodSymbol)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static ImmutableArray<ISymbol>.Builder CreateBuilderFrom(ImmutableArray<ISymbol> members)
+    {
+        var builder = ImmutableArray.CreateBuilder<ISymbol>();
+        builder.AddRange(members);
+        return builder;
     }
 
     /// <summary>

@@ -11,15 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Resolve a `[TestData]` or `[ValuesFromMember]` member declared on a base test class. Member lookup
   used `GetMembers`, which stops at the declaring type, so a source C# resolves as `Derived.Rows`
-  was reported as `NU0003` and the runtime reflection fallback missed it the same way. Lookup now
-  walks the base type chain, most-derived first, so a derived declaration shadows a base one of the
-  same name. The parameterless-first precedence runs over the whole flattened chain rather than per
-  type, so a base `Rows()` still beats a derived `Rows(CancellationToken)`, which is the overload a
-  call supplying no arguments binds to in C#. Interfaces are not walked: a static interface member
-  cannot be named through an implementing type. An inherited member that the generated registry
-  cannot reach is reported as `NU0020` instead of `NU0003`, naming the fix -- widen the member --
-  rather than describing it as missing; both were already errors, so no build that compiled before
-  starts failing.
+  was reported as `NU0003`, and both runtime reflection fallbacks missed it the same way because
+  `Type.GetMethod` does not return inherited statics without `FlattenHierarchy`. Lookup now walks
+  the base type chain, most-derived first, applying the same hiding rules C# does: a member that is
+  not a method hides everything of that name below it, and a method hides a base member that is not
+  one, so a base property is never bound for a name a derived method has turned into a method group.
+  Methods accumulate across levels instead, and the parameterless-first precedence runs over the
+  whole flattened chain, so a base `Rows()` still beats a derived `Rows(CancellationToken)` -- the
+  overload a call supplying no arguments binds to in C#. A base type's `private` members are skipped,
+  since C# member lookup never sees them from a derived type, and interfaces are not walked, since a
+  static interface member cannot be named through an implementing type. An inherited member the
+  generated registry cannot reach is reported as `NU0020` instead of `NU0003`, naming the fix --
+  widen the member -- rather than describing it as missing; both were already errors, so no build
+  that compiled before starts failing.
 - Observe the failure of an asynchronous data source that discovery walked away from. A
   `MoveNextAsync` or `DisposeAsync` that loses its race against the cancellation token is abandoned
   on purpose, since awaiting either would reintroduce the hang the race exists to prevent, but

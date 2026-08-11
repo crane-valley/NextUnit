@@ -579,16 +579,29 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   the generator and the analyzer now share. Done 2026-08-12: `DataSourceMemberResolver` collects
   candidates across the chain most-derived first, and the analyzer's own existence test and the
   parameter-level reader take the same list, so a member one of them now binds can never be reported
-  as missing by another. Both resolver passes run over the whole flattened chain rather than per
-  type, so a base `Rows()` still beats a derived `Rows(CancellationToken)` -- the overload C# binds
-  for a call supplying no arguments. Interfaces are not walked: a static interface member cannot be
-  named through an implementing type, so binding one would emit code that does not compile.
-  Unreachable members, private base declarations included, are collected and refused by
-  `GeneratedRegistryAccess` rather than skipped, so an inherited `protected` source reports `NU0020`
-  and names the fix instead of `NU0003` describing it as missing. The runtime reflection fallback
-  uses `BindingFlags.FlattenHierarchy`, which resolves the same members and picks the same
-  most-derived declaration; it does not reach a base type's `private` members, which costs nothing
-  because `NU0020` fails the build before that path can run.
+  as missing by another. The walk applies C# hiding as it goes, because the generator emits
+  `Derived.Rows` and that name has to mean here what it means to the compiler: a member that is not
+  a method hides everything of that name below it, and a method hides a base member that is not one,
+  so a base property is dropped once a derived type declares a method of the same name -- binding it
+  would emit a property read where the compiler reads a method group, which does not compile.
+  Methods accumulate across levels instead, and both resolver passes run over the whole flattened
+  chain rather than per type, so a base `Rows()` still beats a derived `Rows(CancellationToken)` --
+  the overload C# binds for a call supplying no arguments. Interfaces are not walked: a static
+  interface member cannot be named through an implementing type. A base type's `private` members are
+  skipped, since C# member lookup never sees them from a derived type and they therefore neither
+  bind nor hide; letting one win would report `NU0020` for a name that resolves further up the chain
+  and compiles. A `private` member on the named type itself is still collected and refused, which is
+  the existing rule and the reason an inherited `protected` source reports `NU0020` naming the fix
+  rather than `NU0003` describing it as missing. Both runtime reflection fallbacks --
+  `TestDataExpander` for `[TestData]` and `CombinedDataSourceExpander` for `[ValuesFromMember]` --
+  use `BindingFlags.FlattenHierarchy`, which resolves the same members, picks the same most-derived
+  declaration, and excludes base `private` members on its own. Both select a method by the empty
+  signature rather than by name alone, because a flattened `Rows()` and `Rows(CancellationToken)`
+  are otherwise an ambiguous match. Left as an accepted divergence: with the hierarchy flattened,
+  the fallbacks search by member kind rather than per level, so a derived property that hides a base
+  method of the same name is not preferred the way the resolver prefers it. That path only runs when
+  the generator emitted no provider, which for a resolvable member means the build already failed on
+  a diagnostic.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths
