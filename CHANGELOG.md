@@ -17,12 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `NU0019` rejects a `[ParallelLimit]` value that `ParallelOptions.MaxDegreeOfParallelism` cannot
-  accept: anything other than a positive degree of parallelism or `-1` for unlimited. The setter's
-  throw aborts the whole run rather than failing the test that declared the value, and resolving the
+- `NU0019` rejects a non-positive `[ParallelLimit]` value. The value becomes
+  `ParallelOptions.MaxDegreeOfParallelism`, whose setter throws for `0` and for anything below `-1`,
+  and that throw aborts the whole run rather than failing the test that declared it; resolving the
   attribute from the assembly turned a previously inert `[assembly: ParallelLimit(0)]` into exactly
-  that. The rule covers the method, class, and assembly forms alike, and the generator drops a value
-  it reports so that a suppressed error bounds the run by the enclosing declaration instead.
+  that. `-1` is rejected as well: the setter accepts it, but `Parallel.ForEachAsync` maps it to the
+  processor count, which is what an absent attribute already means, while it still wins the `Min`
+  the scheduler takes across a parallel group and so raises the group's ceiling above a sibling's
+  explicit limit. The rule covers the method, class, and assembly forms alike, and the generator
+  drops a value it reports so that a suppressed error bounds the run by the enclosing declaration
+  instead.
 
 ## [1.19.1] - 2026-08-10
 

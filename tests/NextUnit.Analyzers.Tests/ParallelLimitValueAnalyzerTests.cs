@@ -80,9 +80,6 @@ public class Tests
         await CSharpAnalyzerVerifier<ParallelLimitValueAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
-    /// <summary>
-    /// Only -1 means unlimited; every other negative value is rejected by the same setter as 0.
-    /// </summary>
     [Fact]
     public async Task BelowMinusOne_ReportsDiagnosticAsync()
     {
@@ -108,16 +105,68 @@ public class Tests
     }
 
     /// <summary>
-    /// -1 is what ParallelOptions itself means by unlimited, so a declaration that already runs
-    /// must keep compiling.
+    /// -1 is the one non-positive value the ParallelOptions setter accepts, but Parallel.ForEachAsync
+    /// maps it to the processor count, which is what an absent attribute already means, and it still
+    /// wins the Min the scheduler takes across a parallel group. It is a limit that raises limits.
     /// </summary>
     [Fact]
-    public async Task MinusOneAndPositiveValues_ReportNoDiagnosticAsync()
+    public async Task MinusOne_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
 
 [assembly: ParallelLimit(-1)]
+
+public class Tests
+{
+    [Test]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<ParallelLimitValueAnalyzer>
+            .Diagnostic("NU0019")
+            .WithSpan(4, 26, 4, 28)
+            .WithArguments(-1);
+
+        await CSharpAnalyzerVerifier<ParallelLimitValueAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The constant carries the type it was written with, so a widening conversion at the use site
+    /// would hide the value from a check that only recognizes <c>int</c>.
+    /// </summary>
+    [Fact]
+    public async Task ZeroWrittenAsAnotherIntegralType_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    [Test]
+    [ParallelLimit((short)0)]
+    public void TestMethod()
+    {
+    }
+}";
+
+        var expected = CSharpAnalyzerVerifier<ParallelLimitValueAnalyzer>
+            .Diagnostic("NU0019")
+            .WithSpan(7, 20, 7, 28)
+            .WithArguments(0);
+
+        await CSharpAnalyzerVerifier<ParallelLimitValueAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task PositiveValues_ReportNoDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+[assembly: ParallelLimit(8)]
 
 [ParallelLimit(4)]
 public class Tests

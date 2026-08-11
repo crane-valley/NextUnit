@@ -320,13 +320,13 @@ internal static class AttributeHelper
 
             var value = attribute.ConstructorArguments[0].Value;
 
-            // A limit the scheduler cannot use is read as "this level declared nothing", so the
-            // enclosing level or the processor count still bounds the run. NU0019 reports it as a
-            // build error, so reaching here means it was suppressed, and the reading matches a
-            // suppressed NU0018 culture name: inherit rather than abort. Carrying the value through
-            // would reach ParallelOptions.MaxDegreeOfParallelism, whose throw aborts the whole run
-            // instead of failing the test that declared it.
-            if (value is int limit && IsSupportedParallelLimit(limit))
+            // A non-positive limit is read as "this level declared nothing", so the enclosing level
+            // or the processor count still bounds the run. NU0019 reports it as a build error, so
+            // reaching here means it was suppressed, and the reading matches a suppressed NU0018
+            // culture name: inherit rather than abort. Carrying the value through would reach
+            // ParallelOptions.MaxDegreeOfParallelism, where 0 and anything below -1 throw and abort
+            // the whole run, and -1 means the processor count rather than the limit it looks like.
+            if (value is int limit && limit > 0)
             {
                 return limit;
             }
@@ -334,12 +334,6 @@ internal static class AttributeHelper
 
         return null;
     }
-
-    /// <summary>
-    /// The values <c>ParallelOptions.MaxDegreeOfParallelism</c> accepts: a positive degree of
-    /// parallelism, or -1 for unlimited.
-    /// </summary>
-    private static bool IsSupportedParallelLimit(int limit) => limit > 0 || limit == -1;
 
     public static (bool notInParallel, EquatableArray<string> constraintKeys) GetNotInParallelInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {

@@ -132,14 +132,16 @@ public class ParallelLimitEmissionTests
     }
 
     /// <summary>
-    /// NU0019 rejects a limit the scheduler cannot use at build time, so a suppressed error is the
-    /// only way one reaches the generator. It must not be carried into the descriptor: the value
-    /// would reach <c>ParallelOptions.MaxDegreeOfParallelism</c> and its throw aborts the whole run.
+    /// NU0019 rejects a non-positive limit at build time, so a suppressed error is the only way one
+    /// reaches the generator. It must not be carried into the descriptor: 0 and anything below -1
+    /// throw from <c>ParallelOptions.MaxDegreeOfParallelism</c> and abort the whole run, and -1
+    /// silently means the processor count.
     /// </summary>
     [Theory]
     [InlineData(0)]
+    [InlineData(-1)]
     [InlineData(-2)]
-    public async Task AssemblyLimitTheSchedulerCannotUse_EmitsNoLimitAsync(int limit)
+    public async Task NonPositiveAssemblyLimit_EmitsNoLimitAsync(int limit)
     {
         var registry = await GenerateRegistryAsync($$"""
             using NextUnit;
@@ -165,7 +167,7 @@ public class ParallelLimitEmissionTests
     /// applies - the same reading <c>GetCultureNameFromSymbol</c> takes for a suppressed null name.
     /// </summary>
     [Fact]
-    public async Task ClassLimitTheSchedulerCannotUse_FallsBackToTheAssemblyLimitAsync()
+    public async Task NonPositiveClassLimit_FallsBackToTheAssemblyLimitAsync()
     {
         var registry = await GenerateRegistryAsync("""
             using NextUnit;
@@ -185,32 +187,6 @@ public class ParallelLimitEmissionTests
             """);
 
         Assert.Contains("ParallelLimit = 4", registry);
-    }
-
-    /// <summary>
-    /// -1 is what <c>ParallelOptions</c> itself means by unlimited, so it is a usable limit and must
-    /// reach the descriptor rather than being dropped with the values that throw.
-    /// </summary>
-    [Fact]
-    public async Task AssemblyLimitOfMinusOne_ReachesTheDescriptorAsync()
-    {
-        var registry = await GenerateRegistryAsync("""
-            using NextUnit;
-
-            [assembly: ParallelLimit(-1)]
-
-            namespace TestProject;
-
-            public class UnlimitedTests
-            {
-                [Test]
-                public void Unlimited()
-                {
-                }
-            }
-            """);
-
-        Assert.Contains("ParallelLimit = -1", registry);
     }
 
     private static async Task<string> GenerateRegistryAsync(string source)
