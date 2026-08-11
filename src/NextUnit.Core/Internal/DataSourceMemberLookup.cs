@@ -21,9 +21,15 @@ internal static class DataSourceMemberLookup
     /// <c>Derived.Rows</c> was reported as missing. It also drops a base declaration that a derived
     /// type shadows, and never returns a base type's <c>private</c> members -- which C# member
     /// lookup does not see from a derived type either, so the compile-time resolver skips them too.
+    /// <para>
+    /// <see cref="BindingFlags.Instance"/> is here for hiding, not for reading. A derived instance
+    /// member hides the base static one it repeats, so leaving it out of the candidates would let
+    /// this read a base member the name no longer refers to. Nothing non-static is ever returned.
+    /// </para>
     /// </remarks>
     private const BindingFlags StaticMemberLookup =
-        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance |
+        BindingFlags.FlattenHierarchy;
 
     private const MemberTypes DataSourceMemberKinds =
         MemberTypes.Method | MemberTypes.Property | MemberTypes.Field;
@@ -73,6 +79,13 @@ internal static class DataSourceMemberLookup
     /// which is what lets a base <c>Rows()</c> answer a name a derived <c>Rows(CancellationToken)</c>
     /// also declares -- the overload C# picks for a call supplying no arguments.
     /// <para>
+    /// A winner that turns out to be an instance member ends the search with nothing rather than
+    /// falling through to the base declaration it hides. That is the same verdict the compile-time
+    /// resolver reaches, where a derived instance <c>Rows()</c> makes the name unusable as a static
+    /// reference; reading the base member instead would run the test against data the name does not
+    /// refer to.
+    /// </para>
+    /// <para>
     /// Only <paramref name="sourceType"/>'s own base chain is walked, by identity alone. Nothing is
     /// reflected over a base type here, so the annotation on the entry point stays sufficient.
     /// </para>
@@ -97,20 +110,29 @@ internal static class DataSourceMemberLookup
 
                 if (candidate is not MethodInfo method)
                 {
-                    return sawMethod ? null : candidate;
+                    return sawMethod || !IsStatic(candidate) ? null : candidate;
                 }
 
                 // Arity is part of the test for the same reason it is in the compile-time resolver:
                 // the call supplies no type argument, so a generic overload could not be invoked.
                 if (method.GetParameters().Length == 0 && !method.IsGenericMethodDefinition)
                 {
-                    return method;
+                    return method.IsStatic ? method : null;
                 }
 
+                // An overload that takes arguments hides a base member that is not a method, but
+                // leaves a base overload of another signature alone -- so the walk carries on.
                 sawMethod = true;
             }
         }
 
         return null;
     }
+
+    private static bool IsStatic(MemberInfo member) => member switch
+    {
+        PropertyInfo property => property.GetMethod?.IsStatic == true,
+        FieldInfo field => field.IsStatic,
+        _ => false
+    };
 }

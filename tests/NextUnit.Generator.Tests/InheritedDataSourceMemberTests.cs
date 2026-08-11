@@ -110,30 +110,48 @@ public sealed class InheritedDataSourceMemberTests
     }
 
     /// <summary>
+    /// A derived instance declaration hides the base static one it repeats, so the name is not a
+    /// static reference at all. Reading the base member would run the test against data the name
+    /// does not refer to -- the analyzer reports NU0003 for the same declaration.
+    /// </summary>
+    [Fact]
+    public void ExpandSingle_DerivedInstanceMemberHidingBaseStatic_ReportsNotFound()
+    {
+        var descriptor = CreateDescriptor(nameof(HidingBase.InstanceHiddenRows), typeof(HidingDerived));
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken).ToList());
+
+        Xunit.Assert.Contains("not found", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The parameter-level fallback applies the same hiding, since it shares the lookup.
+    /// </summary>
+    [Fact]
+    public void ExpandSingle_ParameterMemberHiddenByDerivedMethod_ReportsNotFound()
+    {
+        var descriptor = CreateParameterDescriptor(nameof(HidingBase.HiddenValues), typeof(HidingDerived));
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
+
+        // The expander wraps the lookup failure with the parameter it was resolving, so the
+        // member-level reason is the inner exception.
+        Xunit.Assert.Contains(
+            "not found",
+            exception.InnerException?.Message ?? exception.Message,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The parameter-level fallback reaches the base chain too. It is a separate lookup from the
     /// <c>[TestData]</c> one, so it needs its own coverage.
     /// </summary>
     [Fact]
     public void ExpandSingle_InheritedParameterMember_ResolvesThroughBaseChain()
     {
-        var descriptor = new CombinedDataSourceDescriptor
-        {
-            BaseId = "Tests.Single",
-            TestClass = typeof(Target),
-            MethodName = nameof(Target.Single),
-            ParameterTypes = [typeof(int)],
-            ParameterSources =
-            [
-                new ParameterDataSource
-                {
-                    ParameterIndex = 0,
-                    ParameterName = "value",
-                    Kind = ParameterDataSourceKind.Member,
-                    MemberName = nameof(RowsBase.ParameterValues),
-                    MemberType = typeof(RowsDerived)
-                }
-            ]
-        };
+        var descriptor = CreateParameterDescriptor(nameof(RowsBase.ParameterValues), typeof(RowsDerived));
 
         var testCases = CombinedDataSourceExpander.ExpandSingle(descriptor).ToList();
 
@@ -141,6 +159,25 @@ public sealed class InheritedDataSourceMemberTests
             new object?[] { 11, 12 },
             testCases.Select(static testCase => testCase.Arguments![0]).ToArray());
     }
+
+    private static CombinedDataSourceDescriptor CreateParameterDescriptor(string memberName, Type memberType) => new()
+    {
+        BaseId = "Tests.Single",
+        TestClass = typeof(Target),
+        MethodName = nameof(Target.Single),
+        ParameterTypes = [typeof(int)],
+        ParameterSources =
+        [
+            new ParameterDataSource
+            {
+                ParameterIndex = 0,
+                ParameterName = "value",
+                Kind = ParameterDataSourceKind.Member,
+                MemberName = memberName,
+                MemberType = memberType
+            }
+        ]
+    };
 
     private static IEnumerable<TestCaseDescriptor> Expand(string dataSourceName) =>
         TestDataExpander.ExpandSingle(
@@ -183,11 +220,19 @@ public sealed class InheritedDataSourceMemberTests
     private class HidingBase
     {
         public static IEnumerable<object[]> HiddenRows => [[5, 5, 10]];
+
+        public static IEnumerable<int> HiddenValues => [21, 22];
+
+        public static IEnumerable<object[]> InstanceHiddenRows() => [[7, 7, 14]];
     }
 
     private sealed class HidingDerived : HidingBase
     {
         public static new IEnumerable<object[]> HiddenRows(int count) => [[count, count, count * 2]];
+
+        public static new IEnumerable<int> HiddenValues(int count) => [count];
+
+        public new IEnumerable<object[]> InstanceHiddenRows() => [[8, 8, 16]];
     }
 
     private class TokenBase
