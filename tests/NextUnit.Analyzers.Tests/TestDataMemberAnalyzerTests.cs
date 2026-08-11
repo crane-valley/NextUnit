@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis.Testing;
 using NextUnit.Analyzers.Analyzers;
 using NextUnit.Analyzers.Tests.Verifiers;
 using Xunit;
@@ -514,6 +515,110 @@ public class TestDataMemberAnalyzerTests
             .WithArguments("Values", "Tests");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// Only NextUnit's own <c>TestDataRow&lt;T&gt;</c> is unwrapped. A user type that happens to
+    /// share the name is the row itself, so the mismatch names it rather than its type argument.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithForeignTestDataRowType_DoesNotUnwrapAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace Other
+            {
+                public sealed class TestDataRow<T>
+                {
+                }
+            }
+
+            public class Tests
+            {
+                public static IEnumerable<Other.TestDataRow<string>> Rows => [];
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0009")
+            .WithLocation(0)
+            .WithArguments("Rows", "TestDataRow<string>", "TestMethod");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// An unresolved type carries no accessibility to judge and already has its own compiler error,
+    /// so NU0020 stays quiet rather than burying it. The type argument is reached through the
+    /// recursive walk, which is where the guard has to sit.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithUnresolvedTypeArgument_ReportsNoAccessibilityDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public static class Fixtures<T>
+            {
+                public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public class Tests
+            {
+                [Test]
+                [TestData("Rows", MemberType = typeof(Fixtures<{|#0:Missing|}>))]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = DiagnosticResult.CompilerError("CS0246")
+            .WithLocation(0)
+            .WithArguments("Missing");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// An unresolved containing type has no members, so the lookup above reports the reference as
+    /// unfound and never reaches the accessibility rule. Pinned because the alternative -- NU0020 on
+    /// a type whose accessibility nobody can know -- would bury the compiler error.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithUnresolvedMemberType_ReportsNoAccessibilityDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+
+            public class Tests
+            {
+                [Test]
+                [{|#1:TestData("Rows", MemberType = typeof({|#0:Missing|}))|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var compilerError = DiagnosticResult.CompilerError("CS0246")
+            .WithLocation(0)
+            .WithArguments("Missing");
+        var notFound = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(1)
+            .WithArguments("Rows", "Missing");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, compilerError, notFound);
     }
 
     [Fact]

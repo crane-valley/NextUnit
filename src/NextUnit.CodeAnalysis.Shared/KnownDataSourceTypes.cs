@@ -250,13 +250,24 @@ internal readonly struct KnownDataSourceTypes
     /// <summary>
     /// Reports whether the type is <c>NextUnit.TestDataRow&lt;T&gt;</c>.
     /// </summary>
+    /// <remarks>
+    /// The namespace is matched by walking to the global namespace rather than by comparing
+    /// <c>ToDisplayString</c>, which allocates on every call: this runs for every row type the
+    /// analyzers validate, and <see cref="DataSourceMemberResolver"/> matches
+    /// <c>CancellationToken</c> the same way for the same reason. The metadata name carries the
+    /// generic arity, so <c>TestDataRow</c> with any other arity does not match.
+    /// </remarks>
     public static bool IsTestDataRow(ITypeSymbol type) =>
         type is INamedTypeSymbol
         {
             IsGenericType: true,
-            MetadataName: NextUnitAttributeNames.MetadataNames.TestDataRow
-        } namedType &&
-        namedType.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace;
+            MetadataName: NextUnitAttributeNames.MetadataNames.TestDataRow,
+            ContainingNamespace:
+            {
+                Name: NextUnitAttributeNames.Namespace,
+                ContainingNamespace.IsGlobalNamespace: true
+            }
+        };
 
     /// <summary>
     /// Picks between two element types when a source type implements the same element interface
