@@ -48,14 +48,26 @@ internal readonly struct KnownDataSourceTypes
         INamedTypeSymbol? genericTask,
         INamedTypeSymbol? valueTask,
         INamedTypeSymbol? genericValueTask,
-        INamedTypeSymbol? asyncEnumerable)
+        INamedTypeSymbol? asyncEnumerable,
+        IAssemblySymbol? compilingAssembly)
     {
         _task = task;
         _genericTask = genericTask;
         _valueTask = valueTask;
         _genericValueTask = genericValueTask;
         _asyncEnumerable = asyncEnumerable;
+        CompilingAssembly = compilingAssembly;
     }
+
+    /// <summary>
+    /// Gets the assembly being compiled, which is where the generated registry lands.
+    /// </summary>
+    /// <remarks>
+    /// Carried here rather than passed alongside because every caller that resolves a data source
+    /// member already threads this value through, and because it is resolved once per compilation
+    /// for the same reason the type symbols are.
+    /// </remarks>
+    public IAssemblySymbol? CompilingAssembly { get; }
 
     public static KnownDataSourceTypes Create(Compilation compilation) =>
         new(
@@ -63,7 +75,19 @@ internal readonly struct KnownDataSourceTypes
             compilation.GetTypeByMetadataName(WellKnownTypeNames.GenericTask),
             compilation.GetTypeByMetadataName(WellKnownTypeNames.ValueTask),
             compilation.GetTypeByMetadataName(WellKnownTypeNames.GenericValueTask),
-            compilation.GetTypeByMetadataName(WellKnownTypeNames.AsyncEnumerable));
+            compilation.GetTypeByMetadataName(WellKnownTypeNames.AsyncEnumerable),
+            compilation.Assembly);
+
+    /// <summary>
+    /// Reports whether the type implements <c>IAsyncEnumerable&lt;T&gt;</c>.
+    /// </summary>
+    /// <remarks>
+    /// Asked separately from <see cref="Classify"/> because a type implementing both element
+    /// interfaces classifies as synchronous, and telling that case apart from a plainly synchronous
+    /// collection is what <c>NU0021</c> reports on.
+    /// </remarks>
+    public bool ImplementsAsyncEnumerable(ITypeSymbol? type) =>
+        type is INamedTypeSymbol namedType && TryGetAsyncElementType(namedType) is not null;
 
     /// <summary>
     /// Classifies the type a data source member exposes.
@@ -151,15 +175,16 @@ internal readonly struct KnownDataSourceTypes
             return namedType.TypeArguments[0];
         }
 
+        ITypeSymbol? selected = null;
         foreach (var candidate in namedType.AllInterfaces)
         {
             if (Matches(candidate.OriginalDefinition, _asyncEnumerable))
             {
-                return candidate.TypeArguments[0];
+                selected = SelectRowType(selected, candidate.TypeArguments[0]);
             }
         }
 
-        return null;
+        return selected;
     }
 
     private static bool Matches(ISymbol candidate, INamedTypeSymbol? known) =>
@@ -209,15 +234,69 @@ internal readonly struct KnownDataSourceTypes
             return namedType.TypeArguments[0];
         }
 
+        ITypeSymbol? selected = null;
         foreach (var candidate in namedType.AllInterfaces)
         {
             if (IsGenericEnumerable(candidate))
             {
-                return candidate.TypeArguments[0];
+                selected = SelectRowType(selected, candidate.TypeArguments[0]);
             }
         }
 
-        return null;
+        return selected;
+    }
+
+    /// <summary>
+    /// Reports whether the type is <c>NextUnit.TestDataRow&lt;T&gt;</c>.
+    /// </summary>
+    public static bool IsTestDataRow(ITypeSymbol type) =>
+        type is INamedTypeSymbol
+        {
+            IsGenericType: true,
+            MetadataName: NextUnitAttributeNames.MetadataNames.TestDataRow
+        } namedType &&
+        namedType.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace;
+
+    /// <summary>
+    /// Picks between two element types when a source type implements the same element interface
+    /// more than once.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>AllInterfaces</c> has no documented order, so taking the first match made the row type of
+    /// a source implementing, say, both <c>IEnumerable&lt;object[]&gt;</c> and
+    /// <c>IEnumerable&lt;TestDataRow&lt;T&gt;&gt;</c> a property of symbol enumeration rather than of
+    /// the source, and <c>NU0009</c> could accept or reject the same code between compilations.
+    /// </para>
+    /// <para>
+    /// The rule is: <c>TestDataRow&lt;T&gt;</c> wins, because it is the more specific contract -- it
+    /// carries the row's metadata as well as its values, and a source that offers it declared the
+    /// typed shape deliberately. Remaining ties are broken by ordinal comparison of the fully
+    /// qualified element type name, which depends on nothing but the types themselves. The
+    /// comparison only runs once a second candidate appears, so the ordinary single-interface source
+    /// formats no display string.
+    /// </para>
+    /// </remarks>
+    private static ITypeSymbol SelectRowType(ITypeSymbol? selected, ITypeSymbol candidate)
+    {
+        if (selected is null)
+        {
+            return candidate;
+        }
+
+        var selectedIsRow = IsTestDataRow(selected);
+        var candidateIsRow = IsTestDataRow(candidate);
+
+        if (selectedIsRow != candidateIsRow)
+        {
+            return candidateIsRow ? candidate : selected;
+        }
+
+        return string.CompareOrdinal(
+            candidate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+            selected.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)) < 0
+            ? candidate
+            : selected;
     }
 
     private static bool IsGenericEnumerable(INamedTypeSymbol type) =>

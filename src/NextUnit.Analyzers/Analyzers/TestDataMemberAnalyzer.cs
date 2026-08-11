@@ -16,7 +16,9 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         ImmutableArray.Create(
             DiagnosticDescriptors.TestDataMemberNotFound,
             DiagnosticDescriptors.TestDataRowTypeMismatch,
-            DiagnosticDescriptors.TestDataMemberUnsupportedAwaitable);
+            DiagnosticDescriptors.TestDataMemberUnsupportedAwaitable,
+            DiagnosticDescriptors.DataSourceMemberNotAccessible,
+            DiagnosticDescriptors.DataSourceCancellationTokenOnSyncSource);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -49,7 +51,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         {
             if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.TestData)
             {
-                ValidateMemberReference(context, method, attribute, knownDataSourceTypes, validateRowType: true);
+                ValidateMemberReference(context, method, attribute, knownDataSourceTypes, isTestDataSource: true);
             }
             else if (IsClassDataSourceAttribute(attribute))
             {
@@ -64,7 +66,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             {
                 if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.ValuesFromMember)
                 {
-                    ValidateMemberReference(context, method, attribute, knownDataSourceTypes, validateRowType: false);
+                    ValidateMemberReference(context, method, attribute, knownDataSourceTypes, isTestDataSource: false);
                 }
             }
         }
@@ -75,7 +77,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         IMethodSymbol method,
         AttributeData attribute,
         KnownDataSourceTypes knownDataSourceTypes,
-        bool validateRowType)
+        bool isTestDataSource)
     {
         var constructorArgs = attribute.ConstructorArguments;
         if (constructorArgs.Length == 0)
@@ -112,8 +114,9 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Look for a static member (property, method, or field)
-        // Note: Runtime uses BindingFlags.Public | BindingFlags.NonPublic, so private/protected are valid
+        // Look for a static member (property, method, or field). Accessibility is not part of this
+        // test: the runtime reflection fallback uses BindingFlags.NonPublic, so an unreachable
+        // member is a different failure from a missing one and is reported as NU0020 below.
         var members = targetType.GetMembers(memberName);
         var validMember = members.FirstOrDefault(member =>
             (member is IPropertySymbol property && property.IsStatic) ||
@@ -133,18 +136,47 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (validateRowType)
+        // Resolve the member the generator will actually bind, not simply the first static member
+        // with this name. A type carrying both Rows() and an unsupported Rows(CancellationToken)
+        // overload would otherwise be reported for an overload that is never emitted, failing a
+        // build that compiles and runs correctly.
+        var resolved = DataSourceMemberResolver.Resolve(targetType, memberName, knownDataSourceTypes);
+
+        if (resolved.Issue == DataSourceBindingIssue.MemberNotAccessible)
         {
-            // Validate the member the generator will actually bind, not simply the first static
-            // member with this name. A type carrying both Rows() and an unsupported
-            // Rows(CancellationToken) overload would otherwise be reported for an overload that is
-            // never emitted, failing a build that compiles and runs correctly.
+            ReportDiagnostic(
+                context,
+                method,
+                attribute,
+                DiagnosticDescriptors.DataSourceMemberNotAccessible,
+                memberName,
+                targetType.Name);
+            return;
+        }
+
+        // [ValuesFromMember] expands synchronous collections only, so a token-taking member is out
+        // of its reach whatever it returns, and the fix NU0021 names -- return only
+        // IAsyncEnumerable<T> -- would not make it bind. That shape stays silent there, as before.
+        if (isTestDataSource && resolved.Issue == DataSourceBindingIssue.CancellationTokenOnSynchronousSource)
+        {
+            ReportDiagnostic(
+                context,
+                method,
+                attribute,
+                DiagnosticDescriptors.DataSourceCancellationTokenOnSyncSource,
+                memberName,
+                resolved.MemberType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+            return;
+        }
+
+        if (isTestDataSource)
+        {
             ValidateRowType(
                 context,
                 method,
                 attribute,
                 memberName,
-                DataSourceMemberResolver.Resolve(targetType, memberName, knownDataSourceTypes).MemberType,
+                resolved.MemberType,
                 knownDataSourceTypes);
         }
     }
@@ -266,18 +298,8 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(descriptor, location, messageArguments));
     }
 
-    private static ITypeSymbol UnwrapTestDataRow(ITypeSymbol elementType)
-    {
-        if (elementType is INamedTypeSymbol
-            {
-                IsGenericType: true,
-                MetadataName: NextUnitAttributeNames.MetadataNames.TestDataRow
-            } namedType &&
-            namedType.ContainingNamespace.ToDisplayString() == "NextUnit")
-        {
-            return namedType.TypeArguments[0];
-        }
-
-        return elementType;
-    }
+    private static ITypeSymbol UnwrapTestDataRow(ITypeSymbol elementType) =>
+        KnownDataSourceTypes.IsTestDataRow(elementType)
+            ? ((INamedTypeSymbol)elementType).TypeArguments[0]
+            : elementType;
 }

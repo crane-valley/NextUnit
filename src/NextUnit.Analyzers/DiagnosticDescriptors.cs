@@ -226,4 +226,28 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "The value in [ParallelLimit] becomes ParallelOptions.MaxDegreeOfParallelism, whose setter throws for 0 and for anything below -1, and that throw aborts the whole run rather than failing the test that declared it. The one remaining non-positive value, -1, is accepted by the setter but means the processor count to Parallel.ForEachAsync rather than no limit, which is what the attribute already means when it is absent; it is rejected too so that a declared limit is always a limit.");
+
+    /// <summary>
+    /// NU0020: Data source member is not reachable from the generated registry.
+    /// </summary>
+    public static readonly DiagnosticDescriptor DataSourceMemberNotAccessible = new(
+        id: "NU0020",
+        title: "Data source member is not accessible to generated code",
+        messageFormat: "Data source member '{0}' on type '{1}' is not accessible from the generated test registry; make it public or internal, and not nested in a private or protected scope",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "The generator emits direct member access rather than reflecting, which is what keeps data sources AOT-safe, so the member has to be visible from the generated registry. Internal is enough: the registry is emitted into the test assembly itself. A private, protected, or private protected member, or one declared in a type that is not visible there, compiles as written and then fails the build with CS0122 inside generated code.");
+
+    /// <summary>
+    /// NU0021: Cancellation-aware data source member returns a synchronous collection.
+    /// </summary>
+    public static readonly DiagnosticDescriptor DataSourceCancellationTokenOnSyncSource = new(
+        id: "NU0021",
+        title: "Cancellation-aware data source member returns a synchronous collection",
+        messageFormat: "TestData member '{0}' takes a CancellationToken but returns '{1}', which implements IEnumerable<T> as well as IAsyncEnumerable<T> and is therefore read synchronously; drop the parameter, or return a type that implements only IAsyncEnumerable<T>",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "A data source type implementing both element interfaces is classified as synchronous, so that a type which meant IEnumerable<T> before asynchronous sources existed keeps meaning it. The synchronous provider takes no arguments, so there is no token to pass and the member binds to nothing; without this rule the only symptom is a parameter-count failure from the runtime reflection fallback, which mentions neither the token nor the reason.");
 }

@@ -7,11 +7,16 @@ namespace NextUnit.CodeAnalysis.Shared;
 /// </summary>
 internal readonly struct ResolvedDataSourceMember
 {
-    public ResolvedDataSourceMember(ISymbol? symbol, ITypeSymbol? memberType, bool acceptsCancellationToken)
+    public ResolvedDataSourceMember(
+        ISymbol? symbol,
+        ITypeSymbol? memberType,
+        bool acceptsCancellationToken,
+        DataSourceBindingIssue issue = DataSourceBindingIssue.None)
     {
         Symbol = symbol;
         MemberType = memberType;
         AcceptsCancellationToken = acceptsCancellationToken;
+        Issue = issue;
     }
 
     /// <summary>
@@ -29,6 +34,16 @@ internal readonly struct ResolvedDataSourceMember
     /// cancellation token.
     /// </summary>
     public bool AcceptsCancellationToken { get; }
+
+    /// <summary>
+    /// Gets why the generator declines to bind the member, or
+    /// <see cref="DataSourceBindingIssue.None"/> when it binds.
+    /// </summary>
+    /// <remarks>
+    /// A member carrying an issue is still returned, so that the analyzers can name it in a
+    /// diagnostic. Callers that emit code have to treat it as unbound.
+    /// </remarks>
+    public DataSourceBindingIssue Issue { get; }
 }
 
 /// <summary>
@@ -52,6 +67,7 @@ internal static class DataSourceMemberResolver
         }
 
         var members = typeSymbol.GetMembers(memberName);
+        var compilingAssembly = knownDataSourceTypes.CompilingAssembly;
 
         // First pass reproduces the pre-async precedence exactly: the first static parameterless
         // method, property, or field wins. Running it before the cancellation-aware pass is what
@@ -64,17 +80,30 @@ internal static class DataSourceMemberResolver
                 continue;
             }
 
-            switch (member)
+            ITypeSymbol? memberType = member switch
             {
-                case IMethodSymbol { Parameters.Length: 0 } method:
-                    return new ResolvedDataSourceMember(method, method.ReturnType, false);
+                IMethodSymbol { Parameters.Length: 0 } method => method.ReturnType,
+                IPropertySymbol property => property.Type,
+                IFieldSymbol field => field.Type,
+                _ => null
+            };
 
-                case IPropertySymbol property:
-                    return new ResolvedDataSourceMember(property, property.Type, false);
-
-                case IFieldSymbol field:
-                    return new ResolvedDataSourceMember(field, field.Type, false);
+            if (memberType is null)
+            {
+                continue;
             }
+
+            // An unreachable member wins the pass and is then refused, rather than being skipped so
+            // that a later overload can win it. Skipping would silently move the binding to data the
+            // user did not ask for, which is exactly what the parameterless-first rule above exists
+            // to prevent; refusing it names the accessibility as the thing to fix.
+            return GeneratedRegistryAccess.CanReachMember(member, compilingAssembly)
+                ? new ResolvedDataSourceMember(member, memberType, false)
+                : new ResolvedDataSourceMember(
+                    member,
+                    memberType,
+                    false,
+                    DataSourceBindingIssue.MemberNotAccessible);
         }
 
         // Second pass admits the new shape. A cancellation token is only meaningful for an
@@ -92,7 +121,13 @@ internal static class DataSourceMemberResolver
 
             if (classification.IsAsync)
             {
-                return new ResolvedDataSourceMember(method, method.ReturnType, true);
+                return GeneratedRegistryAccess.CanReachMember(method, compilingAssembly)
+                    ? new ResolvedDataSourceMember(method, method.ReturnType, true)
+                    : new ResolvedDataSourceMember(
+                        method,
+                        method.ReturnType,
+                        false,
+                        DataSourceBindingIssue.MemberNotAccessible);
             }
 
             // An awaitable that supplies no rows is still returned, without being marked bindable.
@@ -102,6 +137,22 @@ internal static class DataSourceMemberResolver
             if (classification.Shape == DataSourceShape.UnsupportedAwaitable)
             {
                 return new ResolvedDataSourceMember(method, method.ReturnType, false);
+            }
+
+            // A synchronous classification here means the return type implements IEnumerable<T> as
+            // well as IAsyncEnumerable<T> and the sync-first rule picked the synchronous meaning.
+            // The member is unbindable either way -- the synchronous provider has no token to pass --
+            // so it is returned as an issue instead of falling through to nothing, which used to
+            // leave a parameter-count failure from the runtime reflection fallback as the only
+            // symptom. A return type that is only IEnumerable<T> stays unbound and unreported: the
+            // token was never meaningful there, and that shape predates asynchronous sources.
+            if (knownDataSourceTypes.ImplementsAsyncEnumerable(method.ReturnType))
+            {
+                return new ResolvedDataSourceMember(
+                    method,
+                    method.ReturnType,
+                    false,
+                    DataSourceBindingIssue.CancellationTokenOnSynchronousSource);
             }
         }
 

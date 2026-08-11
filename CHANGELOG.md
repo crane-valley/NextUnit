@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Select the row type of a data source deterministically when its type implements the same element
+  interface more than once. `TestDataRow<T>` now wins over a plain element type, because it is the
+  more specific contract; remaining ties go to the element type whose fully qualified name sorts
+  first ordinally. The row type used to be whichever interface `AllInterfaces` happened to return
+  first, which Roslyn does not order by contract, so a source implementing both, say,
+  `IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>` could be validated against either one.
+  `NU0009` verdicts can therefore flip for such a source: one that used to be checked against
+  `object[]`, and so was never checked at all, is now checked against its typed row and may start
+  reporting a genuine mismatch. A source implementing one element interface, which is nearly all of
+  them, is unaffected. The rule applies to the synchronous and asynchronous paths alike.
+
 - Share one instance per sharing scope between `[ClassDataSource<T>]` and `[ValuesFrom<T>]`, and
   dispose the shared instances at the end of the test session. This is a breaking change, and the
   next release is 2.0.0. Each attribute used to keep its own `PerSession`/`PerAssembly`/`PerClass`/
@@ -69,6 +80,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `NU0020` rejects a `[TestData]` or `[ValuesFromMember]` member the generated test registry cannot
+  reach. This is a breaking change, and the next release is 2.0.0. The generator emits direct member
+  access rather than reflecting, which is what keeps data sources AOT-safe, so a `private`,
+  `protected`, or `private protected` member -- or one declared in a type that is not visible from
+  the registry -- compiled as written and then failed the build with `CS0122` inside generated code.
+  The analyzer used to accept those members because the runtime reflection fallback reads them with
+  `BindingFlags.NonPublic`, so the analyzer and the generator disagreed about what was valid; a
+  member that only ever worked through that fallback is now rejected at build time instead. Making
+  the member `internal` is enough: the registry is emitted into the test assembly itself, so
+  `internal` members of that assembly, and members of `internal` types, are reachable and are not
+  reported. The generator now emits no provider for an unreachable member rather than emitting
+  access it cannot compile, so the runtime reflection fallback still resolves whatever reaches it.
+- `NU0021` rejects a `CancellationToken`-taking `[TestData]` member whose return type implements
+  `IEnumerable<T>` as well as `IAsyncEnumerable<T>`. This is a breaking change, and the next release
+  is 2.0.0. Such a type is classified as synchronous, deliberately, so that a type which meant
+  `IEnumerable<T>` before asynchronous sources existed keeps meaning it; the synchronous provider
+  takes no arguments, so there is no token to pass and the member bound to nothing. The only
+  previous symptom was a parameter-count failure from the runtime reflection fallback, which
+  mentioned neither the token nor the reason. Drop the parameter, or return a type that implements
+  only `IAsyncEnumerable<T>`.
 - `NU0019` rejects a non-positive `[ParallelLimit]` value. The value becomes
   `ParallelOptions.MaxDegreeOfParallelism`, whose setter throws for `0` and for anything below `-1`,
   and that throw aborts the whole run rather than failing the test that declared it; resolving the
