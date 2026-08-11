@@ -452,8 +452,9 @@ you and a green suite is not proof the migration was faithful.
 | `Assert.Throws<T>`, `Assert.ThrowsAsync<T>` | Exact exception type; `ThrowsAny<T>` is the assignable form | Matches `T` and its subtypes |
 | `Assert.StartsWith`, `EndsWith`, `Contains` (string) | `StringComparison.CurrentCulture` by default | Always `StringComparison.Ordinal` |
 | `Assert.All` | Runs every element and aggregates the failures | Stops at the first failing element |
-| `Assert.NotEqual` on a collection | Structural, so two arrays holding the same values are equal and the assertion fails | `EqualityComparer<T>.Default`, which is reference equality for arrays and `List<T>`, so the assertion passes |
-| `Assert.Equal` on a nested collection | Recurses into the inner collections | Compares the inner collections by reference, so the assertion fails |
+| `Assert.NotEqual` on a sequence | Structural, so two arrays holding the same values are equal and the assertion fails | `EqualityComparer<T>.Default`, which is reference equality for arrays and `List<T>`, so the assertion passes |
+| `Assert.Equal` on a nested sequence | Recurses into the inner sequences | Compares an inner array or `List<T>` by reference, so the assertion fails |
+| `Assert.Equal` on a `HashSet<T>` or `Dictionary<TKey, TValue>` | Compares members and key-value pairs, ignoring order | Compares in enumeration order, so the assertion fails |
 
 The exception rule is the one that turns a red test green: `Assert.Throws<ArgumentException>` accepts
 an `ArgumentNullException` here, where xUnit would have rejected it. Where the exact type is the point
@@ -465,12 +466,12 @@ point, assert the comparison yourself with
 `Assert.True(text.StartsWith(prefix, StringComparison.CurrentCulture))`.
 
 The collection rules are the ones worth grepping for, because `Assert.Equal` and `Assert.NotEqual`
-disagree with each other here. `Assert.Equal` compares a collection element by element and in order,
-which is what xUnit does, so a flat array or `List<T>` carries over. `Assert.NotEqual` does not: it
-compares with `EqualityComparer<T>.Default`, and arrays and `List<T>` do not override equality, so
-two collections holding the same values are "not equal" to it. `Assert.NotEqual(new[] { 1, 2 }, new[]
-{ 1, 2 })` fails in xUnit and passes here, which turns a red test green without a word from the
-compiler. Assert the comparison yourself when that is the point of the test:
+disagree with each other here. `Assert.Equal` compares a sequence element by element and in order, so
+a flat `int[]` or `List<T>` carries over from xUnit unchanged. `Assert.NotEqual` does not: it compares
+with `EqualityComparer<T>.Default`, and neither arrays nor `List<T>` override equality, so two
+sequences holding the same values are "not equal" to it. `Assert.NotEqual(new[] { 1, 2 }, new[] { 1,
+2 })` fails in xUnit and passes here, which turns a red test green without a word from the compiler.
+Assert the comparison yourself when that is the point of the test:
 
 ```csharp
 using NextUnit;
@@ -490,10 +491,16 @@ public class BasketTests
 ```
 
 Nesting fails the other way, loudly rather than silently. `Assert.Equal` compares the elements
-themselves with `object.Equals`, so an inner collection is compared by reference: two equal
+themselves with `object.Equals`, so an inner array or `List<T>` is compared by reference: two equal
 `int[][]` values are reported as different. Compare the inner sequences individually when a test
-needs that shape. `Assert.Equivalent` is not the fix for either case -- it compares contents while
-ignoring order, so it answers a different question than `Assert.Equal` does.
+needs that shape.
+
+Order is the last of it, and it decides `HashSet<T>` and `Dictionary<TKey, TValue>`. xUnit compares a
+set by its members and a dictionary by its key-value pairs, both without regard to order; NextUnit
+walks whatever the collection enumerates, so two sets built from the same values in a different order
+are reported as different. Reach for `Assert.Equivalent` there, which compares contents and ignores
+order. It is the right tool for an unordered collection and the wrong one for a sequence, where order
+is part of what you are asserting.
 
 `Assert.ThrowsAsync` returns a `Task<TException>` rather than the exception itself, so it has to be
 awaited: an un-awaited call never observes the failure, and the test passes whatever the delegate
@@ -812,7 +819,7 @@ public class AsyncTests
 | Collection Fixture | `ICollectionFixture<T>` | `[Before(LifecycleScope.Assembly)]` |
 | Parallelization | JSON config | `[ParallelLimit]`, `[NotInParallel]` |
 | Test Ordering | Third-party | `[DependsOn]`, `[ExecutionPriority]` (built-in) |
-| Assertions | `Assert.*` | `Assert.*` (same!) |
+| Assertions | `Assert.*` | `Assert.*` (same call shapes; see [Where the Behavior Differs](#where-the-behavior-differs)) |
 | Test Discovery | Runtime reflection | Source generator (faster) |
 | Native AOT | Limited | Full support |
 

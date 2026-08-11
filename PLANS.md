@@ -237,12 +237,15 @@ says what the gate does prove -- that the calls compile unchanged -- and a `Wher
 Differs` table carries the ones that keep their shape and change their rule: exception matching is
 by subtype here and exact in xUnit, the string assertions are ordinal here and culture-aware in
 xUnit, `Assert.All` stops at the first failure instead of aggregating, and the two equality
-assertions disagree with each other on collections. `Assert.Equal` compares a collection element by
+assertions disagree with each other on collections. `Assert.Equal` compares a sequence element by
 element as xUnit does, but `Assert.NotEqual` uses `EqualityComparer<T>.Default`, which is reference
 equality for arrays and `List<T>`, so `Assert.NotEqual(new[] { 1, 2 }, new[] { 1, 2 })` fails in
 xUnit and passes here -- a red test turned green with nothing for the compiler to report. Nesting
 fails the opposite way, since `Assert.Equal` compares elements with `object.Equals` and therefore
-compares an inner collection by reference.
+compares an inner array or `List<T>` by reference. Unordered collections fail that way too:
+`Assert.Equal` walks a `HashSet<T>` or `Dictionary<TKey, TValue>` in enumeration order where xUnit
+ignores order, so `Assert.Equivalent` is the replacement there. All of it was verified by probing the
+built `NextUnit.Core` and `xunit.v3.assert` assemblies side by side.
 
 - [x] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
   declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiled, but
