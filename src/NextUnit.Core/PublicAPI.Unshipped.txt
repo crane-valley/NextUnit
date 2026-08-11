@@ -1,1 +1,3 @@
 #nullable enable
+*REMOVED*static NextUnit.Assert.Throws<TException>(System.Action! action, string! expectedMessage, string? message = null) -> TException!
+*REMOVED*static NextUnit.Assert.ThrowsAsync<TException>(System.Func<System.Threading.Tasks.Task!>! action, string! expectedMessage, string? message = null) -> System.Threading.Tasks.Task<TException!>!
