@@ -178,6 +178,38 @@ public sealed class SharedInstanceStoreTests
     }
 
     [Fact]
+    public void CriticalFailure_IsFoundThroughEveryWrapperADisposerCanUse()
+    {
+        // Constructed, never thrown: these stand for the trees a disposer can hand a cleanup path.
+        Assert.True(ExceptionHelper.IsCriticalFailure(new OutOfMemoryException()));
+        Assert.True(ExceptionHelper.IsCriticalFailure(new AggregateException(new OutOfMemoryException())));
+        Assert.True(ExceptionHelper.IsCriticalFailure(
+            new AggregateException(new AggregateException(new AccessViolationException()))));
+        Assert.True(ExceptionHelper.IsCriticalFailure(
+            new InvalidOperationException("wrapped", new OutOfMemoryException())));
+        Assert.True(ExceptionHelper.IsCriticalFailure(
+            new AggregateException(new InvalidOperationException("first"), new OutOfMemoryException())));
+
+        Assert.False(ExceptionHelper.IsCriticalFailure(null));
+        Assert.False(ExceptionHelper.IsCriticalFailure(new InvalidOperationException("ordinary")));
+        Assert.False(ExceptionHelper.IsCriticalFailure(
+            new AggregateException(new InvalidOperationException("first"), new InvalidOperationException("second"))));
+    }
+
+    [Fact]
+    public async Task DisposeAllAsync_LetsACriticalFailureInsideAnAggregateEscapeAsync()
+    {
+        ExpandClassDataSource(typeof(CriticallyFailingSource<CriticalScope>), SharedType.PerSession, typeof(FirstTestClass));
+
+        var exception = await Assert.ThrowsAsync<AggregateException>(
+            () => SharedInstanceStore.DisposeAllAsync().AsTask());
+
+        // Filed as an ordinary disposal failure, this would be reported as one badly behaved data
+        // source while the process is actually out of memory.
+        Assert.True(exception.InnerExceptions.Any(inner => inner is OutOfMemoryException));
+    }
+
+    [Fact]
     public async Task DisposeAllAsync_StillOwnsAnInstanceCreatedWhileItWasRunningAsync()
     {
         // The constructor empties the store from inside its own creation, which is the worst case a
@@ -317,6 +349,8 @@ public sealed class SharedInstanceStoreTests
 
     private sealed class SessionScope;
 
+    private sealed class CriticalScope;
+
     private sealed class FirstTestClass
     {
         public void Run(int value) => _ = value;
@@ -377,6 +411,18 @@ public sealed class SharedInstanceStoreTests
             Record(typeof(TScope), "disposed");
             throw new InvalidOperationException("dispose boom");
         }
+    }
+
+    /// <summary>
+    /// A disposer that reports a critical failure the way a real one would: wrapped in whatever it
+    /// caught rather than thrown bare.
+    /// </summary>
+    private sealed class CriticallyFailingSource<TScope> : SingleRowSource, IDisposable
+    {
+        public CriticallyFailingSource() => Record(typeof(TScope), "created");
+
+        public void Dispose() =>
+            throw new AggregateException("cleanup failed", new OutOfMemoryException());
     }
 
     /// <summary>

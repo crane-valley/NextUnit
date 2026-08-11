@@ -191,7 +191,10 @@ internal sealed class SessionLifecycleRunner
                 // so it is wrapped in a non-OCE and surfaced as a teardown failure.
                 failures.Add(RunCancellationClassifier.ToFailure(ex, cancellationMessage));
             }
-            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            // IsCriticalFailure rather than IsCriticalException: the shared instance step reports
+            // several disposal failures as one AggregateException, and a critical exception inside it
+            // must not be filed away as an ordinary teardown failure.
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalFailure(ex))
             {
                 failures.Add(ex);
             }

@@ -146,7 +146,10 @@ internal static class SharedInstanceStore
             {
                 await DisposeHelper.PreferAsyncDisposeAsync(entry.Instance).ConfigureAwait(false);
             }
-            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            // IsCriticalFailure, not IsCriticalException: a disposer is free to wrap what it caught,
+            // and an OutOfMemoryException arriving inside an AggregateException must still end the
+            // run rather than be filed as one badly behaved data source.
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalFailure(ex))
             {
                 (failures ??= []).Add(ex);
             }

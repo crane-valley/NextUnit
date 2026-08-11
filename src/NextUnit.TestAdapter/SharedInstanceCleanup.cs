@@ -39,7 +39,10 @@ internal static class SharedInstanceCleanup
         {
             SharedInstanceStore.DisposeAll();
         }
-        catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+        // IsCriticalFailure rather than IsCriticalException: the store reports several disposal
+        // failures as one AggregateException, and a critical exception inside it must reach the host
+        // instead of being logged as a cleanup message the run then continues past.
+        catch (Exception ex) when (!ExceptionHelper.IsCriticalFailure(ex))
         {
             AdapterDiagnostics.ReportSharedInstanceDisposalFailure(logger, ex);
         }

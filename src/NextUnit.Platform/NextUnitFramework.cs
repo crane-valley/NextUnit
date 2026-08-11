@@ -301,13 +301,11 @@ internal sealed class NextUnitFramework :
     /// <see cref="CancellationTokenSource.Cancel()"/> wraps callback failures in an
     /// <see cref="AggregateException"/>, which is itself never critical, so testing only the outer
     /// exception would swallow an <see cref="OutOfMemoryException"/> thrown by a data source's own
-    /// cancellation callback. The aggregate is flattened first because a callback is free to throw
-    /// an aggregate of its own.
+    /// cancellation callback. Every cleanup path in the framework needs that same classification, so
+    /// it lives in <see cref="ExceptionHelper"/> and this is the local name for it.
     /// </remarks>
     private static bool IsCriticalFailure(Exception exception) =>
-        exception is AggregateException aggregate
-            ? aggregate.Flatten().InnerExceptions.Any(ExceptionHelper.IsCriticalException)
-            : ExceptionHelper.IsCriticalException(exception);
+        ExceptionHelper.IsCriticalFailure(exception);
 
     private static void CancelAndDispose(CancellationTokenSource? cancellation)
     {
