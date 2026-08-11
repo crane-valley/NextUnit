@@ -353,15 +353,49 @@ public sealed class SessionLifecycleRunnerTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        var runner = new SessionLifecycleRunner(
-            () => throw new OperationCanceledException("cancelled", new OutOfMemoryException(), cts.Token));
+        var laterHookRan = false;
+        var disposed = false;
+        var runner = new SessionLifecycleRunner(() =>
+        {
+            disposed = true;
+            return ValueTask.CompletedTask;
+        });
+        runner.AddMethods(
+            null,
+            [
+                (_, _) => { laterHookRan = true; return Task.CompletedTask; },
+                (_, _) => throw new OperationCanceledException("cancelled", new OutOfMemoryException(), cts.Token)
+            ]);
 
         // Cancellation is classified before anything else, so an OCE carrying a critical exception
-        // would be held as run cancellation and the failure inside it never looked at.
+        // would be held as run cancellation and the failure inside it never looked at. Reverse order
+        // runs the throwing hook first, so what separates escaping from being held is whether teardown
+        // carried on afterwards: cancellation is held and the rest still runs, a critical failure is
+        // not caught at all and nothing after it happens.
         var exception = await Assert.ThrowsAsync<OperationCanceledException>(
             () => runner.RunTeardownAsync(cts.Token));
 
         Assert.True(exception.InnerException is OutOfMemoryException);
+        Assert.False(laterHookRan);
+        Assert.False(disposed);
+    }
+
+    [Test]
+    public async Task RunSetupOnceAsync_LetsACriticalFailureEscapeThroughASkipAsync()
+    {
+        var runner = new SessionLifecycleRunner();
+        runner.AddMethods(
+            [(_, _) => throw new TestSkippedException("no database available", new OutOfMemoryException())],
+            null);
+
+        // A skip is the most swallowing branch in setup, and TestSkippedException takes an inner
+        // exception, so a hook could hand one a critical failure and have the session report every
+        // test as skipped while the process is out of memory.
+        var exception = await Assert.ThrowsAsync<TestSkippedException>(
+            () => runner.RunSetupOnceAsync(CancellationToken.None));
+
+        Assert.True(exception.InnerException is OutOfMemoryException);
+        Assert.Null(runner.SkipReason);
     }
 
     [Test]
