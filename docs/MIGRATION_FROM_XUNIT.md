@@ -376,13 +376,16 @@ Assert.IsAssignableFrom<T>(...)  // → Use pattern matching
 **NextUnit** (attribute-based):
 
 ```csharp
-// Limit concurrent tests in a class to 4
-[ParallelLimit(4)]
+// The suite-wide equivalent of maxParallelThreads: at most 4 concurrent tests everywhere
+[assembly: ParallelLimit(4)]
+
+// A class or method may declare its own; the nearest declaration wins
+[ParallelLimit(2)]
 public class ResourceIntensiveTests
 {
     [Test]
     public void Test1() { }
-    
+
     [Test]
     public void Test2() { }
 }
@@ -398,7 +401,7 @@ public class SerialTests
     public void Test2() { }
 }
 
-// Default: All tests run in parallel with no limit
+// Default: tests run in parallel, bounded by the processor count
 public class NormalTests
 {
     [Test]
