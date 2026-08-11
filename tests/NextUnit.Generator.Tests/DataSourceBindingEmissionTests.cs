@@ -11,6 +11,12 @@ namespace NextUnit.Generator.Tests;
 /// no way to supply, has to produce no provider at all. Emitting one anyway fails the consumer's
 /// build inside a file they did not write; emitting none leaves the runtime reflection fallback,
 /// which reads non-public members, plus the analyzer diagnostic that names the fix.
+/// <para>
+/// A source whose declaring type is what the registry cannot name is the exception: its type
+/// reference has to go too, which leaves the fallback reflecting over the test class and reading a
+/// same-named member there. Those get a provider that throws, so the withheld type is named in a
+/// message rather than acted on.
+/// </para>
 /// </remarks>
 public class DataSourceBindingEmissionTests
 {

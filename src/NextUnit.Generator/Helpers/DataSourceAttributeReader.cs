@@ -357,7 +357,9 @@ internal static class DataSourceAttributeReader
     /// Used by the parameter-level sources ([ValuesFromMember] and [ValuesFrom&lt;T&gt;]), which only
     /// expand synchronous collections. A member the generated registry cannot name is reported as
     /// unknown so that no direct access is emitted for it; the runtime reflection fallback, which
-    /// reads non-public members, still reaches it, and the analyzers report it as NU0020.
+    /// reads non-public members, still reaches it, and the analyzers report it as NU0020. A source
+    /// whose declaring type is the unreachable part is handled in
+    /// <see cref="GetEmittableTypeName"/> instead, and does not reach the fallback at all.
     /// </remarks>
     private static DataSourceMemberKind GetDataSourceMemberKind(
         INamedTypeSymbol? typeSymbol,
