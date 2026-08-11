@@ -103,9 +103,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var displayNameFormatterType = AttributeHelper.GetDisplayNameFormatterType(methodSymbol, typeSymbol);
         var (notInParallel, constraintKeys) = AttributeHelper.GetNotInParallelInfo(methodSymbol, typeSymbol);
         var parallelGroup = AttributeHelper.GetParallelGroup(methodSymbol, typeSymbol);
-        var methodParallelLimit = AttributeHelper.GetParallelLimit(methodSymbol);
-        var typeParallelLimit = AttributeHelper.GetParallelLimit(typeSymbol);
-        var parallelLimit = methodParallelLimit ?? typeParallelLimit;
+        var parallelLimit = AttributeHelper.GetParallelLimit(methodSymbol, typeSymbol);
         var dependencyMetadata = AttributeHelper.GetDependencyMetadata(methodSymbol);
         var (isSkipped, skipReason) = AttributeHelper.GetSkipInfo(methodSymbol);
         var (isExplicit, explicitReason) = AttributeHelper.GetExplicitInfo(methodSymbol, typeSymbol);

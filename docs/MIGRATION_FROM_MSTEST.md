@@ -36,7 +36,7 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[ExpectedException]` | `Assert.Throws<T>` | |
 | `[Retry]` | `[Retry]`, `[Retry<TPolicy>]` | The counts differ; see [Retry, repeat, timeout, and culture](#retry-repeat-timeout-and-culture) |
 | `[DoNotParallelize]` | `[NotInParallel]` | |
-| `[Parallelize(Workers = n)]` | `[ParallelLimit(n)]` on each class | No suite-wide equivalent; see [Parallelism and ordering](#parallelism-and-ordering) |
+| `[Parallelize(Workers = n)]` | `[ParallelLimit(n)]` | Applies at assembly, class, or method level; see [Parallelism and ordering](#parallelism-and-ordering) |
 | `[DescriptionAttribute]` | `[DisplayName]` | Changes the reported name |
 | `Assert.AreEqual` | `Assert.Equal` | Same argument order |
 | `StringAssert.*` | `Assert.StartsWith`, `EndsWith`, `Contains` | |
@@ -619,12 +619,11 @@ public class GroupedTests
 `[NotInParallel]` is the equivalent of `[DoNotParallelize]`, and it also accepts constraint keys, so
 classes that share one resource can exclude each other without serializing the whole run.
 
-There is no suite-wide parallelism setting. `ParallelLimitAttribute` accepts an assembly target, but
-the generator reads `[ParallelLimit]` only from a test method and its containing class, so an
-assembly-level declaration compiles and is then ignored. An assembly-wide
-`[Parallelize(Workers = 4)]` therefore becomes `[ParallelLimit(4)]` on each class that needs it; a
-class without one is bounded by the processor count. `[Timeout]` is the attribute that does resolve
-from the assembly as well as the class and method.
+`[ParallelLimit]` resolves from the test method, then its containing class, then the assembly, so an
+assembly-wide `[Parallelize(Workers = 4)]` becomes `[assembly: ParallelLimit(4)]`. The nearest
+declaration wins: a class or method carrying its own `[ParallelLimit]` overrides the assembly-wide
+one, and a test that no level declares a limit for is bounded by the processor count. `[Timeout]`
+and the culture attributes resolve across the same three levels.
 
 MSTest has no built-in ordering. NextUnit expresses order as a dependency or a priority:
 

@@ -277,7 +277,34 @@ internal static class AttributeHelper
         return builder.ToImmutable();
     }
 
-    public static int? GetParallelLimit(ISymbol symbol)
+    /// <summary>
+    /// Resolves the parallel limit for a test from the method, its class, and its assembly.
+    /// </summary>
+    /// <remarks>
+    /// The assembly level is read because <c>ParallelLimitAttribute</c> declares
+    /// <see cref="AttributeTargets.Assembly"/>, so <c>[assembly: ParallelLimit(n)]</c> compiles and a
+    /// reader expects it to bound the whole suite; reading only the method and its class dropped it
+    /// silently. The precedence matches <see cref="GetTimeout"/> and the culture attributes.
+    /// </remarks>
+    public static int? GetParallelLimit(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        var methodLimit = GetParallelLimitFromSymbol(methodSymbol);
+        if (methodLimit.HasValue)
+        {
+            return methodLimit;
+        }
+
+        var classLimit = GetParallelLimitFromSymbol(typeSymbol);
+        if (classLimit.HasValue)
+        {
+            return classLimit;
+        }
+
+        var assemblyLimit = GetParallelLimitFromSymbol(typeSymbol.ContainingAssembly);
+        return assemblyLimit;
+    }
+
+    private static int? GetParallelLimitFromSymbol(ISymbol symbol)
     {
         foreach (var attribute in symbol.GetAttributes())
         {

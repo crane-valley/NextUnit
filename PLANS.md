@@ -216,13 +216,16 @@ the test host has.
 - [ ] Bring `docs/MIGRATION_FROM_XUNIT.md` under the same compile check. Its samples are bare method
   and statement fragments rather than compilation units, and two blocks are API listings with
   undeclared identifiers, so inclusion means rewriting the samples rather than annotating them.
-- [ ] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
-  declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiles, but
-  `NextUnitGenerator` resolves the limit from the test method and its containing type only and never
-  from `ContainingAssembly`, so a suite-wide limit is silently dropped and the run falls back to the
-  processor count. `[Timeout]` and the culture attributes already read the assembly, so the fix is
-  either to do the same here or to drop the assembly target. Surfaced by the Codex review of the
-  migration guides (2026-08-04); the guides document the current behavior meanwhile.
+- [x] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
+  declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiled, but
+  `NextUnitGenerator` resolved the limit from the test method and its containing type only and never
+  from `ContainingAssembly`, so a suite-wide limit was silently dropped and the run fell back to the
+  processor count. Surfaced by the Codex review of the migration guides (2026-08-04). Delivered as
+  `AttributeHelper.GetParallelLimit(IMethodSymbol, INamedTypeSymbol)`, which resolves the method,
+  then its class, then the assembly exactly as `GetTimeout` and the culture attributes do; the
+  assembly target stays, because dropping it would fail builds that compile today. Pinned by
+  `tests/NextUnit.Generator.Tests/ParallelLimitEmissionTests.cs`, and the NUnit and MSTest guides
+  now document the resolution instead of the gap.
 - [ ] Decide how documentation on `main` should present APIs that are not in the released package.
   Between releases, `README.md`, `docs/GETTING_STARTED.md`, and the migration guides describe what
   `main` implements while pinning the last published version, so a reader who installs the pinned

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Resolve `[ParallelLimit]` from the assembly. `ParallelLimitAttribute` has always accepted an
+  assembly target, but the generator read the limit from the test method and its containing class
+  only, so `[assembly: ParallelLimit(4)]` compiled and was then dropped and the run fell back to the
+  processor count. The limit now resolves method first, then class, then assembly, matching
+  `[Timeout]` and the culture attributes. A suite that declares no limit anywhere is unaffected.
+
 ## [1.19.1] - 2026-08-10
 
 ### Fixed
