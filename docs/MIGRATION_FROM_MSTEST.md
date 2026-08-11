@@ -621,9 +621,10 @@ classes that share one resource can exclude each other without serializing the w
 
 `[ParallelLimit]` resolves from the test method, then its containing class, then the assembly, so an
 assembly-wide `[Parallelize(Workers = 4)]` maps to `[assembly: ParallelLimit(4)]`. A test that no
-level declares a limit for is bounded by the processor count, except inside a `[ParallelGroup]`,
-which runs at the smallest limit declared anywhere in the group even when that is larger than the
-processor count. `[Timeout]` and the culture attributes resolve across the same three levels.
+level declares a limit for is bounded by the processor count, except when it is scheduled alongside a
+limit-declaring test that shares its `[ParallelGroup]`: that batch runs at the smallest limit
+declared within it, even when that is larger than the processor count. `[Timeout]` and the culture
+attributes resolve across the same three levels.
 
 The two differ on both halves of `[Parallelize]`. `Workers` is a maximum, while the NextUnit value is
 the default a test inherits when neither its method nor its class declares one -- and the nearest

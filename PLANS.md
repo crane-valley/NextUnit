@@ -558,25 +558,28 @@ and need a deliberate decision before implementation.
 ### Priority 2 — A parallel group's declared limit overrides its unannotated members' default
 
 Surfaced by the Codex review of PR #219 (2026-08-10) and confirmed to pre-date it.
-`ParallelScheduler.CreateBatches` sizes a `[ParallelGroup]` batch with
+`ParallelScheduler.GroupIntoBatches` sizes a `[ParallelGroup]` batch with
 `groupTests.Min(t => t.Parallel.ParallelLimit) ?? _globalMaxDegreeOfParallelism`. `Min` over `int?`
-skips nulls, so the coalesce is reached only when no member of the group declares a limit at all. A
-group holding unannotated tests alongside one `[ParallelLimit(16)]` therefore runs sixteen wide,
+skips nulls, so the coalesce is reached only when no member of the batch declares a limit at all. A
+batch holding unannotated tests alongside one `[ParallelLimit(16)]` therefore runs sixteen wide,
 including the unannotated tests, which everywhere else are bounded by the processor count -- on an
-eight-core machine the group runs at twice what those tests would otherwise get. The ungrouped path
+eight-core machine the batch runs at twice what those tests would otherwise get. The ungrouped path
 does not share the defect: it keys on `ParallelLimit ?? _globalMaxDegreeOfParallelism`, so an
-undeclared limit becomes the processor count before the grouping rather than after it.
+undeclared limit becomes the processor count before the grouping rather than after it. The unit is
+the batch rather than the whole group, because `GroupIntoBatches` sees only the tests a dependency
+wave has made ready: members of one group held back by dependencies land in a later batch and are
+sized separately.
 
 - [ ] Decide whether an undeclared limit should contribute the processor count to a parallel group's
-  `Min`. Coalescing before the `Min` makes the group take the smaller of the processor count and the
+  `Min`. Coalescing before the `Min` makes the batch take the smaller of the processor count and the
   smallest declared limit, which is what the attribute documentation says a test without a
-  declaration gets, and what the ungrouped path already does. It also lowers the effective width of
-  any existing group whose declared limit exceeds the processor count, so it changes scheduling for
-  suites that are passing today -- a behavior change rather than a bug fix, which is why the
-  documentation for 1.x describes the current behavior instead. The alternative is to declare the
-  group limit deliberately authoritative, on the reading that an explicit `[ParallelGroup]` with an
-  explicit limit is a statement about the group as a whole; that keeps today's behavior and makes the
-  attribute docs say so.
+  declaration gets, and what the ungrouped path already does. It narrows a batch only when that batch
+  holds at least one undeclared member and its smallest declared limit exceeds the processor count --
+  a batch whose members all declare 16 still runs at 16 -- but that is still a scheduling change for
+  suites passing today rather than a bug fix, which is why the documentation for 1.x describes the
+  current behavior instead. The alternative is to declare the group limit deliberately authoritative,
+  on the reading that an explicit `[ParallelGroup]` with an explicit limit is a statement about the
+  group as a whole; that keeps today's behavior and makes the attribute docs say so.
 
 ## Deferred to the next major version
 
