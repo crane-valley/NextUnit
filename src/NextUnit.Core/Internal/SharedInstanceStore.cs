@@ -20,6 +20,8 @@ namespace NextUnit.Internal;
 /// <see cref="SharedType.PerSession"/> keep separate instances even though a single-assembly run
 /// cannot tell the two lifetimes apart. They are documented as different scopes, and collapsing them
 /// would change which tests share an instance rather than only which attribute they arrived through.
+/// <see cref="SharedType.PerAssembly"/> also carries the test assembly, so the scope means what its
+/// name says in a run that loads more than one.
 /// </para>
 /// <para>
 /// Everything the store hands out is released by <see cref="DisposeAllAsync"/> at the end of the
@@ -36,12 +38,15 @@ internal static class SharedInstanceStore
 
     private static readonly ConcurrentDictionary<SharedInstanceKey, Lazy<SharedInstance>> _instances = new();
 
-    // What disposal actually walks. An instance registers itself here the moment it exists, rather
-    // than being found through the keyed entry it belongs to, because a cleanup can run while a data
-    // source constructor is still running: reading the keyed entry would find nothing to dispose,
-    // remove it anyway, and leave the finished instance owned by nobody. Registered here it survives
-    // to the next cleanup instead.
-    private static readonly ConcurrentDictionary<SharedInstance, byte> _live = new();
+    // Guards the boundary between registering an instance and retiring the store. Both sides are
+    // short and hold no user code: a constructor runs outside it and only the finished instance is
+    // published under it.
+    private static readonly Lock _gate = new();
+
+    // What disposal actually walks, rather than the keyed entries. An instance is registered here the
+    // moment it exists, so a cleanup that runs while a data source constructor is still going cannot
+    // drop a keyed entry it finds empty and leave the finished instance owned by nobody.
+    private static readonly List<SharedInstance> _live = [];
 
     private static long _sequence;
 
@@ -106,27 +111,28 @@ internal static class SharedInstanceStore
     /// </para>
     /// <para>
     /// A constructor that is still running is neither awaited nor abandoned. Awaiting it would let a
-    /// data source that never returns hang the run at teardown, and handing its finished instance to
-    /// the caller that asked for it while disposing it here would be worse than either: the keyed
-    /// entry is dropped, so nothing is shared with it again, and the instance registers itself as
-    /// live when it completes, which leaves it for the next cleanup rather than for nobody.
+    /// data source that never returns hang the run at teardown, and disposing its instance out from
+    /// under the caller that is about to enumerate it would be worse than either. It is retired
+    /// instead: the barrier below means such an instance can only register after this pass took what
+    /// it is disposing, so it belongs to the next cleanup. The platform path always has one, because
+    /// <c>NextUnitFramework.Dispose</c> runs after session teardown.
     /// </para>
     /// </remarks>
     /// <exception cref="AggregateException">More than one instance failed to dispose.</exception>
     public static async ValueTask DisposeAllAsync()
     {
-        // Cleared before the instances are drained, so nothing that survives the drain can still be
-        // handed out under its old key.
-        _instances.Clear();
+        List<SharedInstance> removed;
 
-        var removed = new List<SharedInstance>();
-
-        foreach (var entry in _live.Keys)
+        lock (_gate)
         {
-            if (_live.TryRemove(entry, out _))
-            {
-                removed.Add(entry);
-            }
+            // Retiring the keyed entries and taking the live instances in one step is what makes the
+            // boundary mean anything. A constructor that was already running when this pass started
+            // can only register after this section, so it is never in what this pass disposes, and
+            // its caller cannot be handed an instance this pass released.
+            _instances.Clear();
+
+            removed = [.. _live];
+            _live.Clear();
         }
 
         removed.Sort(static (left, right) => right.Sequence.CompareTo(left.Sequence));
@@ -175,7 +181,12 @@ internal static class SharedInstanceStore
     private static SharedInstance Register(object instance)
     {
         var created = new SharedInstance(instance, Interlocked.Increment(ref _sequence));
-        _live[created] = 0;
+
+        lock (_gate)
+        {
+            _live.Add(created);
+        }
+
         return created;
     }
 
@@ -192,16 +203,24 @@ internal static class SharedInstanceStore
         switch (sharedType)
         {
             case SharedType.Keyed:
-                instanceKey = new SharedInstanceKey(sharedType, sourceType, null, key ?? DefaultKey);
+                instanceKey = new SharedInstanceKey(sharedType, sourceType, null, null, key ?? DefaultKey);
                 return true;
 
             case SharedType.PerClass:
-                instanceKey = new SharedInstanceKey(sharedType, sourceType, testClass, null);
+                instanceKey = new SharedInstanceKey(sharedType, sourceType, testClass, null, null);
                 return true;
 
+            // Keyed by the assembly the tests live in, not by the data source type alone: the scope
+            // says "shared across all tests in the assembly", and a data source type that two test
+            // assemblies both reference would otherwise hand them one instance in a run that loads
+            // both. Single-assembly runs, which is every Microsoft.Testing.Platform run, are
+            // unaffected.
             case SharedType.PerAssembly:
+                instanceKey = new SharedInstanceKey(sharedType, sourceType, null, testClass.Assembly, null);
+                return true;
+
             case SharedType.PerSession:
-                instanceKey = new SharedInstanceKey(sharedType, sourceType, null, null);
+                instanceKey = new SharedInstanceKey(sharedType, sourceType, null, null, null);
                 return true;
 
             default:
@@ -256,6 +275,7 @@ internal static class SharedInstanceStore
         SharedType Scope,
         Type SourceType,
         Type? TestClass,
+        Assembly? TestAssembly,
         string? Key);
 
     /// <summary>

@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now instantiated once, and a suite that counted on the two copies being independent sees one
   shared object. `PerAssembly` and `PerSession` still keep separate instances from each other, and
   `SharedType.None` still creates an instance per expansion and is not owned by the framework.
+  `PerAssembly` is now keyed by the test assembly as well, which is what its name has always
+  promised: a data source type that two test assemblies both reference used to be one instance for
+  both in a run that loaded both, which only VSTest can do. Single-assembly runs are unaffected.
   Nothing in 1.x ever released a shared instance, so a data source holding a connection, a container,
   or a temporary directory leaked it for the life of the process. Under Microsoft.Testing.Platform
   the instances are disposed during session close, after every `[After(LifecycleScope.Session)]` hook

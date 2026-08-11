@@ -672,7 +672,9 @@ class for `PerClass`, the key for `Keyed`, nothing more for `PerAssembly` and `P
 is part of the key, so `PerAssembly` and `PerSession` still hold separate instances even though a
 single-assembly run cannot tell the two lifetimes apart; collapsing them would change which tests
 share an instance rather than only which attribute they arrived through, which is more than this item
-agreed to break. Entries are `Lazy` values rather than bare `GetOrAdd` factories, because
+agreed to break. `PerAssembly` gained the test assembly as a key component, which the scope's own
+documentation always promised and the type-only key did not deliver in a multi-assembly VSTest run.
+Entries are `Lazy` values rather than bare `GetOrAdd` factories, because
 `ConcurrentDictionary` may run a losing factory and throw its result away, and an instance the store
 never records is an instance nothing ever disposes; a failed creation is evicted so the next
 expansion retries, as it did in 1.x. Disposal runs in reverse creation order, prefers
@@ -685,7 +687,11 @@ the session result, with `NextUnitFramework.Dispose` as the backstop for a reque
 or fails and therefore never reaches session close. VSTest has no session boundary, so each adapter
 operation owns what it created: the executor disposes at the end of a run and the discoverer at the
 end of discovery, which costs a second instantiation when both happen in one process and is what
-already happens whenever VSTest discovers and runs in separate processes. Pinned by twelve tests in
+already happens whenever VSTest discovers and runs in separate processes. Registering an instance and
+retiring the store are serialized on one lock, so a constructor that was running when a cleanup began
+can only register after that cleanup took what it disposes: its caller is never handed a released
+instance, and the instance belongs to the next cleanup, which `NextUnitFramework.Dispose` provides
+even when it is called twice. Pinned by fifteen tests in
 `tests/NextUnit.Generator.Tests/SharedInstanceStoreTests.cs`, written first against 1.x behavior,
 where the same type through both attributes produced two instances and a keyed pair produced three,
 and five more in `SessionLifecycleRunnerTests` for the ordering and the failure reporting.

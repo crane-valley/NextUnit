@@ -352,23 +352,25 @@ internal sealed class NextUnitFramework :
     /// </remarks>
     public void Dispose()
     {
-        CancellationTokenSource? abandoned;
+        CancellationTokenSource? abandoned = null;
 
         // Idempotent: Cancel() on an already-disposed source throws, and a host is free to dispose
         // an extension more than once.
         lock (_testCasesGate)
         {
-            if (_disposed)
+            if (!_disposed)
             {
-                return;
+                _disposed = true;
+                abandoned = _currentBuild?.TakeCancellation();
+                _currentBuild = null;
             }
-
-            _disposed = true;
-            abandoned = _currentBuild?.TakeCancellation();
-            _currentBuild = null;
         }
 
         CancelAndDispose(abandoned);
+
+        // Deliberately outside the idempotence guard. A data source whose constructor finished after
+        // an earlier pass had taken its snapshot is left for the next cleanup by design, and a second
+        // Dispose is the only next cleanup it can still get.
         DisposeSharedInstances();
     }
 

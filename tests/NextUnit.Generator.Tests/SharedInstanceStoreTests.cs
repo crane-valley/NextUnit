@@ -81,6 +81,27 @@ public sealed class SharedInstanceStoreTests
     }
 
     [Fact]
+    public void SharedInstance_PerAssembly_IsCreatedOncePerTestAssembly()
+    {
+        // Assert stands in for a test class in another assembly, which is all the scope keys on.
+        ExpandClassDataSource(typeof(RecordingSource<AssemblyScope>), SharedType.PerAssembly, typeof(FirstTestClass));
+        ExpandClassDataSource(typeof(RecordingSource<AssemblyScope>), SharedType.PerAssembly, typeof(SecondTestClass));
+        ExpandClassDataSource(typeof(RecordingSource<AssemblyScope>), SharedType.PerAssembly, typeof(Assert));
+
+        Assert.Equal(2, CreatedCount<AssemblyScope>());
+    }
+
+    [Fact]
+    public void SharedInstance_PerSession_SpansTestAssemblies()
+    {
+        ExpandClassDataSource(typeof(RecordingSource<SessionScope>), SharedType.PerSession, typeof(FirstTestClass));
+        ExpandClassDataSource(typeof(RecordingSource<SessionScope>), SharedType.PerSession, typeof(Assert));
+
+        // The one thing PerSession does that PerAssembly does not.
+        Assert.Equal(1, CreatedCount<SessionScope>());
+    }
+
+    [Fact]
     public async Task DisposeAllAsync_DisposesEveryInstanceAndEmptiesTheStoreAsync()
     {
         ExpandClassDataSource(typeof(RecordingSource<DisposalScope>), SharedType.PerSession, typeof(FirstTestClass));
@@ -290,6 +311,10 @@ public sealed class SharedInstanceStoreTests
     private sealed class FailingScope;
 
     private sealed class RacingScope;
+
+    private sealed class AssemblyScope;
+
+    private sealed class SessionScope;
 
     private sealed class FirstTestClass
     {

@@ -81,9 +81,8 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         {
             // The whole run is the session equivalent here: VSTest has no session boundary, but the
             // end of the run is the point past which no test can still reach a shared instance. Every
-            // source is covered at once rather than one at a time, because PerAssembly and PerSession
-            // instances are keyed by data source type alone, so two sources referencing one shared
-            // library share an instance.
+            // source is covered at once rather than one at a time, because a PerSession instance is
+            // keyed by data source type alone, so two sources referencing one shared library share it.
             SharedInstanceCleanup.Run(frameworkHandle);
         }
     }
@@ -143,9 +142,8 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         {
             // The whole run is the session equivalent here: VSTest has no session boundary, but the
             // end of the run is the point past which no test can still reach a shared instance. Every
-            // source is covered at once rather than one at a time, because PerAssembly and PerSession
-            // instances are keyed by data source type alone, so two sources referencing one shared
-            // library share an instance.
+            // source is covered at once rather than one at a time, because a PerSession instance is
+            // keyed by data source type alone, so two sources referencing one shared library share it.
             SharedInstanceCleanup.Run(frameworkHandle);
         }
     }
