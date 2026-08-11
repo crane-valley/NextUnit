@@ -95,7 +95,7 @@ internal sealed class SessionLifecycleRunner
         // Genuine run cancellation is the platform's business, not a framework failure, so the filter
         // leaves it (and any critical exception) uncaught rather than catching it only to rethrow:
         // an exception no frame catches keeps its original first-chance debugger behavior.
-        catch (Exception ex) when (!IsRunCancellation(ex, cancellationToken) && !ExceptionHelper.IsCriticalException(ex))
+        catch (Exception ex) when (!IsRunCancellation(ex, cancellationToken) && !ExceptionHelper.IsCriticalFailure(ex))
         {
             // Deliberately caught outside the gate so the gate still sees a throw and stays open: the
             // session result is failed anyway, and a later caller retrying setup is preferable to it
@@ -177,7 +177,13 @@ internal sealed class SessionLifecycleRunner
             {
                 await operation().ConfigureAwait(false);
             }
-            catch (OperationCanceledException ex) when (RunCancellationClassifier.IsRunCancellation(ex, cancellationToken))
+            // The critical test is repeated on both cancellation filters rather than left to the last
+            // catch: cancellation is classified first, so an OperationCanceledException that carries a
+            // critical exception would otherwise be held or reported as cancellation and never reach
+            // it. Nothing here may catch a critical failure, whatever shape it arrives in.
+            catch (OperationCanceledException ex) when (
+                !ExceptionHelper.IsCriticalFailure(ex)
+                && RunCancellationClassifier.IsRunCancellation(ex, cancellationToken))
             {
                 // Genuine run cancellation (the OCE carries the run token). Held rather than returned
                 // at once so the remaining hooks still release their resources, and rethrown above:
@@ -185,7 +191,7 @@ internal sealed class SessionLifecycleRunner
                 // assembly teardown avoids by handing its cancellation back to the run.
                 cancellation ??= ex;
             }
-            catch (OperationCanceledException ex)
+            catch (OperationCanceledException ex) when (!ExceptionHelper.IsCriticalFailure(ex))
             {
                 // An OCE carrying a different token (or none) is the step's own unrelated cancellation,
                 // so it is wrapped in a non-OCE and surfaced as a teardown failure.

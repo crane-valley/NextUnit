@@ -348,6 +348,23 @@ public sealed class SessionLifecycleRunnerTests
     }
 
     [Test]
+    public async Task RunTeardownAsync_LetsACriticalFailureEscapeThroughACancellationWrapperAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var runner = new SessionLifecycleRunner(
+            () => throw new OperationCanceledException("cancelled", new OutOfMemoryException(), cts.Token));
+
+        // Cancellation is classified before anything else, so an OCE carrying a critical exception
+        // would be held as run cancellation and the failure inside it never looked at.
+        var exception = await Assert.ThrowsAsync<OperationCanceledException>(
+            () => runner.RunTeardownAsync(cts.Token));
+
+        Assert.True(exception.InnerException is OutOfMemoryException);
+    }
+
+    [Test]
     public async Task RunTeardownAsync_ReportsDisposalOwnCancellationAsAFailureAsync()
     {
         var runner = new SessionLifecycleRunner(
