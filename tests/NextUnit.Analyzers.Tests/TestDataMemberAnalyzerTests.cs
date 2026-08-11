@@ -458,6 +458,64 @@ public class TestDataMemberAnalyzerTests
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
     }
 
+    /// <summary>
+    /// Nothing supplies the type argument -- neither the generated call nor the reflection fallback
+    /// -- so a member that is only ever generic is reported as missing rather than left to fail at
+    /// run time.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithGenericOnlyMember_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                public static IEnumerable<object[]> Rows<T>() => new[] { new object[] { 1 } };
+
+                [Test]
+                [TestData("Rows")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(9, 6, 9, 22)
+            .WithArguments("Rows", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    [Fact]
+    public async Task ValuesFromMemberWithGenericOnlyMember_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                public static IEnumerable<int> Values<T>() => new[] { 1, 2, 3 };
+
+                [Test]
+                public void TestMethod([{|#0:ValuesFromMember("Values")|}] int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Values", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
     [Fact]
     public async Task NoTestDataAttribute_NoDiagnosticAsync()
     {

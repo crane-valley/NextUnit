@@ -114,13 +114,16 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Look for a static member (property, method, or field). Accessibility is not part of this
-        // test: the runtime reflection fallback uses BindingFlags.NonPublic, so an unreachable
-        // member is a different failure from a missing one and is reported as NU0020 below.
+        // Look for a static member (property, method, or field) the framework could use at all.
+        // Accessibility is not part of this test: the runtime reflection fallback uses
+        // BindingFlags.NonPublic, so an unreachable member is a different failure from a missing one
+        // and is reported as NU0020 below. Arity is part of it: neither the generated call nor the
+        // reflection fallback supplies a type argument, so a generic overload is no more usable than
+        // an instance member, which this test has always rejected the same way.
         var members = targetType.GetMembers(memberName);
         var validMember = members.FirstOrDefault(member =>
             (member is IPropertySymbol property && property.IsStatic) ||
-            (member is IMethodSymbol memberMethod && memberMethod.IsStatic) ||
+            (member is IMethodSymbol { Arity: 0 } memberMethod && memberMethod.IsStatic) ||
             (member is IFieldSymbol field && field.IsStatic));
 
         if (validMember is null)
