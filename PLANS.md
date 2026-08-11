@@ -219,7 +219,7 @@ the test host has.
 
 Delivered by rewriting every sample in the guide into a compilation unit and registering the guide in
 `tests/NextUnit.Docs.Tests` alongside the other two. The xUnit-side blocks carry the `xunit`
-annotation so they stay out of the compilation, and thirteen NextUnit-side blocks now compile through
+annotation so they stay out of the compilation, and fourteen NextUnit-side blocks now compile through
 the generator and analyzers. The two API listings took different shapes because they are different
 claims: the assertions that survive migration unchanged became a class of signature listings, one
 method per group, so the compile check proves that `Assert` still carries them; the assertions with
@@ -234,9 +234,15 @@ NextUnit `.csproj` omitted the `ImplicitUsings` and `Nullable` properties the ot
 without which the samples do not build in a reader's project. The larger correction is that
 "assertions that work exactly the same" was an unbounded claim the compile gate cannot check. It now
 says what the gate does prove -- that the calls compile unchanged -- and a `Where the Behavior
-Differs` table carries the three that keep their shape and change their rule: exception matching is
+Differs` table carries the ones that keep their shape and change their rule: exception matching is
 by subtype here and exact in xUnit, the string assertions are ordinal here and culture-aware in
-xUnit, and `Assert.All` stops at the first failure instead of aggregating.
+xUnit, `Assert.All` stops at the first failure instead of aggregating, and the two equality
+assertions disagree with each other on collections. `Assert.Equal` compares a collection element by
+element as xUnit does, but `Assert.NotEqual` uses `EqualityComparer<T>.Default`, which is reference
+equality for arrays and `List<T>`, so `Assert.NotEqual(new[] { 1, 2 }, new[] { 1, 2 })` fails in
+xUnit and passes here -- a red test turned green with nothing for the compiler to report. Nesting
+fails the opposite way, since `Assert.Equal` compares elements with `object.Equals` and therefore
+compares an inner collection by reference.
 
 - [x] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
   declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiled, but
