@@ -156,6 +156,21 @@ public sealed class SharedInstanceStoreTests
         Assert.Equal(new[] { "created", "disposed" }, Entries<SurvivingScope>());
     }
 
+    [Fact]
+    public async Task DisposeAllAsync_StillOwnsAnInstanceCreatedWhileItWasRunningAsync()
+    {
+        // The constructor empties the store from inside its own creation, which is what a cleanup
+        // racing a slow data source constructor does to it: the keyed entry is gone before the
+        // instance exists. The instance must still end up owned, not orphaned.
+        ExpandClassDataSource(typeof(SelfDisposingStoreSource<RacingScope>), SharedType.PerSession, typeof(FirstTestClass));
+
+        Assert.Equal(new[] { "created" }, Entries<RacingScope>());
+
+        await SharedInstanceStore.DisposeAllAsync();
+
+        Assert.Equal(new[] { "created", "disposed" }, Entries<RacingScope>());
+    }
+
     private static void ExpandClassDataSource(
         Type sourceType,
         SharedType shared,
@@ -274,6 +289,8 @@ public sealed class SharedInstanceStoreTests
 
     private sealed class FailingScope;
 
+    private sealed class RacingScope;
+
     private sealed class FirstTestClass
     {
         public void Run(int value) => _ = value;
@@ -334,5 +351,20 @@ public sealed class SharedInstanceStoreTests
             Record(typeof(TScope), "disposed");
             throw new InvalidOperationException("dispose boom");
         }
+    }
+
+    /// <summary>
+    /// Stands in for a cleanup that runs while this constructor is still going, by emptying the store
+    /// from inside the constructor itself.
+    /// </summary>
+    private sealed class SelfDisposingStoreSource<TScope> : SingleRowSource, IDisposable
+    {
+        public SelfDisposingStoreSource()
+        {
+            SharedInstanceStore.DisposeAll();
+            Record(typeof(TScope), "created");
+        }
+
+        public void Dispose() => Record(typeof(TScope), "disposed");
     }
 }

@@ -35,6 +35,14 @@ internal static class SharedInstanceStore
     private const string DefaultKey = "default";
 
     private static readonly ConcurrentDictionary<SharedInstanceKey, Lazy<SharedInstance>> _instances = new();
+
+    // What disposal actually walks. An instance registers itself here the moment it exists, rather
+    // than being found through the keyed entry it belongs to, because a cleanup can run while a data
+    // source constructor is still running: reading the keyed entry would find nothing to dispose,
+    // remove it anyway, and leave the finished instance owned by nobody. Registered here it survives
+    // to the next cleanup instead.
+    private static readonly ConcurrentDictionary<SharedInstance, byte> _live = new();
+
     private static long _sequence;
 
     /// <summary>
@@ -67,7 +75,7 @@ internal static class SharedInstanceStore
         var lazy = _instances.GetOrAdd(
             instanceKey,
             _ => new Lazy<SharedInstance>(
-                () => new SharedInstance(CreateInstance(sourceType, factory), Interlocked.Increment(ref _sequence)),
+                () => Register(CreateInstance(sourceType, factory)),
                 LazyThreadSafetyMode.ExecutionAndPublication));
 
         try
@@ -97,21 +105,27 @@ internal static class SharedInstanceStore
     /// failed to release its resources.
     /// </para>
     /// <para>
-    /// An entry whose instance is still being created is dropped rather than awaited. The store is
-    /// emptied at the end of a session, when no expansion is left to be in flight, and blocking here
-    /// on a data source constructor that never returns would hang the whole run instead.
+    /// A constructor that is still running is neither awaited nor abandoned. Awaiting it would let a
+    /// data source that never returns hang the run at teardown, and handing its finished instance to
+    /// the caller that asked for it while disposing it here would be worse than either: the keyed
+    /// entry is dropped, so nothing is shared with it again, and the instance registers itself as
+    /// live when it completes, which leaves it for the next cleanup rather than for nobody.
     /// </para>
     /// </remarks>
     /// <exception cref="AggregateException">More than one instance failed to dispose.</exception>
     public static async ValueTask DisposeAllAsync()
     {
+        // Cleared before the instances are drained, so nothing that survives the drain can still be
+        // handed out under its old key.
+        _instances.Clear();
+
         var removed = new List<SharedInstance>();
 
-        foreach (var key in _instances.Keys)
+        foreach (var entry in _live.Keys)
         {
-            if (_instances.TryRemove(key, out var lazy) && lazy.IsValueCreated)
+            if (_live.TryRemove(entry, out _))
             {
-                removed.Add(lazy.Value);
+                removed.Add(entry);
             }
         }
 
@@ -154,6 +168,16 @@ internal static class SharedInstanceStore
     /// </remarks>
     public static void DisposeAll() =>
         DisposeAllAsync().AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Records a freshly created instance as live and stamps it with its creation order.
+    /// </summary>
+    private static SharedInstance Register(object instance)
+    {
+        var created = new SharedInstance(instance, Interlocked.Increment(ref _sequence));
+        _live[created] = 0;
+        return created;
+    }
 
     /// <summary>
     /// Builds the key an instance is shared under, or reports that the scope shares nothing.
