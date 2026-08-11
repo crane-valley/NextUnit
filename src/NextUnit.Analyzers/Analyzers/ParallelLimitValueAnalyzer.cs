@@ -21,8 +21,9 @@ namespace NextUnit.Analyzers.Analyzers;
 /// -1 is rejected as well, even though the setter accepts it. <c>Parallel.ForEachAsync</c> maps a
 /// negative degree of parallelism to the processor count rather than to no limit, which is what the
 /// attribute already means when it is absent, so -1 declares nothing while still winning the
-/// <c>Min</c> that <c>ParallelScheduler</c> takes across a parallel group - it would raise the
-/// group's ceiling above a sibling's explicit limit. Rejecting it keeps a declared limit a limit.
+/// <c>Min</c> that <c>ParallelScheduler</c> takes across a parallel group - where it replaces a
+/// sibling's explicit limit with the processor count, which may be higher than the limit that was
+/// asked for. Rejecting it keeps a declared limit a limit.
 /// </para>
 /// <para>
 /// Matching runs on the attribute syntax rather than on symbols so that one registration covers the

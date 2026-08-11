@@ -629,11 +629,12 @@ the default a test inherits when neither its method nor its class declares one -
 declaration replaces it with a larger value as readily as with a smaller one, so a class declaring
 `[ParallelLimit(8)]` runs 8. `Scope` has no counterpart at all: MSTest defaults to `ClassLevel`, which
 runs classes in parallel but the methods within one sequentially, whereas NextUnit schedules
-individual tests and so runs siblings in the same class concurrently. To get `ClassLevel` back for
-one class, give it a constraint key of its own -- `[NotInParallel("OrderServiceTests")]` -- which
-serializes that class against itself while leaving it parallel with the rest. Bare `[NotInParallel]`
-is stronger than `ClassLevel`: it serializes the class against every other `[NotInParallel]` test in
-the suite.
+individual tests and so runs siblings in the same class concurrently. There is no exact `ClassLevel`
+equivalent: a constraint key of the class's own -- `[NotInParallel("OrderServiceTests")]` -- does
+serialize that class against itself, and it keeps the class out of the one serial group that bare
+`[NotInParallel]` shares with every other unkeyed test, but the run executes one batch at a time, so
+a serialized class does not overlap with the rest of the suite either way. Both forms are therefore
+stronger than `ClassLevel`; choose the key when you want the class serialized only against itself.
 
 MSTest has no built-in ordering. NextUnit expresses order as a dependency or a priority:
 

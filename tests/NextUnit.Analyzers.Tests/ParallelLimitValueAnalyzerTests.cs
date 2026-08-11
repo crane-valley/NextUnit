@@ -107,7 +107,8 @@ public class Tests
     /// <summary>
     /// -1 is the one non-positive value the ParallelOptions setter accepts, but Parallel.ForEachAsync
     /// maps it to the processor count, which is what an absent attribute already means, and it still
-    /// wins the Min the scheduler takes across a parallel group. It is a limit that raises limits.
+    /// wins the Min the scheduler takes across a parallel group - replacing a sibling's explicit
+    /// limit with a processor count that may be higher than the one that was asked for.
     /// </summary>
     [Fact]
     public async Task MinusOne_ReportsDiagnosticAsync()

@@ -23,8 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   attribute from the assembly turned a previously inert `[assembly: ParallelLimit(0)]` into exactly
   that. `-1` is rejected as well: the setter accepts it, but `Parallel.ForEachAsync` maps it to the
   processor count, which is what an absent attribute already means, while it still wins the `Min`
-  the scheduler takes across a parallel group and so raises the group's ceiling above a sibling's
-  explicit limit. The rule covers the method, class, and assembly forms alike, and the generator
+  the scheduler takes across a parallel group, replacing a sibling's explicit limit with a processor
+  count that may be higher. The rule covers the method, class, and assembly forms alike, and the generator
   drops a value it reports so that a suppressed error bounds the run by the enclosing declaration
   instead.
 
