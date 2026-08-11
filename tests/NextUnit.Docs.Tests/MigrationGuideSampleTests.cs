@@ -18,21 +18,23 @@ namespace NextUnit.Docs.Tests;
 /// </para>
 /// <para>
 /// The extracted samples run through the NextUnit source generator and the NextUnit analyzers as
-/// well as the compiler, which proves they are usable tests rather than merely valid C#: a data
-/// source without <c>[Test]</c>, a misnamed <c>[TestData]</c> member, or an unreachable retry policy
-/// is reported here exactly as it would be in a reader's project.
+/// well as the compiler. For a sample that declares tests, that proves it is a usable test rather
+/// than merely valid C#: a data source without <c>[Test]</c>, a misnamed <c>[TestData]</c> member, or
+/// an unreachable retry policy is reported here exactly as it would be in a reader's project. A
+/// sample that only lists API signatures, such as the assertion listings in the xUnit guide,
+/// generates no tests, and what the check proves for it is that the calls still bind.
 /// </para>
 /// </remarks>
 public class MigrationGuideSampleTests
 {
     /// <summary>
-    /// Guides whose NextUnit samples are compiled. <c>MIGRATION_FROM_XUNIT.md</c> is absent because
-    /// its samples are fragments rather than compilation units; see PLANS.md.
+    /// Guides whose NextUnit samples are compiled.
     /// </summary>
     private static readonly string[] _guides =
     [
         "MIGRATION_FROM_NUNIT.md",
         "MIGRATION_FROM_MSTEST.md",
+        "MIGRATION_FROM_XUNIT.md",
     ];
 
     /// <summary>

@@ -10,7 +10,7 @@ The good news: NextUnit is designed to be familiar to xUnit users, so migration 
 - **Better parallel control** - Fine-grained `[ParallelLimit]` and `[NotInParallel]`
 - **Multi-scope lifecycle** - Test, Class, and Assembly scopes
 - **Clearer attribute names** - `[Test]` instead of `[Fact]`, no confusing `[Theory]`
-- **Same assertion API** - Your `Assert.*` calls work unchanged
+- **Familiar assertion API** - The `Assert.*` calls listed in [Step 4](#assertions-that-compile-unchanged) keep their shape
 
 ## Quick Migration Checklist
 
@@ -63,6 +63,8 @@ dotnet add package NextUnit
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -92,76 +94,113 @@ For repository-wide `dotnet test` on the .NET 10 SDK, select Microsoft.Testing.P
 
 **xUnit**:
 
-```csharp
-[Fact]
-public void Add_TwoNumbers_ReturnsSum()
+```csharp xunit
+using Xunit;
+
+public class CalculatorTests
 {
-    var result = 2 + 2;
-    Assert.Equal(4, result);
+    [Fact]
+    public void Add_TwoNumbers_ReturnsSum()
+    {
+        var result = 2 + 2;
+        Assert.Equal(4, result);
+    }
 }
 ```
 
 **NextUnit**:
 
 ```csharp
-[Test]  // Just change [Fact] to [Test]
-public void Add_TwoNumbers_ReturnsSum()
+using NextUnit;
+
+public class CalculatorTests
 {
-    var result = 2 + 2;
-    Assert.Equal(4, result);  // Assertions unchanged!
+    [Test]  // Just change [Fact] to [Test]
+    public void Add_TwoNumbers_ReturnsSum()
+    {
+        var result = 2 + 2;
+        Assert.Equal(4, result);  // Assertions unchanged!
+    }
 }
 ```
+
+There is no `using` for NextUnit in `ImplicitUsings`, so add `using NextUnit;` to every test file, or a
+`global using NextUnit;` once per project.
 
 ### Parameterized Tests
 
 **xUnit**:
 
-```csharp
-[Theory]
-[InlineData(1, 2, 3)]
-[InlineData(5, 5, 10)]
-[InlineData(10, -5, 5)]
-public void Add_ParameterizedTests(int a, int b, int expected)
+```csharp xunit
+using Xunit;
+
+public class AdditionTests
 {
-    var result = a + b;
-    Assert.Equal(expected, result);
+    [Theory]
+    [InlineData(1, 2, 3)]
+    [InlineData(5, 5, 10)]
+    [InlineData(10, -5, 5)]
+    public void Add_ParameterizedTests(int a, int b, int expected)
+    {
+        var result = a + b;
+        Assert.Equal(expected, result);
+    }
 }
 ```
 
 **NextUnit**:
 
 ```csharp
-[Test]  // Use [Test] instead of [Theory]
-[Arguments(1, 2, 3)]        // [Arguments] instead of [InlineData]
-[Arguments(5, 5, 10)]
-[Arguments(10, -5, 5)]
-public void Add_ParameterizedTests(int a, int b, int expected)
+using NextUnit;
+
+public class AdditionTests
 {
-    var result = a + b;
-    Assert.Equal(expected, result);  // Same!
+    [Test]  // Use [Test] instead of [Theory]
+    [Arguments(1, 2, 3)]        // [Arguments] instead of [InlineData]
+    [Arguments(5, 5, 10)]
+    [Arguments(10, -5, 5)]
+    public void Add_ParameterizedTests(int a, int b, int expected)
+    {
+        var result = a + b;
+        Assert.Equal(expected, result);  // Same!
+    }
 }
 ```
+
+`[Test]` is required alongside `[Arguments]`. xUnit infers the test from `[Theory]` plus its data
+attribute; NextUnit does not, and reports a data-source attribute without `[Test]` as `NU0013` at
+build time.
 
 ### Skipping Tests
 
 **xUnit**:
 
-```csharp
-[Fact(Skip = "Not implemented yet")]
-public void FutureFeature()
+```csharp xunit
+using Xunit;
+
+public class FeatureTests
 {
-    // ...
+    [Fact(Skip = "Not implemented yet")]
+    public void FutureFeature()
+    {
+        // ...
+    }
 }
 ```
 
 **NextUnit**:
 
 ```csharp
-[Test]
-[Skip("Not implemented yet")]  // Separate [Skip] attribute
-public void FutureFeature()
+using NextUnit;
+
+public class FeatureTests
 {
-    // ...
+    [Test]
+    [Skip("Not implemented yet")]  // Separate [Skip] attribute
+    public void FutureFeature()
+    {
+        // ...
+    }
 }
 ```
 
@@ -169,20 +208,30 @@ public void FutureFeature()
 
 **xUnit**:
 
-```csharp
-[Fact]
-[Trait("Category", "Integration")]
-[Trait("Priority", "High")]
-public void DatabaseTest() { }
+```csharp xunit
+using Xunit;
+
+public class TraitTests
+{
+    [Fact]
+    [Trait("Category", "Integration")]
+    [Trait("Priority", "High")]
+    public void DatabaseTest() { }
+}
 ```
 
 **NextUnit**:
 
 ```csharp
-[Test]
-[Category("Integration")]  // Clearer attribute names
-[Tag("High")]               // Tags for additional metadata
-public void DatabaseTest() { }
+using NextUnit;
+
+public class TraitTests
+{
+    [Test]
+    [Category("Integration")]  // Clearer attribute names
+    [Tag("High")]              // Tags for additional metadata
+    public void DatabaseTest() { }
+}
 ```
 
 ## Step 3: Convert Fixtures
@@ -191,7 +240,9 @@ public void DatabaseTest() { }
 
 **xUnit**:
 
-```csharp
+```csharp xunit
+using Xunit;
+
 public class DatabaseFixture : IDisposable
 {
     public DatabaseConnection Connection { get; }
@@ -228,18 +279,27 @@ public class DatabaseTests : IClassFixture<DatabaseFixture>
 **NextUnit**:
 
 ```csharp
+using NextUnit;
+
+public sealed class DatabaseConnection : IDisposable
+{
+    public int Query(string sql) => 1;
+
+    public void Dispose() { }
+}
+
 public class DatabaseTests
 {
-    private DatabaseConnection? _connection;
+    private static DatabaseConnection? _connection;
 
     [Before(LifecycleScope.Class)]  // Runs once before all tests
-    public void SetupDatabase()
+    public static void SetupDatabase()
     {
         _connection = new DatabaseConnection();
     }
 
     [After(LifecycleScope.Class)]  // Runs once after all tests
-    public void CleanupDatabase()
+    public static void CleanupDatabase()
     {
         _connection?.Dispose();
     }
@@ -253,11 +313,25 @@ public class DatabaseTests
 }
 ```
 
+The class-scoped hooks and the field they share are `static`, and that is not a style choice. NextUnit
+builds one instance of the class to run the class-scoped hooks on and a separate instance for each
+test, so an instance `[Before(LifecycleScope.Class)]` compiles and runs but writes its fields on an
+object no test ever sees. An xUnit `IClassFixture<T>` held in an instance field therefore needs its
+state moved as well as its attribute changed: make the field `static`, as above.
+
+Making it `static` shares it more widely than xUnit did, so check the fixture is safe to use
+concurrently before you rely on the conversion. xUnit runs the tests within one class one at a time,
+which is why a class fixture can hold a connection that is not thread-safe; NextUnit runs them in
+parallel unless told otherwise, so the same connection is now reachable from several tests at once.
+Add `[NotInParallel]` to the class when the shared object cannot take that.
+
 ### Collection Fixtures
 
 **xUnit**:
 
-```csharp
+```csharp xunit
+using Xunit;
+
 [CollectionDefinition("Database collection")]
 public class DatabaseCollection : ICollectionFixture<DatabaseFixture>
 {
@@ -281,6 +355,8 @@ public class SecondDatabaseTests
 **NextUnit**:
 
 ```csharp
+using NextUnit;
+
 // Use Assembly-scoped lifecycle for shared setup across classes
 public class FirstDatabaseTests
 {
@@ -309,53 +385,214 @@ public class SecondDatabaseTests
 
 ## Step 4: Update Assertions
 
-Good news: **Most assertions work unchanged!**
+Good news: **the assertions listed below carry over with their call shape unchanged.** That is a narrower promise
+than "identical", and the difference matters during a bulk rewrite: a call that still compiles can
+still decide differently. The listing below is what the compile check guarantees, and
+[Where the behavior differs](#where-the-behavior-differs) is the part to read before you trust a
+migrated suite that passes.
 
-### Assertions That Work Exactly the Same
+### Assertions That Compile Unchanged
+
+Each group below is a signature listing rather than a runnable test: the parameters stand in for the
+values you assert on, so the calls read exactly as they do in your xUnit code.
 
 ```csharp
-// Basic assertions - identical
-Assert.True(condition);
-Assert.False(condition);
-Assert.Equal(expected, actual);
-Assert.NotEqual(notExpected, actual);
-Assert.Null(value);
-Assert.NotNull(value);
+using NextUnit;
 
-// Exception assertions - identical
-Assert.Throws<Exception>(() => { });
-Assert.ThrowsAsync<Exception>(async () => { });
+public static class AssertionsThatCompileUnchanged
+{
+    // Basic assertions
+    public static void Basics(bool condition, int expected, int actual, int notExpected, object? value)
+    {
+        Assert.True(condition);
+        Assert.False(condition);
+        Assert.Equal(expected, actual);
+        Assert.NotEqual(notExpected, actual);
+        Assert.Null(value);
+        Assert.NotNull(value);
+    }
 
-// Collection assertions - identical
-Assert.Contains(item, collection);
-Assert.DoesNotContain(item, collection);
-Assert.Empty(collection);
-Assert.NotEmpty(collection);
-Assert.Single(collection);
-Assert.All(collection, item => { });
+    // Collection assertions
+    public static void Collections(int item, IEnumerable<int> collection)
+    {
+        Assert.Contains(item, collection);
+        Assert.DoesNotContain(item, collection);
+        Assert.Empty(collection);
+        Assert.NotEmpty(collection);
+        Assert.Single(collection);
+        Assert.All(collection, element => { });
+    }
 
-// String assertions - identical
-Assert.StartsWith(prefix, text);
-Assert.EndsWith(suffix, text);
-Assert.Contains(substring, text);
+    // String assertions
+    public static void Strings(string prefix, string suffix, string substring, string text)
+    {
+        Assert.StartsWith(prefix, text);
+        Assert.EndsWith(suffix, text);
+        Assert.Contains(substring, text);
+    }
 
-// Numeric assertions - identical
-// As in xUnit, min and max are both inclusive: InRange passes when value equals
-// either bound, and NotInRange treats those values as inside the range and fails.
-Assert.InRange(value, min, max);
-Assert.NotInRange(value, min, max);
+    // Numeric assertions
+    // As in xUnit, min and max are both inclusive: InRange passes when value equals
+    // either bound, and NotInRange treats those values as inside the range and fails.
+    public static void Ranges(int value, int min, int max)
+    {
+        Assert.InRange(value, min, max);
+        Assert.NotInRange(value, min, max);
+    }
+}
+```
+
+### Where the Behavior Differs
+
+These familiar call shapes survive the migration and change their rule, so the compiler cannot warn
+you and a green suite is not proof the migration was faithful.
+
+| Assertion | xUnit | NextUnit |
+| --------- | ----- | -------- |
+| `Assert.Throws<T>`, `Assert.ThrowsAsync<T>` | Exact exception type; `ThrowsAny<T>` is the assignable form | Matches `T` and its subtypes |
+| `Assert.StartsWith`, `EndsWith`, `Contains` (string) | `StringComparison.CurrentCulture` by default | Always `StringComparison.Ordinal` |
+| `Assert.All` | Runs every element and aggregates the failures | Stops at the first failing element |
+| `Assert.NotEqual` on a sequence | Structural, so two arrays holding the same values are equal and the assertion fails | `EqualityComparer<T>.Default`, which is reference equality for arrays and `List<T>`, so the assertion passes |
+| `Assert.Equal` on a nested sequence | Recurses into the inner sequences | Compares an inner array or `List<T>` by reference, so the assertion fails |
+| `Assert.Equal` on a `HashSet<T>` or `Dictionary<TKey, TValue>` | Compares members and key-value pairs, ignoring order | Compares in enumeration order, so the assertion can fail when the two enumerate differently |
+
+The exception rule is the one that turns a red test green: `Assert.Throws<ArgumentException>` accepts
+an `ArgumentNullException` here, where xUnit would have rejected it. Where the exact type is the point
+of the test, assert it on the returned exception.
+
+The string rule moves in the other direction and only bites on culture-sensitive text, where an
+ordinal comparison is stricter than a culture-aware one. Where the culture-aware behavior was the
+point, assert the comparison yourself with
+`Assert.True(text.StartsWith(prefix, StringComparison.CurrentCulture))`.
+
+The collection rules are the ones worth grepping for, because `Assert.Equal` and `Assert.NotEqual`
+disagree with each other here. `Assert.Equal` compares a sequence element by element and in order, so
+a flat `int[]` or `List<T>` carries over from xUnit unchanged. `Assert.NotEqual` does not: it compares
+with `EqualityComparer<T>.Default`, and neither arrays nor `List<T>` override equality, so two
+sequences holding the same values are "not equal" to it. `Assert.NotEqual(new[] { 1, 2 }, new[] { 1,
+2 })` fails in xUnit and passes here, which turns a red test green without a word from the compiler.
+Assert the comparison yourself when that is the point of the test:
+
+```csharp
+using NextUnit;
+
+public class BasketTests
+{
+    [Test]
+    public void DiscountChangesTheLines()
+    {
+        int[] before = [1, 2];
+        int[] after = [1, 3];
+
+        // Assert.NotEqual would pass on any two distinct arrays, equal contents or not
+        Assert.False(before.SequenceEqual(after), "The lines should have changed.");
+    }
+}
+```
+
+Nesting fails the other way, loudly rather than silently. `Assert.Equal` compares the elements
+themselves with `object.Equals`, so an inner array or `List<T>` is compared by reference: two equal
+`int[][]` values are reported as different. Compare the inner sequences individually when a test
+needs that shape.
+
+Order is the last of it, and it decides `HashSet<T>` and `Dictionary<TKey, TValue>`. xUnit compares a
+set by its members and a dictionary by its key-value pairs, both without regard to order; NextUnit
+walks whatever the collection enumerates, so two sets holding the same members can be reported as
+different when they enumerate in different orders. Two that happen to enumerate alike still pass,
+which is what makes this one worth checking rather than assuming.
+
+`Assert.Equivalent` covers that case: it compares contents and ignores order. It compares them with
+`EqualityComparer<T>.Default` rather than with the collection's own comparer, though, so a set built
+with something like `StringComparer.OrdinalIgnoreCase` is outside what it can answer -- xUnit honors
+that comparer and `Assert.Equivalent` does not. Assert `SetEquals` directly when the comparer is part
+of the meaning. And keep `Assert.Equivalent` away from sequences, where order is part of what you are
+asserting.
+
+`Assert.ThrowsAsync` returns a `Task<TException>` rather than the exception itself, so it has to be
+awaited: an un-awaited call never observes the failure, and the test passes whatever the delegate
+does.
+
+```csharp
+using NextUnit;
+
+public class ParsingTests
+{
+    [Test]
+    public void RejectsNonNumericInput()
+    {
+        var error = Assert.Throws<FormatException>(() => int.Parse("abc"));
+        Assert.Equal(typeof(FormatException), error.GetType());  // Exact type, as xUnit matches
+    }
+
+    [Test]
+    public async Task RejectsNonNumericInputAsync()
+    {
+        var error = await Assert.ThrowsAsync<FormatException>(async () =>
+        {
+            await Task.Yield();
+            int.Parse("abc");
+        });
+
+        Assert.Contains("abc", error.Message);
+    }
+}
 ```
 
 ### Assertions Without a NextUnit Equivalent
 
 As of 1.19.0, these xUnit assertions have no NextUnit counterpart. Rewrite them:
 
+| xUnit | Rewrite as |
+| ----- | ---------- |
+| `Assert.Collection(items, i1, i2)` | Materialize the sequence, `Assert.Equal` on the count, then assert each index |
+| `Assert.IsType<T>(obj)` | `Assert.Equal(typeof(T), obj.GetType())` |
+| `Assert.IsAssignableFrom<T>(obj)` | `Assert.True(obj is T)` |
+
+They are listed as a table rather than as code because there is nothing to compile: the calls do not
+exist on NextUnit's `Assert`, which is the point of the section.
+
+Mind the matching rule when rewriting the type assertions. `Assert.IsType<T>` is an exact-type check,
+so `obj is T` is not a replacement for it -- a subtype would satisfy the pattern and fail the original
+assertion. `Assert.IsAssignableFrom<T>` is the one that means "assignable", and `obj is T` matches it.
+
+Mind the result as well. Both xUnit calls return the value typed as `T`, so
+`var typed = Assert.IsType<Order>(result);` is the common shape, and the replacements above return
+nothing. Assert first, then cast, keeping whichever matching rule the original used:
+
 ```csharp
-// Advanced collection assertions (use alternatives)
-Assert.Collection(...)  // → Use Assert.All + Assert.Equal
-Assert.IsType<T>(...)   // → Use pattern matching: obj is T
-Assert.IsAssignableFrom<T>(...)  // → Use pattern matching
+using NextUnit;
+
+public class OrderTests
+{
+    [Test]
+    public void ReturnsAnOrder()
+    {
+        object result = new Order(2);
+
+        // Assert.IsType<Order>: exact type, so compare the type itself
+        Assert.Equal(typeof(Order), result.GetType());
+        var typed = (Order)result;
+        Assert.Equal(2, typed.LineCount);
+    }
+
+    [Test]
+    public void ReturnsSomethingOrderLike()
+    {
+        object result = new Order(2);
+
+        // Assert.IsAssignableFrom<Order>: a subtype counts, so pattern match
+        Assert.True(result is Order, "Expected an Order.");
+        var typed = (Order)result;
+        Assert.Equal(2, typed.LineCount);
+    }
+}
+
+public record Order(int LineCount);
 ```
+
+`Assert.Collection` also checks more than it looks like it does: it requires the element count to
+match the number of inspectors and runs a different inspector per position, so `Assert.All`, which
+applies one check to every element, is not equivalent on its own.
 
 ## Step 5: Parallel Execution
 
@@ -375,9 +612,12 @@ Assert.IsAssignableFrom<T>(...)  // → Use pattern matching
 
 **NextUnit** (attribute-based):
 
+Declare the suite-wide default once, at the top of any file in the project:
+`[assembly: ParallelLimit(4)]`. Every test that declares no nearer limit then runs 4 at a time.
+Classes and methods override it:
+
 ```csharp
-// Suite-wide default: every test that declares no nearer limit runs 4 at a time
-[assembly: ParallelLimit(4)]
+using NextUnit;
 
 // A class or method may declare its own, and the nearest declaration wins -- in
 // either direction, so this class runs 2 at a time and one declaring 8 would run 8
@@ -397,12 +637,12 @@ public class SerialTests
 {
     [Test]
     public void Test1() { }
-    
+
     [Test]
     public void Test2() { }
 }
 
-// Declares nothing, so it inherits the assembly default of 4 above -- and would be
+// Declares nothing, so it inherits the assembly default of 4 -- and would be
 // bounded by the processor count instead if no level declared a limit at all
 public class NormalTests
 {
@@ -427,7 +667,9 @@ value alone does not cap them.
 
 **xUnit**:
 
-```csharp
+```csharp xunit
+using Xunit;
+
 [Collection("Sequential")]
 public class OrderedTests
 {
@@ -444,6 +686,8 @@ public class OrderedTests
 **NextUnit**:
 
 ```csharp
+using NextUnit;
+
 public class OrderedTests
 {
     [Test]
@@ -481,7 +725,9 @@ public class PriorityOrderedTests
 
 **xUnit**:
 
-```csharp
+```csharp xunit
+using Xunit;
+
 public class MyTests : IDisposable
 {
     public MyTests()  // Constructor = Setup
@@ -502,6 +748,8 @@ public class MyTests : IDisposable
 **NextUnit**:
 
 ```csharp
+using NextUnit;
+
 public class MyTests
 {
     [Before(LifecycleScope.Test)]
@@ -525,7 +773,9 @@ public class MyTests
 
 **xUnit**:
 
-```csharp
+```csharp xunit
+using Xunit;
+
 public class AsyncTests : IAsyncLifetime
 {
     public async Task InitializeAsync()
@@ -543,6 +793,8 @@ public class AsyncTests : IAsyncLifetime
 **NextUnit**:
 
 ```csharp
+using NextUnit;
+
 public class AsyncTests
 {
     [Before(LifecycleScope.Test)]
@@ -573,7 +825,7 @@ public class AsyncTests
 | Collection Fixture | `ICollectionFixture<T>` | `[Before(LifecycleScope.Assembly)]` |
 | Parallelization | JSON config | `[ParallelLimit]`, `[NotInParallel]` |
 | Test Ordering | Third-party | `[DependsOn]`, `[ExecutionPriority]` (built-in) |
-| Assertions | `Assert.*` | `Assert.*` (same!) |
+| Assertions | `Assert.*` | `Assert.*` (the calls in [Assertions That Compile Unchanged](#assertions-that-compile-unchanged) keep their shape) |
 | Test Discovery | Runtime reflection | Source generator (faster) |
 | Native AOT | Limited | Full support |
 
