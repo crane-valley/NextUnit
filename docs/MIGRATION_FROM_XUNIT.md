@@ -376,10 +376,11 @@ Assert.IsAssignableFrom<T>(...)  // → Use pattern matching
 **NextUnit** (attribute-based):
 
 ```csharp
-// The suite-wide equivalent of maxParallelThreads: at most 4 concurrent tests everywhere
+// Suite-wide default: every test that declares no nearer limit runs 4 at a time
 [assembly: ParallelLimit(4)]
 
-// A class or method may declare its own; the nearest declaration wins
+// A class or method may declare its own, and the nearest declaration wins -- in
+// either direction, so this class runs 2 at a time and one declaring 8 would run 8
 [ParallelLimit(2)]
 public class ResourceIntensiveTests
 {
@@ -406,11 +407,18 @@ public class NormalTests
 {
     [Test]
     public void Test1() { }  // Runs in parallel
-    
+
     [Test]
     public void Test2() { }  // Runs in parallel
 }
 ```
+
+The two settings are not the same shape. `maxParallelThreads` is a hard ceiling that nothing in the
+suite can raise, while `[assembly: ParallelLimit]` is the default each test inherits when neither its
+method nor its class declares one -- and a nearer declaration replaces it with a larger value just as
+readily as with a smaller one. Migrating a suite that relied on `maxParallelThreads` to protect a
+shared resource therefore means checking the class-level and method-level limits too; the assembly
+value alone does not cap them.
 
 ## Step 6: Test Ordering
 
