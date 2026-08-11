@@ -242,11 +242,13 @@ element as xUnit does, but `Assert.NotEqual` uses `EqualityComparer<T>.Default`,
 equality for arrays and `List<T>`, so `Assert.NotEqual(new[] { 1, 2 }, new[] { 1, 2 })` fails in
 xUnit and passes here -- a red test turned green with nothing for the compiler to report. Nesting
 fails the opposite way, since `Assert.Equal` compares elements with `object.Equals` and therefore
-compares an inner array or `List<T>` by reference. Unordered collections fail that way too:
+compares an inner array or `List<T>` by reference. Unordered collections can fail that way too:
 `Assert.Equal` walks a `HashSet<T>` or `Dictionary<TKey, TValue>` in enumeration order where xUnit
-ignores order, so `Assert.Equivalent` is the replacement, except for a collection carrying its own
-comparer, which it compares with `EqualityComparer<T>.Default` instead. Each of those claims was
-measured by probing the built `NextUnit.Core` and `xunit.v3.assert` assemblies side by side.
+ignores order, so two that enumerate differently are reported as different while two that happen to
+enumerate alike still pass. `Assert.Equivalent` is the replacement, except for a set whose own
+comparer carries meaning, since it compares with `EqualityComparer<T>.Default` instead. Each of those
+claims was measured by probing the built `NextUnit.Core` and `xunit.v3.assert` assemblies side by
+side.
 
 - [x] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
   declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiled, but
