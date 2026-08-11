@@ -119,8 +119,10 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         // BindingFlags.NonPublic, so an unreachable member is a different failure from a missing one
         // and is reported as NU0020 below. Arity is part of it: neither the generated call nor the
         // reflection fallback supplies a type argument, so a generic overload is no more usable than
-        // an instance member, which this test has always rejected the same way.
-        var members = targetType.GetMembers(memberName);
+        // an instance member, which this test has always rejected the same way. The base chain is
+        // part of it too, through the same helper the resolver uses, so that a member the resolver
+        // now binds is never reported as missing here first.
+        var members = DataSourceMemberResolver.GetCandidateMembers(targetType, memberName);
         var validMember = members.FirstOrDefault(member =>
             (member is IPropertySymbol property && property.IsStatic) ||
             (member is IMethodSymbol { Arity: 0 } memberMethod && memberMethod.IsStatic) ||

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
 namespace NextUnit.CodeAnalysis.Shared;
@@ -66,7 +67,7 @@ internal static class DataSourceMemberResolver
             return default;
         }
 
-        var members = typeSymbol.GetMembers(memberName);
+        var members = GetCandidateMembers(typeSymbol, memberName);
         var compilingAssembly = knownDataSourceTypes.CompilingAssembly;
 
         // First pass reproduces the pre-async precedence exactly: the first static parameterless
@@ -176,6 +177,66 @@ internal static class DataSourceMemberResolver
         }
 
         return default;
+    }
+
+    /// <summary>
+    /// Collects every member of that name on <paramref name="typeSymbol"/> and its base types,
+    /// most-derived first.
+    /// </summary>
+    /// <remarks>
+    /// <c>INamedTypeSymbol.GetMembers(string)</c> stops at the declaring type, so a data
+    /// source declared on a base test class used to resolve to nothing even though C# binds
+    /// <c>Derived.Rows</c> without complaint and the emitted access would have compiled.
+    /// <para>
+    /// Most-derived first is what makes a derived member shadow a base member of the same name,
+    /// which is the order C# itself picks. Both passes in <see cref="Resolve"/> run over the whole
+    /// flattened chain rather than per type, so a base <c>Rows()</c> still beats a derived
+    /// <c>Rows(CancellationToken)</c> -- the same parameterless-first precedence C# overload
+    /// resolution applies to a call that supplies no arguments.
+    /// </para>
+    /// <para>
+    /// Interfaces are deliberately not walked. A static interface member cannot be named through an
+    /// implementing type, so binding one would emit access that does not compile.
+    /// </para>
+    /// <para>
+    /// The walk stops short of <c>object</c>. Nothing declared there can bind -- neither
+    /// <c>Equals</c> nor <c>ReferenceEquals</c> is parameterless -- so admitting its members would
+    /// only turn <c>NU0003</c> on a misspelled name into a source that reports nothing and supplies
+    /// nothing.
+    /// </para>
+    /// <para>
+    /// Members that are out of reach are collected too, private base members included, and left for
+    /// <see cref="GeneratedRegistryAccess.CanReachMember"/> to refuse. Dropping them here would
+    /// report a member the user can point at as missing instead of as unreachable.
+    /// </para>
+    /// </remarks>
+    public static ImmutableArray<ISymbol> GetCandidateMembers(INamedTypeSymbol typeSymbol, string memberName)
+    {
+        var members = typeSymbol.GetMembers(memberName);
+
+        // The chain usually contributes nothing, so the declared members are returned as they are
+        // and the builder is only paid for when a base type actually carries the name.
+        ImmutableArray<ISymbol>.Builder? builder = null;
+        for (var baseType = typeSymbol.BaseType;
+            baseType is not null && baseType.SpecialType != SpecialType.System_Object;
+            baseType = baseType.BaseType)
+        {
+            var inherited = baseType.GetMembers(memberName);
+            if (inherited.IsEmpty)
+            {
+                continue;
+            }
+
+            if (builder is null)
+            {
+                builder = ImmutableArray.CreateBuilder<ISymbol>();
+                builder.AddRange(members);
+            }
+
+            builder.AddRange(inherited);
+        }
+
+        return builder?.ToImmutable() ?? members;
     }
 
     /// <summary>

@@ -471,14 +471,23 @@ All three were raised in the final review round of the async member data work, r
 request, and deliberately left out of it: each one changes observable behavior or needs a design
 decision, and none of them was introduced by that change.
 
-- [ ] Abandoned work in the async data source path goes unobserved. `TestDataExpander` walks away
+- [x] Abandoned work in the async data source path goes unobserved. `TestDataExpander` walks away
   from a `MoveNextAsync` that lost its race against the cancellation token, and from the matching
   `DisposeAsync`, on purpose -- awaiting either would reintroduce the hang the race exists to
   prevent. Nothing observes those tasks afterwards, so a source that later faults raises
   `TaskScheduler.UnobservedTaskException` from a task nobody owns. `NextUnitFramework.StartBuild`
   already has the shape this needs: a fault-only continuation whose whole body reads
   `task.Exception`. Applying it here means deciding whether an abandoned source's failure should stay
-  silent or be logged, which is a reporting decision rather than a drive-by fix.
+  silent or be logged, which is a reporting decision rather than a drive-by fix. Done 2026-08-12:
+  silent, matching `StartBuild`. Logging was rejected because the caller is already being told about
+  the cancellation it asked for, and a second report naming work the run deliberately abandoned
+  describes a failure nobody can act on -- the source was told to stop, and stopping mid-operation
+  is how it was told. The continuation is attached whenever the awaited task did not complete
+  successfully, which also covers the narrow case of a move that faulted just as the race was lost,
+  and the successful per-row path allocates nothing extra. Left untested: the only observable is
+  `TaskScheduler.UnobservedTaskException`, which fires from a finalizer, so a test would assert a
+  negative behind a forced GC and depend on the abandoned task actually being collected --
+  `StartBuild` ships the same shape untested for the same reason.
 - [x] A cancellation-token-taking member returning a type that implements both `IEnumerable<T>` and
   `IAsyncEnumerable<T>` binds to nothing, with no diagnostic. `KnownDataSourceTypes.Classify` matches
   the synchronous interface first, deliberately, so that a type which meant `IEnumerable<T>` before
@@ -566,8 +575,20 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   without `InternalsVisibleTo` are. `GeneratedRegistryAccess` decides it once for the resolver and
   the analyzer, and the resolver records the verdict so the generator withholds the direct access
   that used to fail with `CS0122`. The runtime reflection fallback still reads whatever reaches it.
-- [ ] Walk the base type chain during member lookup, preserving the parameterless-overload precedence
-  the generator and the analyzer now share.
+- [x] Walk the base type chain during member lookup, preserving the parameterless-overload precedence
+  the generator and the analyzer now share. Done 2026-08-12: `DataSourceMemberResolver` collects
+  candidates across the chain most-derived first, and the analyzer's own existence test and the
+  parameter-level reader take the same list, so a member one of them now binds can never be reported
+  as missing by another. Both resolver passes run over the whole flattened chain rather than per
+  type, so a base `Rows()` still beats a derived `Rows(CancellationToken)` -- the overload C# binds
+  for a call supplying no arguments. Interfaces are not walked: a static interface member cannot be
+  named through an implementing type, so binding one would emit code that does not compile.
+  Unreachable members, private base declarations included, are collected and refused by
+  `GeneratedRegistryAccess` rather than skipped, so an inherited `protected` source reports `NU0020`
+  and names the fix instead of `NU0003` describing it as missing. The runtime reflection fallback
+  uses `BindingFlags.FlattenHierarchy`, which resolves the same members and picks the same
+  most-derived declaration; it does not reach a base type's `private` members, which costs nothing
+  because `NU0020` fails the build before that path can run.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

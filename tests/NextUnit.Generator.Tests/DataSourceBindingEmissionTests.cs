@@ -329,6 +329,108 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
+    /// A source declared on a base test class is emitted as direct access through the derived type,
+    /// which is how the user names it and how C# resolves it. Compiling the output is the half that
+    /// matters: the emitted name has to bind to the inherited member.
+    /// </summary>
+    [Fact]
+    public async Task InheritedMember_EmitsDirectAccessAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("DataSourceProvider = static () => (object?)global::TestProject.DataTests.Rows", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// The parameter-level sources reach inherited members through the same walk.
+    /// </summary>
+    [Fact]
+    public async Task InheritedParameterMember_EmitsDirectAccessAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<int> Values => new[] { 1, 2, 3 };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                [Test]
+                public void Consumes([ValuesFromMember("Values")] int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("global::TestProject.DataTests.Values", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// An inherited member out of reach of the registry is withheld exactly as a local one is, so
+    /// the base chain cannot become a way around the accessibility rule.
+    /// </summary>
+    [Fact]
+    public async Task InheritedProtectedMember_EmitsNoProviderAsync()
+    {
+        var registry = await GenerateRegistryAsync("""
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                protected static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """);
+
+        Assert.Contains("DataSourceName = \"Rows\",", registry);
+        Assert.Contains("DataSourceProvider = null,", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows", registry, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Compiles the user's source together with everything the generator emitted for it. Asserting
     /// on the registry text alone would not catch a type reference emitted somewhere the assertions
     /// do not look, and CS0122 inside generated code is exactly the failure being prevented.

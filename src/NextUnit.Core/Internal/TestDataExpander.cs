@@ -22,6 +22,9 @@ namespace NextUnit.Internal;
 /// </remarks>
 internal static class TestDataExpander
 {
+    private const BindingFlags StaticMemberLookup =
+        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+
     /// <summary>
     /// Expands a collection of test data descriptors into test case descriptors.
     /// </summary>
@@ -367,6 +370,15 @@ internal static class TestDataExpander
                         // Only an abandoned move leaves the enumerator unusable. One that
                         // completed, successfully or not, can still be disposed normally.
                         enumeratorIsDisposable = moveTask.IsCompleted;
+
+                        // Anything but a clean result may still carry a failure nobody awaits: an
+                        // abandoned move faults later with no waiter left, and one that faulted as
+                        // the race was lost was never propagated either. The successful case is
+                        // excluded so the per-row path keeps allocating nothing extra.
+                        if (!moveTask.IsCompletedSuccessfully)
+                        {
+                            ObserveAbandonedFailure(moveTask);
+                        }
                     }
                 }
 
@@ -446,7 +458,20 @@ internal static class TestDataExpander
                 return;
             }
 
-            await dispose.AsTask().WaitAsync(cancellationToken).ConfigureAwait(false);
+            var disposeTask = dispose.AsTask();
+            try
+            {
+                await disposeTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                // Cleanup abandoned by the race is the other task nobody is left holding, so it is
+                // observed on the same terms as an abandoned move.
+                if (!disposeTask.IsCompletedSuccessfully)
+                {
+                    ObserveAbandonedFailure(disposeTask);
+                }
+            }
         }
         catch (OperationCanceledException) when (suppressCancellation && cancellationToken.IsCancellationRequested)
         {
@@ -454,6 +479,31 @@ internal static class TestDataExpander
             // source that cancels its cleanup for its own reasons still surfaces the failure.
         }
     }
+
+    /// <summary>
+    /// Reads the exception of a task nothing is left to await, so it cannot resurface as an
+    /// unobserved one.
+    /// </summary>
+    /// <remarks>
+    /// A move or a disposal that lost its race against the cancellation token is walked away from
+    /// deliberately -- awaiting either would reintroduce the hang the race exists to prevent -- and
+    /// a source that faults afterwards then leaves a faulted task with no owner. Its finalizer
+    /// raises <see cref="TaskScheduler.UnobservedTaskException"/>, which a host is free to treat as
+    /// fatal, so a run that cancelled cleanly could still be killed by the source it walked away
+    /// from.
+    /// <para>
+    /// The failure stays silent, matching how the shared discovery build in
+    /// <c>NextUnitFramework</c> observes a task its waiter may have left. The caller is already
+    /// being told about the cancellation it asked for, and reporting a second failure from work the
+    /// run deliberately abandoned would name something nobody can act on.
+    /// </para>
+    /// </remarks>
+    private static void ObserveAbandonedFailure(Task task) =>
+        _ = task.ContinueWith(
+            static failed => _ = failed.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
 
     private static IEnumerable ResolveSyncRows(TestDataDescriptor descriptor)
     {
@@ -481,6 +531,19 @@ internal static class TestDataExpander
     /// is unreachable in practice: the generator binds every static member it can see, and a member
     /// it cannot see fails here for the same reason whether it is synchronous or asynchronous.
     /// The <c>NU0014</c> analyzer rule reports the statically detectable cases at build time.
+    /// <para>
+    /// <see cref="BindingFlags.FlattenHierarchy"/> is what makes a member declared on a base test
+    /// class reachable: without it the lookup stops at <paramref name="sourceType"/>, so a source
+    /// C# resolves as <c>Derived.Rows</c> was reported as missing here. It also picks the
+    /// most-derived declaration when a derived type shadows the base member with <c>new</c>, which
+    /// is the precedence the compile-time resolver applies.
+    /// </para>
+    /// <para>
+    /// It does not return a base type's <c>private</c> members, so those stay unreachable here even
+    /// though the resolver names them in <c>NU0020</c>. That asymmetry costs nothing: the member is
+    /// out of reach of the generated registry either way, so the build fails on the diagnostic
+    /// before this path can run.
+    /// </para>
     /// </remarks>
     private static IEnumerable? GetTestData(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)] Type sourceType,
@@ -489,9 +552,7 @@ internal static class TestDataExpander
         try
         {
             // Try to find a static method first
-            var method = sourceType.GetMethod(
-                memberName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            var method = sourceType.GetMethod(memberName, StaticMemberLookup);
 
             if (method is not null)
             {
@@ -499,9 +560,7 @@ internal static class TestDataExpander
             }
 
             // Try to find a static property
-            var property = sourceType.GetProperty(
-                memberName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            var property = sourceType.GetProperty(memberName, StaticMemberLookup);
 
             if (property is not null)
             {
@@ -509,9 +568,7 @@ internal static class TestDataExpander
             }
 
             // Try to find a static field
-            var field = sourceType.GetField(
-                memberName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            var field = sourceType.GetField(memberName, StaticMemberLookup);
 
             if (field is not null)
             {
