@@ -239,7 +239,10 @@ internal static class DataSourceMemberResolver
         // and the builder is only paid for when a base type actually carries the name.
         ImmutableArray<ISymbol>.Builder? builder = null;
         var sawMethod = !members.IsEmpty;
-        var sawParameterless = DeclaresParameterlessMethod(members);
+
+        // Every method a nearer level declared. Reaching here means the declared members are all
+        // methods, and only methods are ever appended, so this stays a method list.
+        var claimed = members;
 
         for (var baseType = typeSymbol.BaseType;
             baseType is not null && baseType.SpecialType != SpecialType.System_Object;
@@ -252,10 +255,10 @@ internal static class DataSourceMemberResolver
             // one is static. Keeping the base method would bind a call the compiler resolves to the
             // derived declaration instead: a derived instance Rows() makes the emitted Derived.Rows()
             // a CS0120 in generated code, which is worse than the NU0003 that not binding produces.
-            if (sawParameterless)
+            if (!claimed.IsEmpty)
             {
-                inherited = inherited.RemoveAll(static member =>
-                    member is IMethodSymbol { Parameters.Length: 0, Arity: 0 });
+                inherited = inherited.RemoveAll(member =>
+                    member is IMethodSymbol method && IsSignatureClaimed(claimed, method));
             }
 
             if (inherited.IsEmpty)
@@ -279,7 +282,7 @@ internal static class DataSourceMemberResolver
             }
 
             sawMethod = true;
-            sawParameterless |= DeclaresParameterlessMethod(inherited);
+            claimed = claimed.AddRange(inherited);
         }
 
         return builder?.ToImmutable() ?? members;
@@ -298,17 +301,40 @@ internal static class DataSourceMemberResolver
         return false;
     }
 
-    private static bool DeclaresParameterlessMethod(ImmutableArray<ISymbol> members)
+    private static bool IsSignatureClaimed(ImmutableArray<ISymbol> claimed, IMethodSymbol method)
     {
-        foreach (var member in members)
+        foreach (var member in claimed)
         {
-            if (member is IMethodSymbol { Parameters.Length: 0, Arity: 0 })
+            if (member is IMethodSymbol nearer && HasSameSignature(nearer, method))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Compares two methods the way C# hiding does: by arity and parameter list, ignoring the
+    /// return type and whether either one is static.
+    /// </summary>
+    private static bool HasSameSignature(IMethodSymbol left, IMethodSymbol right)
+    {
+        if (left.Arity != right.Arity || left.Parameters.Length != right.Parameters.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < left.Parameters.Length; i++)
+        {
+            if (left.Parameters[i].RefKind != right.Parameters[i].RefKind ||
+                !SymbolEqualityComparer.Default.Equals(left.Parameters[i].Type, right.Parameters[i].Type))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static ImmutableArray<ISymbol>.Builder CreateBuilderFrom(ImmutableArray<ISymbol> members)

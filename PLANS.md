@@ -600,7 +600,10 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   over the flattened candidates by declaring type rather than by member kind: searching kind by kind
   reads a base property for a name a derived method has taken over, which runs a test against data
   the user never pointed at, and it also turns a flattened `Rows()` plus `Rows(CancellationToken)`
-  into an ambiguous match.
+  into an ambiguous match. Instance members, events, and nested types are candidates there for
+  hiding only: none can be read as a data source, but each hides the base member of the same name,
+  and a candidate list that leaves them out reads the member they hide. Nothing non-static is ever
+  returned.
 - [ ] Two accepted divergences from C# member lookup, both narrow, both reported by the Codex review
   and left deliberately. A derived overload that is applicable to a no-argument call without being
   parameterless -- `Rows(int value = 0)` or `Rows(params int[])` -- does not win over an inherited

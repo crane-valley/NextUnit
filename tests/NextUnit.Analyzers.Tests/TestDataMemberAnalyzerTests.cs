@@ -1286,6 +1286,44 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// Signature hiding covers the token-taking overload too, not only the parameterless one. A
+    /// derived instance <c>TestCases(CancellationToken)</c> hides the base static overload, so
+    /// emitting a call to it would be a CS0120 inside generated code.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedInstanceTokenOverloadHidingBaseStatic_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            public class TestBase
+            {
+                public static IAsyncEnumerable<object[]> TestCases(CancellationToken token) => null!;
+            }
+
+            public class Tests : TestBase
+            {
+                public new IAsyncEnumerable<object[]> TestCases(CancellationToken token) => null!;
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(15, 6, 15, 27)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// C# member lookup never sees a base type's private member from a derived type, so it neither
     /// binds nor hides. Letting it win would report NU0020 for a name that resolves further up the
     /// chain and compiles.

@@ -31,8 +31,14 @@ internal static class DataSourceMemberLookup
         BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance |
         BindingFlags.FlattenHierarchy;
 
+    /// <remarks>
+    /// Events and nested types are here for the same reason instance members are: neither can ever
+    /// be read as a data source, but both hide a base member of the same name, and a candidate list
+    /// that leaves them out reads the member they hide.
+    /// </remarks>
     private const MemberTypes DataSourceMemberKinds =
-        MemberTypes.Method | MemberTypes.Property | MemberTypes.Field;
+        MemberTypes.Method | MemberTypes.Property | MemberTypes.Field |
+        MemberTypes.Event | MemberTypes.NestedType;
 
     /// <summary>
     /// Reads the value of the static member <paramref name="memberName"/> names on
@@ -129,6 +135,11 @@ internal static class DataSourceMemberLookup
         return null;
     }
 
+    /// <remarks>
+    /// A property is read through its getter, so the getter is what has to be static -- and a
+    /// property with no getter cannot be read at all. Everything else that reaches here is a kind
+    /// this never reads, so it reports false and ends the search as the hiding declaration it is.
+    /// </remarks>
     private static bool IsStatic(MemberInfo member) => member switch
     {
         PropertyInfo property => property.GetMethod?.IsStatic == true,
