@@ -82,7 +82,7 @@ public sealed class KeywordIdentifierEmissionTests
         Xunit.Assert.Contains("global::TestProject.@return", registry, StringComparison.Ordinal);
         Xunit.Assert.Contains("global::TestProject.@static", registry, StringComparison.Ordinal);
         Xunit.Assert.Contains("typeof(global::TestProject.@event)", registry, StringComparison.Ordinal);
-        Xunit.Assert.Contains("(global::TestProject.@int)0", registry, StringComparison.Ordinal);
+        Xunit.Assert.Contains("(global::TestProject.@int)(0)", registry, StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -45,7 +45,9 @@ internal static class ArgumentFormatter
         return argument.Kind switch
         {
             TypedConstantKind.Primitive => FormatPrimitiveValue(argument.Value!, argument.Type!),
-            TypedConstantKind.Enum => $"({argument.Type!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}){argument.Value}",
+            // The value is parenthesized because a member with a negative underlying value would
+            // otherwise emit "(Direction)-1", which C# parses as a subtraction and rejects (CS0075).
+            TypedConstantKind.Enum => $"({argument.Type!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)})({FormatInvariant(argument.Value!)})",
             TypedConstantKind.Type => $"typeof({((ITypeSymbol)argument.Value!).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)})",
             TypedConstantKind.Array => FormatArrayValue(argument),
             _ => "null"
@@ -62,9 +64,8 @@ internal static class ArgumentFormatter
             string str => AttributeHelper.ToLiteral(str),
             char c => $"'{c}'",
             bool b => b.ToString().ToLowerInvariant(),
-            byte or sbyte or short or ushort or int or uint => value.ToString()!,
-            long l => $"{l}L",
-            ulong ul => $"{ul}UL",
+            long l => $"{l.ToString(CultureInfo.InvariantCulture)}L",
+            ulong ul => $"{ul.ToString(CultureInfo.InvariantCulture)}UL",
             float f when float.IsNaN(f) => "global::System.Single.NaN",
             float f when float.IsPositiveInfinity(f) => "global::System.Single.PositiveInfinity",
             float f when float.IsNegativeInfinity(f) => "global::System.Single.NegativeInfinity",
@@ -83,9 +84,22 @@ internal static class ArgumentFormatter
             double d when double.IsNegativeInfinity(d) => "global::System.Double.NegativeInfinity",
             double d => $"{d.ToString("G17", CultureInfo.InvariantCulture)}d",
             decimal m => $"{m.ToString(CultureInfo.InvariantCulture)}m",
-            _ => value.ToString() ?? "null"
+            // The integral primitives, which need no suffix, plus nint and nuint. They have to be
+            // invariant like the rest: this is a C# literal, and a build machine whose negative sign
+            // is not the ASCII hyphen - sv-SE formats it as U+2212 - would emit source the compiler
+            // rejects for every negative argument.
+            _ => FormatInvariant(value)
         };
     }
+
+    /// <summary>
+    /// Formats a boxed value with the invariant culture, so that generated source does not depend on
+    /// the build machine's regional settings.
+    /// </summary>
+    private static string FormatInvariant(object value) =>
+        value is IFormattable formattable
+            ? formattable.ToString(null, CultureInfo.InvariantCulture)
+            : value.ToString() ?? "null";
 
     /// <summary>
     /// Formats an array value for use in generated code.

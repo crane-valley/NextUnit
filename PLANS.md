@@ -119,34 +119,38 @@ retry decisions based on the exception, while MSTest exposes the current run cou
   they are built during discovery, outside any test's culture scope, so a declared culture does not
   change them and test identity stays stable.
 
-### Priority 2 — Attribute metadata claims inheritance the generator does not implement
+### Priority 2 — Attributes and lifecycle hooks are not inherited from base test classes
 
 Surfaced by the Codex review of the culture isolation change (2026-08-04) against the new
 `[Culture]`, `[UICulture]`, and `[InvariantCulture]` attributes, and then confirmed to apply equally
 to every existing NextUnit attribute, so it pre-dates that change.
 
-No NextUnit attribute specifies `Inherited` in its `[AttributeUsage]`, so all of them inherit the
-default of `true` and advertise that a derived class or an overriding method picks them up. Nothing
-implements that: `AttributeHelper` reads `ISymbol.GetAttributes()`, which returns only directly
-applied attributes and never walks `INamedTypeSymbol.BaseType` or `IMethodSymbol.OverriddenMethod`.
-A `[Timeout]`, `[Retry]`, `[Category]`, `[ExecutionPriority]`, or `[Culture]` on a base test class is
-therefore silently ignored by everything derived from it.
+The generator reads directly applied attributes only: `AttributeHelper` goes through
+`ISymbol.GetAttributes()` and never walks `INamedTypeSymbol.BaseType` or
+`IMethodSymbol.OverriddenMethod`. A `[Timeout]`, `[Retry]`, `[Category]`, `[ExecutionPriority]`, or
+`[Culture]` on a base test class is therefore silently ignored by everything derived from it. Most
+NextUnit attributes used to leave `Inherited` unspecified, which defaults to `true`, and
+`[Category]`, `[Tag]`, and both `[DisplayNameFormatter]` forms declared `Inherited = true` outright,
+so the metadata advertised a behavior that nothing implemented.
 
-The culture attributes deliberately match the existing behavior rather than diverging. Fixing only
-them would make one family of attributes inherit while the rest do not, and marking only them
-`Inherited = false` would make one family honest while the rest keep advertising something untrue --
-either way the framework becomes harder to predict than it is today. The fix belongs at the level of
-the shared lookup, once, for all of them.
-
-- [ ] Decide between walking the base type and overridden method chain in `AttributeHelper` and
+- [x] Decide between walking the base type and overridden method chain in `AttributeHelper` and
   declaring `Inherited = false` on the attributes, then apply the decision to every NextUnit
-  attribute at once and cover a base test class and an overriding method.
-- [ ] Include lifecycle methods in that decision. `RegistryEmitter.LifecycleMethodsFor` looks the
-  hooks up by the test's exact `FullyQualifiedTypeName`, so a `[Before]` or `[After]` declared on a
-  base test class never runs for the derived classes holding the tests. The failure is silent -- the
-  tests still run, without their setup -- and both xUnit and MSTest run inherited hooks, so it is a
-  migration hazard as well as a surprise. Surfaced by the Codex review of the migration guides
-  (2026-08-04); the guides tell readers to declare hooks on each concrete class meanwhile.
+  attribute at once. Decided in favor of the metadata: every NextUnit attribute now declares
+  `Inherited = false`, so the declaration matches what the generator does. Walking the chains would
+  change runtime behavior instead -- a `[Timeout]` or `[Retry]` on a base class that silently never
+  applied would start applying -- which belongs in a major version rather than a patch, and fixing
+  only the culture family would leave one family honest while the rest keep advertising something
+  untrue. Nothing in NextUnit reads `Inherited`, at build time or at run time, so no generated code
+  changes; what changes is that third-party tooling and readers are no longer misled.
+- [ ] Implement inheritance for lifecycle hooks, and for attributes, in the next major version.
+  `RegistryEmitter.LifecycleMethodsFor` looks the hooks up by the test's exact
+  `FullyQualifiedTypeName`, so a `[Before]` or `[After]` declared on a base test class never runs for
+  the derived classes holding the tests. The failure is silent -- the tests still run, without their
+  setup -- and both xUnit and MSTest run inherited hooks, so it is a standing migration hazard as
+  well as a surprise. Surfaced by the Codex review of the migration guides (2026-08-04); the guides
+  tell readers to declare hooks on each concrete class meanwhile. Deferred rather than dropped
+  because turning it on changes what runs: hooks that silently never ran would start running, and
+  tests that quietly skipped a base class's setup would begin executing it.
 
 ### Priority 2 — Display names are formatted with whichever culture happens to be ambient
 
@@ -160,17 +164,27 @@ Both ends have the problem, with different blast radii. At build time,
 `[Arguments(1234.5)]` display name is baked as `1234,5` when the build machine is `de-DE` and
 `1234.5` when it is `en-US`. At run time, `DisplayNameBuilder.FormatArgument` ends in
 `arg.ToString()`, so a `[TestData]`, `[ClassDataSource<T>]`, or combined-source row is named using
-the executing machine's ambient culture. `ArgumentFormatter` already got this right for the emitted
-*literals* (`G17` with `InvariantCulture`); only the display strings were left.
+the executing machine's ambient culture. `ArgumentFormatter` had it right for the emitted `float`,
+`double`, and `decimal` *literals* (`G17` with `InvariantCulture`) but not for the integral ones,
+where the consequence is worse than a name: an `sv-SE` build agent emits `-5` with U+2212, which the
+C# lexer does not read as a number, so the generated registry does not compile.
 
 The culture attributes do not reach either one, by design: display names are built during discovery,
 outside any test's culture scope, so that test identity stays stable and filtering keeps working.
-That is also why this was left alone here -- switching both paths to the invariant culture changes
-existing display names, and therefore test IDs, for anyone building or running on a non-invariant
-machine, which is a compatibility decision rather than a drive-by fix.
 
-- [ ] Format display-name arguments with `CultureInfo.InvariantCulture` at both ends, and cover a
-  double, a decimal, and a `DateTime` argument under a non-invariant ambient culture.
+- [x] Format display-name arguments with `CultureInfo.InvariantCulture` at both ends, and cover a
+  double, a decimal, and a `DateTime` argument under a non-invariant ambient culture. Both ends now
+  route every remaining `IFormattable` argument through the invariant culture, which also closed the
+  integer case. Test IDs are unaffected: an ID is structural -- `Type.Method` plus an `[index]`
+  suffix -- and is never derived from a formatted argument, so what changes on a machine whose
+  ambient culture is not invariant is the human-readable name, and therefore which tests a
+  name-based filter matches.
+- [x] Emit the integral and enum argument *literals* invariantly as well, which the Codex review of
+  the display-name change surfaced as the more serious half: those are C# source, not text, so an
+  `sv-SE` build agent produced a registry that did not compile. Covered by compiling the generator's
+  output under a non-invariant culture rather than by inspecting it, which is also how the emitted
+  cast of a negative enum member turned out to be `(Direction)-1` -- a subtraction to the C# parser,
+  and a `CS0075` on every build regardless of culture.
 
 ### Priority 1 — Performance regression detection
 

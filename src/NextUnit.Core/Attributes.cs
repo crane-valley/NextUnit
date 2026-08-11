@@ -3,7 +3,7 @@ namespace NextUnit;
 /// <summary>
 /// Marks a method as a test case to be executed by the NextUnit test framework.
 /// </summary>
-[AttributeUsage(AttributeTargets.Method)]
+[AttributeUsage(AttributeTargets.Method, Inherited = false)]
 public sealed class TestAttribute : Attribute
 {
 }
@@ -47,7 +47,7 @@ public enum LifecycleScope
 /// <summary>
 /// Marks a method to be executed before tests at the specified lifecycle scope.
 /// </summary>
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
 public sealed class BeforeAttribute : Attribute
 {
     /// <summary>
@@ -68,7 +68,7 @@ public sealed class BeforeAttribute : Attribute
 /// <summary>
 /// Marks a method to be executed after tests at the specified lifecycle scope.
 /// </summary>
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
 public sealed class AfterAttribute : Attribute
 {
     /// <summary>
@@ -98,7 +98,7 @@ public sealed class AfterAttribute : Attribute
 /// the smallest limit declared within it, which its undeclared members inherit even when that
 /// exceeds the processor count.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method)]
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
 public sealed class ParallelLimitAttribute : Attribute
 {
     /// <summary>
@@ -144,7 +144,7 @@ public sealed class ParallelLimitAttribute : Attribute
 /// </code>
 /// </example>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
 public sealed class NotInParallelAttribute : Attribute
 {
     /// <summary>
@@ -212,7 +212,7 @@ public sealed class NotInParallelAttribute : Attribute
 /// </code>
 /// </example>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
 public sealed class ParallelGroupAttribute : Attribute
 {
     /// <summary>
@@ -262,7 +262,7 @@ public sealed class ParallelGroupAttribute : Attribute
 /// </code>
 /// </example>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
 public sealed class DependsOnAttribute : Attribute
 {
     /// <summary>
@@ -298,7 +298,7 @@ public sealed class DependsOnAttribute : Attribute
 /// When applied to a class, the timeout applies to all tests in that class (unless overridden by method-level timeout).
 /// When applied to an assembly, the timeout applies to all tests in that assembly (unless overridden by class or method-level timeout).
 /// </remarks>
-[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method)]
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
 public sealed class TimeoutAttribute : Attribute
 {
     /// <summary>
@@ -328,7 +328,7 @@ public sealed class TimeoutAttribute : Attribute
 /// When a test fails, it will be retried up to the specified number of times.
 /// The test passes if any retry succeeds. This is useful for handling intermittent failures.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = false)]
 public sealed class RetryAttribute : Attribute
 {
     /// <summary>
@@ -401,7 +401,7 @@ public sealed class RetryAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = false)]
 public sealed class RetryAttribute<TPolicy> : Attribute
     where TPolicy : IRetryPolicy, new()
 {
@@ -470,7 +470,7 @@ public sealed class RetryAttribute<TPolicy> : Attribute
 /// Consider using <see cref="RetryAttribute"/> in combination with this attribute
 /// to automatically retry flaky tests.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = false)]
 public sealed class FlakyAttribute : Attribute
 {
     /// <summary>
@@ -515,7 +515,7 @@ public sealed class FlakyAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class RepeatAttribute : Attribute
 {
     /// <summary>
@@ -572,7 +572,7 @@ public sealed class RepeatAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = false)]
 public sealed class ExecutionPriorityAttribute : Attribute
 {
     /// <summary>
