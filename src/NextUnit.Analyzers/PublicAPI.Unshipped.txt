@@ -1,5 +1,1 @@
 #nullable enable
-NextUnit.Analyzers.Analyzers.ParallelLimitValueAnalyzer
-NextUnit.Analyzers.Analyzers.ParallelLimitValueAnalyzer.ParallelLimitValueAnalyzer() -> void
-override NextUnit.Analyzers.Analyzers.ParallelLimitValueAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
-override NextUnit.Analyzers.Analyzers.ParallelLimitValueAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
