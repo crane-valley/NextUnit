@@ -272,9 +272,10 @@ internal readonly struct KnownDataSourceTypes
     /// The rule is: <c>TestDataRow&lt;T&gt;</c> wins, because it is the more specific contract -- it
     /// carries the row's metadata as well as its values, and a source that offers it declared the
     /// typed shape deliberately. Remaining ties are broken by ordinal comparison of the fully
-    /// qualified element type name, which depends on nothing but the types themselves. The
-    /// comparison only runs once a second candidate appears, so the ordinary single-interface source
-    /// formats no display string.
+    /// qualified element type name, and then of the declaring assembly's identity, since two
+    /// assemblies reached through <c>extern alias</c> can contribute the same qualified name. Both
+    /// keys depend on nothing but the types themselves. The comparison only runs once a second
+    /// candidate appears, so the ordinary single-interface source formats no display string.
     /// </para>
     /// </remarks>
     private static ITypeSymbol SelectRowType(ITypeSymbol? selected, ITypeSymbol candidate)
@@ -292,12 +293,20 @@ internal readonly struct KnownDataSourceTypes
             return candidateIsRow ? candidate : selected;
         }
 
-        return string.CompareOrdinal(
+        var order = string.CompareOrdinal(
             candidate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-            selected.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)) < 0
-            ? candidate
-            : selected;
+            selected.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
+        if (order == 0)
+        {
+            order = string.CompareOrdinal(AssemblyKey(candidate), AssemblyKey(selected));
+        }
+
+        return order < 0 ? candidate : selected;
     }
+
+    private static string AssemblyKey(ITypeSymbol type) =>
+        type.ContainingAssembly?.Identity.GetDisplayName() ?? string.Empty;
 
     private static bool IsGenericEnumerable(INamedTypeSymbol type) =>
         type.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T;

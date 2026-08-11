@@ -23,7 +23,7 @@ internal enum DataSourceBindingIssue
 
     /// <summary>
     /// The member takes the discovery cancellation token but returns a type that classifies as a
-    /// synchronous collection because it implements <c>IEnumerable&lt;T&gt;</c> as well as
+    /// synchronous collection because it implements <c>IEnumerable</c>, generic or not, as well as
     /// <c>IAsyncEnumerable&lt;T&gt;</c>. The synchronous provider takes no arguments, so there is no
     /// token to pass. Reported as <c>NU0021</c>.
     /// </summary>

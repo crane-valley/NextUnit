@@ -93,9 +93,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reported. The generator now emits no provider for an unreachable member rather than emitting
   access it cannot compile, so the runtime reflection fallback still resolves whatever reaches it.
 - `NU0021` rejects a `CancellationToken`-taking `[TestData]` member whose return type implements
-  `IEnumerable<T>` as well as `IAsyncEnumerable<T>`. This is a breaking change, and the next release
-  is 2.0.0. Such a type is classified as synchronous, deliberately, so that a type which meant
-  `IEnumerable<T>` before asynchronous sources existed keeps meaning it; the synchronous provider
+  `IEnumerable`, generic or not, as well as `IAsyncEnumerable<T>`. This is a breaking change, and the
+  next release is 2.0.0. Such a type is classified as synchronous, deliberately, so that a type which
+  meant `IEnumerable` before asynchronous sources existed keeps meaning it; the synchronous provider
   takes no arguments, so there is no token to pass and the member bound to nothing. The only
   previous symptom was a parameter-count failure from the runtime reflection fallback, which
   mentioned neither the token nor the reason. Drop the parameter, or return a type that implements

@@ -201,6 +201,108 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// A property is read through its getter, so a visible property with a private getter is not
+    /// reachable. The generated read fails with CS0271 rather than CS0122, but it fails all the same.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithPrivateGetterProperty_ReportsDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                public static IEnumerable<object[]> TestCases { private get; set; } =
+                    new[] { new object[] { 1 } };
+
+                [Test]
+                [{|#0:TestData("TestCases")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0020")
+            .WithLocation(0)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A reachable generic container still cannot be named when one of its type arguments cannot,
+    /// which is why the type arguments are walked as well as the containing chain.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithInaccessibleTypeArgument_ReportsDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public static class Fixtures<T>
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Tests
+            {
+                private sealed class Secret
+                {
+                }
+
+                [Test]
+                [{|#0:TestData("TestCases", MemberType = typeof(Fixtures<Secret>))|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0020")
+            .WithLocation(0)
+            .WithArguments("TestCases", "Fixtures");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// Accessibility is judged before the shape, so a member that is both unreachable and
+    /// unsupported reports the accessibility once rather than one rule after the other.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithPrivateCancellableBareTask_ReportsAccessibilityAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                private static Task Rows(CancellationToken cancellationToken) => Task.CompletedTask;
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0020")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// Parameter-level sources are emitted as direct member access too, so accessibility binds them
     /// the same way.
     /// </summary>

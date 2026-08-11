@@ -119,15 +119,31 @@ internal static class DataSourceMemberResolver
 
             var classification = knownDataSourceTypes.Classify(method.ReturnType);
 
-            if (classification.IsAsync)
+            // Accessibility is judged before the shape, as it is in the first pass, so that one
+            // member never reports one rule on the way to another: a private member of any shape
+            // reports NU0020 rather than reporting the shape first and the accessibility only once
+            // the shape is fixed.
+            if (!GeneratedRegistryAccess.CanReachMember(method, compilingAssembly))
             {
-                return GeneratedRegistryAccess.CanReachMember(method, compilingAssembly)
-                    ? new ResolvedDataSourceMember(method, method.ReturnType, true)
-                    : new ResolvedDataSourceMember(
+                if (classification.IsAsync ||
+                    classification.Shape == DataSourceShape.UnsupportedAwaitable ||
+                    knownDataSourceTypes.ImplementsAsyncEnumerable(method.ReturnType))
+                {
+                    return new ResolvedDataSourceMember(
                         method,
                         method.ReturnType,
                         false,
                         DataSourceBindingIssue.MemberNotAccessible);
+                }
+
+                // A plainly synchronous return type was never a candidate here, accessible or not,
+                // so it keeps falling through to the next overload rather than being claimed.
+                continue;
+            }
+
+            if (classification.IsAsync)
+            {
+                return new ResolvedDataSourceMember(method, method.ReturnType, true);
             }
 
             // An awaitable that supplies no rows is still returned, without being marked bindable.

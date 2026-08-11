@@ -205,11 +205,11 @@ something that is not enumerable such as `Task<int>`, cannot supply rows and is 
 time as `NU0014`.
 
 The token parameter is only meaningful for a source NextUnit reads asynchronously. A type that
-implements `IEnumerable<T>` as well as `IAsyncEnumerable<T>` is read synchronously, so that a type
-which meant `IEnumerable<T>` before async sources existed keeps meaning it, and the synchronous read
-has no token to pass. A member returning such a type and taking a `CancellationToken` binds to
-nothing, and is reported at build time as `NU0021`. Drop the parameter, or return a type that
-implements only `IAsyncEnumerable<T>`.
+implements `IEnumerable`, generic or not, as well as `IAsyncEnumerable<T>` is read synchronously, so
+that a type which meant `IEnumerable` before async sources existed keeps meaning it, and the
+synchronous read has no token to pass. A member returning such a type and taking a
+`CancellationToken` binds to nothing, and is reported at build time as `NU0021`. Drop the parameter,
+or return a type that implements only `IAsyncEnumerable<T>`.
 
 A data source must not block synchronously. Cancellation is honored at every genuine await point, so
 a source that awaits its I/O can always be interrupted. Code that blocks the calling thread cannot

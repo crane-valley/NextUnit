@@ -245,9 +245,9 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor DataSourceCancellationTokenOnSyncSource = new(
         id: "NU0021",
         title: "Cancellation-aware data source member returns a synchronous collection",
-        messageFormat: "TestData member '{0}' takes a CancellationToken but returns '{1}', which implements IEnumerable<T> as well as IAsyncEnumerable<T> and is therefore read synchronously; drop the parameter, or return a type that implements only IAsyncEnumerable<T>",
+        messageFormat: "TestData member '{0}' takes a CancellationToken but returns '{1}', which also implements IEnumerable and is therefore read synchronously; drop the parameter, or return a type that implements only IAsyncEnumerable<T>",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "A data source type implementing both element interfaces is classified as synchronous, so that a type which meant IEnumerable<T> before asynchronous sources existed keeps meaning it. The synchronous provider takes no arguments, so there is no token to pass and the member binds to nothing; without this rule the only symptom is a parameter-count failure from the runtime reflection fallback, which mentions neither the token nor the reason.");
+        description: "A data source type that implements IEnumerable, generic or not, as well as IAsyncEnumerable<T> is classified as synchronous, so that a type which meant IEnumerable before asynchronous sources existed keeps meaning it. The synchronous provider takes no arguments, so there is no token to pass and the member binds to nothing; without this rule the only symptom is a parameter-count failure from the runtime reflection fallback, which mentions neither the token nor the reason.");
 }

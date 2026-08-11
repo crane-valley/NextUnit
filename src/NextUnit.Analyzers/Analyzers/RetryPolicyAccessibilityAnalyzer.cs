@@ -58,75 +58,9 @@ public sealed class RetryPolicyAccessibilityAnalyzer : DiagnosticAnalyzer
     /// </summary>
     /// <remarks>
     /// The <c>new()</c> constraint already guarantees a public parameterless constructor, so only
-    /// visibility is in question -- of the type, of every enclosing type, since a public type nested in
-    /// a private one is unreachable all the same, and of every type argument, since a reachable
-    /// <c>Policy&lt;T&gt;</c> still cannot be named when <c>T</c> cannot.
+    /// visibility is in question, and that question is the same one every other emission site asks --
+    /// hence the shared rule rather than a copy of it here.
     /// </remarks>
-    private static bool IsReachableFromGeneratedCode(ITypeSymbol policyType, Compilation compilation)
-    {
-        // An unresolved type carries no accessibility to judge and already has its own compiler error.
-        // Reporting NU0016 on top would add a visibility complaint the user cannot act on and bury the
-        // error that actually needs fixing.
-        if (policyType.TypeKind == TypeKind.Error)
-        {
-            return true;
-        }
-
-        // An array is named through its element type, and a type parameter is substituted at the use
-        // site, so neither has a visibility of its own to check.
-        if (policyType is IArrayTypeSymbol array)
-        {
-            return IsReachableFromGeneratedCode(array.ElementType, compilation);
-        }
-
-        if (policyType is not INamedTypeSymbol namedType)
-        {
-            return true;
-        }
-
-        for (INamedTypeSymbol? type = namedType; type is not null; type = type.ContainingType)
-        {
-            // A file-local type reports internal accessibility but has a mangled metadata name and can
-            // only be named inside its own source file, so the generated registry cannot construct it
-            // however visible it looks.
-            if (type.IsFileLocal)
-            {
-                return false;
-            }
-
-            if (!IsVisibleToCompilingAssembly(type, compilation))
-            {
-                return false;
-            }
-
-            foreach (var typeArgument in type.TypeArguments)
-            {
-                if (!IsReachableFromGeneratedCode(typeArgument, compilation))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsVisibleToCompilingAssembly(INamedTypeSymbol type, Compilation compilation)
-    {
-        switch (type.DeclaredAccessibility)
-        {
-            case Accessibility.Public:
-                return true;
-
-            case Accessibility.Internal:
-            case Accessibility.ProtectedOrInternal:
-                return SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, compilation.Assembly) ||
-                    type.ContainingAssembly?.GivesAccessTo(compilation.Assembly) == true;
-
-            default:
-                // Private, protected, and private protected are all out of reach from a type that is
-                // neither the declaring type nor derived from it.
-                return false;
-        }
-    }
+    private static bool IsReachableFromGeneratedCode(ITypeSymbol policyType, Compilation compilation) =>
+        GeneratedRegistryAccess.CanReachType(policyType, compilation.Assembly);
 }

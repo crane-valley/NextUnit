@@ -509,6 +509,16 @@ decision, and none of them was introduced by that change.
   fully qualified element type name. Declaration order was rejected as the tie-break because
   `AllInterfaces` does not expose one. The non-generic `IEnumerable` walk needed no change: it
   answers a yes-or-no question, so the order it visits candidates in cannot affect the answer.
+- [ ] The selected row type does not reach the emitted provider. `TestDataSource` carries the shape
+  but not the row type, so `BuildAsyncTestDataSourceProvider` emits a bare
+  `AsyncDataSourceAdapter.FromAsyncEnumerableAsync(source, ct)`. A source implementing
+  `IAsyncEnumerable<T>` more than once therefore fails the consumer's build with `CS0411`, because
+  the type argument cannot be inferred, and a synchronous source read through the non-generic
+  `IEnumerable` can yield rows of a different arm than the one `NU0009` validated. Pre-existing --
+  the row type has never reached the generator -- and surfaced by the Codex review of the row-type
+  precedence work (2026-08-12). Closing it means threading the selected row type through the
+  descriptor model and emitting an explicitly typed adapter call, which moves every async snapshot
+  baseline, so it is its own change with its own review.
 
 ### Priority 2 — Emitted type names do not escape keyword identifiers
 
