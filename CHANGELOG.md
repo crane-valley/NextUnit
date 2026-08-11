@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Resolve `[ParallelLimit]` from the assembly. `ParallelLimitAttribute` has always accepted an
+  assembly target, but the generator read the limit from the test method and its containing class
+  only, so `[assembly: ParallelLimit(4)]` compiled and was then dropped and the run fell back to the
+  processor count. The limit now resolves method first, then class, then assembly, matching
+  `[Timeout]` and the culture attributes. A suite that declares no limit anywhere is unaffected.
+
+### Added
+
+- `NU0019` rejects a non-positive `[ParallelLimit]` value. The value becomes
+  `ParallelOptions.MaxDegreeOfParallelism`, whose setter throws for `0` and for anything below `-1`,
+  and that throw aborts the whole run rather than failing the test that declared it; resolving the
+  attribute from the assembly turned a previously inert `[assembly: ParallelLimit(0)]` into exactly
+  that. `-1` is rejected as well: the setter accepts it, but `Parallel.ForEachAsync` maps it to the
+  processor count, which is what an absent attribute already means, while it still wins the `Min`
+  the scheduler takes across a parallel group, replacing a sibling's explicit limit with a processor
+  count that may be higher. The rule covers the method, class, and assembly forms alike, and the generator
+  drops a value it reports so that a suppressed error bounds the run by the enclosing declaration
+  instead.
+
 ## [1.19.1] - 2026-08-10
 
 ### Fixed

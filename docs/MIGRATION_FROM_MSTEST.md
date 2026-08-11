@@ -36,7 +36,7 @@ every NextUnit block is compiled in CI, so what you see is what the compiler acc
 | `[ExpectedException]` | `Assert.Throws<T>` | |
 | `[Retry]` | `[Retry]`, `[Retry<TPolicy>]` | The counts differ; see [Retry, repeat, timeout, and culture](#retry-repeat-timeout-and-culture) |
 | `[DoNotParallelize]` | `[NotInParallel]` | |
-| `[Parallelize(Workers = n)]` | `[ParallelLimit(n)]` on each class | No suite-wide equivalent; see [Parallelism and ordering](#parallelism-and-ordering) |
+| `[Parallelize(Workers = n)]` | `[ParallelLimit(n)]` | Applies at assembly, class, or method level; see [Parallelism and ordering](#parallelism-and-ordering) |
 | `[DescriptionAttribute]` | `[DisplayName]` | Changes the reported name |
 | `Assert.AreEqual` | `Assert.Equal` | Same argument order |
 | `StringAssert.*` | `Assert.StartsWith`, `EndsWith`, `Contains` | |
@@ -619,12 +619,25 @@ public class GroupedTests
 `[NotInParallel]` is the equivalent of `[DoNotParallelize]`, and it also accepts constraint keys, so
 classes that share one resource can exclude each other without serializing the whole run.
 
-There is no suite-wide parallelism setting. `ParallelLimitAttribute` accepts an assembly target, but
-the generator reads `[ParallelLimit]` only from a test method and its containing class, so an
-assembly-level declaration compiles and is then ignored. An assembly-wide
-`[Parallelize(Workers = 4)]` therefore becomes `[ParallelLimit(4)]` on each class that needs it; a
-class without one is bounded by the processor count. `[Timeout]` is the attribute that does resolve
-from the assembly as well as the class and method.
+`[ParallelLimit]` resolves from the test method, then its containing class, then the assembly, so an
+assembly-wide `[Parallelize(Workers = 4)]` maps to `[assembly: ParallelLimit(4)]`. A test that no
+level declares a limit for is bounded by the processor count, except when it is scheduled alongside a
+limit-declaring test that shares its `[ParallelGroup]`: that batch runs at the smallest limit
+declared within it, even when that is larger than the processor count. `[Timeout]` and the culture
+attributes resolve across the same three levels.
+
+The two differ on both halves of `[Parallelize]`. `Workers` is a maximum, while the NextUnit value is
+the default a test inherits when neither its method nor its class declares one -- and the nearest
+declaration replaces it with a larger value as readily as with a smaller one, so a class declaring
+`[ParallelLimit(8)]` runs 8. `Scope` has no counterpart at all: MSTest defaults to `ClassLevel`, which
+runs classes in parallel but the methods within one sequentially, whereas NextUnit schedules
+individual tests and so runs siblings in the same class concurrently. There is no exact `ClassLevel`
+equivalent: a constraint key of the class's own -- `[NotInParallel("OrderServiceTests")]` -- does
+serialize that class against itself, and it keeps the class out of the one serial group that bare
+`[NotInParallel]` shares with every other unkeyed test, but the run executes one batch at a time, so
+a serialized class does not overlap with the rest of the suite either way. Both forms are therefore
+stronger than `ClassLevel`. The key changes only how the serialized tests are grouped: keyed tests
+form their own batch instead of joining the single batch every unkeyed `[NotInParallel]` test shares.
 
 MSTest has no built-in ordering. NextUnit expresses order as a dependency or a priority:
 

@@ -216,13 +216,16 @@ the test host has.
 - [ ] Bring `docs/MIGRATION_FROM_XUNIT.md` under the same compile check. Its samples are bare method
   and statement fragments rather than compilation units, and two blocks are API listings with
   undeclared identifiers, so inclusion means rewriting the samples rather than annotating them.
-- [ ] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
-  declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiles, but
-  `NextUnitGenerator` resolves the limit from the test method and its containing type only and never
-  from `ContainingAssembly`, so a suite-wide limit is silently dropped and the run falls back to the
-  processor count. `[Timeout]` and the culture attributes already read the assembly, so the fix is
-  either to do the same here or to drop the assembly target. Surfaced by the Codex review of the
-  migration guides (2026-08-04); the guides document the current behavior meanwhile.
+- [x] Reconcile `ParallelLimitAttribute` with what the generator reads. Its `[AttributeUsage]`
+  declares `AttributeTargets.Assembly`, so `[assembly: ParallelLimit(4)]` compiled, but
+  `NextUnitGenerator` resolved the limit from the test method and its containing type only and never
+  from `ContainingAssembly`, so a suite-wide limit was silently dropped and the run fell back to the
+  processor count. Surfaced by the Codex review of the migration guides (2026-08-04). Delivered as
+  `AttributeHelper.GetParallelLimit(IMethodSymbol, INamedTypeSymbol)`, which resolves the method,
+  then its class, then the assembly exactly as `GetTimeout` and the culture attributes do; the
+  assembly target stays, because dropping it would fail builds that compile today. Pinned by
+  `tests/NextUnit.Generator.Tests/ParallelLimitEmissionTests.cs`, and the NUnit and MSTest guides
+  now document the resolution instead of the gap.
 - [ ] Decide how documentation on `main` should present APIs that are not in the released package.
   Between releases, `README.md`, `docs/GETTING_STARTED.md`, and the migration guides describe what
   `main` implements while pinning the last published version, so a reader who installs the pinned
@@ -551,6 +554,32 @@ and need a deliberate decision before implementation.
   scope name. Surfaced by review on PR #183, which kept the pre-existing once-per-instance semantics.
   Closing it means either resetting the gate at close (session hooks re-run) or gating teardown to
   pair with setup; both change observable hook behavior, so neither is a drive-by fix.
+
+### Priority 2 — A parallel group's declared limit overrides its unannotated members' default
+
+Surfaced by the Codex review of PR #219 (2026-08-10) and confirmed to pre-date it.
+`ParallelScheduler.GroupIntoBatches` sizes a `[ParallelGroup]` batch with
+`groupTests.Min(t => t.Parallel.ParallelLimit) ?? _globalMaxDegreeOfParallelism`. `Min` over `int?`
+skips nulls, so the coalesce is reached only when no member of the batch declares a limit at all. A
+batch holding unannotated tests alongside one `[ParallelLimit(16)]` therefore runs sixteen wide,
+including the unannotated tests, which everywhere else are bounded by the processor count -- on an
+eight-core machine the batch runs at twice what those tests would otherwise get. The ungrouped path
+does not share the defect: it keys on `ParallelLimit ?? _globalMaxDegreeOfParallelism`, so an
+undeclared limit becomes the processor count before the grouping rather than after it. The unit is
+the batch rather than the whole group, because `GroupIntoBatches` sees only the tests a dependency
+wave has made ready: members of one group held back by dependencies land in a later batch and are
+sized separately.
+
+- [ ] Decide whether an undeclared limit should contribute the processor count to a parallel group's
+  `Min`. Coalescing before the `Min` makes the batch take the smaller of the processor count and the
+  smallest declared limit, which is what the attribute documentation says a test without a
+  declaration gets, and what the ungrouped path already does. It narrows a batch only when that batch
+  holds at least one undeclared member and its smallest declared limit exceeds the processor count --
+  a batch whose members all declare 16 still runs at 16 -- but that is still a scheduling change for
+  suites passing today rather than a bug fix, which is why the documentation for 1.x describes the
+  current behavior instead. The alternative is to declare the group limit deliberately authoritative,
+  on the reading that an explicit `[ParallelGroup]` with an explicit limit is a statement about the
+  group as a whole; that keeps today's behavior and makes the attribute docs say so.
 
 ## Deferred to the next major version
 

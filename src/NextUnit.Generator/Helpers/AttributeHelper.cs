@@ -277,7 +277,36 @@ internal static class AttributeHelper
         return builder.ToImmutable();
     }
 
-    public static int? GetParallelLimit(ISymbol symbol)
+    /// <summary>
+    /// Resolves the parallel limit for a test from the method, its class, and its assembly.
+    /// </summary>
+    /// <remarks>
+    /// The assembly level is read because <c>ParallelLimitAttribute</c> declares
+    /// <see cref="AttributeTargets.Assembly"/>, so <c>[assembly: ParallelLimit(n)]</c> compiles and a
+    /// reader expects it to apply; reading only the method and its class dropped it silently. It is
+    /// the default a test inherits when neither nearer level declares one, not a ceiling over them:
+    /// a class or method declaration replaces it, upward as readily as downward. The precedence
+    /// matches <see cref="GetTimeout"/> and the culture attributes.
+    /// </remarks>
+    public static int? GetParallelLimit(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    {
+        var methodLimit = GetParallelLimitFromSymbol(methodSymbol);
+        if (methodLimit.HasValue)
+        {
+            return methodLimit;
+        }
+
+        var classLimit = GetParallelLimitFromSymbol(typeSymbol);
+        if (classLimit.HasValue)
+        {
+            return classLimit;
+        }
+
+        var assemblyLimit = GetParallelLimitFromSymbol(typeSymbol.ContainingAssembly);
+        return assemblyLimit;
+    }
+
+    private static int? GetParallelLimitFromSymbol(ISymbol symbol)
     {
         foreach (var attribute in symbol.GetAttributes())
         {
@@ -293,7 +322,13 @@ internal static class AttributeHelper
 
             var value = attribute.ConstructorArguments[0].Value;
 
-            if (value is int limit)
+            // A non-positive limit is read as "this level declared nothing", so the enclosing level
+            // or the processor count still bounds the run. NU0019 reports it as a build error, so
+            // reaching here means it was suppressed, and the reading matches a suppressed NU0018
+            // culture name: inherit rather than abort. Carrying the value through would reach
+            // ParallelOptions.MaxDegreeOfParallelism, where 0 and anything below -1 throw and abort
+            // the whole run, and -1 means the processor count rather than the limit it looks like.
+            if (value is int limit && limit > 0)
             {
                 return limit;
             }

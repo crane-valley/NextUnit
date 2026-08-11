@@ -87,8 +87,17 @@ public sealed class AfterAttribute : Attribute
 }
 
 /// <summary>
-/// Specifies the maximum degree of parallelism for test execution at the assembly, class, or method level.
+/// Specifies the degree of parallelism for test execution at the assembly, class, or method level.
 /// </summary>
+/// <remarks>
+/// A test takes the limit from the nearest level that declares one: its method, then its class, then
+/// its assembly. An enclosing declaration is therefore a default rather than a ceiling, and a nearer
+/// one replaces it with a larger value as readily as with a smaller one. A test that no level
+/// declares a limit for is bounded by the processor count, unless it is scheduled alongside a
+/// limit-declaring test that shares its <see cref="ParallelGroupAttribute"/>: such a batch runs at
+/// the smallest limit declared within it, which its undeclared members inherit even when that
+/// exceeds the processor count.
+/// </remarks>
 [AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class ParallelLimitAttribute : Attribute
 {
