@@ -33,6 +33,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fatal -- so a run that cancelled cleanly could still be killed by the source it had given up on.
   The failure is now read and discarded, without being reported: the caller is already being told
   about the cancellation it asked for.
+- Emit integral and enum argument literals with the invariant culture. `[Arguments(-5)]` used to be
+  written into the generated registry through a culture-sensitive `ToString`, so a build machine
+  whose negative sign is not the ASCII hyphen -- sv-SE formats it as U+2212 -- produced source the
+  C# lexer does not read as a number, and the registry failed to compile. Float, double, and decimal
+  literals were already invariant.
+- Parenthesize the emitted value of an enum argument. A member with a negative underlying value was
+  written as `(Direction)-1`, which C# parses as a subtraction and rejects with `CS0075`, so any test
+  passing such a member as an argument failed to build. Emitted literals for other members change
+  shape from `(Direction)1` to `(Direction)(1)` and are otherwise unaffected.
+
+### Changed
+
+- Format display-name arguments with the invariant culture at both ends. `[Arguments]` constants are
+  formatted when the generator bakes the name into the registry, and `[TestData]`,
+  `[ClassDataSource<T>]`, and combined-source rows are formatted on whichever machine runs them.
+  Neither end passed an `IFormatProvider`, so a `double`, a `decimal`, a `DateTime`, or a negative
+  integer produced a different name per machine: `1234,5` on a de-DE build agent, U+2212 rather than
+  a hyphen as the negative sign under sv-SE. On a machine whose ambient culture is not invariant the
+  human-readable name therefore changes, and a name-based filter written against the old text stops
+  matching. Test IDs are unaffected: an ID is structural -- `Type.Method` plus an `[index]` suffix --
+  and is never derived from a formatted argument.
+- Declare `Inherited = false` on every NextUnit attribute, which is what the generator has always
+  implemented: it reads directly applied attributes only and never walks base types or overridden
+  methods, so a `[Timeout]`, `[Retry]`, `[Category]`, or `[Culture]` on a base test class has never
+  reached the classes derived from it. `[Category]`, `[Tag]`, and both `[DisplayNameFormatter]` forms
+  declared `Inherited = true` outright, and most of the remaining attributes left `Inherited`
+  unspecified, which defaults to `true`. Nothing in NextUnit reads the flag, so no behavior and no
+  generated code changes; the metadata stops promising an inheritance that never happened. Whether
+  NextUnit should inherit attributes and lifecycle hooks is a separate question, deferred to the next
+  major version.
 
 ## [2.0.0] - 2026-08-12
 
