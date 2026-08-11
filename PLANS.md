@@ -639,8 +639,9 @@ baselines freeze the current surface until then.
 
 Delivered by deleting both overloads and the ten tests that covered them: eight that reached the
 message validation through an explicit third argument, and two that pinned the `[Obsolete]` attribute
-itself. The two-argument binding they were confused with is unchanged and stays pinned by the
-`TwoArgStringOverload` tests, so no caller that compiles today loses its meaning. The removal is
+itself. The two-positional-argument binding they were confused with is unchanged and stays pinned by
+the `TwoArgStringOverload` tests; what stops compiling is the explicit third argument and the named
+`expectedMessage:` argument, which were the only ways to reach the validation. The removal is
 recorded as two `*REMOVED*` entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt`; the matching
 `PublicAPI.Shipped.txt` lines come out at release-prep promotion, per the Public API Release Files
 step in `docs/RELEASE_PROCESS.md`. First of the breaking changes in this section to land, which is

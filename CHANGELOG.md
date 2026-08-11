@@ -13,11 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Assert.ThrowsAsync<TException>(Func<Task>, string expectedMessage, string? message)` overloads,
   `[Obsolete]` since 1.17.0. This is a breaking change, and the next release is 2.0.0. Assert on the
   returned exception's `Message` instead, which is what the deprecation notice directed callers to.
-  A two-argument call is unaffected: it has always bound to the `(Action, string? message)`
-  custom-message overload, because overload resolution prefers the candidate that leaves no optional
-  parameter unfilled, so the removed overloads were reachable only through an explicit third argument
-  or a named `expectedMessage:` argument. Source that passes either form no longer compiles, and an
-  assembly compiled against the 1.x overloads has to be rebuilt.
+  A call that passes two positional arguments is unaffected: it has always bound to the
+  `(Action, string? message)` custom-message overload, because overload resolution prefers the
+  candidate that leaves no optional parameter unfilled. The removed overloads were therefore
+  reachable only through an explicit third argument or a named `expectedMessage:` argument, and those
+  two forms are what stops compiling. An assembly compiled against the 1.x overloads has to be
+  rebuilt.
 
 ### Fixed
 
