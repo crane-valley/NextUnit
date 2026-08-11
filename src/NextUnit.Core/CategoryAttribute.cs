@@ -18,7 +18,7 @@ namespace NextUnit;
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 public sealed class CategoryAttribute : Attribute
 {
     /// <summary>
@@ -55,7 +55,7 @@ public sealed class CategoryAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 public sealed class TagAttribute : Attribute
 {
     /// <summary>

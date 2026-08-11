@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Reflection;
 using System.Text;
 
@@ -129,6 +130,10 @@ internal static class DisplayNameBuilder
             char c => $"'{c}'",
             bool b => FormatBoolean(b),
             IEnumerable enumerable when arg is not string => FormatEnumerable(enumerable),
+            // Data-source rows are formatted on whichever machine runs them, so anything culture
+            // sensitive - a double, a decimal, a DateTime - would otherwise report a different name
+            // per runner. The invariant culture keeps the reported name a property of the test.
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
             _ => arg.ToString() ?? "null"
         };
     }

@@ -102,10 +102,12 @@ internal static class DisplayNameFormatter
         return argument.Kind switch
         {
             TypedConstantKind.Primitive => FormatPrimitiveForDisplay(argument.Value!),
-            TypedConstantKind.Enum => $"{argument.Type!.Name}.{argument.Value}",
+            // An enum constant carries its boxed underlying value, which is integral and so goes
+            // through the same invariant path as any other number.
+            TypedConstantKind.Enum => $"{argument.Type!.Name}.{FormatPrimitiveForDisplay(argument.Value!)}",
             TypedConstantKind.Type => $"typeof({((ITypeSymbol)argument.Value!).Name})",
             TypedConstantKind.Array => FormatArrayForDisplay(argument),
-            _ => argument.Value?.ToString() ?? "null"
+            _ => argument.Value is null ? "null" : FormatPrimitiveForDisplay(argument.Value)
         };
     }
 
@@ -119,9 +121,11 @@ internal static class DisplayNameFormatter
             string str => $"\"{str}\"",
             char c => $"'{c}'",
             bool b => b.ToString().ToLowerInvariant(),
-            float f => f.ToString(CultureInfo.InvariantCulture),
-            double d => d.ToString(CultureInfo.InvariantCulture),
-            decimal m => m.ToString(CultureInfo.InvariantCulture),
+            // Every remaining primitive constant is IFormattable, and this name is baked into the
+            // generated registry: a culture-sensitive ToString would make the same source produce a
+            // different display name per build machine - de-DE's decimal comma, sv-SE's U+2212
+            // negative sign - and therefore break name-based filters written against it.
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
             _ => value.ToString() ?? "null"
         };
     }
