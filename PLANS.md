@@ -632,10 +632,20 @@ baselines freeze the current surface until then.
   the intent, but the types ship as public API today. Requires adding `NextUnit.Core.Tests` to
   `InternalsVisibleTo` and carving out the members that must stay public: `ArgumentConverter` (the
   generated user code calls it) and the expanders (the platform adapter reaches them).
-- [ ] Remove the two `[Obsolete]` expectedMessage-validation overloads of `Assert.Throws` and
-  `Assert.ThrowsAsync` (`Assert.Throws.cs`). They are unreachable with two arguments, which is why
-  they were obsoleted in 1.x rather than deleted; their removal notice already promises NextUnit 2.0,
-  so it is tracked here.
+- [x] Remove the two `[Obsolete]` expectedMessage-validation overloads of `Assert.Throws` and
+  `Assert.ThrowsAsync` (`Assert.Throws.cs`). They are unreachable with two positional arguments,
+  which is why they were obsoleted in 1.x rather than deleted; their removal notice already promises
+  NextUnit 2.0, so it is tracked here.
+
+Delivered by deleting both overloads and the ten tests that covered them: eight that reached the
+message validation through an explicit third argument, and two that pinned the `[Obsolete]` attribute
+itself. The two-positional-argument binding they were confused with is unchanged and stays pinned by
+the `TwoArgStringOverload` tests; what stops compiling is the explicit third argument and the named
+`expectedMessage:` argument, which were the only ways to reach the validation. The removal is
+recorded as two `*REMOVED*` entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt`; the matching
+`PublicAPI.Shipped.txt` lines come out at release-prep promotion, per the Public API Release Files
+step in `docs/RELEASE_PROCESS.md`. First of the breaking changes in this section to land, which is
+what makes the next release 2.0.0.
 
 ## Explicitly not planned
 
