@@ -3,6 +3,10 @@
 This guide helps you migrate your xUnit tests to NextUnit.
 The good news: NextUnit is designed to be familiar to xUnit users, so migration is straightforward!
 
+This guide, like the rest of the documentation on `main`, describes NextUnit as it stands there while
+pinning the latest released version, so between releases it can mention an API the pinned version
+does not ship yet; to read it as it stood for an earlier release, check out that release's git tag.
+
 ## Why Migrate to NextUnit?
 
 - **Faster test discovery** - Source generators vs runtime reflection

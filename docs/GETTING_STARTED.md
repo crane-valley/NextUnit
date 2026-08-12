@@ -2,6 +2,10 @@
 
 Welcome to NextUnit! This guide will help you get up and running with NextUnit in minutes.
 
+This guide, like the rest of the documentation on `main`, describes NextUnit as it stands there while
+pinning the latest released version, so between releases it can mention an API the pinned version
+does not ship yet; to read it as it stood for an earlier release, check out that release's git tag.
+
 ## What is NextUnit?
 
 NextUnit is a modern, high-performance test framework for .NET that combines:

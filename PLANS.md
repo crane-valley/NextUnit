@@ -274,7 +274,7 @@ side.
   assembly target stays, because dropping it would fail builds that compile today. Pinned by
   `tests/NextUnit.Generator.Tests/ParallelLimitEmissionTests.cs`, and the NUnit and MSTest guides
   now document the resolution instead of the gap.
-- [ ] Decide how documentation on `main` should present APIs that are not in the released package.
+- [x] Decide how documentation on `main` should present APIs that are not in the released package.
   Between releases, `README.md`, `docs/GETTING_STARTED.md`, and the migration guides describe what
   `main` implements while pinning the last published version, so a reader who installs the pinned
   version cannot compile those samples. The v1.19.0 cycle was the clear case: those documents
@@ -283,7 +283,21 @@ side.
   `PublicAPI.Unshipped.txt` listed all of them. The pin is correct by the Version Update
   Checklist, which bumps every document at release; the gap is that `main` documents `main` without
   saying so. Options are an unreleased marker on the affected sections, or accepting the gap and
-  saying so once. This spans four documents and the release process, so it is not a per-guide fix.
+  saying so once. This spans five documents and the release process, so it is not a per-guide fix.
+  Done 2026-08-12: the gap is accepted and stated once per document rather than marked per section.
+  `README.md`, `docs/GETTING_STARTED.md`, and the three migration guides each carry one sentence near
+  the top: the documentation on `main` describes NextUnit as it stands there while pinning the latest
+  release, so between releases it can name an API the pinned version does not ship yet, and an
+  earlier version is reachable through its git tag. `docs/RELEASE_PROCESS.md` records that the
+  sentence exists, which is what lets a release PR bump the pinned literals in the Version Update
+  Checklist and stop rather than reread five documents for prose the release does not cover. The
+  unreleased marker was rejected because it has to be placed and removed by hand, once per affected
+  section, in sections nobody rereads at release time: it would go stale in exactly the way the
+  checklist keeps the version literals from going stale. `NUGET_README.md` and
+  `samples/ClassLibrary.Sample.Tests/README.md` pin a version too and are deliberately left out --
+  the first is the package landing page, where a caveat about an unreleased `main` describes
+  something the nuget.org reader cannot see, and the second documents a sample rather than the
+  framework.
 - [x] Fix two claims in `docs/GETTING_STARTED.md` that the current code contradicts, both pre-dating
   this work: the skip section states that runtime conditional skipping is unsupported, while
   `Assert.Skip`, `Assert.SkipWhen`, and `Assert.SkipUnless` ship and are exercised by
@@ -328,24 +342,36 @@ entry, `Serilog.AspNetCore >= 0`: no transitive packages, and no resolved versio
 package management keeps versions in `Directory.Packages.props` rather than in the `.csproj`. A gate
 built on that would report almost nothing while looking like it worked.
 
-Three limits of the gate, surfaced by the Codex review of this change (2026-08-04) and left open
-because each needs a decision outside it:
+Three limits of the gate, surfaced by the Codex review of this change (2026-08-04). Each needed a
+decision outside the change itself, and all three were decided on 2026-08-12:
 
-- [ ] Decide whether the `main` branch ruleset should require a review. A pull request supplies the
+- [x] Decide whether the `main` branch ruleset should require a review. A pull request supplies the
   workflow, the script, and the allowlist that judge it, so a crafted pull request can weaken its own
   `Security Scan` and still show it green. This is true of every check in the repository, not only
   this one, and the fix is a repository setting rather than a code change: require an approval, or
-  require review of the last push.
-- [ ] Decide whether required status checks should be strict. `strict_required_status_checks_policy`
-  is off, so a pull request can merge on a `Security Scan` that ran before `main` moved. A vulnerable
+  require review of the last push. Declined: neither is implementable for a solo maintainer. GitHub
+  does not accept an author's approval of their own pull request, so a nonzero
+  `required_approving_review_count` blocks every merge, and the only way back out -- listing the
+  author as a bypass actor -- hands the one person the rule is about an exemption from it. Requiring
+  review of the last push has the same shape. The exposure stands and is accepted: the ruleset's
+  `copilot_code_review` rule reviews every push and required review thread resolution keeps a finding
+  from being merged past in silence, which is as close to a second reader as a one-person repository
+  gets.
+- [x] Decide whether required status checks should be strict. `strict_required_status_checks_policy`
+  was off, so a pull request could merge on a `Security Scan` that ran before `main` moved. A vulnerable
   resolution that only appears once two branches combine, such as a central version pin meeting a new
-  package reference, would not be seen until the nightly.
-- [ ] Decide whether the pull request gate should also sweep configuration-dependent package
+  package reference, would not be seen until the nightly. Enabled on ruleset 10775711: a pull request
+  now has to be up to date with `main` before it merges, so every required check runs against the
+  combined tree rather than against a base that has moved. Of the three, this is the one a solo
+  maintainer can turn on without a bypass that hollows it out.
+- [x] Decide whether the pull request gate should also sweep configuration-dependent package
   references. `tools/speed-comparison/UnifiedTests` selects its test framework packages through
   `ItemGroup Condition="'$(TestFramework)' == ...`, so a default restore resolves none of them. The
   nightly scan covers all five values through the per-target property syntax; the gate does not,
   because five more restores on both sides of the diff would double its runtime for a benchmark
-  harness that ships nothing.
+  harness that ships nothing. Declined: the gate keeps the default restore. The nightly already owns
+  all five values, and the harness ships nothing, so the sweep would double the runtime of every pull
+  request to shorten the reporting delay on a project no consumer restores.
 
 ### Priority 2 — The release checklist misdescribes how `Directory.Packages.props` carries the version
 
@@ -763,7 +789,7 @@ the batch rather than the whole group, because `GroupIntoBatches` sees only the 
 wave has made ready: members of one group held back by dependencies land in a later batch and are
 sized separately.
 
-- [ ] Decide whether an undeclared limit should contribute the processor count to a parallel group's
+- [x] Decide whether an undeclared limit should contribute the processor count to a parallel group's
   `Min`. Coalescing before the `Min` makes the batch take the smaller of the processor count and the
   smallest declared limit, which is what the attribute documentation says a test without a
   declaration gets, and what the ungrouped path already does. It narrows a batch only when that batch
@@ -772,12 +798,15 @@ sized separately.
   suites passing today rather than a bug fix, which is why the documentation for 1.x describes the
   current behavior instead. The alternative is to declare the group limit deliberately authoritative,
   on the reading that an explicit `[ParallelGroup]` with an explicit limit is a statement about the
-  group as a whole; that keeps today's behavior and makes the attribute docs say so.
+  group as a whole; that keeps today's behavior and makes the attribute docs say so. Resolved by
+  documentation: the group limit is deliberately authoritative, and the `ParallelLimitAttribute`
+  remarks say so as of PR #219. No code change.
 
 ## Deferred to the next major version
 
-Breaking changes that are agreed in principle but cannot ship in 1.x. The `PublicAPI.Shipped.txt`
-baselines freeze the current surface until then.
+Breaking changes that could not ship in 1.x. All three shipped in 2.0.0, and the
+`PublicAPI.Shipped.txt` baselines now freeze that surface; the section stays as the record of what
+2.0.0 broke and why.
 
 - [x] Unify the shared-instance caches behind `[ClassDataSource]` and `[ValuesFrom]` and wire
   disposal to session end. `ClassDataSourceExpander` and `CombinedDataSourceExpander` each keep
@@ -800,11 +829,11 @@ Delivered by deleting both overloads and the ten tests that covered them: eight 
 message validation through an explicit third argument, and two that pinned the `[Obsolete]` attribute
 itself. The two-positional-argument binding they were confused with is unchanged and stays pinned by
 the `TwoArgStringOverload` tests; what stops compiling is the explicit third argument and the named
-`expectedMessage:` argument, which were the only ways to reach the validation. The removal is
-recorded as two `*REMOVED*` entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt`; the matching
-`PublicAPI.Shipped.txt` lines come out at release-prep promotion, per the Public API Release Files
-step in `docs/RELEASE_PROCESS.md`. First of the breaking changes in this section to land, which is
-what makes the next release 2.0.0.
+`expectedMessage:` argument, which were the only ways to reach the validation. The removal was
+recorded as two `*REMOVED*` entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt`, and the matching
+`PublicAPI.Shipped.txt` lines came out at the 2.0.0 release-prep promotion, per the Public API
+Release Files step in `docs/RELEASE_PROCESS.md`. First of the breaking changes in this section to
+land, which is what made the next release 2.0.0.
 
 The `NextUnit.Internal` demotion covers nine types: `TestExecutionEngine`, `ITestExecutionSink`,
 `TestOutcome`, `DependencyGraph` (with its nested `Node`), `ParallelScheduler`, `TestBatch`,
@@ -822,8 +851,8 @@ code names: the descriptors, `TestCaseId`, `ArgumentConverter`, `AsyncDataSource
 settled empirically rather than by inspection: demoting `TestMethodDelegate`,
 `TestMethodWithArgumentsDelegate`, `TestClassFactoryDelegate`, `AsyncDataSourceProviderDelegate`,
 and `RetryPolicyFactoryDelegate` produced eleven CS0053 errors, because each one is the type of a
-property on a descriptor that has to stay public. The removals are recorded as 59 `*REMOVED*`
-entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt`.
+property on a descriptor that has to stay public. The removals were recorded as 59 `*REMOVED*`
+entries in `src/NextUnit.Core/PublicAPI.Unshipped.txt` and promoted at the 2.0.0 release prep.
 
 The cache unification is delivered as `SharedInstanceStore`, one process-wide store both expanders
 call, keyed by sharing scope, data source type, and whatever else that scope shares by: the test
