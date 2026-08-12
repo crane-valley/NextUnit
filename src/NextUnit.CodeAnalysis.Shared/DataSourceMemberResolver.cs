@@ -173,21 +173,22 @@ internal static class DataSourceMemberResolver
                     DataSourceBindingIssue.UnsupportedAwaitable);
             }
 
-            // A synchronous classification here means the return type implements IEnumerable<T> as
-            // well as IAsyncEnumerable<T> and the sync-first rule picked the synchronous meaning.
-            // The member is unbindable either way -- the synchronous provider has no token to pass --
-            // so it is returned as an issue instead of falling through to nothing, which used to
-            // leave a parameter-count failure from the runtime reflection fallback as the only
-            // symptom. A return type that is only IEnumerable<T> stays unbound and unreported: the
-            // token was never meaningful there, and that shape predates asynchronous sources.
-            if (knownDataSourceTypes.ImplementsAsyncEnumerable(method.ReturnType))
-            {
-                return new ResolvedDataSourceMember(
-                    method,
-                    method.ReturnType,
-                    false,
-                    DataSourceBindingIssue.CancellationTokenOnSynchronousSource);
-            }
+            // Anything left is a token-taking member whose rows are synchronous, so the token has
+            // nowhere to go: the synchronous provider takes no arguments. It is returned as an issue
+            // rather than falling through to nothing, because falling through leaves the member
+            // resolving to nothing at all -- no provider, and no diagnostic to say why.
+            //
+            // This used to be narrowed to a return type implementing IAsyncEnumerable<T> as well,
+            // on the grounds that a token on a plainly synchronous collection was never meaningful
+            // and predates asynchronous sources. That left the plain case silent at build time and
+            // failing at discovery with "data source not found", which is the shape of report this
+            // resolver exists to replace. Both now report NU0021, whose message -- a
+            // cancellation-aware member returning a synchronous collection -- describes each of them.
+            return new ResolvedDataSourceMember(
+                method,
+                method.ReturnType,
+                false,
+                DataSourceBindingIssue.CancellationTokenOnSynchronousSource);
         }
 
         return default;
@@ -342,26 +343,6 @@ internal static class DataSourceMemberResolver
         return isTestDataSource ||
             resolved.Symbol is IMethodSymbol { Parameters.Length: 0 } or IPropertySymbol or IFieldSymbol;
     }
-
-    /// <summary>
-    /// Reports whether a member has one of the two shapes a data source can be emitted from: read
-    /// directly, or called with no arguments, or called with the discovery token.
-    /// </summary>
-    /// <remarks>
-    /// The analyzers use this for the "does a usable member of this name exist at all" test that
-    /// precedes <see cref="Resolve"/>. A method that requires arguments is not usable however it is
-    /// declared -- neither the generated call nor the reflection fallback supplies any -- so
-    /// admitting it there would leave a source that binds nothing, reports nothing, and supplies
-    /// nothing.
-    /// </remarks>
-    public static bool HasBindableShape(ISymbol member) => member switch
-    {
-        IMethodSymbol { Arity: 0 } method =>
-            method.Parameters.Length == 0 ||
-            (method.Parameters.Length == 1 && IsCancellationToken(method.Parameters[0])),
-        IPropertySymbol or IFieldSymbol => true,
-        _ => false
-    };
 
     /// <summary>
     /// Matches a by-value <c>System.Threading.CancellationToken</c> parameter.

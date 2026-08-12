@@ -401,11 +401,13 @@ public class TestDataMemberAnalyzerTests
 
     /// <summary>
     /// A parameter-level source binds only a parameterless member, so a token-taking overload is out
-    /// of its reach whatever its accessibility. Widening it would not make it bind, so NU0020 stays
-    /// quiet rather than naming a fix that does not work.
+    /// of its reach whatever its accessibility. NU0020 would name a fix that does not work -- widening
+    /// it still leaves it unusable -- so the report is NU0003: the name resolves to nothing this
+    /// attribute can expand. It used to report nothing at all, which left the source binding nothing
+    /// and failing at discovery with a member-not-found message instead.
     /// </summary>
     [Fact]
-    public async Task ValuesFromMemberWithPrivateCancellableOverload_NoDiagnosticAsync()
+    public async Task ValuesFromMemberWithPrivateCancellableOverload_ReportsNotFoundAsync()
     {
         var source = """
             using NextUnit;
@@ -422,13 +424,18 @@ public class TestDataMemberAnalyzerTests
                 }
 
                 [Test]
-                public void TestMethod([ValuesFromMember("Values")] int value)
+                public void TestMethod([{|#0:ValuesFromMember("Values")|}] int value)
                 {
                 }
             }
             """;
 
-        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Values", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
     /// <summary>
@@ -2028,6 +2035,71 @@ public class TestDataMemberAnalyzerTests
             .Diagnostic("NU0003")
             .WithLocation(0)
             .WithArguments("Rows", "Tests", ShadowedBy("Shared", "global::Fixtures.Library.Shared", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A token-taking member returning a plainly synchronous collection binds to nothing: the
+    /// synchronous provider takes no arguments, so the token has nowhere to go. It used to report
+    /// nothing at all and fail at discovery with a member-not-found message; NU0021 says what is
+    /// actually wrong with it.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithTokenOnPlainSynchronousSource_ReportsSyncSourceAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            public class Tests
+            {
+                public static IEnumerable<int> Rows(CancellationToken token) => new[] { 1 };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0021")
+            .WithLocation(0)
+            .WithArguments("Rows", "IEnumerable<int>");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A parameter-level source cannot expand an awaitable either, and that path never reached the
+    /// row-type validation that reports it. Now the issue carries the report, so neither attribute
+    /// kind can bind nothing quietly.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromMemberWithUnsupportedAwaitable_ReportsUnsupportedAwaitableAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static Task Values() => Task.CompletedTask;
+
+                [Test]
+                public void TestMethod([{|#0:ValuesFromMember("Values")|}] int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0014")
+            .WithLocation(0)
+            .WithArguments("Values", "Task");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }

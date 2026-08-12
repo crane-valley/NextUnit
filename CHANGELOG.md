@@ -31,6 +31,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   registry cannot reach is reported as `NU0020`, naming the fix rather than describing the member as
   missing.
 
+- Report a data source that binds nothing instead of leaving it silent. The analyzer decided
+  whether a usable member existed with its own shape test, separate from what the resolver accepts,
+  so two shapes passed that test and then resolved to nothing: a `[TestData]` member taking the
+  cancellation token while returning a plainly synchronous collection, and any token-taking member
+  named by `[ValuesFromMember]`, which expands synchronous collections only. Both compiled clean,
+  emitted no provider, and failed at discovery with a member-not-found message. The decision now
+  comes from the resolution itself, and every reason the generator has for emitting nothing maps to
+  a diagnostic: `NU0003` when the name resolves to nothing the attribute can use, `NU0020` when the
+  registry cannot reach it, `NU0021` for a cancellation-aware member returning a synchronous
+  collection -- which now covers the plainly synchronous case as well as the mixed one -- and
+  `NU0014` for an awaitable that supplies no rows, now reported for parameter-level sources too.
+  Builds carrying one of these shapes started failing rather than silently running no rows.
+
 - Observe the failure of an asynchronous data source that discovery walked away from. A
   `MoveNextAsync` or `DisposeAsync` that loses its race against the cancellation token is abandoned
   on purpose, since awaiting either would reintroduce the hang the race exists to prevent, and so is

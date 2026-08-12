@@ -114,23 +114,21 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Look for a static member (property, method, or field) the framework could use at all.
-        // Accessibility is not part of this test: the runtime reflection fallback uses
-        // BindingFlags.NonPublic, so an unreachable member is a different failure from a missing one
-        // and is reported as NU0020 below. Arity is part of it: neither the generated call nor the
-        // reflection fallback supplies a type argument, so a generic overload is no more usable than
-        // an instance member, which this test has always rejected the same way. The base chain is
-        // part of it too, through the same helper the resolver uses, so that a member the resolver
-        // now binds is never reported as missing here first.
-        var members = DataSourceMemberResolver.GetCandidateMembers(targetType, memberName);
-        // The shape test matches what the resolver can actually bind. A method that requires
-        // arguments -- including one whose parameters a derived overload declares as optional --
-        // is not usable however it is declared, and accepting it here left the source binding
-        // nothing while no diagnostic said so.
-        var validMember = members.FirstOrDefault(static member =>
-            member.IsStatic && DataSourceMemberResolver.HasBindableShape(member));
+        // Every answer below comes from one resolution. An independent "does a usable member of
+        // this name exist" test was tried and drifted from what the resolver accepts three times,
+        // each time leaving a source that binds nothing and reports nothing; the issue taxonomy is
+        // now the single truth, and the mapping here covers all of it. Silence is therefore
+        // reachable only when a provider is emitted.
+        var resolved = DataSourceMemberResolver.Resolve(targetType, memberName, knownDataSourceTypes);
 
-        if (validMember is null)
+        // A parameter-level source binds only a parameterless member, so a token-taking one is out
+        // of its reach whatever else is true of it -- the same expression the shadowing hint uses
+        // to decide whether a base type would answer the name.
+        var usableHere = resolved.Symbol is not null &&
+            (isTestDataSource ||
+                resolved.Symbol is IMethodSymbol { Parameters.Length: 0 } or IPropertySymbol or IFieldSymbol);
+
+        if (!usableHere)
         {
             var location = attribute.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
                 ?? method.Locations[0];
@@ -144,19 +142,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Resolve the member the generator will actually bind, not simply the first static member
-        // with this name. A type carrying both Rows() and an unsupported Rows(CancellationToken)
-        // overload would otherwise be reported for an overload that is never emitted, failing a
-        // build that compiles and runs correctly.
-        var resolved = DataSourceMemberResolver.Resolve(targetType, memberName, knownDataSourceTypes);
-
-        // A parameter-level source binds only a parameterless member, so a token-taking overload is
-        // out of its reach whatever its accessibility. Reporting NU0020 there would name a fix --
-        // widen the member -- that does not make it bind.
-        var boundHere = isTestDataSource ||
-            resolved.Symbol is IMethodSymbol { Parameters.Length: 0 } or IPropertySymbol or IFieldSymbol;
-
-        if (boundHere && resolved.Issue == DataSourceBindingIssue.MemberNotAccessible)
+        if (resolved.Issue == DataSourceBindingIssue.MemberNotAccessible)
         {
             ReportDiagnostic(
                 context,
@@ -169,16 +155,27 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // [ValuesFromMember] expands synchronous collections only, so a token-taking member is out
-        // of its reach whatever it returns, and the fix NU0021 names -- return only
-        // IAsyncEnumerable<T> -- would not make it bind. That shape stays silent there, as before.
-        if (isTestDataSource && resolved.Issue == DataSourceBindingIssue.CancellationTokenOnSynchronousSource)
+        if (resolved.Issue == DataSourceBindingIssue.CancellationTokenOnSynchronousSource)
         {
             ReportDiagnostic(
                 context,
                 method,
                 attribute,
                 DiagnosticDescriptors.DataSourceCancellationTokenOnSyncSource,
+                memberName,
+                resolved.MemberType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+            return;
+        }
+
+        // Reported here rather than left to ValidateRowType so that a parameter-level source gets
+        // it too: the shape supplies no rows either way, and that path runs for [TestData] alone.
+        if (resolved.Issue == DataSourceBindingIssue.UnsupportedAwaitable)
+        {
+            ReportDiagnostic(
+                context,
+                method,
+                attribute,
+                DiagnosticDescriptors.TestDataMemberUnsupportedAwaitable,
                 memberName,
                 resolved.MemberType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
             return;

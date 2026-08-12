@@ -518,9 +518,13 @@ decision, and none of them was introduced by that change.
   the other way for the token-taking overload alone. The resolver records the combination as a
   `DataSourceBindingIssue` so the generator withholds the provider it was already withholding and
   the analyzer names the fix -- drop the parameter, or return a type that is only
-  `IAsyncEnumerable<T>`. A member returning a plainly synchronous collection with a token stays
-  unbound and unreported: the token was never meaningful there, and that shape predates async
-  sources.
+  `IAsyncEnumerable<T>`. A member returning a plainly synchronous collection with a token stayed
+  unbound and unreported, on the grounds that the token was never meaningful there and that shape
+  predates async sources. Superseded 2026-08-12 by PR #229: it now reports `NU0021` too. Leaving it
+  silent meant a source that binds nothing and says nothing, failing instead at discovery with a
+  member-not-found message, and `NU0021` -- a cancellation-aware member returning a synchronous
+  collection -- describes the plain case as exactly as the mixed one. Reporting where the generator
+  emits nothing is the invariant the analyzer now holds everywhere.
 - [x] Ambiguous row-type selection when a collection implements more than one `IEnumerable<T>`.
   `NU0009` validates row values against the first constructed interface it finds, so a source type
   implementing, say, both `IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>` is validated
