@@ -471,12 +471,14 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
-    /// A base parameterless overload stays a candidate beside a derived token-taking one, because
-    /// methods accumulate across the chain instead of hiding each other by name. This is the
-    /// overload C# binds for a call that supplies no arguments.
+    /// The nearest type that declares the name is the only one considered, so a derived
+    /// token-taking overload answers the name outright rather than sharing a method group with the
+    /// inherited parameterless one. C# would accumulate both and prefer the base overload for a
+    /// no-argument call; the contract deliberately does not model that, and binds what the nearest
+    /// level offers.
     /// </summary>
     [Fact]
-    public async Task InheritedParameterlessOverload_BeatsDerivedTokenOverloadAsync()
+    public async Task DerivedTokenOverload_ShadowsInheritedParameterlessMemberAsync()
     {
         var source = """
             using NextUnit;
@@ -508,7 +510,9 @@ public class DataSourceBindingEmissionTests
 
         var registry = await GenerateRegistryAsync(source);
 
-        Assert.Contains("DataSourceProvider = static () => (object?)global::TestProject.DataTests.Rows()", registry);
+        Assert.Contains("AsyncDataSourceProvider = static ct =>", registry);
+        Assert.Contains("global::TestProject.DataTests.Rows(ct)", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows()", registry, StringComparison.Ordinal);
 
         await AssertGeneratedOutputCompilesAsync(source);
     }

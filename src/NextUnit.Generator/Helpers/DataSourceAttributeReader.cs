@@ -371,10 +371,7 @@ internal static class DataSourceAttributeReader
             return DataSourceMemberKind.Unknown;
         }
 
-        foreach (var member in DataSourceMemberResolver.GetCandidateMembers(
-            typeSymbol,
-            memberName,
-            knownDataSourceTypes.CompilingAssembly))
+        foreach (var member in DataSourceMemberResolver.GetCandidateMembers(typeSymbol, memberName))
         {
             if (!member.IsStatic)
             {

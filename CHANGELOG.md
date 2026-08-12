@@ -10,28 +10,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Resolve a `[TestData]` or `[ValuesFromMember]` member declared on a base test class. Member lookup
-  used `GetMembers`, which stops at the declaring type, so a source C# resolves as `Derived.Rows`
-  was reported as `NU0003`, and both runtime reflection fallbacks missed it the same way because
-  `Type.GetMethod` does not return inherited statics without `FlattenHierarchy`. Lookup now walks
-  the base type chain, most-derived first, applying the same hiding rules C# does: a member that is
-  not a method hides everything of that name below it, and a method hides a base member that is not
-  one, so a base property is never bound for a name a derived method has turned into a method group.
-  Methods accumulate across levels instead, and the parameterless-first precedence runs over the
-  whole flattened chain, so a base `Rows()` still beats a derived `Rows(CancellationToken)` -- the
-  overload a call supplying no arguments binds to in C#. A base method is dropped, static or not,
-  when a nearer declaration is applicable to the same call: C# reduces the applicable candidates to
-  those declared in the most derived type, so a derived `Rows(int count = 1)` or
-  `Rows(params int[])` is what `Derived.Rows()` calls even where a base `Rows()` exists, and
-  validating the base member there would classify one member's rows while the emitted call ran
-  another's. Such a source now reports `NU0003` rather than binding silently. A base member C#
-  member lookup cannot see is skipped, since it neither binds nor hides: `private` always, and
-  `internal` or `private protected` declared in another assembly that grants no
-  `InternalsVisibleTo` -- which used to produce a false `NU0020` against code that compiles.
-  Interfaces are not walked, since a static interface member cannot be named through an
-  implementing type. An inherited member the
-  generated registry cannot reach is reported as `NU0020` instead of `NU0003`, naming the fix --
-  widen the member -- rather than describing it as missing; both were already errors, so no build
-  that compiled before starts failing.
+  used `GetMembers`, which stops at the declaring type, so a source C# resolves as `Derived.Rows` was
+  reported as `NU0003`, and both runtime reflection fallbacks missed it the same way because
+  `Type.GetMethod` does not return inherited statics without `FlattenHierarchy`.
+  The contract for inherited sources is deliberately narrower than C# member lookup: **the nearest
+  declaring level wins, or the source is diagnosed**. Whichever type first declares the name -- the
+  type the attribute points at, or the closest base that declares it -- is the only type considered,
+  and the existing single-type selection runs against it unchanged, so a source declared on one type
+  behaves exactly as before. If nothing on that level binds, for any reason, `NU0003`, `NU0020`, or
+  `NU0021` reports it; resolution never falls through to a farther level.
+  This means a base member becomes unreachable once any nearer type declares the same name, including
+  cases C# itself resolves: a derived `Rows(CancellationToken)` or `Rows(int)` alongside a base
+  `Rows()` now reports instead of binding the base member. C#'s accumulation of method overloads
+  across levels is not modeled, on purpose -- modeling it means reproducing hiding, applicability,
+  and accessibility rules exactly, and getting any of them wrong lets the analyzer validate one
+  member while the generated call runs another, with nothing to warn you. Declare the member on the
+  derived type, or rename one of the two. An inherited member the generated registry cannot reach is
+  reported as `NU0020`, naming the fix rather than describing the member as missing.
+
 - Observe the failure of an asynchronous data source that discovery walked away from. A
   `MoveNextAsync` or `DisposeAsync` that loses its race against the cancellation token is abandoned
   on purpose, since awaiting either would reintroduce the hang the race exists to prevent, but

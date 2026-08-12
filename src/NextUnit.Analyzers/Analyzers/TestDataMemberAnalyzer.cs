@@ -122,10 +122,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         // an instance member, which this test has always rejected the same way. The base chain is
         // part of it too, through the same helper the resolver uses, so that a member the resolver
         // now binds is never reported as missing here first.
-        var members = DataSourceMemberResolver.GetCandidateMembers(
-            targetType,
-            memberName,
-            context.Compilation.Assembly);
+        var members = DataSourceMemberResolver.GetCandidateMembers(targetType, memberName);
         // The shape test matches what the resolver can actually bind. A method that requires
         // arguments -- including one whose parameters a derived overload declares as optional --
         // is not usable however it is declared, and accepting it here left the source binding

@@ -77,20 +77,20 @@ public sealed class InheritedDataSourceMemberTests
     }
 
     /// <summary>
-    /// Flattening the hierarchy makes a base <c>Rows()</c> and a derived <c>Rows(CancellationToken)</c>
-    /// both candidates for the name, which a name-only lookup reports as an ambiguous match. The
-    /// parameterless overload is the one the compile-time resolver binds and the only one this path
-    /// can invoke.
+    /// The derived type declares the name, so it is the only level consulted, and the token-taking
+    /// overload it declares is not something this synchronous path can invoke. The inherited
+    /// parameterless member is not reached -- reaching it would answer with a member the nearest
+    /// declaring level has taken over.
     /// </summary>
     [Fact]
-    public void ExpandSingle_DerivedTokenOverload_ResolvesInheritedParameterlessMethod()
+    public void ExpandSingle_DerivedTokenOverload_ReportsNotFound()
     {
         var descriptor = CreateDescriptor(nameof(TokenBase.OverloadedRows), typeof(TokenDerived));
 
-        var testCase = Assert.Single(
-            TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken));
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken).ToList());
 
-        Assert.Equal(new object?[] { 3, 4, 7 }, testCase.Arguments);
+        Xunit.Assert.Contains("not found", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -156,18 +156,19 @@ public sealed class InheritedDataSourceMemberTests
     }
 
     /// <summary>
-    /// A derived overload that genuinely requires an argument is not applicable to a no-argument
-    /// call, so the inherited parameterless member still answers the name.
+    /// A derived overload that requires an argument still claims the name for its level, so the
+    /// inherited parameterless member is not reached. C# would fall back to it; the contract
+    /// reports the source instead of resolving against a farther level.
     /// </summary>
     [Fact]
-    public void ExpandSingle_DerivedRequiredParameterOverload_ResolvesInheritedMember()
+    public void ExpandSingle_DerivedRequiredParameterOverload_ReportsNotFound()
     {
         var descriptor = CreateDescriptor(nameof(HidingBase.RequiredArgRows), typeof(HidingDerived));
 
-        var testCase = Assert.Single(
-            TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken));
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken).ToList());
 
-        Assert.Equal(new object?[] { 4, 4, 8 }, testCase.Arguments);
+        Xunit.Assert.Contains("not found", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

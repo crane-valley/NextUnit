@@ -621,37 +621,37 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   the trimmer does not read that mask -- it treats `GetMember` as able to return any kind and demands
   the constructor, event, and nested-type annotations too, which is `IL2070` and a failed Native AOT
   smoke build.
-- [x] Two of the three divergences from C# member lookup recorded here were closed after the PR
-  review found the first one supplies wrong rows rather than merely diverging. C# reduces the
-  applicable candidates to those declared in the most derived type, so a derived
-  `Rows(int count = 1)` or `Rows(params int[])` is what `Derived.Rows()` calls even when a base
-  `Rows()` exists -- verified by compiling it, not by reading the specification, which is what
-  corrected the original reasoning. The resolver was validating and classifying the base member
-  while the emitted call ran the derived one, silently. Hiding is now decided by applicability to
-  the call the generator emits rather than by signature identity, which subsumes the signature rule
-  and the derived-instance case with it. The analyzer's existence test was tightened to the shapes
-  the resolver can bind, because a source that binds nothing must not also report nothing; a
-  cancellation-token member returning a synchronous collection stays deliberately silent, as decided
-  in the `NU0021` work above. Accessibility is now judged from the consuming assembly too: an
-  `internal` or `private protected` member on an intermediate base in another assembly is out of
-  scope for the test class, cannot hide a public ancestor, and used to produce a false `NU0020`
-  against code that compiles. The runtime lookup mirrors both rules, `InternalsVisibleTo` included.
-- [ ] One accepted divergence from C# member lookup remains, in the runtime fallback alone:
-  its candidates are methods, properties, and fields, so an event or a nested type sharing the name
-  does not block a same-named source further up the chain the way C# hiding would. It fails loudly
-  rather than silently, which is what makes deferring it safe: the compile-time walk does see both
-  kinds, because `GetMembers` returns them, so the source resolves to nothing and `NU0003` fails the
-  build before the fallback can run.
-  `TestDataHiddenByDerivedEvent_ReportsNotFoundAsync` and
-  `TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync` pin that guard rather than
-  leaving it to reasoning. Closing the fallback side means asking reflection for events and nested
-  types, and the trimmer charges for that whether or not the mask requests them: `GetMember` with a
-  `MemberTypes` mask already demanded the constructor, event, and nested-type annotations and broke
-  the Native AOT smoke build with `IL2070`. Paying it would make every test class and data source
-  type keep its constructors, events, and nested types under trimming, for a case the analyzer
-  already stops. Deferred per the review circuit breaker after round 5, and confirmed by the AOT
-  gate on PR #229, which failed with exactly that `IL2070` and was fixed by asking for the three
-  kinds separately instead.
+- [x] Inherited member lookup is a closed contract, not a model of C# member lookup: **the nearest
+  declaring level wins, or the source is diagnosed**. Whichever type first declares the name -- the
+  type the attribute points at, or the closest base that declares it -- is the only type considered,
+  and the existing single-type selection runs against it unchanged. If nothing on that level binds,
+  for any reason at all, `NU0003`/`NU0020`/`NU0021` report it; resolution never falls through to a
+  farther level. Decided 2026-08-12 after the PR #229 review.
+  Modeling C# faithfully was tried first and abandoned. Three review rounds each found another slice
+  of the specification the model got wrong -- cross-kind hiding, then applicability across levels
+  (optional and `params` overloads), then accessibility staging across an assembly boundary, then
+  implicit-conversion applicability -- and every wrong slice had the same shape: the resolver
+  validating and classifying one member while the emitted call ran another, silently. The domain is
+  unbounded, and reviewer and author disagreeing on specification minutiae is the signal that it
+  cannot be closed by patching. The contract makes that failure structurally impossible instead: the
+  emitted access names the nearest declaring level, so no nearer binding exists for the compiler to
+  prefer.
+  The accepted cost is that a base member becomes unreachable once any nearer type declares the same
+  name, including cases C# resolves happily -- a derived `Rows(CancellationToken)` or `Rows(int)`
+  over a base `Rows()` now reports rather than binding the base member. C#'s accumulation of method
+  overloads across levels is explicitly not modeled. The fix a user makes is to declare the member on
+  the derived type or rename one of them, which the diagnostic names. Loud and mechanical beats a
+  silent mismatch between the rows validated and the rows run.
+  The runtime reflection fallback follows the same contract, and scans a whole level before rejecting
+  it so an overload it cannot invoke never hides a sibling it can. Its one remaining blind spot is
+  that reflection cannot see a base class's nested types and this lookup does not ask for events or
+  nested types at all, so a level that declares only one of those is walked past rather than stopping
+  the search. That stays deferred: the compile-time walk does see both kinds, so `NU0003` fails the
+  build before the fallback can run, and asking reflection for them costs
+  `PublicNestedTypes`/`NonPublicNestedTypes` and the event annotations on every entry point --
+  `GetMember` with a `MemberTypes` mask already demanded exactly that and broke the Native AOT smoke
+  build with `IL2070`. `TestDataHiddenByDerivedEvent_ReportsNotFoundAsync` and
+  `TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync` pin the guard.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

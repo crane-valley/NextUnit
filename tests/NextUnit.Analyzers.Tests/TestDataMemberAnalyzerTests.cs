@@ -1398,12 +1398,13 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
-    /// A derived overload that genuinely requires an argument is not applicable to the emitted
-    /// no-argument call, so it does not reduce the inherited parameterless member away. This is the
-    /// negative half of the two tests above.
+    /// A derived overload that cannot be called with no arguments still claims the name, because
+    /// the nearest declaring level is the only one considered. C# would fall back to the inherited
+    /// parameterless member here; the contract reports the source instead, and the fix is to
+    /// declare it on the derived type or rename one of the two.
     /// </summary>
     [Fact]
-    public async Task TestDataWithDerivedRequiredParameterOverload_BindsInheritedMemberAsync()
+    public async Task TestDataWithDerivedRequiredParameterOverload_ReportsNotFoundAsync()
     {
         var source = """
             using NextUnit;
@@ -1426,7 +1427,12 @@ public class TestDataMemberAnalyzerTests
             }
             """;
 
-        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 27)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
     /// <summary>
@@ -1516,12 +1522,14 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
-    /// An <c>internal</c> member on an intermediate base in another assembly is out of scope for
-    /// the test class, so it cannot hide the public ancestor C# actually binds. Treating it as a
-    /// candidate reported NU0020 against code that compiles and runs.
+    /// An <c>internal</c> member on an intermediate base in another assembly claims the name, and
+    /// the generated registry cannot reach it, so the source is reported rather than resolved
+    /// against the public ancestor further up. C# would bind that ancestor, since the intermediate
+    /// is out of scope across the assembly boundary; staging candidates by accessibility to match
+    /// is exactly the modeling this contract gave up, and NU0020 names the member to widen.
     /// </summary>
     [Fact]
-    public async Task TestDataWithInaccessibleInternalOnIntermediateBase_BindsPublicAncestorAsync()
+    public async Task TestDataWithInaccessibleInternalOnIntermediateBase_ReportsInaccessibleAsync()
     {
         var library = """
             using System.Collections.Generic;
@@ -1543,14 +1551,22 @@ public class TestDataMemberAnalyzerTests
             public class Tests : Middle
             {
                 [Test]
-                [TestData("TestCases")]
+                [{|#0:TestData("TestCases")|}]
                 public void TestMethod(int value)
                 {
                 }
             }
             """;
 
-        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerWithLibraryAsync(source, library);
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0020")
+            .WithLocation(0)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerWithLibraryAsync(
+            source,
+            library,
+            expected);
     }
 
     /// <summary>
@@ -1589,12 +1605,12 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
-    /// C# member lookup never sees a base type's private member from a derived type, so it neither
-    /// binds nor hides. Letting it win would report NU0020 for a name that resolves further up the
-    /// chain and compiles.
+    /// A <c>private</c> member on an intermediate base claims the name too. C# member lookup never
+    /// sees it and would bind the accessible ancestor; the contract stops at the level that
+    /// declares the name and reports it, rather than staging candidates by accessibility.
     /// </summary>
     [Fact]
-    public async Task TestDataWithPrivateMemberOnIntermediateBase_BindsAccessibleAncestorAsync()
+    public async Task TestDataWithPrivateMemberOnIntermediateBase_ReportsInaccessibleAsync()
     {
         var source = """
             using NextUnit;
@@ -1613,14 +1629,19 @@ public class TestDataMemberAnalyzerTests
             public class Tests : Middle
             {
                 [Test]
-                [TestData("TestCases")]
+                [{|#0:TestData("TestCases")|}]
                 public void TestMethod(int value)
                 {
                 }
             }
             """;
 
-        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0020")
+            .WithLocation(0)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
     /// <summary>
@@ -1784,13 +1805,13 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
-    /// The parameterless-first rule is applied across the flattened chain, not per type, so a base
-    /// parameterless member still beats a derived token-taking overload -- which is what a call
-    /// supplying no arguments binds to in C#. Reported through NU0009 because a bound member is the
-    /// only thing that carries a row type into the message.
+    /// The nearest declaring level answers the name, so a derived token-taking overload binds and
+    /// the inherited parameterless member is not consulted at all. C# would accumulate both into
+    /// one method group and prefer the base overload for a no-argument call; the contract does not
+    /// model that accumulation, and validates the member it will actually emit.
     /// </summary>
     [Fact]
-    public async Task TestDataWithDerivedTokenOverload_BindsInheritedParameterlessMemberAsync()
+    public async Task TestDataWithDerivedTokenOverload_BindsDerivedOverloadAsync()
     {
         var source = """
             using NextUnit;
@@ -1807,18 +1828,13 @@ public class TestDataMemberAnalyzerTests
                 public static IAsyncEnumerable<int> TestCases(CancellationToken token) => null!;
 
                 [Test]
-                [{|#0:TestData("TestCases")|}]
+                [TestData("TestCases")]
                 public void TestMethod(int value)
                 {
                 }
             }
             """;
 
-        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
-            .Diagnostic("NU0009")
-            .WithLocation(0)
-            .WithArguments("TestCases", "string", "TestMethod");
-
-        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
     }
 }

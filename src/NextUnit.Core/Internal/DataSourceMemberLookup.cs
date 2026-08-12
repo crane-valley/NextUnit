@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace NextUnit.Internal;
 
@@ -89,8 +88,7 @@ internal static class DataSourceMemberLookup
 
         foreach (var method in sourceType.GetMethods(StaticMemberLookup))
         {
-            if (method.Name == memberName &&
-                IsVisibleToDerivedType(method, method.IsAssembly || method.IsFamilyAndAssembly, sourceType))
+            if (method.Name == memberName)
             {
                 candidates.Add(method);
             }
@@ -98,12 +96,7 @@ internal static class DataSourceMemberLookup
 
         foreach (var property in sourceType.GetProperties(StaticMemberLookup))
         {
-            // A property is read through its getter, so the getter's accessibility is the one that
-            // decides whether the derived class can see it.
-            var getter = property.GetMethod;
-            if (property.Name == memberName &&
-                getter is not null &&
-                IsVisibleToDerivedType(property, getter.IsAssembly || getter.IsFamilyAndAssembly, sourceType))
+            if (property.Name == memberName)
             {
                 candidates.Add(property);
             }
@@ -111,8 +104,7 @@ internal static class DataSourceMemberLookup
 
         foreach (var field in sourceType.GetFields(StaticMemberLookup))
         {
-            if (field.Name == memberName &&
-                IsVisibleToDerivedType(field, field.IsAssembly || field.IsFamilyAndAssembly, sourceType))
+            if (field.Name == memberName)
             {
                 candidates.Add(field);
             }
@@ -122,94 +114,20 @@ internal static class DataSourceMemberLookup
     }
 
     /// <summary>
-    /// Reports whether C# member lookup from <paramref name="sourceType"/> can see a member
-    /// declared on one of its base types.
+    /// Picks the member the name means: the nearest declaring level wins, or nothing does.
     /// </summary>
     /// <remarks>
-    /// Mirrors the same rule in <c>DataSourceMemberResolver</c>. Across an assembly boundary,
-    /// <c>internal</c> and <c>private protected</c> are out of scope for the derived class unless
-    /// the declaring assembly grants <c>InternalsVisibleTo</c>, so neither hides an accessible
-    /// ancestor of the same name -- and treating one as a candidate here would read a member the
-    /// name does not refer to. Members declared on <paramref name="sourceType"/> itself are left
-    /// alone: that is the member the user named, and the fallback has always read whatever reaches
-    /// it there.
-    /// </remarks>
-    private static bool IsVisibleToDerivedType(MemberInfo member, bool needsAssemblyAccess, Type sourceType)
-    {
-        var declaringType = member.DeclaringType;
-        if (declaringType is null || declaringType == sourceType || !needsAssemblyAccess)
-        {
-            return true;
-        }
-
-        return declaringType.Assembly == sourceType.Assembly ||
-            GivesInternalAccessTo(declaringType.Assembly, sourceType.Assembly);
-    }
-
-    private static bool GivesInternalAccessTo(Assembly declaring, Assembly consuming)
-    {
-        var consumingName = consuming.GetName().Name;
-
-        foreach (var visibleTo in declaring.GetCustomAttributes<InternalsVisibleToAttribute>())
-        {
-            // The attribute value carries an optional PublicKey after a comma; only the simple
-            // assembly name decides whether the grant names this assembly.
-            var granted = visibleTo.AssemblyName;
-            var comma = granted.IndexOf(',');
-            if (comma >= 0)
-            {
-                granted = granted.Substring(0, comma);
-            }
-
-            if (string.Equals(granted.Trim(), consumingName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Reports whether C# would bind this overload for a call that supplies no arguments.
-    /// </summary>
-    /// <remarks>
-    /// Optional parameters and a trailing <c>params</c> array are both filled in by the compiler,
-    /// so <c>Rows(int count = 1)</c> answers <c>Rows()</c> and reduces away any base <c>Rows()</c>.
-    /// Reflection cannot supply the omitted arguments, so such an overload is a blocker here rather
-    /// than something to invoke.
-    /// </remarks>
-    private static bool IsApplicableWithoutArguments(MethodInfo method)
-    {
-        foreach (var parameter in method.GetParameters())
-        {
-            if (!parameter.IsOptional && !parameter.IsDefined(typeof(ParamArrayAttribute), inherit: false))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Picks the member the name means, applying the hiding rules C# applies.
-    /// </summary>
-    /// <remarks>
-    /// The candidates arrive flattened, so they have to be walked by declaring type rather than by
-    /// member kind. Searching kind by kind instead -- every property, then every field, then every
-    /// method -- reads a base property for a name a derived method has taken over, which is a test
-    /// running silently against data the user did not point at. So: a member that is not a method
-    /// wins its level and ends the walk, unless a nearer method already claimed the name, in which
-    /// case the name is a method group and binds to nothing here. Methods carry on up the chain,
-    /// which is what lets a base <c>Rows()</c> answer a name a derived <c>Rows(CancellationToken)</c>
-    /// also declares -- the overload C# picks for a call supplying no arguments.
+    /// The runtime half of the contract in <c>DataSourceMemberResolver.GetCandidateMembers</c>.
+    /// Candidates arrive flattened across the base chain, so they are walked by declaring type:
+    /// whichever level first declares the name is the only level that can answer it, and a level
+    /// that declares the name without offering a readable static member ends the search rather than
+    /// deferring to a farther one. Searching kind by kind instead -- every property, then every
+    /// field, then every method -- would read a base member for a name a nearer type has taken
+    /// over, which is a test running against data the user never pointed at.
     /// <para>
-    /// A winner that turns out to be an instance member ends the search with nothing rather than
-    /// falling through to the base declaration it hides. That is the same verdict the compile-time
-    /// resolver reaches, where a derived instance <c>Rows()</c> makes the name unusable as a static
-    /// reference; reading the base member instead would run the test against data the name does not
-    /// refer to.
+    /// The whole level is scanned before it is rejected, so an overload that cannot be invoked here
+    /// never hides a sibling that can: a type declaring both <c>Rows(int)</c> and <c>Rows()</c>
+    /// resolves to <c>Rows()</c> whatever order reflection happens to return them in.
     /// </para>
     /// <para>
     /// Only <paramref name="sourceType"/>'s own base chain is walked, by identity alone. Nothing is
@@ -223,10 +141,11 @@ internal static class DataSourceMemberLookup
             return null;
         }
 
-        var sawMethod = false;
-
         for (Type? level = sourceType; level is not null; level = level.BaseType)
         {
+            var declaresName = false;
+            MemberInfo? readable = null;
+
             foreach (var candidate in candidates)
             {
                 if (candidate.DeclaringType != level)
@@ -234,31 +153,38 @@ internal static class DataSourceMemberLookup
                     continue;
                 }
 
-                if (candidate is not MethodInfo method)
-                {
-                    return sawMethod || !IsStatic(candidate) ? null : candidate;
-                }
+                declaresName = true;
 
-                // Arity is part of the test for the same reason it is in the compile-time resolver:
-                // the call supplies no type argument, so a generic overload could not be invoked.
-                if (method.GetParameters().Length == 0 && !method.IsGenericMethodDefinition)
+                if (candidate is MethodInfo method)
                 {
-                    return method.IsStatic ? method : null;
+                    // Arity is part of the test for the same reason it is in the compile-time
+                    // resolver: the call supplies no type argument, so a generic overload could not
+                    // be invoked. An overload taking arguments is simply not this member, and the
+                    // scan carries on through the rest of the level to find one that is.
+                    if (method.IsStatic &&
+                        method.GetParameters().Length == 0 &&
+                        !method.IsGenericMethodDefinition)
+                    {
+                        return method;
+                    }
                 }
-
-                // An overload C# would still bind for a no-argument call reduces away every base
-                // overload of that name, so falling through to one would read data this name does
-                // not refer to. Reflection cannot fill in the omitted arguments, so the search ends
-                // here with nothing and the caller reports the source as missing.
-                if (!method.IsGenericMethodDefinition && IsApplicableWithoutArguments(method))
+                else if (readable is null && IsStatic(candidate))
                 {
-                    return null;
+                    readable = candidate;
                 }
+            }
 
-                // An overload that genuinely requires arguments hides a base member that is not a
-                // method, but leaves a base overload of another shape alone -- so the walk carries
-                // on.
-                sawMethod = true;
+            if (readable is not null)
+            {
+                return readable;
+            }
+
+            // The level declares the name, so it is the one the compiler binds. Nothing on it can
+            // be read, and falling through to a farther level would answer with a member this name
+            // does not refer to.
+            if (declaresName)
+            {
+                return null;
             }
         }
 
