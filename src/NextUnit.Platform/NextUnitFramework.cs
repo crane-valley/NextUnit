@@ -102,7 +102,18 @@ internal sealed class NextUnitFramework :
     /// rebuilt, and <see cref="SessionLifecycleRunner"/> refuses it rather than serving it with the
     /// first session's setup state and already-disposed shared instances.
     /// </remarks>
-    public async Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
+    public Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context) =>
+        CreateTestSessionAsync(context.CancellationToken);
+
+    /// <summary>
+    /// Opens the session behind <see cref="CreateTestSessionAsync(CreateTestSessionContext)"/>.
+    /// </summary>
+    /// <remarks>
+    /// Takes the token rather than the context because <see cref="CreateTestSessionContext"/> has no
+    /// public constructor, so a test can only reach this through a signature that does not require
+    /// one; <see cref="DiscoverAsync"/> is split the same way for the same reason.
+    /// </remarks>
+    internal async Task<CreateTestSessionResult> CreateTestSessionAsync(CancellationToken cancellationToken)
     {
         // Ahead of the test cases, because a session whose filter matches nothing returns below
         // without ever reaching session setup: checking there would let an empty second session open
@@ -110,14 +121,14 @@ internal sealed class NextUnitFramework :
         _sessionHooks.ThrowIfSessionClosed();
 
         // Ensure test cases and global lifecycle methods are loaded
-        var testCases = await GetTestCasesAsync(context.CancellationToken).ConfigureAwait(false);
+        var testCases = await GetTestCasesAsync(cancellationToken).ConfigureAwait(false);
         if (testCases.Count == 0)
         {
             return new CreateTestSessionResult { IsSuccess = true };
         }
 
         // Session lifecycle methods are now collected globally via GetTestCases
-        var error = await _sessionHooks.RunSetupOnceAsync(context.CancellationToken).ConfigureAwait(false);
+        var error = await _sessionHooks.RunSetupOnceAsync(cancellationToken).ConfigureAwait(false);
 
         return error is null
             ? new CreateTestSessionResult { IsSuccess = true }
@@ -150,10 +161,21 @@ internal sealed class NextUnitFramework :
     /// </summary>
     /// <param name="context">The context for closing the test session.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the test session closure.</returns>
-    public async Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
+    public Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context) =>
+        CloseTestSessionAsync(context.CancellationToken);
+
+    /// <summary>
+    /// Closes the session behind <see cref="CloseTestSessionAsync(CloseTestSessionContext)"/>.
+    /// </summary>
+    /// <remarks>
+    /// Split from the callback for the same reason as
+    /// <see cref="CreateTestSessionAsync(CancellationToken)"/>: <see cref="CloseTestSessionContext"/>
+    /// has no public constructor, so a test cannot close a session through the callback itself.
+    /// </remarks>
+    internal async Task<CloseTestSessionResult> CloseTestSessionAsync(CancellationToken cancellationToken)
     {
         // Execute session teardown methods
-        var error = await _sessionHooks.RunTeardownAsync(context.CancellationToken).ConfigureAwait(false);
+        var error = await _sessionHooks.RunTeardownAsync(cancellationToken).ConfigureAwait(false);
 
         return error is null
             ? new CloseTestSessionResult { IsSuccess = true }

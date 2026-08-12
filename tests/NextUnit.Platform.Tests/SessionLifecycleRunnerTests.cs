@@ -1,3 +1,4 @@
+using Microsoft.Testing.Platform.TestHost;
 using NextUnit.Internal;
 
 namespace NextUnit.Platform.Tests;
@@ -409,6 +410,30 @@ public sealed class SessionLifecycleRunnerTests
 
         Assert.NotNull(error);
         Assert.Contains("does not represent run cancellation", error!);
+    }
+
+    // Constructing the framework reads filter environment variables; see FilterEnvironmentConstraint.
+    [Test]
+    [NotInParallel(FilterEnvironmentConstraint.Key)]
+    public async Task CreateTestSession_RefusesASecondSessionThatMatchesNoTestAsync()
+    {
+        // A filter matching nothing is what makes the placement of the check observable: with no test
+        // case left, the session is created without ever reaching session setup, so a check that lived
+        // only in setup would let this second session open and fail at its close instead.
+        using var filter = EnvironmentVariableGuard.Set("NEXTUNIT_TEST_NAME", "nextunit.no.such.test");
+        using var framework = new NextUnitFramework(null!, new NullServiceProvider());
+
+        // Asserted rather than assumed: if this filter ever stopped emptying the list, the test would
+        // still pass while covering the ordinary path instead of the one under test.
+        var messageBus = new RecordingMessageBus();
+        await framework.DiscoverAsync(new SessionUid("session-reuse"), messageBus, CancellationToken.None);
+        Assert.Equal(0, messageBus.TestNodeUpdates.Count);
+
+        Assert.True((await framework.CreateTestSessionAsync(CancellationToken.None)).IsSuccess);
+        Assert.True((await framework.CloseTestSessionAsync(CancellationToken.None)).IsSuccess);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => framework.CreateTestSessionAsync(CancellationToken.None));
     }
 
     [Test]

@@ -11,8 +11,9 @@ namespace NextUnit.Platform;
 /// <para>
 /// Assembly- and class-scoped hooks are already caught, classified, and attributed by
 /// <see cref="TestExecutionEngine"/>. Session hooks run outside the engine, in
-/// <see cref="NextUnitFramework.CreateTestSessionAsync"/> and
-/// <see cref="NextUnitFramework.CloseTestSessionAsync"/>, so the same treatment has to live here.
+/// <see cref="NextUnitFramework.CreateTestSessionAsync(CancellationToken)"/> and
+/// <see cref="NextUnitFramework.CloseTestSessionAsync(CancellationToken)"/>, so the same treatment
+/// has to live here.
 /// </para>
 /// <para>
 /// The reporting channels differ per phase. Setup has a test sink available later in the run, so a
@@ -44,9 +45,9 @@ namespace NextUnit.Platform;
 /// <para>
 /// What that refusal covers is sequential reuse, which is the shape a host reusing an instance
 /// actually takes. Two things are deliberately left alone. A second
-/// <see cref="NextUnitFramework.CreateTestSessionAsync"/> before the session closes is not a second
-/// session, and the gate answers it with the setup that already ran, which is what once-per-session
-/// means. A setup racing a teardown is not arbitrated either: the two phases would have to share one
+/// <see cref="NextUnitFramework.CreateTestSessionAsync(CancellationToken)"/> before the session closes
+/// is not a second session, and the gate answers it with the setup that already ran, which is what
+/// once-per-session means. A setup racing a teardown is not arbitrated either: the two would share one
 /// lock, held across user hooks, so a <c>[Before(Session)]</c> hook that never returns would hang
 /// session close instead of letting it release the shared instances - and the platform awaits each
 /// phase before starting the next, so nothing on the supported path interleaves them.
@@ -104,7 +105,7 @@ internal sealed class SessionLifecycleRunner
     /// Thrown when session teardown has already run on this instance.
     /// </exception>
     /// <remarks>
-    /// Exposed for <see cref="NextUnitFramework.CreateTestSessionAsync"/>, which has to refuse a
+    /// Exposed for <see cref="NextUnitFramework.CreateTestSessionAsync(CancellationToken)"/>, which has to refuse a
     /// reused instance before it builds the test cases: a session whose filter matches nothing never
     /// reaches <see cref="RunSetupOnceAsync"/>, so the refusal would otherwise surface at the next
     /// close rather than where the second session was opened.
