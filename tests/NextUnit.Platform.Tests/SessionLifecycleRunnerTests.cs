@@ -412,6 +412,19 @@ public sealed class SessionLifecycleRunnerTests
     }
 
     [Test]
+    public async Task ThrowIfSessionClosed_RefusesToOpenASecondSessionAsync()
+    {
+        var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+
+        runner.ThrowIfSessionClosed();
+        await runner.RunTeardownAsync(CancellationToken.None);
+
+        // A session whose filter matches no test never reaches session setup, so this is the only
+        // check the second such session would pass through.
+        Assert.Throws<InvalidOperationException>(() => runner.ThrowIfSessionClosed());
+    }
+
+    [Test]
     public async Task RunSetupOnceAsync_RefusesToStartASecondSessionAsync()
     {
         var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);

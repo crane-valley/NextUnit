@@ -68,8 +68,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lifecycle gated `[Before(Session)]` behind a once-gate that was never reset, while teardown was
   ungated, so an instance asked to serve a second session would skip setup, replay the first
   session's skip reason onto every test of the second, and run the `[After(Session)]` hooks again --
-  all silently. Session setup and session teardown now both throw `InvalidOperationException` once
-  teardown has run. No supported host reaches this: Microsoft.Testing.Platform builds a test
+  all silently. A spent instance is now refused with an `InvalidOperationException` when a session is
+  opened on it, and again if session setup or session teardown is reached, so not even a session whose
+  filter matches no test can open on it. No supported host reaches this: Microsoft.Testing.Platform builds a test
   framework per session -- once per run in console mode, once per request in server mode -- and a
   reused instance could not be served correctly anyway, because its memoized test cases hold
   session-shared data source instances that teardown has already disposed.

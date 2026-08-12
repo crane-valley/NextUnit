@@ -773,9 +773,12 @@ and need a deliberate decision before implementation.
   scope name. Surfaced by review on PR #183, which kept the pre-existing once-per-instance semantics.
   Closing it means either resetting the gate at close (session hooks re-run) or gating teardown to
   pair with setup; both change observable hook behavior, so neither is a drive-by fix. Resolved: one
-  runner serves one session, and that is now enforced rather than assumed. Both `RunSetupOnceAsync`
-  and `RunTeardownAsync` throw `InvalidOperationException` once teardown has claimed the instance,
-  which is the same treatment `TestExecutionEngine.RunAsync` gives its sequential-only contract.
+  runner serves one session, and that is now enforced rather than assumed. Opening a session, running
+  session setup, and running session teardown all throw `InvalidOperationException` once teardown has
+  claimed the instance, which is the same treatment `TestExecutionEngine.RunAsync` gives its
+  sequential-only contract. The check runs before `CreateTestSessionAsync` builds its test cases,
+  because a session whose filter matches no test returns before session setup and would otherwise be
+  refused only at the close that follows it.
   Neither of the two options the item listed was taken. Resetting the gate at close invents a
   per-session re-run of `[Before(Session)]` that no caller asks for, and pairing teardown with setup
   would silently stop the `[After(Session)]` hooks on the reachable path where a filter matches no
@@ -788,7 +791,11 @@ and need a deliberate decision before implementation.
   carrying the platform 2.3.x sources this repo pins). A reused instance could not be served
   correctly in any case, because `NextUnitFramework` memoizes its test cases for the instance
   lifetime and session teardown disposes the session-shared data source instances those cases hold.
-  Pinned by four tests in `SessionLifecycleRunnerTests`.
+  Two interleavings are left unarbitrated on purpose: a second create before the session closes is
+  answered by the setup that already ran, which is what once-per-session means, and a setup racing a
+  teardown would need both phases under one lock held across user hooks, where a `[Before(Session)]`
+  hook that never returns would hang session close instead of letting it release the shared instances.
+  Pinned by five tests in `SessionLifecycleRunnerTests`.
 
 ### Priority 2 — A parallel group's declared limit overrides its unannotated members' default
 

@@ -104,6 +104,11 @@ internal sealed class NextUnitFramework :
     /// </remarks>
     public async Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
     {
+        // Ahead of the test cases, because a session whose filter matches nothing returns below
+        // without ever reaching session setup: checking there would let an empty second session open
+        // and only refuse it at the close that follows.
+        _sessionHooks.ThrowIfSessionClosed();
+
         // Ensure test cases and global lifecycle methods are loaded
         var testCases = await GetTestCasesAsync(context.CancellationToken).ConfigureAwait(false);
         if (testCases.Count == 0)

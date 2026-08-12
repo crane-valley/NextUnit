@@ -32,13 +32,24 @@ namespace NextUnit.Platform;
 /// </para>
 /// <para>
 /// One instance serves exactly one session, and that is enforced rather than assumed:
-/// <see cref="RunSetupOnceAsync"/> and <see cref="RunTeardownAsync"/> both throw once teardown has
-/// run. Microsoft.Testing.Platform builds a framework per session - once per run in console mode and
-/// once per request in server mode - so a second session on one instance is a host that reused what
-/// it should have rebuilt. Serving it would be worse than refusing it: the setup gate has already
-/// closed, so the <c>[Before(Session)]</c> hooks would be skipped and the first session's skip reason
-/// replayed onto the second session's tests, while <see cref="NextUnitFramework"/> would hand back
-/// memoized test cases whose session-shared instances teardown has already disposed.
+/// <see cref="ThrowIfSessionClosed"/>, <see cref="RunSetupOnceAsync"/>, and
+/// <see cref="RunTeardownAsync"/> all throw once teardown has run. Microsoft.Testing.Platform builds
+/// a framework per session - once per run in console mode and once per request in server mode - so a
+/// second session on one instance is a host that reused what it should have rebuilt. Serving it would
+/// be worse than refusing it: the setup gate has already closed, so the <c>[Before(Session)]</c>
+/// hooks would be skipped and the first session's skip reason replayed onto the second session's
+/// tests, while <see cref="NextUnitFramework"/> would hand back memoized test cases whose
+/// session-shared instances teardown has already disposed.
+/// </para>
+/// <para>
+/// What that refusal covers is sequential reuse, which is the shape a host reusing an instance
+/// actually takes. Two things are deliberately left alone. A second
+/// <see cref="NextUnitFramework.CreateTestSessionAsync"/> before the session closes is not a second
+/// session, and the gate answers it with the setup that already ran, which is what once-per-session
+/// means. A setup racing a teardown is not arbitrated either: the two phases would have to share one
+/// lock, held across user hooks, so a <c>[Before(Session)]</c> hook that never returns would hang
+/// session close instead of letting it release the shared instances - and the platform awaits each
+/// phase before starting the next, so nothing on the supported path interleaves them.
 /// </para>
 /// </remarks>
 internal sealed class SessionLifecycleRunner
@@ -87,6 +98,29 @@ internal sealed class SessionLifecycleRunner
     }
 
     /// <summary>
+    /// Throws when this instance has already torn its session down.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when session teardown has already run on this instance.
+    /// </exception>
+    /// <remarks>
+    /// Exposed for <see cref="NextUnitFramework.CreateTestSessionAsync"/>, which has to refuse a
+    /// reused instance before it builds the test cases: a session whose filter matches nothing never
+    /// reaches <see cref="RunSetupOnceAsync"/>, so the refusal would otherwise surface at the next
+    /// close rather than where the second session was opened.
+    /// </remarks>
+    public void ThrowIfSessionClosed()
+    {
+        if (Volatile.Read(ref _teardownClaimed) != 0)
+        {
+            throw new InvalidOperationException(
+                "This SessionLifecycleRunner already tore its session down. One instance serves a " +
+                "single test session, whose [After(Session)] hooks have run and whose session-shared " +
+                "data source instances are disposed; a second session needs a new instance.");
+        }
+    }
+
+    /// <summary>
     /// Runs the session setup hooks at most once.
     /// </summary>
     /// <returns>
@@ -104,14 +138,7 @@ internal sealed class SessionLifecycleRunner
         // Outside the try, so the reuse is not filed away as a failing setup hook: a hook failure is
         // the user's to fix and is reported through the session result, whereas this is the host
         // reusing a spent instance and has no reported shape that would make the run meaningful.
-        if (Volatile.Read(ref _teardownClaimed) != 0)
-        {
-            throw new InvalidOperationException(
-                "Session setup was requested after this SessionLifecycleRunner already tore its " +
-                "session down. One instance serves a single test session, whose [After(Session)] " +
-                "hooks have run and whose session-shared data source instances are disposed; a " +
-                "second session needs a new instance.");
-        }
+        ThrowIfSessionClosed();
 
         try
         {
