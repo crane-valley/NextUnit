@@ -30,6 +30,12 @@ Before starting the release process:
 
 When releasing a new version (e.g., updating from 1.6.0 to 1.6.1), the following files **MUST** be updated:
 
+`README.md`, `docs/GETTING_STARTED.md`, and the three migration guides each say once, near the top,
+that the documentation on `main` describes NextUnit as it stands there while pinning the latest
+release, and that an earlier version is reachable through its git tag. That sentence is what makes
+this checklist exhaustive: a release PR bumps the pinned literals named below and stops, instead of
+rereading each document for prose that describes something the release does not contain.
+
 ### Core Version Files
 
 1. **Directory.Build.props**

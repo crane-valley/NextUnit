@@ -4,6 +4,10 @@ This guide maps MSTest concepts onto NextUnit: project setup, lifecycle, data so
 assertions, and the places where NextUnit deliberately has no equivalent. Read it top to bottom the
 first time, then use the tables as a reference.
 
+This guide, like the rest of the documentation on `main`, describes NextUnit as it stands there while
+pinning the latest released version, so between releases it can mention an API the pinned version
+does not ship yet; to read it as it stood for an earlier release, check out that release's git tag.
+
 Two conventions apply throughout. Blocks labelled MSTest show the code you are migrating away from;
 every NextUnit block is compiled in CI, so what you see is what the compiler accepts.
 

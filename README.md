@@ -6,6 +6,10 @@
 
 A modern, high-performance test framework for .NET 10+ with zero-reflection execution and xUnit-style assertions.
 
+This README, like the rest of the documentation on `main`, describes NextUnit as it stands there while pinning the
+latest released version, so between releases it can mention an API the pinned version does not ship yet; to read it as
+it stood for an earlier release, check out that release's git tag.
+
 ## Features
 
 - **Zero-reflection execution** - Source generators produce delegate-based test registry
