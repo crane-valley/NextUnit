@@ -722,9 +722,12 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   reading of it. The type is reported and still emitted, as recorded above. The attribute selection
   moved to a shared `ClassDataSourceAttributeMatcher` for the same reason: the rule has to fire on
   exactly the attributes the generator emits for, and three independent spellings of that test
-  existed across the analyzer and the generator. The rule does not wait for `[Test]`, so a data
-  source attribute on a method the generator ignores now fails the build instead of only warning as
-  `NU0013`.
+  existed across the analyzer and the generator. Two further scope limits came out of the Codex
+  review and are load-bearing for that agreement: the rule reports only on a method carrying
+  `[Test]`, which is where `NextUnitGenerator`'s pipeline starts, and only on the one parameter-level
+  attribute `ParameterDataSourceSelector` picks, since a parameter takes its values from the first
+  data source attribute that answers and the rest are never constructed. That selector is shared with
+  the generator rather than restated, for the same reason the attribute matcher is.
 - [x] Cover `private`, `protected`, `internal`, and inherited members on the synchronous and
   asynchronous paths once the decisions are made. Done 2026-08-12 for accessibility:
   `private`, `protected`, a public member of a `private` nested type, and `[ValuesFromMember]` are

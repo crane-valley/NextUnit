@@ -168,8 +168,9 @@ The same reach decides `[ClassDataSource<T>]` and `[ValuesFrom<T>]`, which are r
 for them. The trap is that C# accepts more at the attribute than the registry can name. A `private` or
 `protected` nested source satisfies the `IEnumerable` and `new()` constraints where you write the
 attribute, and a `protected` source declared on a base class is in scope in your derived test class,
-but neither can be named from the registry. Widen the source type -- and every type it is nested in --
-to `public` or `internal`.
+but neither can be named from the registry. Widen the source type to `public` or `internal`, and with
+it every type it is nested in and every type argument it names -- a `public Rows<Secret>` is no more
+nameable than `Secret` is.
 
 ### Async Data Rows
 

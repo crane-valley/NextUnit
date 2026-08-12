@@ -48,6 +48,15 @@ public sealed class ClassDataSourceAccessibilityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // [Test] is where the generator's pipeline starts, so it is also where the emitted
+        // typeof(T) starts. A data source attribute on a method without it is ignored -- reported
+        // as NU0013 -- and emits nothing to fail on, so reporting it here would break a build that
+        // has no generated code to break.
+        if (!HasTestAttribute(method))
+        {
+            return;
+        }
+
         foreach (var attribute in method.GetAttributes())
         {
             // Every type argument is emitted, so each is reported separately: one unreachable
@@ -61,14 +70,34 @@ public sealed class ClassDataSourceAccessibilityAnalyzer : DiagnosticAnalyzer
 
         foreach (var parameter in method.Parameters)
         {
-            foreach (var attribute in parameter.GetAttributes())
+            // Only the attribute the generator selects is emitted. A parameter carrying [Values]
+            // as well as [ValuesFrom<T>] takes the inline values and never constructs T, so
+            // reporting T would offer a widening that does not put it back in play.
+            var selected = ParameterDataSourceSelector.Select(parameter);
+            if (selected.Kind != ParameterDataSourceAttributeKind.ValuesFrom ||
+                selected.Attribute is not { } attribute)
             {
-                if (ClassDataSourceAttributeMatcher.GetValuesFromType(attribute) is { } sourceType)
-                {
-                    ReportIfUnreachable(context, method, attribute, sourceType);
-                }
+                continue;
+            }
+
+            if (ClassDataSourceAttributeMatcher.GetValuesFromType(attribute) is { } sourceType)
+            {
+                ReportIfUnreachable(context, method, attribute, sourceType);
             }
         }
+    }
+
+    private static bool HasTestAttribute(IMethodSymbol method)
+    {
+        foreach (var attribute in method.GetAttributes())
+        {
+            if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.Test)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void ReportIfUnreachable(

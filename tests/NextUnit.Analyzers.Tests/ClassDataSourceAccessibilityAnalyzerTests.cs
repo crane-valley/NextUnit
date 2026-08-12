@@ -501,12 +501,12 @@ public class Tests
     }
 
     /// <summary>
-    /// The rule does not wait for <c>[Test]</c>. A data source attribute on a method the generator
-    /// ignores is already reported as NU0013, and gating on the marker would mean two readings of
-    /// what the generator emits for -- the drift this rule exists to prevent.
+    /// The generator's pipeline starts at <c>[Test]</c>, so a data source attribute on a method
+    /// without it emits no <c>typeof</c> to fail on. Reporting it would break a build that has no
+    /// generated code to break; the ignored attribute is already reported as NU0013.
     /// </summary>
     [Fact]
-    public async Task UnreachableSourceWithoutTestAttribute_ReportsDiagnosticAsync()
+    public async Task UnreachableSourceWithoutTestAttribute_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -516,15 +516,65 @@ public class Tests
     private sealed class Rows : System.Collections.Generic.IEnumerable<object[]>
     {" + RowSourceBody + @"    }
 
-    [{|#0:ClassDataSource<Rows>|}]
+    [ClassDataSource<Rows>]
     public void NotATest(int value)
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// A parameter takes its values from the first data source attribute that answers, so an
+    /// unreachable source the generator never constructs must not be reported: widening it would
+    /// not put it back in play.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromLosingToInlineValues_NoDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    private sealed class Values : System.Collections.Generic.IEnumerable<int>
+    {" + ValueSourceBody + @"    }
+
+    [Test]
+    public void TestMethod([Values(1, 2), ValuesFrom<Values>] int value)
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// Selection is not attribute identity alone: a <c>[ValuesFromMember]</c> naming nothing
+    /// supplies nothing, the generator passes over it, and the <c>[ValuesFrom&lt;T&gt;]</c> behind
+    /// it is the one that gets constructed.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromBehindNamelessValuesFromMember_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    private sealed class Values : System.Collections.Generic.IEnumerable<int>
+    {" + ValueSourceBody + @"    }
+
+    [Test]
+    public void TestMethod([ValuesFromMember(""""), {|#0:ValuesFrom<Values>|}] int value)
     {
     }
 }";
 
         await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(
             source,
-            Expected("Tests.Rows"));
+            Expected("Tests.Values"));
     }
 
     [Fact]

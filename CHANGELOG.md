@@ -21,10 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reported rather than dropped: the emitted factory is the only way a class data source is
   constructed, so withholding it would trade a build error for a source that silently supplies no
   rows.
-  This can fail a build that compiled before. The unreachable type is already broken in every case
-  the generator emits, but a data source attribute on a method with no `[Test]` is ignored by the
-  generator -- reported today only as the `NU0013` warning -- and now fails the build as well.
-  Whether that warrants a major version is a release-time decision.
+  The rule reports only where the generator emits: on a method carrying `[Test]`, which is where its
+  pipeline starts, and for the one parameter-level attribute it selects, since a parameter takes its
+  values from the first data source attribute that answers and never constructs the rest. A source
+  the generator ignores is left to `NU0013`, so `NU0022` does not break a build that had no generated
+  code to break.
+  This can still fail a build that was compiling. The rule is an error rather than a warning, so a
+  suite that reached the registry through a source the generator emitted but whose consumer build was
+  already failing on `CS0122` now fails earlier and by name, and any suite that suppressed that
+  compiler error fails outright. Whether that warrants a major version is a release-time decision.
 
 ### Fixed
 

@@ -209,12 +209,15 @@ internal static class DataSourceAttributeReader
         int index,
         KnownDataSourceTypes knownDataSourceTypes)
     {
-        foreach (var attribute in parameter.GetAttributes())
+        var selected = ParameterDataSourceSelector.Select(parameter);
+        if (selected.Attribute is not { } attribute)
         {
-            if (AttributeHelper.IsAttribute(attribute, NextUnitAttributeNames.Values) &&
-                attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Kind == TypedConstantKind.Array)
-            {
+            return null;
+        }
+
+        switch (selected.Kind)
+        {
+            case ParameterDataSourceAttributeKind.Values:
                 return new ParameterDataSourceDescriptor(
                     parameterIndex: index,
                     parameterName: parameter.Name,
@@ -226,12 +229,9 @@ internal static class DataSourceAttributeReader
                     classTypeName: null,
                     sharedType: 0,
                     sharedKey: null);
-            }
 
-            if (AttributeHelper.IsAttribute(attribute, NextUnitAttributeNames.ValuesFromMember) &&
-                attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Value is string memberName &&
-                !string.IsNullOrEmpty(memberName))
+            case ParameterDataSourceAttributeKind.ValuesFromMember
+                when attribute.ConstructorArguments[0].Value is string memberName:
             {
                 var memberTypeArg = attribute.NamedArguments
                     .Where(arg => arg.Key == "MemberType")
@@ -258,7 +258,8 @@ internal static class DataSourceAttributeReader
                     unreachableMemberTypeName: unreachableMemberTypeName);
             }
 
-            if (ClassDataSourceAttributeMatcher.GetValuesFromType(attribute) is { } typeArg)
+            case ParameterDataSourceAttributeKind.ValuesFrom
+                when ClassDataSourceAttributeMatcher.GetValuesFromType(attribute) is { } typeArg:
             {
                 var classTypeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
                 var sharedType = 0;
@@ -288,9 +289,10 @@ internal static class DataSourceAttributeReader
                     sharedType: sharedType,
                     sharedKey: key);
             }
-        }
 
-        return null;
+            default:
+                return null;
+        }
     }
 
     /// <summary>

@@ -257,7 +257,7 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor ClassDataSourceTypeNotAccessible = new(
         id: "NU0022",
         title: "Class data source type is not accessible to generated code",
-        messageFormat: "Class data source '{0}' is not accessible from the generated test registry; make it public, or internal in the test assembly or one that grants it InternalsVisibleTo, and not nested in a private or protected scope",
+        messageFormat: "Class data source '{0}' is not accessible from the generated test registry; make it, every type it is nested in, and every type argument it names public, or internal in the test assembly or one that grants it InternalsVisibleTo",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
