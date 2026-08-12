@@ -412,6 +412,74 @@ public sealed class SessionLifecycleRunnerTests
     }
 
     [Test]
+    public async Task RunSetupOnceAsync_RefusesToStartASecondSessionAsync()
+    {
+        var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+        var setupCalls = 0;
+        runner.AddMethods([(_, _) => { setupCalls++; return Task.CompletedTask; }], null);
+
+        await runner.RunSetupOnceAsync(CancellationToken.None);
+        await runner.RunTeardownAsync(CancellationToken.None);
+
+        // The setup gate closed in the first session and is never reopened, so a second session would
+        // otherwise report a successful setup that never ran.
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunSetupOnceAsync(CancellationToken.None));
+        Assert.Equal(1, setupCalls);
+    }
+
+    [Test]
+    public async Task RunSetupOnceAsync_RefusesToStartASecondSessionAfterASkipAsync()
+    {
+        var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+        runner.AddMethods([(_, _) => throw new TestSkippedException("no database available")], null);
+
+        await runner.RunSetupOnceAsync(CancellationToken.None);
+        await runner.RunTeardownAsync(CancellationToken.None);
+
+        // A skip reason outlives the session that recorded it, so a second session served by this
+        // instance would report every one of its tests skipped for the first session's reason.
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunSetupOnceAsync(CancellationToken.None));
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_RefusesToCloseAnAlreadyClosedSessionAsync()
+    {
+        var disposeCalls = 0;
+        var runner = new SessionLifecycleRunner(() =>
+        {
+            disposeCalls++;
+            return ValueTask.CompletedTask;
+        });
+        var teardownCalls = 0;
+        runner.AddMethods(null, [(_, _) => { teardownCalls++; return Task.CompletedTask; }]);
+
+        await runner.RunTeardownAsync(CancellationToken.None);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunTeardownAsync(CancellationToken.None));
+        Assert.Equal(1, teardownCalls);
+        Assert.Equal(1, disposeCalls);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_RefusesToCloseAgainAfterAFailedTeardownAsync()
+    {
+        var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+        runner.AddMethods(null, [(_, _) => throw new InvalidOperationException("teardown boom")]);
+
+        // A hook that failed still ran, so the session is over either way and the claim is not released.
+        Assert.NotNull(await runner.RunTeardownAsync(CancellationToken.None));
+
+        // The hook throws the same exception type, so the message is what separates the refusal from a
+        // second run of the hook.
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunTeardownAsync(CancellationToken.None));
+        Assert.Contains("already run", exception.Message);
+    }
+
+    [Test]
     public async Task TryReportSessionSkipAsync_ReportsNothingWithoutASkipReasonAsync()
     {
         var runner = new SessionLifecycleRunner();

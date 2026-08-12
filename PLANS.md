@@ -764,7 +764,7 @@ and need a deliberate decision before implementation.
   Resolved: session hooks stay Microsoft.Testing.Platform-only. VSTest executes per assembly with no
   session boundary to attach them to, so wiring stays declined and the documented limitation on the
   executor stands; revisit only if a concrete need arises. No code change.
-- [ ] Decide what session scope means if one framework instance ever serves two sequential sessions.
+- [x] Decide what session scope means if one framework instance ever serves two sequential sessions.
   `SessionLifecycleRunner` gates setup with an `AsyncOnceGate` that is never reset, while teardown is
   ungated and runs on every `CloseTestSessionAsync`, so a second session on the same instance would
   run teardown without a matching setup and would inherit the first session's skip reason. This is
@@ -772,7 +772,23 @@ and need a deliberate decision before implementation.
   the instance lifetime is the session, and running `[Before(Session)]` again would contradict the
   scope name. Surfaced by review on PR #183, which kept the pre-existing once-per-instance semantics.
   Closing it means either resetting the gate at close (session hooks re-run) or gating teardown to
-  pair with setup; both change observable hook behavior, so neither is a drive-by fix.
+  pair with setup; both change observable hook behavior, so neither is a drive-by fix. Resolved: one
+  runner serves one session, and that is now enforced rather than assumed. Both `RunSetupOnceAsync`
+  and `RunTeardownAsync` throw `InvalidOperationException` once teardown has claimed the instance,
+  which is the same treatment `TestExecutionEngine.RunAsync` gives its sequential-only contract.
+  Neither of the two options the item listed was taken. Resetting the gate at close invents a
+  per-session re-run of `[Before(Session)]` that no caller asks for, and pairing teardown with setup
+  would silently stop the `[After(Session)]` hooks on the reachable path where a filter matches no
+  tests and `CreateTestSessionAsync` returns before setup runs. Enforcement was chosen over both
+  because the instance-per-session contract is a fact of the host rather than a convention:
+  Microsoft.Testing.Platform runs the registered framework factory inside
+  `TestHostBuilder.BuildTestFrameworkAsync`, which `ConsoleTestHost` calls once per run and
+  `ServerTestHost` calls per request, and `TestHostTestFrameworkInvoker` then issues exactly one
+  create/execute/close cycle per instance (verified against microsoft/testfx `v4.3.3`, the tag
+  carrying the platform 2.3.x sources this repo pins). A reused instance could not be served
+  correctly in any case, because `NextUnitFramework` memoizes its test cases for the instance
+  lifetime and session teardown disposes the session-shared data source instances those cases hold.
+  Pinned by four tests in `SessionLifecycleRunnerTests`.
 
 ### Priority 2 — A parallel group's declared limit overrides its unannotated members' default
 

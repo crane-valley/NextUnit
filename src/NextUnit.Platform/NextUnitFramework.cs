@@ -96,6 +96,12 @@ internal sealed class NextUnitFramework :
     /// </summary>
     /// <param name="context">The context for creating the test session.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the test session creation.</returns>
+    /// <remarks>
+    /// One framework instance serves one session. Microsoft.Testing.Platform builds a framework per
+    /// session, so a host that opens a second session on this instance is reusing what it should have
+    /// rebuilt, and <see cref="SessionLifecycleRunner"/> refuses it rather than serving it with the
+    /// first session's setup state and already-disposed shared instances.
+    /// </remarks>
     public async Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
     {
         // Ensure test cases and global lifecycle methods are loaded

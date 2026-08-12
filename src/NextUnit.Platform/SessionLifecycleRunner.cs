@@ -30,6 +30,16 @@ namespace NextUnit.Platform;
 /// Session end is also where the shared data source instances are released, because the session is
 /// the widest scope <c>[ClassDataSource]</c> and <c>[ValuesFrom]</c> can share an instance across.
 /// </para>
+/// <para>
+/// One instance serves exactly one session, and that is enforced rather than assumed:
+/// <see cref="RunSetupOnceAsync"/> and <see cref="RunTeardownAsync"/> both throw once teardown has
+/// run. Microsoft.Testing.Platform builds a framework per session - once per run in console mode and
+/// once per request in server mode - so a second session on one instance is a host that reused what
+/// it should have rebuilt. Serving it would be worse than refusing it: the setup gate has already
+/// closed, so the <c>[Before(Session)]</c> hooks would be skipped and the first session's skip reason
+/// replayed onto the second session's tests, while <see cref="NextUnitFramework"/> would hand back
+/// memoized test cases whose session-shared instances teardown has already disposed.
+/// </para>
 /// </remarks>
 internal sealed class SessionLifecycleRunner
 {
@@ -38,6 +48,7 @@ internal sealed class SessionLifecycleRunner
     private readonly List<LifecycleMethodDelegate> _beforeMethods = new();
     private readonly List<LifecycleMethodDelegate> _afterMethods = new();
     private readonly Func<ValueTask> _disposeSharedInstances;
+    private int _teardownClaimed;
     private string? _skipReason;
 
     /// <summary>
@@ -82,11 +93,26 @@ internal sealed class SessionLifecycleRunner
     /// An error message describing the failure, or <see langword="null"/> when setup succeeded or a
     /// hook requested a skip (a skip is reported per test, not as a failed session).
     /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when this instance has already torn its session down.
+    /// </exception>
     /// <exception cref="OperationCanceledException">
     /// Thrown when the run itself was cancelled, which the platform handles as a normal outcome.
     /// </exception>
     public async Task<string?> RunSetupOnceAsync(CancellationToken cancellationToken)
     {
+        // Outside the try, so the reuse is not filed away as a failing setup hook: a hook failure is
+        // the user's to fix and is reported through the session result, whereas this is the host
+        // reusing a spent instance and has no reported shape that would make the run meaningful.
+        if (Volatile.Read(ref _teardownClaimed) != 0)
+        {
+            throw new InvalidOperationException(
+                "Session setup was requested after this SessionLifecycleRunner already tore its " +
+                "session down. One instance serves a single test session, whose [After(Session)] " +
+                "hooks have run and whose session-shared data source instances are disposed; a " +
+                "second session needs a new instance.");
+        }
+
         try
         {
             await _setupGate.RunOnceAsync(ExecuteSetupAsync, cancellationToken).ConfigureAwait(false);
@@ -117,12 +143,26 @@ internal sealed class SessionLifecycleRunner
     /// <returns>
     /// An error message describing the failures, or <see langword="null"/> when teardown succeeded.
     /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when this instance has already torn its session down.
+    /// </exception>
     /// <exception cref="OperationCanceledException">
     /// Thrown when the run itself was cancelled and no hook failed, which the platform handles as a
     /// normal outcome.
     /// </exception>
     public async Task<string?> RunTeardownAsync(CancellationToken cancellationToken)
     {
+        // Claimed before the hooks run, and never released: a teardown that failed or was cancelled
+        // still ended the session, and re-running the hooks would tear down what is already gone.
+        if (Interlocked.CompareExchange(ref _teardownClaimed, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "Session teardown has already run on this SessionLifecycleRunner instance. One " +
+                "instance serves a single test session, so running the [After(Session)] hooks again " +
+                "would tear down a session that is already closed; a second session needs a new " +
+                "instance.");
+        }
+
         OperationCanceledException? cancellation = null;
         var failures = new List<Exception>();
 
