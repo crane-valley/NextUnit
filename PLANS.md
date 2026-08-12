@@ -646,15 +646,22 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   the base member directly: the contract is not guessable from a report that calls a member missing
   while the user is looking at a base class that declares it.
   The runtime reflection fallback follows the same contract, and scans a whole level before rejecting
-  it so an overload it cannot invoke never hides a sibling it can. Its one remaining blind spot is
-  that reflection cannot see a base class's nested types and this lookup does not ask for events or
-  nested types at all, so a level that declares only one of those is walked past rather than stopping
-  the search. That stays deferred: the compile-time walk does see both kinds, so `NU0003` fails the
-  build before the fallback can run, and asking reflection for them costs
-  `PublicNestedTypes`/`NonPublicNestedTypes` and the event annotations on every entry point --
-  `GetMember` with a `MemberTypes` mask already demanded exactly that and broke the Native AOT smoke
-  build with `IL2070`. `TestDataHiddenByDerivedEvent_ReportsNotFoundAsync` and
-  `TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync` pin the guard.
+  it so an overload it cannot invoke never hides a sibling it can. Its remaining blind spots are all
+  the same shape: a level whose declaration reflection cannot see is walked past rather than stopping
+  the search, where the compile-time walk stops there and diagnoses. That covers a level declaring
+  only an event or a nested type -- this lookup does not ask for either kind, and `FlattenHierarchy`
+  would not return an inherited nested type anyway -- and a base level whose only declaration is
+  `private`, which `FlattenHierarchy` omits by design. All of them stay deferred: the compile-time
+  walk does see every such declaration, so it stops there and the build fails before the fallback can
+  run. Closing any of them costs the same thing: asking reflection for
+  events and nested types needs those annotations on every entry point -- `GetMember` with a
+  `MemberTypes` mask already demanded exactly that and broke the Native AOT smoke build with
+  `IL2070` -- and seeing a base type's `private` members needs a `DeclaredOnly` walk that reflects
+  over a `Type` obtained from `BaseType`, which carries no annotations at all. Reaching the fallback
+  in any of these cases means having suppressed an error diagnostic first.
+  `TestDataHiddenByDerivedEvent_ReportsNotFoundAsync`,
+  `TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync`, and
+  `TestDataWithPrivateMemberOnIntermediateBase_ReportsInaccessibleAsync` pin the guard.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

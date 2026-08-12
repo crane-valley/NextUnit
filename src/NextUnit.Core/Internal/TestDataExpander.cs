@@ -374,7 +374,7 @@ internal static class TestDataExpander
                         // excluded so the per-row path keeps allocating nothing extra.
                         if (!moveTask.IsCompletedSuccessfully)
                         {
-                            ObserveAbandonedFailure(moveTask);
+                            AbandonedWork.Observe(moveTask);
                         }
                     }
                 }
@@ -466,7 +466,7 @@ internal static class TestDataExpander
                 // observed on the same terms as an abandoned move.
                 if (!disposeTask.IsCompletedSuccessfully)
                 {
-                    ObserveAbandonedFailure(disposeTask);
+                    AbandonedWork.Observe(disposeTask);
                 }
             }
         }
@@ -476,31 +476,6 @@ internal static class TestDataExpander
             // source that cancels its cleanup for its own reasons still surfaces the failure.
         }
     }
-
-    /// <summary>
-    /// Reads the exception of a task nothing is left to await, so it cannot resurface as an
-    /// unobserved one.
-    /// </summary>
-    /// <remarks>
-    /// A move or a disposal that lost its race against the cancellation token is walked away from
-    /// deliberately -- awaiting either would reintroduce the hang the race exists to prevent -- and
-    /// a source that faults afterwards then leaves a faulted task with no owner. Its finalizer
-    /// raises <see cref="TaskScheduler.UnobservedTaskException"/>, which a host is free to treat as
-    /// fatal, so a run that cancelled cleanly could still be killed by the source it walked away
-    /// from.
-    /// <para>
-    /// The failure stays silent, matching how the shared discovery build in
-    /// <c>NextUnitFramework</c> observes a task its waiter may have left. The caller is already
-    /// being told about the cancellation it asked for, and reporting a second failure from work the
-    /// run deliberately abandoned would name something nobody can act on.
-    /// </para>
-    /// </remarks>
-    private static void ObserveAbandonedFailure(Task task) =>
-        _ = task.ContinueWith(
-            static failed => _ = failed.Exception,
-            CancellationToken.None,
-            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
 
     private static IEnumerable ResolveSyncRows(TestDataDescriptor descriptor)
     {

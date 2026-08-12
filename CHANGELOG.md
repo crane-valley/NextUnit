@@ -33,8 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Observe the failure of an asynchronous data source that discovery walked away from. A
   `MoveNextAsync` or `DisposeAsync` that loses its race against the cancellation token is abandoned
-  on purpose, since awaiting either would reintroduce the hang the race exists to prevent, but
-  nothing read the resulting task. A source that faulted afterwards therefore raised
+  on purpose, since awaiting either would reintroduce the hang the race exists to prevent, and so is
+  the task a `Task<T>`-wrapped or `ValueTask<T>`-wrapped member returned, which `WaitAsync` leaves
+  running when cancellation wins the wait. Nothing read any of those tasks. A source that faulted afterwards therefore raised
   `TaskScheduler.UnobservedTaskException` from a task nobody owned, which a host is free to treat as
   fatal -- so a run that cancelled cleanly could still be killed by the source it had given up on.
   The failure is now read and discarded, without being reported: the caller is already being told
