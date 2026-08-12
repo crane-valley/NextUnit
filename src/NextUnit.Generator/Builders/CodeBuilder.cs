@@ -189,10 +189,10 @@ internal static class CodeBuilder
     /// untyped row sequence cannot be inlined here. Every emitted call binds its type argument
     /// statically, which is what keeps the generated path free of runtime reflection.
     /// <para>
-    /// Only the <c>IAsyncEnumerable&lt;T&gt;</c> arm names that type argument in source. The
-    /// task-wrapped arms take the awaited collection type, not the row type, and
-    /// <c>Task&lt;TRows&gt;</c> admits exactly one inference, so spelling it out would move every
-    /// baseline to say what the compiler already had no choice about.
+    /// Only the <c>IAsyncEnumerable&lt;T&gt;</c> arm ever names that type argument in source, and
+    /// only for a source that offers more than one. The task-wrapped arms take the awaited
+    /// collection type rather than the row type, and <c>Task&lt;TRows&gt;</c> admits exactly one
+    /// inference, so there is nothing there for a name to settle.
     /// </para>
     /// </remarks>
     public static string? BuildAsyncTestDataSourceProvider(
@@ -226,7 +226,8 @@ internal static class CodeBuilder
     }
 
     /// <summary>
-    /// Formats the row type argument of the asynchronous enumerable adapter call.
+    /// Formats the row type argument of the asynchronous enumerable adapter call, which the
+    /// descriptor supplies only for a source inference cannot resolve on its own.
     /// </summary>
     /// <remarks>
     /// Naming the row type is what lets a source implementing <c>IAsyncEnumerable&lt;T&gt;</c> more
@@ -234,10 +235,6 @@ internal static class CodeBuilder
     /// generated file. It also pins which arm is read to the one
     /// <c>KnownDataSourceTypes.SelectRowType</c> chose, so the rows the run enumerates are the rows
     /// <c>NU0009</c> validated rather than whichever arm inference happened to reach.
-    /// <para>
-    /// A descriptor carrying no row type falls back to inference, because an empty type argument
-    /// list is not valid C# and inference is what the generator emitted before.
-    /// </para>
     /// </remarks>
     private static string FormatRowTypeArgument(string? rowTypeName) =>
         rowTypeName is null ? "" : $"<{rowTypeName}>";

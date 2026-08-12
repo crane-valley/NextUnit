@@ -518,11 +518,12 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
-    /// The row type is named in the emitted adapter call rather than left to inference, so the arm
-    /// the run enumerates is the one the classification chose.
+    /// A source offering one element type is left inferred. The name would settle nothing there,
+    /// and a written type reaches nothing an <c>extern alias</c> hides, where inference needs no
+    /// name at all.
     /// </summary>
     [Fact]
-    public async Task AsyncEnumerableSource_NamesTheRowTypeAsync()
+    public async Task SingleAsyncEnumerableArm_LeavesTheRowTypeInferredAsync()
     {
         var source = """
             using NextUnit;
@@ -549,7 +550,7 @@ public class DataSourceBindingEmissionTests
 
         var registry = await GenerateRegistryAsync(source);
 
-        Assert.Contains("FromAsyncEnumerableAsync<object[]>(global::TestProject.DataTests.Rows()", registry);
+        Assert.Contains("FromAsyncEnumerableAsync(global::TestProject.DataTests.Rows()", registry);
 
         await AssertGeneratedOutputCompilesAsync(source);
     }

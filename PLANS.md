@@ -578,8 +578,16 @@ decision, and none of them was introduced by that change.
   free to drift from the one the analyzers apply. Naming the type argument of the task-wrapped arms
   was rejected too: theirs is the awaited collection rather than the row, and `Task<TRows>` admits
   exactly one inference, so it would move baselines to state what the compiler had no choice about.
-  The threading is orthogonal to the declaring-type item below -- `RowTypeName` is its own field and
-  touches neither `MemberTypeName` nor the emitted `DataSourceType` -- so that route is unaffected.
+  No baseline moved in the end, because the name is emitted only for a source offering more than one
+  element type, which the classification now reports as `RowTypeIsAmbiguous`. Emitting it for every
+  asynchronous source was rejected on the Codex review of this change: a written type name reaches
+  nothing an `extern alias` hides, so naming an unambiguous row type would have failed the build of
+  a source inference compiles today, and it settles nothing when there is only one candidate. The
+  same limit leaves one case unfixed -- two same-named row types from two aliased assemblies, which
+  `SelectRowType` tie-breaks on assembly identity and no written name can express -- and that case
+  does not compile today either. The threading is orthogonal to the declaring-type item below --
+  `RowTypeName` is its own field and touches neither `MemberTypeName` nor the emitted
+  `DataSourceType` -- so that route is unaffected.
 - [ ] Rows still reach the runtime through the non-generic `IEnumerable`, which is the other half of
   the bullet above. Both the synchronous provider and `AsyncDataSourceAdapter.FromTaskAsync`
   enumerate whatever `IEnumerable.GetEnumerator` dispatches to, so a source implementing

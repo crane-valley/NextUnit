@@ -234,17 +234,22 @@ internal sealed record TestDataSource
     public DataSourceShape Shape { get; }
 
     /// <summary>
-    /// Gets the row type the member yields, spelled as the generated registry may name it, or
-    /// <c>null</c> when the element type is not statically known.
+    /// Gets the row type to name in the emitted adapter call, or <c>null</c> when inference already
+    /// arrives at the selected one on its own.
     /// </summary>
     /// <remarks>
-    /// Carried so that the emitted adapter call names its type argument rather than leaving it to
-    /// inference, which has no answer for a source implementing <c>IAsyncEnumerable&lt;T&gt;</c>
-    /// more than once and reports <c>CS0411</c> in a file the user did not write. It comes from the
-    /// same <c>KnownDataSourceTypes.Classify</c> result <see cref="Shape"/> does, so the emitted arm
-    /// is the one <c>KnownDataSourceTypes.SelectRowType</c> chose and <c>NU0009</c> validated
-    /// against. Recomputing it at the emitter was rejected for that reason: a second walk over the
-    /// interfaces would be a second precedence rule, free to drift from the analyzers'.
+    /// Only a source offering more than one element type carries a value here. That is the case
+    /// inference cannot resolve -- it reports <c>CS0411</c> in a file the user did not write -- and
+    /// the only case where the arm the call reads can differ from the one
+    /// <c>KnownDataSourceTypes.SelectRowType</c> chose and <c>NU0009</c> validated against. A source
+    /// implementing the interface once is left inferred because the name buys nothing there and can
+    /// still fail: a written type reaches nothing an <c>extern alias</c> hides, where inference
+    /// needs no name at all.
+    /// <para>
+    /// It comes from the same <c>KnownDataSourceTypes.Classify</c> result <see cref="Shape"/> does.
+    /// Recomputing it at the emitter was rejected: a second walk over the interfaces would be a
+    /// second precedence rule, free to drift from the analyzers'.
+    /// </para>
     /// </remarks>
     public string? RowTypeName { get; }
 

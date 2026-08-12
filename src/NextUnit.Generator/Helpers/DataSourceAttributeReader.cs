@@ -438,10 +438,13 @@ internal static class DataSourceAttributeReader
         // implements, and the row type has to be the one this shape was decided from.
         var classification = knownDataSourceTypes.Classify(resolved.MemberType);
 
-        return (
-            kind,
-            classification.Shape,
-            classification.RowType?.ToDisplayString(AttributeHelper.TypeExpressionFormat),
-            resolved.AcceptsCancellationToken);
+        // Named only when the source offers more than one, which is the only case inference answers
+        // differently -- or not at all. Naming an unambiguous row type would change nothing except
+        // to add a way for the emitted call to fail on a type inference resolves without a name.
+        var rowTypeName = classification.RowTypeIsAmbiguous
+            ? classification.RowType?.ToDisplayString(AttributeHelper.TypeExpressionFormat)
+            : null;
+
+        return (kind, classification.Shape, rowTypeName, resolved.AcceptsCancellationToken);
     }
 }
