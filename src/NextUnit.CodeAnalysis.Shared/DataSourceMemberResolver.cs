@@ -231,7 +231,7 @@ internal static class DataSourceMemberResolver
 
     /// <summary>
     /// Finds a farther base type that also declares <paramref name="memberName"/>, past the nearest
-    /// one that does.
+    /// one that does, and against which resolution would actually succeed.
     /// </summary>
     /// <remarks>
     /// Only asked once a source has already failed to bind, so that the diagnostic can say why the
@@ -240,20 +240,28 @@ internal static class DataSourceMemberResolver
     /// member has no way to guess that from a message about the member being missing or
     /// unreachable. Naming the base type turns the report into the fix: point the attribute at it
     /// with <c>MemberType</c>.
+    /// <para>
+    /// The candidate level is tested by running <see cref="Resolve"/> against it -- literally
+    /// asking what would happen with <c>MemberType</c> set to that type -- rather than by re-testing
+    /// the rules <see cref="Resolve"/> applies. A parallel predicate was tried and drifted from the
+    /// real rules three times: it missed multi-level blocking, then the per-attribute token rule,
+    /// then a token-taking member whose synchronous return type leaves it unbound. Each miss had the
+    /// same consequence, a message recommending a <c>MemberType</c> that reproduces the same report.
+    /// Sharing the acceptance path means a future change to what binds updates this with it.
+    /// </para>
     /// </remarks>
     /// <param name="typeSymbol">The type the attribute names, where the walk starts.</param>
     /// <param name="memberName">The data source member name.</param>
-    /// <param name="compilingAssembly">The assembly the generated registry is emitted into.</param>
-    /// <param name="allowCancellationToken">
-    /// Whether a token-taking member counts as bindable, which only a <c>[TestData]</c> source can
-    /// use. A parameter-level source expands synchronous collections only, so suggesting a base
-    /// type whose declaration takes the token would name a fix that reports the same thing again.
+    /// <param name="knownDataSourceTypes">The well-known data source types for the compilation.</param>
+    /// <param name="isTestDataSource">
+    /// Whether the attribute is a <c>[TestData]</c> source. A parameter-level source binds only a
+    /// parameterless member, so a level that resolves to a token-taking one is no fix for it.
     /// </param>
     public static INamedTypeSymbol? FindShadowedDeclaringType(
         INamedTypeSymbol typeSymbol,
         string memberName,
-        IAssemblySymbol? compilingAssembly,
-        bool allowCancellationToken)
+        KnownDataSourceTypes knownDataSourceTypes,
+        bool isTestDataSource)
     {
         var foundNearest = false;
 
@@ -261,8 +269,7 @@ internal static class DataSourceMemberResolver
             level is not null && level.SpecialType != SpecialType.System_Object;
             level = level.BaseType)
         {
-            var members = level.GetMembers(memberName);
-            if (members.IsEmpty)
+            if (level.GetMembers(memberName).IsEmpty)
             {
                 continue;
             }
@@ -273,21 +280,38 @@ internal static class DataSourceMemberResolver
                 continue;
             }
 
-            // A farther level that declares the name without offering a usable member is another
-            // blocking level, and pointing MemberType at it would reproduce the same report. The
-            // hint is only worth printing when it names a level that actually resolves.
-            foreach (var member in members)
+            if (WouldBindAt(level, memberName, knownDataSourceTypes, isTestDataSource))
             {
-                if (member.IsStatic &&
-                    HasBindableShape(member, allowCancellationToken) &&
-                    GeneratedRegistryAccess.CanReachMember(member, compilingAssembly))
-                {
-                    return level;
-                }
+                return level;
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Answers what <see cref="Resolve"/> would do if the attribute named <paramref name="level"/>.
+    /// </summary>
+    private static bool WouldBindAt(
+        INamedTypeSymbol level,
+        string memberName,
+        KnownDataSourceTypes knownDataSourceTypes,
+        bool isTestDataSource)
+    {
+        // The walk in GetCandidateMembers starts at the type it is given, and this level declares
+        // the name, so resolving against it is exactly the MemberType the hint would recommend.
+        var resolved = Resolve(level, memberName, knownDataSourceTypes);
+
+        if (resolved.Symbol is null || resolved.Issue != DataSourceBindingIssue.None)
+        {
+            return false;
+        }
+
+        // The same reach test the analyzer applies to its own result: a parameter-level source
+        // expands synchronous collections, so a token-taking member is out of its reach whatever
+        // else is true of it.
+        return isTestDataSource ||
+            resolved.Symbol is IMethodSymbol { Parameters.Length: 0 } or IPropertySymbol or IFieldSymbol;
     }
 
     /// <summary>
@@ -301,21 +325,11 @@ internal static class DataSourceMemberResolver
     /// admitting it there would leave a source that binds nothing, reports nothing, and supplies
     /// nothing.
     /// </remarks>
-    public static bool HasBindableShape(ISymbol member) => HasBindableShape(member, allowCancellationToken: true);
-
-    /// <inheritdoc cref="HasBindableShape(ISymbol)"/>
-    /// <param name="member">The member to test.</param>
-    /// <param name="allowCancellationToken">
-    /// Whether the token-taking shape counts. Only a <c>[TestData]</c> source can use it: a
-    /// parameter-level source expands synchronous collections and has no token to pass.
-    /// </param>
-    public static bool HasBindableShape(ISymbol member, bool allowCancellationToken) => member switch
+    public static bool HasBindableShape(ISymbol member) => member switch
     {
         IMethodSymbol { Arity: 0 } method =>
             method.Parameters.Length == 0 ||
-            (allowCancellationToken &&
-                method.Parameters.Length == 1 &&
-                IsCancellationToken(method.Parameters[0])),
+            (method.Parameters.Length == 1 && IsCancellationToken(method.Parameters[0])),
         IPropertySymbol or IFieldSymbol => true,
         _ => false
     };

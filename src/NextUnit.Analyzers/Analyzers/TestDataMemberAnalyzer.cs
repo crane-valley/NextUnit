@@ -140,7 +140,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 location,
                 memberName,
                 targetType.Name,
-                DescribeShadowedBaseType(targetType, memberName, context.Compilation.Assembly, isTestDataSource)));
+                DescribeShadowedBaseType(targetType, memberName, knownDataSourceTypes, isTestDataSource)));
             return;
         }
 
@@ -165,7 +165,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 DiagnosticDescriptors.DataSourceMemberNotAccessible,
                 memberName,
                 targetType.Name,
-                DescribeShadowedBaseType(targetType, memberName, context.Compilation.Assembly, isTestDataSource));
+                DescribeShadowedBaseType(targetType, memberName, knownDataSourceTypes, isTestDataSource));
             return;
         }
 
@@ -208,14 +208,14 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
     private static string DescribeShadowedBaseType(
         INamedTypeSymbol targetType,
         string memberName,
-        IAssemblySymbol compilingAssembly,
+        KnownDataSourceTypes knownDataSourceTypes,
         bool isTestDataSource)
     {
         var shadowed = DataSourceMemberResolver.FindShadowedDeclaringType(
             targetType,
             memberName,
-            compilingAssembly,
-            allowCancellationToken: isTestDataSource);
+            knownDataSourceTypes,
+            isTestDataSource);
 
         if (shadowed is null)
         {

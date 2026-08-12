@@ -2033,6 +2033,45 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// A token-taking member whose return type is a plainly synchronous collection binds to
+    /// nothing -- the synchronous provider has no token to pass -- so a base declaring only that is
+    /// no fix even for a <c>[TestData]</c> source. The hint asks the resolver rather than testing
+    /// the member's shape, which is what makes this case fall out without a rule of its own.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingASyncReturningTokenBase_OmitsTheHintAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            public class Fixtures
+            {
+                public static IEnumerable<int> Rows(CancellationToken token) => new[] { 1 };
+            }
+
+            public class Tests : Fixtures
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// A parameter-level source expands synchronous collections only, so a base declaring nothing
     /// but a token-taking overload is not a fix for it. Suggesting that type would report the same
     /// thing again.
