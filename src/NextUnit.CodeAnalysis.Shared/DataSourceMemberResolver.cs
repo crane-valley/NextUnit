@@ -241,7 +241,10 @@ internal static class DataSourceMemberResolver
     /// unreachable. Naming the base type turns the report into the fix: point the attribute at it
     /// with <c>MemberType</c>.
     /// </remarks>
-    public static INamedTypeSymbol? FindShadowedDeclaringType(INamedTypeSymbol typeSymbol, string memberName)
+    public static INamedTypeSymbol? FindShadowedDeclaringType(
+        INamedTypeSymbol typeSymbol,
+        string memberName,
+        IAssemblySymbol? compilingAssembly)
     {
         var foundNearest = false;
 
@@ -249,17 +252,30 @@ internal static class DataSourceMemberResolver
             level is not null && level.SpecialType != SpecialType.System_Object;
             level = level.BaseType)
         {
-            if (level.GetMembers(memberName).IsEmpty)
+            var members = level.GetMembers(memberName);
+            if (members.IsEmpty)
             {
                 continue;
             }
 
-            if (foundNearest)
+            if (!foundNearest)
             {
-                return level;
+                foundNearest = true;
+                continue;
             }
 
-            foundNearest = true;
+            // A farther level that declares the name without offering a usable member is another
+            // blocking level, and pointing MemberType at it would reproduce the same report. The
+            // hint is only worth printing when it names a level that actually resolves.
+            foreach (var member in members)
+            {
+                if (member.IsStatic &&
+                    HasBindableShape(member) &&
+                    GeneratedRegistryAccess.CanReachMember(member, compilingAssembly))
+                {
+                    return level;
+                }
+            }
         }
 
         return null;

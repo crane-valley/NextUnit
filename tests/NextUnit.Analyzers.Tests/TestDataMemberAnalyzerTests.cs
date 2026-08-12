@@ -1876,6 +1876,49 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// The hint has to name a level that actually resolves. An intermediate base that declares the
+    /// name without offering a usable member is another blocking level, so pointing
+    /// <c>MemberType</c> at it would reproduce the same report; the search continues to the level
+    /// that binds.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowedByTwoLevels_NamesTheBindableOneAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+            }
+
+            public class Tests : Middle
+            {
+                public static IEnumerable<object[]> Rows(string name) => new[] { new object[] { 2 } };
+
+                [Test]
+                [TestData("Rows")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(19, 6, 19, 22)
+            .WithArguments("Rows", "Tests", ShadowedBy("Root", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// The hint is conditional on a farther type actually declaring the name, not merely on the
     /// test class having a base type. A plain misspelling gets the plain message.
     /// </summary>

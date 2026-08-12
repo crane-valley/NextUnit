@@ -140,7 +140,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 location,
                 memberName,
                 targetType.Name,
-                DescribeShadowedBaseType(targetType, memberName)));
+                DescribeShadowedBaseType(targetType, memberName, context.Compilation.Assembly)));
             return;
         }
 
@@ -165,7 +165,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 DiagnosticDescriptors.DataSourceMemberNotAccessible,
                 memberName,
                 targetType.Name,
-                DescribeShadowedBaseType(targetType, memberName));
+                DescribeShadowedBaseType(targetType, memberName, context.Compilation.Assembly));
             return;
         }
 
@@ -205,9 +205,15 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
     /// see plainly declared on a base class as missing or unreachable, with nothing to suggest why.
     /// Empty when no farther type declares the name, which is the ordinary case.
     /// </remarks>
-    private static string DescribeShadowedBaseType(INamedTypeSymbol targetType, string memberName)
+    private static string DescribeShadowedBaseType(
+        INamedTypeSymbol targetType,
+        string memberName,
+        IAssemblySymbol compilingAssembly)
     {
-        var shadowed = DataSourceMemberResolver.FindShadowedDeclaringType(targetType, memberName);
+        var shadowed = DataSourceMemberResolver.FindShadowedDeclaringType(
+            targetType,
+            memberName,
+            compilingAssembly);
 
         return shadowed is null
             ? string.Empty
