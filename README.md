@@ -171,6 +171,27 @@ NEXTUNIT_INCLUDE_CATEGORIES=Integration dotnet run --project MyProject.Tests
 NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run --project MyProject.Tests
 ```
 
+## Expansion Limits
+
+`[Matrix]`, `[Arguments]`, `[Repeat]`, and parameter-level data sources multiply, so a small edit can
+ask for millions of test cases. NextUnit caps one test method at **10000** test cases and fails fast
+instead of expanding: the generator reports `NEXTUNIT013` at compile time, and discovery throws when
+a combined data source resolves to more than the cap.
+
+Raise the cap per project for the generator, and per run for discovery:
+
+```xml
+<PropertyGroup>
+  <NextUnitMaxTestCasesPerMethod>50000</NextUnitMaxTestCasesPerMethod>
+</PropertyGroup>
+```
+
+```bash
+NEXTUNIT_MAX_TEST_CASES_PER_METHOD=50000 dotnet run --project MyProject.Tests
+```
+
+An unset, unparseable, or non-positive value uses the default.
+
 ## Performance
 
 The checked-in comparison suite runs 127 tests with shared bodies through native MTP executables.

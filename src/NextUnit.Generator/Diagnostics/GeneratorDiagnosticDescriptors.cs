@@ -75,6 +75,11 @@ internal static class GeneratorDiagnosticDescriptors
         "Missing Key for Keyed ValuesFrom",
         "Test '{0}' uses [ValuesFrom] with SharedType.Keyed on parameter '{1}' but no Key is specified.");
 
+    public static readonly DiagnosticDescriptor TestCaseExpansionLimitExceeded = Error(
+        "NEXTUNIT013",
+        "Test case expansion limit exceeded",
+        "Test '{0}' expands to {1} test cases, which exceeds the limit of {2}. Reduce the [Matrix], [Arguments], or [Repeat] values, or raise the limit with <NextUnitMaxTestCasesPerMethod> in the project file.");
+
     private static DiagnosticDescriptor Error(string id, string title, string messageFormat) =>
         Create(id, title, messageFormat, DiagnosticSeverity.Error);
 
