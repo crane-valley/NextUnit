@@ -101,13 +101,23 @@ internal static class DataSourceMemberResolver
             // that a later overload can win it. Skipping would silently move the binding to data the
             // user did not ask for, which is exactly what the parameterless-first rule above exists
             // to prevent; refusing it names the accessibility as the thing to fix.
-            return GeneratedRegistryAccess.CanReachMember(member, compilingAssembly)
-                ? new ResolvedDataSourceMember(member, memberType, false)
-                : new ResolvedDataSourceMember(
+            if (!GeneratedRegistryAccess.CanReachMember(member, compilingAssembly))
+            {
+                return new ResolvedDataSourceMember(
                     member,
                     memberType,
                     false,
                     DataSourceBindingIssue.MemberNotAccessible);
+            }
+
+            // The shape is judged here rather than left to the caller so that no result carrying
+            // Issue.None is one the generator declines to emit. An awaitable that supplies no rows
+            // is the only shape reached this way, and it emits nothing.
+            return new ResolvedDataSourceMember(
+                member,
+                memberType,
+                false,
+                ClassifyShapeIssue(memberType, knownDataSourceTypes));
         }
 
         // Second pass admits the new shape. A cancellation token is only meaningful for an
@@ -156,7 +166,11 @@ internal static class DataSourceMemberResolver
             // generator emits no provider for this shape, so returning it changes nothing it emits.
             if (classification.Shape == DataSourceShape.UnsupportedAwaitable)
             {
-                return new ResolvedDataSourceMember(method, method.ReturnType, false);
+                return new ResolvedDataSourceMember(
+                    method,
+                    method.ReturnType,
+                    false,
+                    DataSourceBindingIssue.UnsupportedAwaitable);
             }
 
             // A synchronous classification here means the return type implements IEnumerable<T> as
@@ -228,6 +242,21 @@ internal static class DataSourceMemberResolver
 
         return ImmutableArray<ISymbol>.Empty;
     }
+
+    /// <summary>
+    /// Reports the shape as an issue when it is one the generator emits nothing for.
+    /// </summary>
+    /// <remarks>
+    /// Only <see cref="DataSourceShape.UnsupportedAwaitable"/> qualifies: every other shape reaches
+    /// a provider builder that returns one. Keeping the test here, rather than in each caller, is
+    /// what makes <see cref="DataSourceBindingIssue.None"/> mean the same thing everywhere.
+    /// </remarks>
+    private static DataSourceBindingIssue ClassifyShapeIssue(
+        ITypeSymbol? memberType,
+        KnownDataSourceTypes knownDataSourceTypes) =>
+        knownDataSourceTypes.Classify(memberType).Shape == DataSourceShape.UnsupportedAwaitable
+            ? DataSourceBindingIssue.UnsupportedAwaitable
+            : DataSourceBindingIssue.None;
 
     /// <summary>
     /// Finds a farther base type that also declares <paramref name="memberName"/>, past the nearest

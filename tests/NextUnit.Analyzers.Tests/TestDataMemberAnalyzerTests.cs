@@ -2033,6 +2033,77 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// A base declaring an awaitable that supplies no rows is no fix either: the generator emits
+    /// nothing for that shape, so pointing <c>MemberType</c> at it trades one report for another.
+    /// The resolution result now carries that as an issue, so the hint declines it without a rule
+    /// about awaitables of its own.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingAnUnsupportedAwaitableBase_OmitsTheHintAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+
+            public class Fixtures
+            {
+                public static Task Rows() => Task.CompletedTask;
+            }
+
+            public class Tests : Fixtures
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The same shape at the level the attribute names still reports NU0014 against the member
+    /// itself. Recording it as a binding issue must not cost the diagnostic its subject, which is
+    /// the reason the resolver returns the member at all.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithBareTaskMember_StillReportsUnsupportedAwaitableAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static Task Rows() => Task.CompletedTask;
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0014")
+            .WithLocation(0)
+            .WithArguments("Rows", "Task");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// A token-taking member whose return type is a plainly synchronous collection binds to
     /// nothing -- the synchronous provider has no token to pass -- so a base declaring only that is
     /// no fix even for a <c>[TestData]</c> source. The hint asks the resolver rather than testing
