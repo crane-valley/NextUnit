@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace NextUnit.Internal;
 
@@ -88,7 +89,8 @@ internal static class DataSourceMemberLookup
 
         foreach (var method in sourceType.GetMethods(StaticMemberLookup))
         {
-            if (method.Name == memberName)
+            if (method.Name == memberName &&
+                IsVisibleToDerivedType(method, method.IsAssembly || method.IsFamilyAndAssembly, sourceType))
             {
                 candidates.Add(method);
             }
@@ -96,7 +98,12 @@ internal static class DataSourceMemberLookup
 
         foreach (var property in sourceType.GetProperties(StaticMemberLookup))
         {
-            if (property.Name == memberName)
+            // A property is read through its getter, so the getter's accessibility is the one that
+            // decides whether the derived class can see it.
+            var getter = property.GetMethod;
+            if (property.Name == memberName &&
+                getter is not null &&
+                IsVisibleToDerivedType(property, getter.IsAssembly || getter.IsFamilyAndAssembly, sourceType))
             {
                 candidates.Add(property);
             }
@@ -104,13 +111,85 @@ internal static class DataSourceMemberLookup
 
         foreach (var field in sourceType.GetFields(StaticMemberLookup))
         {
-            if (field.Name == memberName)
+            if (field.Name == memberName &&
+                IsVisibleToDerivedType(field, field.IsAssembly || field.IsFamilyAndAssembly, sourceType))
             {
                 candidates.Add(field);
             }
         }
 
         return candidates;
+    }
+
+    /// <summary>
+    /// Reports whether C# member lookup from <paramref name="sourceType"/> can see a member
+    /// declared on one of its base types.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors the same rule in <c>DataSourceMemberResolver</c>. Across an assembly boundary,
+    /// <c>internal</c> and <c>private protected</c> are out of scope for the derived class unless
+    /// the declaring assembly grants <c>InternalsVisibleTo</c>, so neither hides an accessible
+    /// ancestor of the same name -- and treating one as a candidate here would read a member the
+    /// name does not refer to. Members declared on <paramref name="sourceType"/> itself are left
+    /// alone: that is the member the user named, and the fallback has always read whatever reaches
+    /// it there.
+    /// </remarks>
+    private static bool IsVisibleToDerivedType(MemberInfo member, bool needsAssemblyAccess, Type sourceType)
+    {
+        var declaringType = member.DeclaringType;
+        if (declaringType is null || declaringType == sourceType || !needsAssemblyAccess)
+        {
+            return true;
+        }
+
+        return declaringType.Assembly == sourceType.Assembly ||
+            GivesInternalAccessTo(declaringType.Assembly, sourceType.Assembly);
+    }
+
+    private static bool GivesInternalAccessTo(Assembly declaring, Assembly consuming)
+    {
+        var consumingName = consuming.GetName().Name;
+
+        foreach (var visibleTo in declaring.GetCustomAttributes<InternalsVisibleToAttribute>())
+        {
+            // The attribute value carries an optional PublicKey after a comma; only the simple
+            // assembly name decides whether the grant names this assembly.
+            var granted = visibleTo.AssemblyName;
+            var comma = granted.IndexOf(',');
+            if (comma >= 0)
+            {
+                granted = granted.Substring(0, comma);
+            }
+
+            if (string.Equals(granted.Trim(), consumingName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Reports whether C# would bind this overload for a call that supplies no arguments.
+    /// </summary>
+    /// <remarks>
+    /// Optional parameters and a trailing <c>params</c> array are both filled in by the compiler,
+    /// so <c>Rows(int count = 1)</c> answers <c>Rows()</c> and reduces away any base <c>Rows()</c>.
+    /// Reflection cannot supply the omitted arguments, so such an overload is a blocker here rather
+    /// than something to invoke.
+    /// </remarks>
+    private static bool IsApplicableWithoutArguments(MethodInfo method)
+    {
+        foreach (var parameter in method.GetParameters())
+        {
+            if (!parameter.IsOptional && !parameter.IsDefined(typeof(ParamArrayAttribute), inherit: false))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -167,8 +246,18 @@ internal static class DataSourceMemberLookup
                     return method.IsStatic ? method : null;
                 }
 
-                // An overload that takes arguments hides a base member that is not a method, but
-                // leaves a base overload of another signature alone -- so the walk carries on.
+                // An overload C# would still bind for a no-argument call reduces away every base
+                // overload of that name, so falling through to one would read data this name does
+                // not refer to. Reflection cannot fill in the omitted arguments, so the search ends
+                // here with nothing and the caller reports the source as missing.
+                if (!method.IsGenericMethodDefinition && IsApplicableWithoutArguments(method))
+                {
+                    return null;
+                }
+
+                // An overload that genuinely requires arguments hides a base member that is not a
+                // method, but leaves a base overload of another shape alone -- so the walk carries
+                // on.
                 sawMethod = true;
             }
         }

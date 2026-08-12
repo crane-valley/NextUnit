@@ -126,6 +126,51 @@ public sealed class InheritedDataSourceMemberTests
     }
 
     /// <summary>
+    /// C# binds a derived overload whose parameters it can fill in, so the inherited parameterless
+    /// member is not what the name refers to. Reflection cannot supply the omitted arguments, so
+    /// the lookup reports the source as missing rather than reading the member C# reduced away.
+    /// </summary>
+    [Fact]
+    public void ExpandSingle_DerivedOptionalParameterOverload_ReportsNotFound()
+    {
+        var descriptor = CreateDescriptor(nameof(HidingBase.OptionalHiddenRows), typeof(HidingDerived));
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken).ToList());
+
+        Xunit.Assert.Contains("not found", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The same for a <c>params</c> overload, which C# binds in its expanded form with no elements.
+    /// </summary>
+    [Fact]
+    public void ExpandSingle_DerivedParamsOverload_ReportsNotFound()
+    {
+        var descriptor = CreateDescriptor(nameof(HidingBase.ParamsHiddenRows), typeof(HidingDerived));
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken).ToList());
+
+        Xunit.Assert.Contains("not found", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A derived overload that genuinely requires an argument is not applicable to a no-argument
+    /// call, so the inherited parameterless member still answers the name.
+    /// </summary>
+    [Fact]
+    public void ExpandSingle_DerivedRequiredParameterOverload_ResolvesInheritedMember()
+    {
+        var descriptor = CreateDescriptor(nameof(HidingBase.RequiredArgRows), typeof(HidingDerived));
+
+        var testCase = Assert.Single(
+            TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken));
+
+        Assert.Equal(new object?[] { 4, 4, 8 }, testCase.Arguments);
+    }
+
+    /// <summary>
     /// The parameter-level fallback applies the same hiding, since it shares the lookup.
     /// </summary>
     [Fact]
@@ -224,6 +269,12 @@ public sealed class InheritedDataSourceMemberTests
         public static IEnumerable<int> HiddenValues => [21, 22];
 
         public static IEnumerable<object[]> InstanceHiddenRows() => [[7, 7, 14]];
+
+        public static IEnumerable<object[]> OptionalHiddenRows() => [[1, 1, 2]];
+
+        public static IEnumerable<object[]> ParamsHiddenRows() => [[2, 2, 4]];
+
+        public static IEnumerable<object[]> RequiredArgRows() => [[4, 4, 8]];
     }
 
     private sealed class HidingDerived : HidingBase
@@ -233,6 +284,12 @@ public sealed class InheritedDataSourceMemberTests
         public static new IEnumerable<int> HiddenValues(int count) => [count];
 
         public new IEnumerable<object[]> InstanceHiddenRows() => [[8, 8, 16]];
+
+        public static IEnumerable<object[]> OptionalHiddenRows(int count = 1) => [[count, count, count * 2]];
+
+        public static IEnumerable<object[]> ParamsHiddenRows(params int[] counts) => [[3, 3, 6]];
+
+        public static IEnumerable<object[]> RequiredArgRows(int count) => [[count, count, count * 2]];
     }
 
     private class TokenBase

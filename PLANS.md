@@ -621,17 +621,22 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   the trimmer does not read that mask -- it treats `GetMember` as able to return any kind and demands
   the constructor, event, and nested-type annotations too, which is `IL2070` and a failed Native AOT
   smoke build.
-- [ ] Three accepted divergences from C# member lookup, all narrow, all reported by the Codex review
-  and left deliberately. A derived overload that is applicable to a no-argument call without being
-  parameterless -- `Rows(int value = 0)` or `Rows(params int[])` -- does not win over an inherited
-  `Rows()`, because the resolver tests `Parameters.Length: 0` rather than applicability; that rule
-  predates the base chain and the same source declared on one type has always been treated this way.
-  And an inaccessible non-`private` intermediate declaration, such as a `protected new Rows()`
-  between the test class and an accessible ancestor, is reported as `NU0020` rather than skipped in
-  favour of the ancestor C# would bind. Closing either one means selecting candidates by
-  applicability and by accessibility before hiding -- two staged passes rather than one walk -- which
-  is a rewrite of the resolver rather than an extension of it, and neither divergence emits code that
-  fails to compile or silently supplies the wrong rows. The third is in the runtime fallback alone:
+- [x] Two of the three divergences from C# member lookup recorded here were closed after the PR
+  review found the first one supplies wrong rows rather than merely diverging. C# reduces the
+  applicable candidates to those declared in the most derived type, so a derived
+  `Rows(int count = 1)` or `Rows(params int[])` is what `Derived.Rows()` calls even when a base
+  `Rows()` exists -- verified by compiling it, not by reading the specification, which is what
+  corrected the original reasoning. The resolver was validating and classifying the base member
+  while the emitted call ran the derived one, silently. Hiding is now decided by applicability to
+  the call the generator emits rather than by signature identity, which subsumes the signature rule
+  and the derived-instance case with it. The analyzer's existence test was tightened to the shapes
+  the resolver can bind, because a source that binds nothing must not also report nothing; a
+  cancellation-token member returning a synchronous collection stays deliberately silent, as decided
+  in the `NU0021` work above. Accessibility is now judged from the consuming assembly too: an
+  `internal` or `private protected` member on an intermediate base in another assembly is out of
+  scope for the test class, cannot hide a public ancestor, and used to produce a false `NU0020`
+  against code that compiles. The runtime lookup mirrors both rules, `InternalsVisibleTo` included.
+- [ ] One accepted divergence from C# member lookup remains, in the runtime fallback alone:
   its candidates are methods, properties, and fields, so an event or a nested type sharing the name
   does not block a same-named source further up the chain the way C# hiding would. It fails loudly
   rather than silently, which is what makes deferring it safe: the compile-time walk does see both
@@ -645,7 +650,8 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   the Native AOT smoke build with `IL2070`. Paying it would make every test class and data source
   type keep its constructors, events, and nested types under trimming, for a case the analyzer
   already stops. Deferred per the review circuit breaker after round 5, and confirmed by the AOT
-  gate on PR #229.
+  gate on PR #229, which failed with exactly that `IL2070` and was fixed by asking for the three
+  kinds separately instead.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

@@ -18,10 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one, so a base property is never bound for a name a derived method has turned into a method group.
   Methods accumulate across levels instead, and the parameterless-first precedence runs over the
   whole flattened chain, so a base `Rows()` still beats a derived `Rows(CancellationToken)` -- the
-  overload a call supplying no arguments binds to in C# -- while a base method whose signature a
-  nearer declaration repeats is dropped, static or not. A base type's `private` members are skipped,
-  since C# member lookup never sees them from a derived type, and interfaces are not walked, since a
-  static interface member cannot be named through an implementing type. An inherited member the
+  overload a call supplying no arguments binds to in C#. A base method is dropped, static or not,
+  when a nearer declaration is applicable to the same call: C# reduces the applicable candidates to
+  those declared in the most derived type, so a derived `Rows(int count = 1)` or
+  `Rows(params int[])` is what `Derived.Rows()` calls even where a base `Rows()` exists, and
+  validating the base member there would classify one member's rows while the emitted call ran
+  another's. Such a source now reports `NU0003` rather than binding silently. A base member C#
+  member lookup cannot see is skipped, since it neither binds nor hides: `private` always, and
+  `internal` or `private protected` declared in another assembly that grants no
+  `InternalsVisibleTo` -- which used to produce a false `NU0020` against code that compiles.
+  Interfaces are not walked, since a static interface member cannot be named through an
+  implementing type. An inherited member the
   generated registry cannot reach is reported as `NU0020` instead of `NU0003`, naming the fix --
   widen the member -- rather than describing it as missing; both were already errors, so no build
   that compiled before starts failing.

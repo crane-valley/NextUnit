@@ -1324,6 +1324,112 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// C# reduces the applicable candidates to those declared in the most derived type, so
+    /// <c>Tests.TestCases()</c> calls the derived overload with its optional parameter filled in,
+    /// not the inherited parameterless one. Binding the base member here would classify one
+    /// member's rows while the emitted call ran another's, with nothing to warn the user.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedOptionalParameterOverload_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public static IEnumerable<object[]> TestCases(int count = 1) => new[] { new object[] { count } };
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 27)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The same reduction applies to a <c>params</c> overload, which C# binds in its expanded form
+    /// with no elements.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedParamsOverload_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public static IEnumerable<object[]> TestCases(params int[] counts) => new[] { new object[] { 2 } };
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 27)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A derived overload that genuinely requires an argument is not applicable to the emitted
+    /// no-argument call, so it does not reduce the inherited parameterless member away. This is the
+    /// negative half of the two tests above.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedRequiredParameterOverload_BindsInheritedMemberAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public static IEnumerable<object[]> TestCases(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
     /// An event hides a same-named source on a base class. The compile-time walk sees it because
     /// <c>GetMembers</c> returns events, and this is the guard the runtime fallback relies on: its
     /// candidates are methods, properties, and fields only, because asking reflection for events
@@ -1407,6 +1513,79 @@ public class TestDataMemberAnalyzerTests
             .WithArguments("TestCases", "Tests");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// An <c>internal</c> member on an intermediate base in another assembly is out of scope for
+    /// the test class, so it cannot hide the public ancestor C# actually binds. Treating it as a
+    /// candidate reported NU0020 against code that compiles and runs.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithInaccessibleInternalOnIntermediateBase_BindsPublicAncestorAsync()
+    {
+        var library = """
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                internal static new IEnumerable<string> TestCases => new[] { "hidden" };
+            }
+            """;
+
+        var source = """
+            using NextUnit;
+
+            public class Tests : Middle
+            {
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerWithLibraryAsync(source, library);
+    }
+
+    /// <summary>
+    /// The positive half: inside the declaring assembly the same <c>internal</c> member is visible
+    /// to the derived class, so it does hide the ancestor and is reported as unreachable from the
+    /// generated registry rather than skipped.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithInternalOnIntermediateBaseInSameAssembly_BindsIntermediateAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                internal static new IEnumerable<object[]> TestCases => new[] { new object[] { 2 } };
+            }
+
+            public class Tests : Middle
+            {
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
     }
 
     /// <summary>

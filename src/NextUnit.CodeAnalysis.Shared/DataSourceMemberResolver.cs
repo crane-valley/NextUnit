@@ -67,8 +67,8 @@ internal static class DataSourceMemberResolver
             return default;
         }
 
-        var members = GetCandidateMembers(typeSymbol, memberName);
         var compilingAssembly = knownDataSourceTypes.CompilingAssembly;
+        var members = GetCandidateMembers(typeSymbol, memberName, compilingAssembly);
 
         // First pass reproduces the pre-async precedence exactly: the first static parameterless
         // method, property, or field wins. Running it before the cancellation-aware pass is what
@@ -211,20 +211,33 @@ internal static class DataSourceMemberResolver
     /// a base property is dropped once any derived type declares a method of the same name --
     /// binding it would emit a property read for a name the compiler reads as a method group, which
     /// does not compile. Methods accumulate across levels instead, which is what lets a base
-    /// <c>Rows()</c> stay a candidate beside a derived <c>Rows(CancellationToken)</c> -- but a base
-    /// method whose signature a nearer declaration repeats is dropped, static or not, because that
-    /// nearer declaration is the one the compiler binds.
+    /// <c>Rows()</c> stay a candidate beside a derived <c>Rows(CancellationToken)</c>: that
+    /// overload is not applicable to a call supplying no arguments, so it never reduces the base
+    /// one away.
     /// </para>
     /// <para>
-    /// A base type's <c>private</c> members are skipped, because C# member lookup never sees them
-    /// from a derived type: they neither bind nor hide, so letting one win would report
-    /// <c>NU0020</c> for a name that in fact resolves further up the chain. A <c>private</c> member
-    /// on <paramref name="typeSymbol"/> itself is still collected and refused by
-    /// <see cref="GeneratedRegistryAccess.CanReachMember"/> -- it is the member the user named, so
-    /// naming it in a diagnostic beats silently binding a different one.
+    /// A base method <em>is</em> dropped when a nearer level declares one that is applicable to the
+    /// same call, whether or not the signatures match and whether or not it is static. C# reduces
+    /// the applicable candidates to those declared in the most derived type, so a derived
+    /// <c>Rows(int count = 1)</c> or <c>Rows(params int[])</c> is what <c>Derived.Rows()</c> calls
+    /// even though a base <c>Rows()</c> exists. Validating the base member there would classify one
+    /// member's rows while the emitted call ran another's -- silently, with no diagnostic and no
+    /// build failure. Dropping it instead leaves the source unbound and <c>NU0003</c> names it.
+    /// </para>
+    /// <para>
+    /// A base member C# member lookup cannot see from a derived type is skipped, because it neither
+    /// binds nor hides: <c>private</c> always, and <c>internal</c> or <c>private protected</c>
+    /// declared in another assembly that grants no <c>InternalsVisibleTo</c>. Letting one win would
+    /// report <c>NU0020</c> for a name that in fact resolves further up the chain and compiles. A
+    /// <c>private</c> member on <paramref name="typeSymbol"/> itself is still collected and refused
+    /// by <see cref="GeneratedRegistryAccess.CanReachMember"/> -- it is the member the user named,
+    /// so naming it in a diagnostic beats silently binding a different one.
     /// </para>
     /// </remarks>
-    public static ImmutableArray<ISymbol> GetCandidateMembers(INamedTypeSymbol typeSymbol, string memberName)
+    public static ImmutableArray<ISymbol> GetCandidateMembers(
+        INamedTypeSymbol typeSymbol,
+        string memberName,
+        IAssemblySymbol? compilingAssembly)
     {
         var members = typeSymbol.GetMembers(memberName);
 
@@ -240,25 +253,25 @@ internal static class DataSourceMemberResolver
         ImmutableArray<ISymbol>.Builder? builder = null;
         var sawMethod = !members.IsEmpty;
 
-        // Every method a nearer level declared. Reaching here means the declared members are all
-        // methods, and only methods are ever appended, so this stays a method list.
-        var claimed = members;
+        // Which of the two calls the generator can emit a nearer level already answers. Once a
+        // level does, every base method applicable to that same call is reduced away by C#, so
+        // keeping one would validate a member the emitted call never reaches.
+        var claimedNoArgument = DeclaresApplicableWithoutArguments(members);
+        var claimedToken = DeclaresApplicableWithCancellationToken(members);
 
         for (var baseType = typeSymbol.BaseType;
             baseType is not null && baseType.SpecialType != SpecialType.System_Object;
             baseType = baseType.BaseType)
         {
             var inherited = baseType.GetMembers(memberName)
-                .RemoveAll(static member => member.DeclaredAccessibility == Accessibility.Private);
+                .RemoveAll(member => !IsVisibleToDerivedType(member, compilingAssembly));
 
-            // A method is hidden by a nearer declaration of the same signature, whether or not that
-            // one is static. Keeping the base method would bind a call the compiler resolves to the
-            // derived declaration instead: a derived instance Rows() makes the emitted Derived.Rows()
-            // a CS0120 in generated code, which is worse than the NU0003 that not binding produces.
-            if (!claimed.IsEmpty)
+            if (claimedNoArgument || claimedToken)
             {
                 inherited = inherited.RemoveAll(member =>
-                    member is IMethodSymbol method && IsSignatureClaimed(claimed, method));
+                    member is IMethodSymbol method &&
+                    ((claimedNoArgument && IsApplicableWithoutArguments(method)) ||
+                        (claimedToken && IsApplicableWithCancellationToken(method))));
             }
 
             if (inherited.IsEmpty)
@@ -282,10 +295,105 @@ internal static class DataSourceMemberResolver
             }
 
             sawMethod = true;
-            claimed = claimed.AddRange(inherited);
+            claimedNoArgument |= DeclaresApplicableWithoutArguments(inherited);
+            claimedToken |= DeclaresApplicableWithCancellationToken(inherited);
         }
 
         return builder?.ToImmutable() ?? members;
+    }
+
+    /// <summary>
+    /// Reports whether C# member lookup from a type derived from the declaring type can see
+    /// <paramref name="member"/> at all.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="GeneratedRegistryAccess.CanReachMember"/>, which asks whether the
+    /// generated registry can name a member. A <c>protected</c> base member is invisible to the
+    /// registry but perfectly visible to the derived test class, so it still hides and still binds;
+    /// reporting it as <c>NU0020</c> is the right answer there. One that is invisible to the derived
+    /// class does not hide anything, and skipping it is what lets the accessible ancestor bind.
+    /// </remarks>
+    private static bool IsVisibleToDerivedType(ISymbol member, IAssemblySymbol? compilingAssembly)
+    {
+        switch (member.DeclaredAccessibility)
+        {
+            case Accessibility.Private:
+                return false;
+
+            // Both require the consuming code to share the declaring assembly. Across an assembly
+            // boundary without InternalsVisibleTo, neither is in scope for the derived class, so
+            // neither can hide a public ancestor.
+            case Accessibility.Internal:
+            case Accessibility.ProtectedAndInternal:
+                return compilingAssembly is null ||
+                    SymbolEqualityComparer.Default.Equals(member.ContainingAssembly, compilingAssembly) ||
+                    member.ContainingAssembly?.GivesAccessTo(compilingAssembly) == true;
+
+            default:
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// Reports whether the method can be called with no arguments at all, which is the call the
+    /// generator emits for the parameterless shape.
+    /// </summary>
+    /// <remarks>
+    /// Optional parameters and a trailing <c>params</c> array both count: C# fills them in, so
+    /// <c>Rows(int count = 1)</c> and <c>Rows(params int[] values)</c> each answer <c>Rows()</c>.
+    /// A generic method does not, because the emitted call names no type argument and there is
+    /// nothing to infer one from.
+    /// </remarks>
+    private static bool IsApplicableWithoutArguments(IMethodSymbol method) =>
+        method.Arity == 0 && ParametersCanBeOmittedFrom(method, 0);
+
+    /// <summary>
+    /// The same test for the cancellation-aware shape, where the emitted call supplies the token
+    /// and nothing else.
+    /// </summary>
+    private static bool IsApplicableWithCancellationToken(IMethodSymbol method) =>
+        method.Arity == 0 &&
+        method.Parameters.Length >= 1 &&
+        IsCancellationToken(method.Parameters[0]) &&
+        ParametersCanBeOmittedFrom(method, 1);
+
+    private static bool ParametersCanBeOmittedFrom(IMethodSymbol method, int firstOmitted)
+    {
+        for (var i = firstOmitted; i < method.Parameters.Length; i++)
+        {
+            if (!method.Parameters[i].IsOptional && !method.Parameters[i].IsParams)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool DeclaresApplicableWithoutArguments(ImmutableArray<ISymbol> members)
+    {
+        foreach (var member in members)
+        {
+            if (member is IMethodSymbol method && IsApplicableWithoutArguments(method))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool DeclaresApplicableWithCancellationToken(ImmutableArray<ISymbol> members)
+    {
+        foreach (var member in members)
+        {
+            if (member is IMethodSymbol method && IsApplicableWithCancellationToken(method))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool DeclaresNonMethod(ImmutableArray<ISymbol> members)
@@ -301,48 +409,32 @@ internal static class DataSourceMemberResolver
         return false;
     }
 
-    private static bool IsSignatureClaimed(ImmutableArray<ISymbol> claimed, IMethodSymbol method)
-    {
-        foreach (var member in claimed)
-        {
-            if (member is IMethodSymbol nearer && HasSameSignature(nearer, method))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Compares two methods the way C# hiding does: by arity and parameter list, ignoring the
-    /// return type and whether either one is static.
-    /// </summary>
-    private static bool HasSameSignature(IMethodSymbol left, IMethodSymbol right)
-    {
-        if (left.Arity != right.Arity || left.Parameters.Length != right.Parameters.Length)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < left.Parameters.Length; i++)
-        {
-            if (left.Parameters[i].RefKind != right.Parameters[i].RefKind ||
-                !SymbolEqualityComparer.Default.Equals(left.Parameters[i].Type, right.Parameters[i].Type))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     private static ImmutableArray<ISymbol>.Builder CreateBuilderFrom(ImmutableArray<ISymbol> members)
     {
         var builder = ImmutableArray.CreateBuilder<ISymbol>();
         builder.AddRange(members);
         return builder;
     }
+
+    /// <summary>
+    /// Reports whether a member has one of the two shapes a data source can be emitted from: read
+    /// directly, or called with no arguments, or called with the discovery token.
+    /// </summary>
+    /// <remarks>
+    /// The analyzers use this for the "does a usable member of this name exist at all" test that
+    /// precedes <see cref="Resolve"/>. A method that requires arguments is not usable however it is
+    /// declared -- neither the generated call nor the reflection fallback supplies any -- so
+    /// admitting it there would leave a source that binds nothing, reports nothing, and supplies
+    /// nothing.
+    /// </remarks>
+    public static bool HasBindableShape(ISymbol member) => member switch
+    {
+        IMethodSymbol { Arity: 0 } method =>
+            method.Parameters.Length == 0 ||
+            (method.Parameters.Length == 1 && IsCancellationToken(method.Parameters[0])),
+        IPropertySymbol or IFieldSymbol => true,
+        _ => false
+    };
 
     /// <summary>
     /// Matches a by-value <c>System.Threading.CancellationToken</c> parameter.
