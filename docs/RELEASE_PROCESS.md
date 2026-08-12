@@ -332,12 +332,30 @@ Creating a release on GitHub automatically triggers the NuGet package publishing
 
 **What happens automatically:**
 
-- GitHub Actions workflow (`.github/workflows/release.yml`) is triggered
-- Packages are built and packed
-- All seven packages (NextUnit, NextUnit.Core, NextUnit.Generator, NextUnit.TestAdapter,
-  NextUnit.Platform, NextUnit.AspNetCore, NextUnit.Templates)
-  are published to NuGet.org using GitHub OIDC authentication
-- No manual API key or `dotnet nuget push` commands needed
+The workflow (`.github/workflows/release.yml`) runs four jobs in sequence. The split exists so that no
+repository or package code ever executes in a job that can mint an OIDC token and exchange it for a
+nuget.org publishing credential.
+
+1. `build` - restores, builds, and packs the eleven release files (seven `.nupkg` plus four `.snupkg`),
+   verifies that exact set, then seals a sha256 manifest of it as a job output and uploads the packages
+   as an artifact. No OIDC permission.
+2. `smoke` - runs the test suite and every package-consuming check (both PackageSmoke projects and the
+   template) against the downloaded artifact, after re-verifying it against the sealed manifest. No OIDC
+   permission.
+3. `publish` - the only job that can mint an OIDC token, and the only one that never runs repository or
+   package code: no checkout, no `setup-dotnet`, only a SHA-pinned artifact download and `NuGet/login`.
+   It re-verifies the manifest, hard-fails if any of the seven package IDs already lists this version,
+   then pushes all seven primary packages followed by the four symbol packages.
+4. `verify-published` - polls nuget.org for the published set, then checks each package's repository
+   signature and nuspec metadata and runs the consumer smokes against nuget.org from an empty cache. No
+   OIDC permission.
+
+The `publish` job targets the `release` GitHub environment, so the release pauses for a deployment
+approval before any credential is minted. Nothing is published until that approval is granted.
+
+No manual API key or `dotnet nuget push` command is needed. If the run goes red at or after the
+`publish` job, do not re-run it and do not unlist anything before reading the
+[Partial Publish Runbook](#partial-publish-runbook).
 
 ### 9. Verify Release
 
@@ -345,6 +363,91 @@ Creating a release on GitHub automatically triggers the NuGet package publishing
 - [ ] GitHub release is created
 - [ ] Documentation on main branch shows correct version
 - [ ] Badge on README.md shows correct version
+
+## Partial Publish Runbook
+
+The release workflow publishes the seven primary packages in one attempt, from a single sealed
+artifact. There is no resume path. The duplicate gate in the `publish` job is stateless and always
+fails closed, so any re-run after a version reached nuget.org stops before pushing anything and points
+here.
+
+Read this runbook when the `publish` job fails, when it is cancelled, when the duplicate gate blocks a
+run, or when `verify-published` goes red on a green publish.
+
+### The principle
+
+No automated signal authorizes a destructive action or a safe-to-retry conclusion. Job colors, log
+lines, flat-container queries, and the duplicate gate itself are inputs to a human investigation, never
+decisions.
+
+The workflow's log lines are named for exactly what they prove:
+
+- `ATTEMPTING: <id> <version>` means the push started. Its outcome is unknown unless a logged response
+  proves non-acceptance (400, 401, 403, 413). A 409 proves the version exists and is never an
+  exclusion.
+- `PUSHED: <id> <version>` means accepted by the server. Validation on nuget.org is asynchronous and can
+  still reject the package afterwards.
+- `ATTEMPTING-SYMBOLS:` and `PUSHED-SYMBOLS:` carry the same meanings for symbol packages. They are the
+  only record a symbol push leaves, because `.snupkg` files never appear in flat-container queries.
+
+Symbol completeness is deliberately outside the no-mixed-release guarantee. Symbols are pushed in a
+second phase that starts only after every primary package has been accepted, so a symbol failure can
+never leave the primary set partial. A missing or rejected `.snupkg` on its own never burns a release:
+keep the release and fix symbols forward in the next one.
+
+### Step 1: Find out what actually exists
+
+Wait out asynchronous validation, which takes about an hour. Indexing is usually under 15 minutes but
+can take considerably longer. Then inspect the version in the nuget.org owner UI, which shows
+validating and unlisted packages that the public index does not.
+
+Use the logs from every attempt (GitHub keeps per-attempt logs) and the job outcomes as hints for where
+to look, and for nothing more than that.
+
+### Step 2: Decide on what exists, not on which signal fired
+
+**The full release exists and is healthy** - all seven primary packages validated, no defect confirmed.
+Keep it and unlist nothing. Then investigate why a workflow signaled anyway: an accidental re-run, an
+out-of-band publish, or a transient verification failure.
+
+**Still validating, or otherwise indeterminate after the wait.** Take no destructive action. Keep
+waiting, or contact nuget.org support, which is their own guidance once validation exceeds an hour.
+Revisit this decision only once all seven primary packages are in a determinate state. Symbol state is
+outside this judgment and may stay unobservable.
+
+**Anything of this version exists but the release is determinately incomplete, or a defect is
+confirmed** - including a defect confirmed later on a release whose jobs were all green. Burn the
+version:
+
+1. Unlist each existing package through the owner UI. No API key is needed; the workflow's
+   trusted-publishing credential is short-lived and already gone.
+2. Deprecate each one as "critical bugs", with a note pointing at the replacement version.
+3. Mark the GitHub release as failed or partial, keeping the tag.
+4. Bump the patch version and cut a new release.
+
+Two nuget.org properties this process cannot change: deprecation surfaces on the website and in
+`dotnet list package --deprecated` rather than as automatic restore warnings, and unlisted packages
+stay resolvable by exact version and by some floating version patterns.
+
+**Nothing of this version exists.** No registry cleanup is needed. Re-run the same workflow run only
+when the failure was purely environmental - a 401 or 403 from auth or policy, for instance - and its
+fix touched no repository content. Any failure whose fix needs a new commit, such as a 400 or 413 that
+is inherent to the artifact, instead requires marking the release failed, bumping the patch version,
+and cutting a new release, because a re-run reuses the same `GITHUB_SHA`.
+
+### Step 3: Before keeping a release from a red run, get the verification evidence
+
+Keeping a release that came out of a failed or cancelled run is conditional on the same evidence a
+green run produces: the `verify-published` job's signature, nuspec, and clean-cache consumer checks
+having completed, or you performing their manual equivalent before the keep decision is final.
+
+A red `verify-published` job on a green `publish` job is an investigate-first signal, not an unlist
+trigger. It can also go red on index lag beyond its 20-minute budget, on network errors, on CLI output
+drift, or on a transient restore failure. Unlist only after re-running the verification later confirms
+an actual defect in content, signature, nuspec, or the completeness of the published set.
+
+This procedure has no enumerated state machine on purpose. Verify registry reality first; every action
+follows from what exists.
 
 ## Post-Release
 
@@ -508,6 +611,10 @@ mismatch between the two files is the only way they can disagree.
 ### Issue: NuGet push fails with "package already exists"
 
 **Solution**: You cannot replace an existing package version. Increment the version number and try again.
+
+The release workflow's duplicate gate catches this before any push, and fails closed on purpose. Do not
+re-run the workflow to get past it: follow the [Partial Publish Runbook](#partial-publish-runbook),
+which starts by establishing what is actually on nuget.org.
 
 ### Issue: Tests fail after version update
 
