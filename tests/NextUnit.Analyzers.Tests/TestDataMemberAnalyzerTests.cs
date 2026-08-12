@@ -1324,6 +1324,49 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// An event hides a same-named source on a base class. The compile-time walk sees it because
+    /// <c>GetMembers</c> returns events, and this is the guard the runtime fallback relies on: its
+    /// candidates are methods, properties, and fields only, because asking reflection for events
+    /// costs trimming annotations on every test class. The build has to fail before that path runs.
+    /// </summary>
+    [Fact]
+    public async Task TestDataHiddenByDerivedEvent_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public new event EventHandler TestCases
+                {
+                    add { }
+                    remove { }
+                }
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(19, 6, 19, 27)
+            .WithArguments("TestCases", "Tests");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// A nested type on an intermediate base hides a same-named source further up, and the
     /// compile-time walk sees it because <c>GetMembers</c> returns nested types. This is the guard
     /// on the one place the runtime fallback cannot follow: reflection's <c>FlattenHierarchy</c>

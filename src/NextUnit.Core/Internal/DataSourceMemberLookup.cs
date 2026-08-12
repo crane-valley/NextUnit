@@ -31,15 +31,6 @@ internal static class DataSourceMemberLookup
         BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance |
         BindingFlags.FlattenHierarchy;
 
-    /// <remarks>
-    /// Events and nested types are here for the same reason instance members are: neither can ever
-    /// be read as a data source, but both hide a base member of the same name, and a candidate list
-    /// that leaves them out reads the member they hide.
-    /// </remarks>
-    private const MemberTypes DataSourceMemberKinds =
-        MemberTypes.Method | MemberTypes.Property | MemberTypes.Field |
-        MemberTypes.Event | MemberTypes.NestedType;
-
     /// <summary>
     /// Reads the value of the static member <paramref name="memberName"/> names on
     /// <paramref name="sourceType"/> or one of its base types.
@@ -50,9 +41,7 @@ internal static class DataSourceMemberLookup
         string memberName,
         out object? value)
     {
-        var candidates = sourceType.GetMember(memberName, DataSourceMemberKinds, StaticMemberLookup);
-
-        switch (SelectMember(sourceType, candidates))
+        switch (SelectMember(sourceType, CollectCandidates(sourceType, memberName)))
         {
             case MethodInfo method:
                 value = method.Invoke(null, null);
@@ -70,6 +59,58 @@ internal static class DataSourceMemberLookup
                 value = null;
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Gathers every method, property, and field of that name, flattened across the base chain.
+    /// </summary>
+    /// <remarks>
+    /// One call per member kind rather than a single <c>GetMember</c> with a
+    /// <see cref="MemberTypes"/> mask. The trimmer does not read that mask: it treats
+    /// <c>GetMember</c> as able to return any kind and demands the annotations for constructors,
+    /// events, and nested types as well, which is <c>IL2070</c> and, in the Native AOT smoke test,
+    /// a failed build. The per-kind calls ask for exactly what the annotation on
+    /// <see cref="TryReadStaticMember"/> already grants.
+    /// <para>
+    /// Events and nested types are therefore not among the candidates, so neither blocks a
+    /// same-named source further up the chain the way C# hiding would. Both are stopped earlier
+    /// instead: the compile-time walk sees them, binds nothing, and <c>NU0003</c> fails the build
+    /// before this runs. Widening the annotations to cover them would make every test class and
+    /// data source type keep its events and nested types under trimming, which is a real cost for
+    /// a case that cannot reach here.
+    /// </para>
+    /// </remarks>
+    private static List<MemberInfo> CollectCandidates(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)] Type sourceType,
+        string memberName)
+    {
+        var candidates = new List<MemberInfo>();
+
+        foreach (var method in sourceType.GetMethods(StaticMemberLookup))
+        {
+            if (method.Name == memberName)
+            {
+                candidates.Add(method);
+            }
+        }
+
+        foreach (var property in sourceType.GetProperties(StaticMemberLookup))
+        {
+            if (property.Name == memberName)
+            {
+                candidates.Add(property);
+            }
+        }
+
+        foreach (var field in sourceType.GetFields(StaticMemberLookup))
+        {
+            if (field.Name == memberName)
+            {
+                candidates.Add(field);
+            }
+        }
+
+        return candidates;
     }
 
     /// <summary>
@@ -96,9 +137,9 @@ internal static class DataSourceMemberLookup
     /// reflected over a base type here, so the annotation on the entry point stays sufficient.
     /// </para>
     /// </remarks>
-    private static MemberInfo? SelectMember(Type sourceType, MemberInfo[] candidates)
+    private static MemberInfo? SelectMember(Type sourceType, List<MemberInfo> candidates)
     {
-        if (candidates.Length == 0)
+        if (candidates.Count == 0)
         {
             return null;
         }

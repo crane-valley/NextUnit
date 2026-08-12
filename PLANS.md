@@ -614,10 +614,13 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   over the flattened candidates by declaring type rather than by member kind: searching kind by kind
   reads a base property for a name a derived method has taken over, which runs a test against data
   the user never pointed at, and it also turns a flattened `Rows()` plus `Rows(CancellationToken)`
-  into an ambiguous match. Instance members, events, and nested types are candidates there for
-  hiding only: none can be read as a data source, but each hides the base member of the same name,
-  and a candidate list that leaves them out reads the member they hide. Nothing non-static is ever
-  returned.
+  into an ambiguous match. Instance members are candidates there for hiding only: one cannot be read
+  as a data source, but it hides the base member of the same name, and a candidate list that leaves
+  it out reads the member it hides. Nothing non-static is ever returned. The candidates are gathered
+  with one call per member kind rather than a single `GetMember` with a `MemberTypes` mask, because
+  the trimmer does not read that mask -- it treats `GetMember` as able to return any kind and demands
+  the constructor, event, and nested-type annotations too, which is `IL2070` and a failed Native AOT
+  smoke build.
 - [ ] Three accepted divergences from C# member lookup, all narrow, all reported by the Codex review
   and left deliberately. A derived overload that is applicable to a no-argument call without being
   parameterless -- `Rows(int value = 0)` or `Rows(params int[])` -- does not win over an inherited
@@ -629,17 +632,20 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   applicability and by accessibility before hiding -- two staged passes rather than one walk -- which
   is a rewrite of the resolver rather than an extension of it, and neither divergence emits code that
   fails to compile or silently supplies the wrong rows. The third is in the runtime fallback alone:
-  `BindingFlags.FlattenHierarchy` does not return nested types declared on a base class, so a nested
-  type on an intermediate base does not block a same-named static source further up, though one on
-  the type the attribute names does. It fails loudly rather than silently, which is why it is
-  deferred: the compile-time walk does see that nested type, because `GetMembers` returns nested
-  types, so the source resolves to nothing and `NU0003` fails the build before the fallback can run.
-  `TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync` pins that guard. Closing the
-  fallback side means reflecting for nested types level by level, which needs
-  `PublicNestedTypes`/`NonPublicNestedTypes` added to the trimming annotations on every entry point
-  into the fallback and reflection over a base `Type` those annotations do not flow to -- an AOT and
-  trimming cost against a data source name that is also a nested type name on an intermediate base,
-  and one the analyzer already stops. Deferred per the review circuit breaker after round 5.
+  its candidates are methods, properties, and fields, so an event or a nested type sharing the name
+  does not block a same-named source further up the chain the way C# hiding would. It fails loudly
+  rather than silently, which is what makes deferring it safe: the compile-time walk does see both
+  kinds, because `GetMembers` returns them, so the source resolves to nothing and `NU0003` fails the
+  build before the fallback can run.
+  `TestDataHiddenByDerivedEvent_ReportsNotFoundAsync` and
+  `TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync` pin that guard rather than
+  leaving it to reasoning. Closing the fallback side means asking reflection for events and nested
+  types, and the trimmer charges for that whether or not the mask requests them: `GetMember` with a
+  `MemberTypes` mask already demanded the constructor, event, and nested-type annotations and broke
+  the Native AOT smoke build with `IL2070`. Paying it would make every test class and data source
+  type keep its constructors, events, and nested types under trimming, for a case the analyzer
+  already stops. Deferred per the review circuit breaker after round 5, and confirmed by the AOT
+  gate on PR #229.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

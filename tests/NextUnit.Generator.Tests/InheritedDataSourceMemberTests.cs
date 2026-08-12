@@ -126,21 +126,6 @@ public sealed class InheritedDataSourceMemberTests
     }
 
     /// <summary>
-    /// An event can never be read as a data source, but it hides the base member of the same name
-    /// all the same. A candidate list that left events out would read the member it hides.
-    /// </summary>
-    [Fact]
-    public void ExpandSingle_DerivedEventHidingInheritedProperty_ReportsNotFound()
-    {
-        var descriptor = CreateDescriptor(nameof(HidingBase.EventHiddenRows), typeof(HidingDerived));
-
-        var exception = Assert.Throws<InvalidOperationException>(
-            () => TestDataExpander.ExpandSingle(descriptor, TestContext.Current.CancellationToken).ToList());
-
-        Xunit.Assert.Contains("not found", exception.Message, StringComparison.Ordinal);
-    }
-
-    /// <summary>
     /// The parameter-level fallback applies the same hiding, since it shares the lookup.
     /// </summary>
     [Fact]
@@ -239,8 +224,6 @@ public sealed class InheritedDataSourceMemberTests
         public static IEnumerable<int> HiddenValues => [21, 22];
 
         public static IEnumerable<object[]> InstanceHiddenRows() => [[7, 7, 14]];
-
-        public static IEnumerable<object[]> EventHiddenRows => [[9, 9, 18]];
     }
 
     private sealed class HidingDerived : HidingBase
@@ -250,13 +233,6 @@ public sealed class InheritedDataSourceMemberTests
         public static new IEnumerable<int> HiddenValues(int count) => [count];
 
         public new IEnumerable<object[]> InstanceHiddenRows() => [[8, 8, 16]];
-
-        // Accessors are written out so the event is not reported as never used.
-        public new event EventHandler EventHiddenRows
-        {
-            add { }
-            remove { }
-        }
     }
 
     private class TokenBase
