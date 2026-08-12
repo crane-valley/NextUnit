@@ -78,6 +78,7 @@ internal static class DataSourceAttributeReader
                 memberTypeName,
                 member.Kind,
                 member.Shape,
+                member.RowTypeName,
                 member.AcceptsCancellationToken,
                 deferredEnumeration,
                 unreachableMemberTypeName));
@@ -411,7 +412,7 @@ internal static class DataSourceAttributeReader
     /// member the registry cannot name, or one whose cancellation token the synchronous provider has
     /// no way to pass, would produce generated code that does not compile.
     /// </remarks>
-    private static (DataSourceMemberKind Kind, DataSourceShape Shape, bool AcceptsCancellationToken) ResolveTestDataMember(
+    private static (DataSourceMemberKind Kind, DataSourceShape Shape, string? RowTypeName, bool AcceptsCancellationToken) ResolveTestDataMember(
         INamedTypeSymbol? typeSymbol,
         string memberName,
         KnownDataSourceTypes knownDataSourceTypes)
@@ -428,8 +429,19 @@ internal static class DataSourceAttributeReader
             }
             : DataSourceMemberKind.Unknown;
 
-        return kind == DataSourceMemberKind.Unknown
-            ? (DataSourceMemberKind.Unknown, DataSourceShape.Sync, false)
-            : (kind, knownDataSourceTypes.Classify(resolved.MemberType).Shape, resolved.AcceptsCancellationToken);
+        if (kind == DataSourceMemberKind.Unknown)
+        {
+            return (DataSourceMemberKind.Unknown, DataSourceShape.Sync, null, false);
+        }
+
+        // Classified once and read twice: the walk covers every interface the member's type
+        // implements, and the row type has to be the one this shape was decided from.
+        var classification = knownDataSourceTypes.Classify(resolved.MemberType);
+
+        return (
+            kind,
+            classification.Shape,
+            classification.RowType?.ToDisplayString(AttributeHelper.TypeExpressionFormat),
+            resolved.AcceptsCancellationToken);
     }
 }

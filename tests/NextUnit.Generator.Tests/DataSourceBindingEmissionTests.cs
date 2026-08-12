@@ -518,6 +518,136 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
+    /// The row type is named in the emitted adapter call rather than left to inference, so the arm
+    /// the run enumerates is the one the classification chose.
+    /// </summary>
+    [Fact]
+    public async Task AsyncEnumerableSource_NamesTheRowTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                public static async IAsyncEnumerable<object[]> Rows()
+                {
+                    await System.Threading.Tasks.Task.Yield();
+                    yield return new object[] { 1 };
+                }
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("FromAsyncEnumerableAsync<object[]>(global::TestProject.DataTests.Rows()", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A source implementing the asynchronous element interface twice used to emit a call whose type
+    /// argument could not be inferred, failing the consumer's build with CS0411 in a file they did
+    /// not write. The named argument both fixes that and pins which arm is read: TestDataRow&lt;T&gt;
+    /// wins by the same precedence rule NU0009 validates against.
+    /// </summary>
+    [Fact]
+    public async Task MultipleAsyncEnumerableArms_NameTheSelectedRowTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            namespace TestProject;
+
+            public sealed class DualRows : IAsyncEnumerable<object[]>, IAsyncEnumerable<TestDataRow<int>>
+            {
+                IAsyncEnumerator<object[]> IAsyncEnumerable<object[]>.GetAsyncEnumerator(CancellationToken cancellationToken) =>
+                    Untyped().GetAsyncEnumerator(cancellationToken);
+
+                IAsyncEnumerator<TestDataRow<int>> IAsyncEnumerable<TestDataRow<int>>.GetAsyncEnumerator(CancellationToken cancellationToken) =>
+                    Typed().GetAsyncEnumerator(cancellationToken);
+
+                private static async IAsyncEnumerable<object[]> Untyped()
+                {
+                    await System.Threading.Tasks.Task.Yield();
+                    yield return new object[] { 1 };
+                }
+
+                private static async IAsyncEnumerable<TestDataRow<int>> Typed()
+                {
+                    await System.Threading.Tasks.Task.Yield();
+                    yield return new TestDataRow<int>(2);
+                }
+            }
+
+            public class DataTests
+            {
+                public static DualRows Rows() => new DualRows();
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains(
+            "FromAsyncEnumerableAsync<global::NextUnit.TestDataRow<int>>(global::TestProject.DataTests.Rows()",
+            registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// The task-wrapped arms are deliberately left inferred. Their type argument is the awaited
+    /// collection, not the row, and Task&lt;TRows&gt; admits exactly one inference, so naming it
+    /// would move every baseline to state what the compiler had no choice about.
+    /// </summary>
+    [Fact]
+    public async Task TaskWrappedSource_LeavesTheCollectionTypeInferredAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                public static Task<IEnumerable<object[]>> Rows() =>
+                    Task.FromResult<IEnumerable<object[]>>(new[] { new object[] { 1 } });
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("FromTaskAsync(global::TestProject.DataTests.Rows()", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
     /// Compiles the user's source together with everything the generator emitted for it. Asserting
     /// on the registry text alone would not catch a type reference emitted somewhere the assertions
     /// do not look, and CS0122 inside generated code is exactly the failure being prevented.

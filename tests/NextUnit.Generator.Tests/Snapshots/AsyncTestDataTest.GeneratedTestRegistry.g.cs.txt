@@ -35,7 +35,7 @@ internal static class GeneratedTestRegistry
                 DataSourceName = "StreamedRows",
                 DataSourceType = typeof(global::TestProject.AsyncTestDataTests),
                 DataSourceProvider = null,
-                AsyncDataSourceProvider = static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync(global::TestProject.AsyncTestDataTests.StreamedRows(ct), ct),
+                AsyncDataSourceProvider = static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync<object[]>(global::TestProject.AsyncTestDataTests.StreamedRows(ct), ct),
                 ParameterTypes = new global::System.Type[] { typeof(int), typeof(int) },
                 Lifecycle = new global::NextUnit.Internal.LifecycleInfo
                 {
@@ -88,7 +88,7 @@ internal static class GeneratedTestRegistry
                 DataSourceName = "UncancellableRows",
                 DataSourceType = typeof(global::TestProject.AsyncTestDataTests),
                 DataSourceProvider = null,
-                AsyncDataSourceProvider = static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync(global::TestProject.AsyncTestDataTests.UncancellableRows(), ct),
+                AsyncDataSourceProvider = static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync<object[]>(global::TestProject.AsyncTestDataTests.UncancellableRows(), ct),
                 ParameterTypes = new global::System.Type[] { typeof(int), typeof(int) },
                 Lifecycle = new global::NextUnit.Internal.LifecycleInfo
                 {

@@ -196,6 +196,7 @@ internal sealed record TestDataSource
         string? memberTypeName,
         DataSourceMemberKind memberKind,
         DataSourceShape shape,
+        string? rowTypeName,
         bool acceptsCancellationToken,
         bool deferredEnumeration,
         string? unreachableMemberTypeName = null)
@@ -204,6 +205,7 @@ internal sealed record TestDataSource
         MemberTypeName = memberTypeName;
         MemberKind = memberKind;
         Shape = shape;
+        RowTypeName = rowTypeName;
         AcceptsCancellationToken = acceptsCancellationToken;
         DeferredEnumeration = deferredEnumeration;
         UnreachableMemberTypeName = unreachableMemberTypeName;
@@ -230,6 +232,21 @@ internal sealed record TestDataSource
     /// synchronous provider delegate or the asynchronous one.
     /// </summary>
     public DataSourceShape Shape { get; }
+
+    /// <summary>
+    /// Gets the row type the member yields, spelled as the generated registry may name it, or
+    /// <c>null</c> when the element type is not statically known.
+    /// </summary>
+    /// <remarks>
+    /// Carried so that the emitted adapter call names its type argument rather than leaving it to
+    /// inference, which has no answer for a source implementing <c>IAsyncEnumerable&lt;T&gt;</c>
+    /// more than once and reports <c>CS0411</c> in a file the user did not write. It comes from the
+    /// same <c>KnownDataSourceTypes.Classify</c> result <see cref="Shape"/> does, so the emitted arm
+    /// is the one <c>KnownDataSourceTypes.SelectRowType</c> chose and <c>NU0009</c> validated
+    /// against. Recomputing it at the emitter was rejected for that reason: a second walk over the
+    /// interfaces would be a second precedence rule, free to drift from the analyzers'.
+    /// </remarks>
+    public string? RowTypeName { get; }
 
     /// <summary>
     /// Gets a value indicating whether the member is a method that takes the discovery cancellation

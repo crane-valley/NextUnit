@@ -88,7 +88,7 @@ internal static class GeneratedTestRegistry
                 DataSourceName = "StreamedRows",
                 DataSourceType = typeof(global::TestProject.DeferredTestDataTests),
                 DataSourceProvider = null,
-                AsyncDataSourceProvider = static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync(global::TestProject.DeferredTestDataTests.StreamedRows(ct), ct),
+                AsyncDataSourceProvider = static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync<object[]>(global::TestProject.DeferredTestDataTests.StreamedRows(ct), ct),
                 DeferredEnumeration = true,
                 ParameterTypes = new global::System.Type[] { typeof(int), typeof(int) },
                 Lifecycle = new global::NextUnit.Internal.LifecycleInfo

@@ -562,7 +562,7 @@ decision, and none of them was introduced by that change.
   fully qualified element type name. Declaration order was rejected as the tie-break because
   `AllInterfaces` does not expose one. The non-generic `IEnumerable` walk needed no change: it
   answers a yes-or-no question, so the order it visits candidates in cannot affect the answer.
-- [ ] The selected row type does not reach the emitted provider. `TestDataSource` carries the shape
+- [x] The selected row type does not reach the emitted provider. `TestDataSource` carries the shape
   but not the row type, so `BuildAsyncTestDataSourceProvider` emits a bare
   `AsyncDataSourceAdapter.FromAsyncEnumerableAsync(source, ct)`. A source implementing
   `IAsyncEnumerable<T>` more than once therefore fails the consumer's build with `CS0411`, because
@@ -571,7 +571,26 @@ decision, and none of them was introduced by that change.
   the row type has never reached the generator -- and surfaced by the Codex review of the row-type
   precedence work (2026-08-12). Closing it means threading the selected row type through the
   descriptor model and emitting an explicitly typed adapter call, which moves every async snapshot
-  baseline, so it is its own change with its own review.
+  baseline, so it is its own change with its own review. Done 2026-08-13: `TestDataSource` gained a
+  `RowTypeName`, taken from the same `KnownDataSourceTypes.Classify` result its `Shape` comes from,
+  and the `IAsyncEnumerable<T>` arm emits `FromAsyncEnumerableAsync<TRow>`. Recomputing the row type
+  at the emitter was rejected because a second walk over the interfaces is a second precedence rule,
+  free to drift from the one the analyzers apply. Naming the type argument of the task-wrapped arms
+  was rejected too: theirs is the awaited collection rather than the row, and `Task<TRows>` admits
+  exactly one inference, so it would move baselines to state what the compiler had no choice about.
+  The threading is orthogonal to the declaring-type item below -- `RowTypeName` is its own field and
+  touches neither `MemberTypeName` nor the emitted `DataSourceType` -- so that route is unaffected.
+- [ ] Rows still reach the runtime through the non-generic `IEnumerable`, which is the other half of
+  the bullet above. Both the synchronous provider and `AsyncDataSourceAdapter.FromTaskAsync`
+  enumerate whatever `IEnumerable.GetEnumerator` dispatches to, so a source implementing
+  `IEnumerable<T>` more than once still yields rows of a different arm than the one `NU0009`
+  validated. Naming the row type at those call sites does not fix it: a cast selects no
+  implementation, because the runtime re-reads the value as non-generic `IEnumerable` and dispatches
+  virtually. Closing it means a typed synchronous adapter -- new public API on `NextUnit.Core`, and
+  it moves every synchronous snapshot baseline rather than only the async ones, which is why it was
+  left out of the row type threading. Nothing here fails a build: the shape resolves and runs, and
+  only the arm chosen is wrong, which is why it is worth less than the `CS0411` half and is recorded
+  separately rather than held open with it.
 
 ### Priority 2 — Emitted type names do not escape keyword identifiers
 
