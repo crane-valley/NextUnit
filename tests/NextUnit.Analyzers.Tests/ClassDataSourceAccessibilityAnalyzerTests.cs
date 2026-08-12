@@ -577,6 +577,101 @@ public class Tests
             Expected("Tests.Values"));
     }
 
+    /// <summary>
+    /// A nested type reports the namespace of its outermost container, so a user's own
+    /// <c>NextUnit.Container.ValuesAttribute</c> answers to the same name and namespace as
+    /// <c>[Values]</c>. It must not win the selection, or the real source behind it would go
+    /// unreported while the generator still constructs it.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromBehindNestedLookalikeValues_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+namespace NextUnit
+{
+    public static class Container
+    {
+        public sealed class ValuesAttribute : System.Attribute
+        {
+            public ValuesAttribute(params object?[] values)
+            {
+            }
+        }
+
+        public sealed class ValuesFromMemberAttribute : System.Attribute
+        {
+            public ValuesFromMemberAttribute(string memberName)
+            {
+            }
+        }
+    }
+}
+
+public class Tests
+{
+    private sealed class Values : System.Collections.Generic.IEnumerable<int>
+    {" + ValueSourceBody + @"    }
+
+    [Test]
+    public void TestMethod(
+        [Container.Values(1), {|#0:ValuesFrom<Values>|}] int first,
+        [Container.ValuesFromMember(""Nope""), {|#1:ValuesFrom<Values>|}] int second)
+    {
+    }
+}";
+
+        var onFirst = CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>
+            .Diagnostic("NU0022")
+            .WithLocation(0)
+            .WithArguments("Tests.Values");
+        var onSecond = CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>
+            .Diagnostic("NU0022")
+            .WithLocation(1)
+            .WithArguments("Tests.Values");
+
+        await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(
+            source,
+            onFirst,
+            onSecond);
+    }
+
+    /// <summary>
+    /// The same nesting trap on the method-level attribute: a lookalike nested in a type is not
+    /// NextUnit's, so nothing is emitted for it and nothing is reported.
+    /// </summary>
+    [Fact]
+    public async Task NestedLookalikeClassDataSource_NoDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+namespace NextUnit
+{
+    public static class Container
+    {
+        public sealed class ClassDataSourceAttribute<T> : System.Attribute
+        {
+        }
+    }
+}
+
+public class Tests
+{
+    private sealed class Rows : System.Collections.Generic.IEnumerable<object[]>
+    {" + RowSourceBody + @"    }
+
+    [Test]
+    [Container.ClassDataSource<Rows>]
+    public void TestMethod(int value)
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
     [Fact]
     public async Task NoDataSourceAttribute_NoDiagnosticAsync()
     {

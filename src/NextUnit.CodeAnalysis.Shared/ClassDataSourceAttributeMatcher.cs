@@ -40,10 +40,18 @@ internal static class ClassDataSourceAttributeMatcher
             ? attribute.AttributeClass!.TypeArguments[0]
             : null;
 
+    /// <remarks>
+    /// <c>ContainingType</c> is compared because a nested type reports the namespace of its
+    /// outermost container, so a user's own <c>NextUnit.Container.ClassDataSourceAttribute&lt;T&gt;</c>
+    /// would otherwise be read as a NextUnit data source. The display-string comparisons this
+    /// replaced were loose the same way for the generic attributes; NextUnit declares none of its
+    /// attributes nested, so tightening it costs nothing a real source has.
+    /// </remarks>
     private static bool IsGenericNextUnitAttribute(AttributeData attribute, string simpleName) =>
         attribute.AttributeClass is
         {
             IsGenericType: true,
+            ContainingType: null,
             ContainingNamespace:
             {
                 Name: NextUnitAttributeNames.Namespace,

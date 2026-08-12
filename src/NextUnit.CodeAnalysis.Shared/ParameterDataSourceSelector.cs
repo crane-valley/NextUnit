@@ -73,11 +73,15 @@ internal static class ParameterDataSourceSelector
     /// <remarks>
     /// Arity is compared because the generic siblings are separate attributes with separate
     /// meanings: <c>[ValuesFrom&lt;T&gt;]</c> must not answer to <c>[ValuesFromMember]</c>'s arm.
+    /// <c>ContainingType</c> is compared because a nested type reports the namespace of its
+    /// outermost container, so <c>NextUnit.Container.ValuesAttribute</c> would otherwise pass as
+    /// <c>[Values]</c> and win the selection ahead of a real data source attribute behind it.
     /// </remarks>
     private static bool IsNonGenericNextUnitAttribute(AttributeData attribute, string simpleName) =>
         attribute.AttributeClass is
         {
             Arity: 0,
+            ContainingType: null,
             ContainingNamespace:
             {
                 Name: NextUnitAttributeNames.Namespace,
