@@ -90,12 +90,10 @@ internal static class NextUnitAttributeNames
 
     /// <summary>
     /// Metadata names of the generic NextUnit types. Generic arity is part of the metadata name,
-    /// so these are matched by prefix or by exact metadata name rather than by display string.
+    /// so these are matched by exact metadata name rather than by display string.
     /// </summary>
     public static class MetadataNames
     {
-        public const string ClassDataSourceAttributePrefix = "ClassDataSourceAttribute`";
-        public const string ValuesFromAttributePrefix = "ValuesFromAttribute`";
         public const string TestDataRow = "TestDataRow`1";
     }
 }

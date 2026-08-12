@@ -708,7 +708,7 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   `DataSourceType`, because that one also builds the row id prefix -- switching it would move test
   case ids from `Derived.Rows` to `Base.Rows`, which filters and the VSTest adapter's id-to-descriptor
   mapping can both see. Its own change, with its own review of the id surface.
-- [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
+- [x] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths
   no longer do this -- an unreachable `MemberType` is withheld from the descriptor and from the
@@ -717,6 +717,14 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   build error into a source that silently supplies nothing. It needs a diagnostic instead, which is
   a new rule ID and its own change. `GeneratedRegistryAccess` already answers the question, so only
   the rule is missing. Surfaced by the Codex review of the accessibility work (2026-08-12).
+  Done 2026-08-13 as `NU0022`, reported by `ClassDataSourceAccessibilityAnalyzer` against
+  `GeneratedRegistryAccess.CanReachType` -- the same decision the emitter makes, not a second
+  reading of it. The type is reported and still emitted, as recorded above. The attribute selection
+  moved to a shared `ClassDataSourceAttributeMatcher` for the same reason: the rule has to fire on
+  exactly the attributes the generator emits for, and three independent spellings of that test
+  existed across the analyzer and the generator. The rule does not wait for `[Test]`, so a data
+  source attribute on a method the generator ignores now fails the build instead of only warning as
+  `NU0013`.
 - [x] Cover `private`, `protected`, `internal`, and inherited members on the synchronous and
   asynchronous paths once the decisions are made. Done 2026-08-12 for accessibility:
   `private`, `protected`, a public member of a `private` nested type, and `[ValuesFromMember]` are

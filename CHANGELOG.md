@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `NU0022` reports a `[ClassDataSource<T>]` or `[ValuesFrom<T>]` source type the generated registry
+  cannot name. Both attributes are emitted as `typeof(T)` and `new T()`, so an unreachable `T` used to
+  fail the build with `CS0122` inside generated code, in a file you did not write and with nothing
+  naming the attribute that caused it. C# accepts more at the attribute than the registry can name:
+  a `private` or `protected` nested source satisfies the `IEnumerable` and `new()` constraints where
+  the attribute is written, and a `protected` source on a base class is in scope in the derived test
+  class. The reachability decision is the one the emitter already makes, so the rule fires exactly
+  where the generated code would not compile.
+  Unlike an unreachable `[TestData]` `MemberType`, which is withheld from the registry, the type is
+  reported rather than dropped: the emitted factory is the only way a class data source is
+  constructed, so withholding it would trade a build error for a source that silently supplies no
+  rows.
+  This can fail a build that compiled before. The unreachable type is already broken in every case
+  the generator emits, but a data source attribute on a method with no `[Test]` is ignored by the
+  generator -- reported today only as the `NU0013` warning -- and now fails the build as well.
+  Whether that warrants a major version is a release-time decision.
+
 ### Fixed
 
 - Resolve a `[TestData]` or `[ValuesFromMember]` member declared on a base test class. Member lookup
