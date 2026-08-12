@@ -48,7 +48,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(6, 6, 6, 35)
-            .WithArguments("NonExistentMember", "Tests");
+            .WithArguments("NonExistentMember", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -75,7 +75,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(9, 6, 9, 27)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -106,7 +106,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -133,7 +133,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -196,7 +196,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Fixtures");
+            .WithArguments("TestCases", "Fixtures", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -228,7 +228,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -266,7 +266,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Fixtures");
+            .WithArguments("TestCases", "Fixtures", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -298,7 +298,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("Rows", "Tests");
+            .WithArguments("Rows", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -328,7 +328,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("Values", "Tests");
+            .WithArguments("Values", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -394,18 +394,20 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(6, 29, 6, 60)
-            .WithArguments("NonExistent", "Tests");
+            .WithArguments("NonExistent", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
     /// <summary>
     /// A parameter-level source binds only a parameterless member, so a token-taking overload is out
-    /// of its reach whatever its accessibility. Widening it would not make it bind, so NU0020 stays
-    /// quiet rather than naming a fix that does not work.
+    /// of its reach whatever its accessibility. NU0020 would name a fix that does not work -- widening
+    /// it still leaves it unusable -- so the report is NU0003: the name resolves to nothing this
+    /// attribute can expand. It used to report nothing at all, which left the source binding nothing
+    /// and failing at discovery with a member-not-found message instead.
     /// </summary>
     [Fact]
-    public async Task ValuesFromMemberWithPrivateCancellableOverload_NoDiagnosticAsync()
+    public async Task ValuesFromMemberWithPrivateCancellableOverload_ReportsNotFoundAsync()
     {
         var source = """
             using NextUnit;
@@ -422,13 +424,18 @@ public class TestDataMemberAnalyzerTests
                 }
 
                 [Test]
-                public void TestMethod([ValuesFromMember("Values")] int value)
+                public void TestMethod([{|#0:ValuesFromMember("Values")|}] int value)
                 {
                 }
             }
             """;
 
-        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Values", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
     /// <summary>
@@ -486,7 +493,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(9, 6, 9, 22)
-            .WithArguments("Rows", "Tests");
+            .WithArguments("Rows", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -512,7 +519,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithLocation(0)
-            .WithArguments("Values", "Tests");
+            .WithArguments("Values", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -616,7 +623,7 @@ public class TestDataMemberAnalyzerTests
         var notFound = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithLocation(1)
-            .WithArguments("Rows", "Missing");
+            .WithArguments("Rows", "Missing", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, compilerError, notFound);
     }
@@ -1217,4 +1224,1144 @@ public class TestDataMemberAnalyzerTests
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
+
+    /// <summary>
+    /// C# binds <c>Tests.Rows</c> to a member declared on the base class, and so does the generated
+    /// registry, so lookup that stopped at the declaring type reported a source that works.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithInheritedStaticMember_NoDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// A derived instance method hides a base static one of the same signature, so
+    /// <c>Tests.TestCases</c> is not a static reference at all. Binding the base member would emit
+    /// a call the compiler rejects with CS0120 inside generated code; reporting NU0003 is what the
+    /// same declaration produced before the base chain was walked.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedInstanceMethodHidingBaseStatic_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public new IEnumerable<object[]> TestCases() => new[] { new object[] { 2 } };
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 27)
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// Signature hiding covers the token-taking overload too, not only the parameterless one. A
+    /// derived instance <c>TestCases(CancellationToken)</c> hides the base static overload, so
+    /// emitting a call to it would be a CS0120 inside generated code.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedInstanceTokenOverloadHidingBaseStatic_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            public class TestBase
+            {
+                public static IAsyncEnumerable<object[]> TestCases(CancellationToken token) => null!;
+            }
+
+            public class Tests : TestBase
+            {
+                public new IAsyncEnumerable<object[]> TestCases(CancellationToken token) => null!;
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(15, 6, 15, 27)
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// C# reduces the applicable candidates to those declared in the most derived type, so
+    /// <c>Tests.TestCases()</c> calls the derived overload with its optional parameter filled in,
+    /// not the inherited parameterless one. Binding the base member here would classify one
+    /// member's rows while the emitted call ran another's, with nothing to warn the user.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedOptionalParameterOverload_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public static IEnumerable<object[]> TestCases(int count = 1) => new[] { new object[] { count } };
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 27)
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The same reduction applies to a <c>params</c> overload, which C# binds in its expanded form
+    /// with no elements.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedParamsOverload_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public static IEnumerable<object[]> TestCases(params int[] counts) => new[] { new object[] { 2 } };
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 27)
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A derived overload that cannot be called with no arguments still claims the name, because
+    /// the nearest declaring level is the only one considered. C# would fall back to the inherited
+    /// parameterless member here; the contract reports the source instead, and the fix is to
+    /// declare it on the derived type or rename one of the two.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedRequiredParameterOverload_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public static IEnumerable<object[]> TestCases(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 27)
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// An event hides a same-named source on a base class. The compile-time walk sees it because
+    /// <c>GetMembers</c> returns events, and this is the guard the runtime fallback relies on: its
+    /// candidates are methods, properties, and fields only, because asking reflection for events
+    /// costs trimming annotations on every test class. The build has to fail before that path runs.
+    /// </summary>
+    [Fact]
+    public async Task TestDataHiddenByDerivedEvent_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                public new event EventHandler TestCases
+                {
+                    add { }
+                    remove { }
+                }
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(19, 6, 19, 27)
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A nested type on an intermediate base hides a same-named source further up, and the
+    /// compile-time walk sees it because <c>GetMembers</c> returns nested types. This is the guard
+    /// on the one place the runtime fallback cannot follow: reflection's <c>FlattenHierarchy</c>
+    /// does not return a base class's nested types, so the build has to fail before that path runs.
+    /// </summary>
+    [Fact]
+    public async Task TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                public new class TestCases
+                {
+                }
+            }
+
+            public class Tests : Middle
+            {
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(19, 6, 19, 27)
+            .WithArguments("TestCases", "Tests", ShadowedBy("Root", "TestCases"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// An <c>internal</c> member on an intermediate base in another assembly claims the name, and
+    /// the generated registry cannot reach it, so the source is reported rather than resolved
+    /// against the public ancestor further up. C# would bind that ancestor, since the intermediate
+    /// is out of scope across the assembly boundary; staging candidates by accessibility to match
+    /// is exactly the modeling this contract gave up, and NU0020 names the member to widen.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithInaccessibleInternalOnIntermediateBase_ReportsInaccessibleAsync()
+    {
+        var library = """
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                internal static new IEnumerable<string> TestCases => new[] { "hidden" };
+            }
+            """;
+
+        var source = """
+            using NextUnit;
+
+            public class Tests : Middle
+            {
+                [Test]
+                [{|#0:TestData("TestCases")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0020")
+            .WithLocation(0)
+            .WithArguments("TestCases", "Tests", ShadowedBy("Root", "TestCases"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerWithLibraryAsync(
+            source,
+            library,
+            expected);
+    }
+
+    /// <summary>
+    /// The positive half: inside the declaring assembly the same <c>internal</c> member is visible
+    /// to the derived class, so it does hide the ancestor and is reported as unreachable from the
+    /// generated registry rather than skipped.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithInternalOnIntermediateBaseInSameAssembly_BindsIntermediateAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                internal static new IEnumerable<object[]> TestCases => new[] { new object[] { 2 } };
+            }
+
+            public class Tests : Middle
+            {
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// A <c>private</c> member on an intermediate base claims the name too. C# member lookup never
+    /// sees it and would bind the accessible ancestor; the contract stops at the level that
+    /// declares the name and reports it, rather than staging candidates by accessibility.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithPrivateMemberOnIntermediateBase_ReportsInaccessibleAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                private static IEnumerable<string> TestCases => new[] { "hidden" };
+            }
+
+            public class Tests : Middle
+            {
+                [Test]
+                [{|#0:TestData("TestCases")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0020")
+            .WithLocation(0)
+            .WithArguments("TestCases", "Tests", ShadowedBy("Root", "TestCases"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The walk stops short of <c>object</c>, whose static members are never bindable, so a name
+    /// that happens to match one of them is still reported as missing rather than silently
+    /// supplying nothing.
+    /// </summary>
+    [Fact]
+    public async Task TestDataNamingAnObjectStaticMember_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+
+            public class Tests
+            {
+                [Test]
+                [TestData("ReferenceEquals")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(6, 6, 6, 33)
+            .WithArguments("ReferenceEquals", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// An inherited member is reached through the base chain by a parameter-level source too.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromMemberWithInheritedStaticMember_NoDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<int> Values => new[] { 1, 2, 3 };
+            }
+
+            public class Tests : TestBase
+            {
+                [Test]
+                public void TestMethod([ValuesFromMember("Values")] int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// A member two levels up is still the one C# binds, so the walk cannot stop at the immediate
+    /// base type.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithMemberOnGrandparent_NoDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class TestBase : Root
+            {
+            }
+
+            public class Tests : TestBase
+            {
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// An inherited member that is out of reach of the generated registry is named by NU0020 rather
+    /// than reported as missing: the fix is to widen it, not to declare it.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithInheritedProtectedMember_ReportsAccessibilityDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                protected static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : TestBase
+            {
+                [Test]
+                [{|#0:TestData("TestCases")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0020")
+            .WithLocation(0)
+            .WithArguments("TestCases", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A derived declaration shadows the base one, so the row type reported is the derived member's.
+    /// Pinning it through NU0009 is what proves which member the resolver picked -- both members
+    /// exist, and only the message names the winner.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithShadowedMember_ValidatesMostDerivedAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class TestBase
+            {
+                public static IEnumerable<int> TestCases => new[] { 1 };
+            }
+
+            public class Tests : TestBase
+            {
+                public static new IEnumerable<string> TestCases => new[] { "one" };
+
+                [Test]
+                [{|#0:TestData("TestCases")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0009")
+            .WithLocation(0)
+            .WithArguments("TestCases", "string", "TestMethod");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The nearest declaring level answers the name, so a derived token-taking overload binds and
+    /// the inherited parameterless member is not consulted at all. C# would accumulate both into
+    /// one method group and prefer the base overload for a no-argument call; the contract does not
+    /// model that accumulation, and validates the member it will actually emit.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithDerivedTokenOverload_BindsDerivedOverloadAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            public class TestBase
+            {
+                public static IEnumerable<string> TestCases() => new[] { "one" };
+            }
+
+            public class Tests : TestBase
+            {
+                public static IAsyncEnumerable<int> TestCases(CancellationToken token) => null!;
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// The escape hatch is named in the message, because the nearest-declaring-level contract is
+    /// not guessable from a report that says the member is missing while the user is looking at a
+    /// base class that plainly declares it.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingABaseDeclaration_NamesTheMemberTypeEscapeHatchAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Fixtures
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : Fixtures
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [TestData("Rows")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 22)
+            .WithArguments("Rows", "Tests", ShadowedBy("Fixtures", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The hint has to name a level that actually resolves. An intermediate base that declares the
+    /// name without offering a usable member is another blocking level, so pointing
+    /// <c>MemberType</c> at it would reproduce the same report; the search continues to the level
+    /// that binds.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowedByTwoLevels_NamesTheBindableOneAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Root
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class Middle : Root
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+            }
+
+            public class Tests : Middle
+            {
+                public static IEnumerable<object[]> Rows(string name) => new[] { new object[] { 2 } };
+
+                [Test]
+                [TestData("Rows")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(19, 6, 19, 22)
+            .WithArguments("Rows", "Tests", ShadowedBy("Root", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The suggestion has to compile where it is pasted, so the <c>typeof</c> operand carries the
+    /// generic argument and a <c>global::</c> qualification.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingAGenericBase_QualifiesTheSuggestedTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Fixtures<T>
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : Fixtures<int>
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", ShadowedBy("Fixtures<int>", "global::Fixtures<int>", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A nested base type needs its containing type in the operand, which a bare name would drop.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingANestedBase_QualifiesTheSuggestedTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Outer
+            {
+                public class Fixtures
+                {
+                    public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+                }
+            }
+
+            public class Tests : Outer.Fixtures
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            // The prose name stays short; the operand is what has to be unambiguous.
+            .WithArguments("Rows", "Tests", ShadowedBy("Fixtures", "global::Outer.Fixtures", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A base type in a namespace the test file does not import needs the namespace in the operand,
+    /// which is the case a short name silently breaks.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingANamespacedBase_QualifiesTheSuggestedTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace Fixtures.Library
+            {
+                public class Shared
+                {
+                    public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+                }
+            }
+
+            public class Tests : Fixtures.Library.Shared
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", ShadowedBy("Shared", "global::Fixtures.Library.Shared", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A token-taking member returning a plainly synchronous collection binds to nothing: the
+    /// synchronous provider takes no arguments, so the token has nowhere to go. It used to report
+    /// nothing at all and fail at discovery with a member-not-found message; NU0021 says what is
+    /// actually wrong with it.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithTokenOnPlainSynchronousSource_ReportsSyncSourceAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            public class Tests
+            {
+                public static IEnumerable<int> Rows(CancellationToken token) => new[] { 1 };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0021")
+            .WithLocation(0)
+            .WithArguments("Rows", "IEnumerable<int>");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// Classification reports a scalar as synchronous too, so NU0021 must not be reached by it: the
+    /// member does not return a collection, and dropping the token would not make one. It is
+    /// reported as unusable instead.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithTokenOnScalarReturn_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading;
+
+            public class Tests
+            {
+                public static int Rows(CancellationToken token) => 1;
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The same for a member that returns nothing at all.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithTokenOnVoidReturn_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading;
+
+            public class Tests
+            {
+                public static void Rows(CancellationToken token)
+                {
+                }
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A parameter-level source cannot expand an awaitable either, and that path never reached the
+    /// row-type validation that reports it. Now the issue carries the report, so neither attribute
+    /// kind can bind nothing quietly.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromMemberWithUnsupportedAwaitable_ReportsUnsupportedAwaitableAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static Task Values() => Task.CompletedTask;
+
+                [Test]
+                public void TestMethod([{|#0:ValuesFromMember("Values")|}] int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0014")
+            .WithLocation(0)
+            .WithArguments("Values", "Task");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A base declaring an awaitable that supplies no rows is no fix either: the generator emits
+    /// nothing for that shape, so pointing <c>MemberType</c> at it trades one report for another.
+    /// The resolution result now carries that as an issue, so the hint declines it without a rule
+    /// about awaitables of its own.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingAnUnsupportedAwaitableBase_OmitsTheHintAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+
+            public class Fixtures
+            {
+                public static Task Rows() => Task.CompletedTask;
+            }
+
+            public class Tests : Fixtures
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The same shape at the level the attribute names still reports NU0014 against the member
+    /// itself. Recording it as a binding issue must not cost the diagnostic its subject, which is
+    /// the reason the resolver returns the member at all.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithBareTaskMember_StillReportsUnsupportedAwaitableAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            public class Tests
+            {
+                public static Task Rows() => Task.CompletedTask;
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0014")
+            .WithLocation(0)
+            .WithArguments("Rows", "Task");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A token-taking member whose return type is a plainly synchronous collection binds to
+    /// nothing -- the synchronous provider has no token to pass -- so a base declaring only that is
+    /// no fix even for a <c>[TestData]</c> source. The hint asks the resolver rather than testing
+    /// the member's shape, which is what makes this case fall out without a rule of its own.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingASyncReturningTokenBase_OmitsTheHintAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            public class Fixtures
+            {
+                public static IEnumerable<int> Rows(CancellationToken token) => new[] { 1 };
+            }
+
+            public class Tests : Fixtures
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A parameter-level source expands synchronous collections only, so a base declaring nothing
+    /// but a token-taking overload is not a fix for it. Suggesting that type would report the same
+    /// thing again.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromMemberShadowingATokenTakingBase_OmitsTheHintAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            public class Fixtures
+            {
+                public static IEnumerable<int> Values(CancellationToken token) => new[] { 1 };
+            }
+
+            public class Tests : Fixtures
+            {
+                public static IEnumerable<int> Values(int count) => new[] { count };
+
+                [Test]
+                public void TestMethod([{|#0:ValuesFromMember("Values")|}] int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Values", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The hint is conditional on a farther type actually declaring the name, not merely on the
+    /// test class having a base type. A plain misspelling gets the plain message.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithNoBaseDeclaration_OmitsTheEscapeHatchHintAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Fixtures
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : Fixtures
+            {
+                [Test]
+                [TestData("Rowz")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(12, 6, 12, 22)
+            .WithArguments("Rowz", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The sentence the analyzer appends when a base type also declares the name, pointing at the
+    /// escape hatch. Duplicated from the analyzer on purpose: the message is what the user reads,
+    /// so a change to it should have to be made deliberately in both places.
+    /// </summary>
+    private static string ShadowedBy(string declaringType, string memberName) =>
+        ShadowedBy(declaringType, $"global::{declaringType}", memberName);
+
+    /// <summary>
+    /// The prose name and the <c>typeof</c> operand differ on purpose: the operand has to compile
+    /// where it is pasted, so it is fully qualified.
+    /// </summary>
+    private static string ShadowedBy(string readableName, string typeOfOperand, string memberName) =>
+        $". Type '{readableName}' also declares '{memberName}', but only the nearest type " +
+        $"declaring that name is used; set MemberType = typeof({typeOfOperand}) to bind it directly";
 }

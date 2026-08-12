@@ -9,6 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Resolve a `[TestData]` or `[ValuesFromMember]` member declared on a base test class. Member lookup
+  used `GetMembers`, which stops at the declaring type, so a source C# resolves as `Derived.Rows` was
+  reported as `NU0003`, and both runtime reflection fallbacks missed it the same way because
+  `Type.GetMethod` does not return inherited statics without `FlattenHierarchy`.
+  The contract for inherited sources is deliberately narrower than C# member lookup: **the nearest
+  declaring level wins, or the source is diagnosed**. Whichever type first declares the name -- the
+  type the attribute points at, or the closest base that declares it -- is the only type considered,
+  and the existing single-type selection runs against it unchanged, so a source declared on one type
+  behaves exactly as before. If nothing on that level binds, for any reason, `NU0003`, `NU0020`, or
+  `NU0021` reports it; resolution never falls through to a farther level.
+  This means a base member becomes unreachable once any nearer type declares the same name, including
+  cases C# itself resolves: a derived `Rows(CancellationToken)` or `Rows(int)` alongside a base
+  `Rows()` now reports instead of binding the base member. C#'s accumulation of method overloads
+  across levels is not modeled, on purpose -- modeling it means reproducing hiding, applicability,
+  and accessibility rules exactly, and getting any of them wrong lets the analyzer validate one
+  member while the generated call runs another, with nothing to warn you. When a farther base type
+  does declare the name, `NU0003` and `NU0020` say so and name the escape hatch --
+  `MemberType = typeof(TheBaseType)` binds it directly -- so the contract does not have to be
+  guessed from a report about a member that is plainly there. An inherited member the generated
+  registry cannot reach is reported as `NU0020`, naming the fix rather than describing the member as
+  missing.
+
+- Report a data source that binds nothing instead of leaving it silent. The analyzer decided
+  whether a usable member existed with its own shape test, separate from what the resolver accepts,
+  so two shapes passed that test and then resolved to nothing: a `[TestData]` member taking the
+  cancellation token while returning a plainly synchronous collection, and any token-taking member
+  named by `[ValuesFromMember]`, which expands synchronous collections only. Both compiled clean,
+  emitted no provider, and failed at discovery with a member-not-found message. The decision now
+  comes from the resolution itself, and every reason the generator has for emitting nothing maps to
+  a diagnostic: `NU0003` when the name resolves to nothing the attribute can use, `NU0020` when the
+  registry cannot reach it, `NU0021` for a cancellation-aware member returning a synchronous
+  collection -- which now covers a plainly synchronous collection as well as one that also
+  implements `IAsyncEnumerable<T>`, but not a member returning a scalar or nothing at all, which
+  reports as unusable rather than being told to drop a token that is not the problem -- and
+  `NU0014` for an awaitable that supplies no rows, now reported for parameter-level sources too.
+  Builds carrying one of these shapes started failing rather than silently running no rows.
+
+- Observe the failure of an asynchronous data source that discovery walked away from. A
+  `MoveNextAsync` or `DisposeAsync` that loses its race against the cancellation token is abandoned
+  on purpose, since awaiting either would reintroduce the hang the race exists to prevent, and so is
+  the task a `Task<T>`-wrapped or `ValueTask<T>`-wrapped member returned, which `WaitAsync` leaves
+  running when cancellation wins the wait. Nothing read any of those tasks. A source that faulted afterwards therefore raised
+  `TaskScheduler.UnobservedTaskException` from a task nobody owned, which a host is free to treat as
+  fatal -- so a run that cancelled cleanly could still be killed by the source it had given up on.
+  The failure is now read and discarded, without being reported: the caller is already being told
+  about the cancellation it asked for.
 - Emit integral and enum argument literals with the invariant culture. `[Arguments(-5)]` used to be
   written into the generated registry through a culture-sensitive `ToString`, so a build machine
   whose negative sign is not the ASCII hyphen -- sv-SE formats it as U+2212 -- produced source the

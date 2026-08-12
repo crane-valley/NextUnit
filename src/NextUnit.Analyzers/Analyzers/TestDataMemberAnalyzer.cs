@@ -114,19 +114,21 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Look for a static member (property, method, or field) the framework could use at all.
-        // Accessibility is not part of this test: the runtime reflection fallback uses
-        // BindingFlags.NonPublic, so an unreachable member is a different failure from a missing one
-        // and is reported as NU0020 below. Arity is part of it: neither the generated call nor the
-        // reflection fallback supplies a type argument, so a generic overload is no more usable than
-        // an instance member, which this test has always rejected the same way.
-        var members = targetType.GetMembers(memberName);
-        var validMember = members.FirstOrDefault(member =>
-            (member is IPropertySymbol property && property.IsStatic) ||
-            (member is IMethodSymbol { Arity: 0 } memberMethod && memberMethod.IsStatic) ||
-            (member is IFieldSymbol field && field.IsStatic));
+        // Every answer below comes from one resolution. An independent "does a usable member of
+        // this name exist" test was tried and drifted from what the resolver accepts three times,
+        // each time leaving a source that binds nothing and reports nothing; the issue taxonomy is
+        // now the single truth, and the mapping here covers all of it. Silence is therefore
+        // reachable only when a provider is emitted.
+        var resolved = DataSourceMemberResolver.Resolve(targetType, memberName, knownDataSourceTypes);
 
-        if (validMember is null)
+        // A parameter-level source binds only a parameterless member, so a token-taking one is out
+        // of its reach whatever else is true of it -- the same expression the shadowing hint uses
+        // to decide whether a base type would answer the name.
+        var usableHere = resolved.Symbol is not null &&
+            (isTestDataSource ||
+                resolved.Symbol is IMethodSymbol { Parameters.Length: 0 } or IPropertySymbol or IFieldSymbol);
+
+        if (!usableHere)
         {
             var location = attribute.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
                 ?? method.Locations[0];
@@ -135,23 +137,12 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 DiagnosticDescriptors.TestDataMemberNotFound,
                 location,
                 memberName,
-                targetType.Name));
+                targetType.Name,
+                DescribeShadowedBaseType(targetType, memberName, knownDataSourceTypes, isTestDataSource)));
             return;
         }
 
-        // Resolve the member the generator will actually bind, not simply the first static member
-        // with this name. A type carrying both Rows() and an unsupported Rows(CancellationToken)
-        // overload would otherwise be reported for an overload that is never emitted, failing a
-        // build that compiles and runs correctly.
-        var resolved = DataSourceMemberResolver.Resolve(targetType, memberName, knownDataSourceTypes);
-
-        // A parameter-level source binds only a parameterless member, so a token-taking overload is
-        // out of its reach whatever its accessibility. Reporting NU0020 there would name a fix --
-        // widen the member -- that does not make it bind.
-        var boundHere = isTestDataSource ||
-            resolved.Symbol is IMethodSymbol { Parameters.Length: 0 } or IPropertySymbol or IFieldSymbol;
-
-        if (boundHere && resolved.Issue == DataSourceBindingIssue.MemberNotAccessible)
+        if (resolved.Issue == DataSourceBindingIssue.MemberNotAccessible)
         {
             ReportDiagnostic(
                 context,
@@ -159,20 +150,32 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 attribute,
                 DiagnosticDescriptors.DataSourceMemberNotAccessible,
                 memberName,
-                targetType.Name);
+                targetType.Name,
+                DescribeShadowedBaseType(targetType, memberName, knownDataSourceTypes, isTestDataSource));
             return;
         }
 
-        // [ValuesFromMember] expands synchronous collections only, so a token-taking member is out
-        // of its reach whatever it returns, and the fix NU0021 names -- return only
-        // IAsyncEnumerable<T> -- would not make it bind. That shape stays silent there, as before.
-        if (isTestDataSource && resolved.Issue == DataSourceBindingIssue.CancellationTokenOnSynchronousSource)
+        if (resolved.Issue == DataSourceBindingIssue.CancellationTokenOnSynchronousSource)
         {
             ReportDiagnostic(
                 context,
                 method,
                 attribute,
                 DiagnosticDescriptors.DataSourceCancellationTokenOnSyncSource,
+                memberName,
+                resolved.MemberType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+            return;
+        }
+
+        // Reported here rather than left to ValidateRowType so that a parameter-level source gets
+        // it too: the shape supplies no rows either way, and that path runs for [TestData] alone.
+        if (resolved.Issue == DataSourceBindingIssue.UnsupportedAwaitable)
+        {
+            ReportDiagnostic(
+                context,
+                method,
+                attribute,
+                DiagnosticDescriptors.TestDataMemberUnsupportedAwaitable,
                 memberName,
                 resolved.MemberType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
             return;
@@ -188,6 +191,42 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 resolved.MemberType,
                 knownDataSourceTypes);
         }
+    }
+
+    /// <summary>
+    /// Builds the sentence appended to a failed lookup when a base type also declares the name.
+    /// </summary>
+    /// <remarks>
+    /// Inherited lookup stops at the nearest type that declares the name, so a base declaration
+    /// further up is not consulted at all. Without this the report describes a member the user can
+    /// see plainly declared on a base class as missing or unreachable, with nothing to suggest why.
+    /// Empty when no farther type declares the name, which is the ordinary case.
+    /// </remarks>
+    private static string DescribeShadowedBaseType(
+        INamedTypeSymbol targetType,
+        string memberName,
+        KnownDataSourceTypes knownDataSourceTypes,
+        bool isTestDataSource)
+    {
+        var shadowed = DataSourceMemberResolver.FindShadowedDeclaringType(
+            targetType,
+            memberName,
+            knownDataSourceTypes,
+            isTestDataSource);
+
+        if (shadowed is null)
+        {
+            return string.Empty;
+        }
+
+        // The prose name is the short one a reader recognises; the typeof operand is fully
+        // qualified, because the suggestion is meant to be pasted. A short name would not compile
+        // for a base type in another namespace, nested in another type, or generic.
+        var readableName = shadowed.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var typeOfOperand = shadowed.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+        return $". Type '{readableName}' also declares '{memberName}', but only the nearest type " +
+            $"declaring that name is used; set MemberType = typeof({typeOfOperand}) to bind it directly";
     }
 
     private static bool IsClassDataSourceAttribute(AttributeData attribute)

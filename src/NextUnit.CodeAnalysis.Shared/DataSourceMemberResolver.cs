@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
 namespace NextUnit.CodeAnalysis.Shared;
@@ -66,7 +67,7 @@ internal static class DataSourceMemberResolver
             return default;
         }
 
-        var members = typeSymbol.GetMembers(memberName);
+        var members = GetCandidateMembers(typeSymbol, memberName);
         var compilingAssembly = knownDataSourceTypes.CompilingAssembly;
 
         // First pass reproduces the pre-async precedence exactly: the first static parameterless
@@ -100,13 +101,23 @@ internal static class DataSourceMemberResolver
             // that a later overload can win it. Skipping would silently move the binding to data the
             // user did not ask for, which is exactly what the parameterless-first rule above exists
             // to prevent; refusing it names the accessibility as the thing to fix.
-            return GeneratedRegistryAccess.CanReachMember(member, compilingAssembly)
-                ? new ResolvedDataSourceMember(member, memberType, false)
-                : new ResolvedDataSourceMember(
+            if (!GeneratedRegistryAccess.CanReachMember(member, compilingAssembly))
+            {
+                return new ResolvedDataSourceMember(
                     member,
                     memberType,
                     false,
                     DataSourceBindingIssue.MemberNotAccessible);
+            }
+
+            // The shape is judged here rather than left to the caller so that no result carrying
+            // Issue.None is one the generator declines to emit. An awaitable that supplies no rows
+            // is the only shape reached this way, and it emits nothing.
+            return new ResolvedDataSourceMember(
+                member,
+                memberType,
+                false,
+                ClassifyShapeIssue(memberType, knownDataSourceTypes));
         }
 
         // Second pass admits the new shape. A cancellation token is only meaningful for an
@@ -155,17 +166,30 @@ internal static class DataSourceMemberResolver
             // generator emits no provider for this shape, so returning it changes nothing it emits.
             if (classification.Shape == DataSourceShape.UnsupportedAwaitable)
             {
-                return new ResolvedDataSourceMember(method, method.ReturnType, false);
+                return new ResolvedDataSourceMember(
+                    method,
+                    method.ReturnType,
+                    false,
+                    DataSourceBindingIssue.UnsupportedAwaitable);
             }
 
-            // A synchronous classification here means the return type implements IEnumerable<T> as
-            // well as IAsyncEnumerable<T> and the sync-first rule picked the synchronous meaning.
-            // The member is unbindable either way -- the synchronous provider has no token to pass --
-            // so it is returned as an issue instead of falling through to nothing, which used to
-            // leave a parameter-count failure from the runtime reflection fallback as the only
-            // symptom. A return type that is only IEnumerable<T> stays unbound and unreported: the
-            // token was never meaningful there, and that shape predates asynchronous sources.
-            if (knownDataSourceTypes.ImplementsAsyncEnumerable(method.ReturnType))
+            // A token-taking member whose rows really are synchronous has nowhere to put the token:
+            // the synchronous provider takes no arguments. That is what NU0021 says, and dropping
+            // the token fixes it.
+            //
+            // The test is the collection shape rather than the classification, because Classify
+            // reports Sync for a real synchronous collection and for any type it does not
+            // recognise alike. Reading it as "synchronous source" would tell someone whose member
+            // returns int that it returns a collection, and send them to drop a token that is not
+            // the problem. Those fall through instead, resolve to nothing, and are reported as a
+            // member that cannot be a data source at all.
+            //
+            // NU0021 used to be narrowed further, to a return type implementing IAsyncEnumerable<T>
+            // as well, on the grounds that a token on a plainly synchronous collection was never
+            // meaningful and predates asynchronous sources. That left the plain case silent at build
+            // time and failing at discovery with "data source not found", which is the shape of
+            // report this resolver exists to replace.
+            if (KnownDataSourceTypes.IsSyncCollection(method.ReturnType))
             {
                 return new ResolvedDataSourceMember(
                     method,
@@ -176,6 +200,156 @@ internal static class DataSourceMemberResolver
         }
 
         return default;
+    }
+
+    /// <summary>
+    /// Returns the members of the nearest type in the base chain that declares
+    /// <paramref name="memberName"/>, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// The contract for inherited data sources, and deliberately narrower than C# member lookup:
+    /// <b>the nearest declaring level wins, or the source is diagnosed</b>. Whichever type first
+    /// declares the name -- the type the attribute points at, or the closest base that declares it
+    /// -- is the only type considered. If nothing on that level binds, for any reason at all, the
+    /// source is reported rather than resolved against a farther level.
+    /// <para>
+    /// C# does more than this. It accumulates method overloads across the chain, then reduces the
+    /// applicable ones to the most derived declaring type, and it excludes members the calling code
+    /// cannot see before any of that. Modeling those rules here was tried and abandoned: each round
+    /// of review found another slice of the specification the model got wrong, and every wrong
+    /// slice had the same shape -- the resolver validating and classifying one member while the
+    /// emitted call ran another, silently. This contract makes that failure structurally
+    /// impossible. The emitted access names the nearest declaring level, so no nearer binding can
+    /// exist for the compiler to prefer.
+    /// </para>
+    /// <para>
+    /// The cost is that a base member is unreachable once any nearer type declares the same name,
+    /// even where C# would still bind the base one -- a derived <c>Rows(CancellationToken)</c> over
+    /// a base <c>Rows()</c>, for instance. That case is a diagnostic now, and the fix is to declare
+    /// the member on the derived type or rename one of them. Loud and mechanical beats a silent
+    /// mismatch between the rows validated and the rows run.
+    /// </para>
+    /// <para>
+    /// Interfaces are not walked, because a static interface member cannot be named through an
+    /// implementing type. The walk stops short of <c>object</c>, whose static members can never
+    /// bind: admitting them would turn <c>NU0003</c> on a misspelled name into a level that
+    /// declares the name and then supplies nothing.
+    /// </para>
+    /// </remarks>
+    public static ImmutableArray<ISymbol> GetCandidateMembers(INamedTypeSymbol typeSymbol, string memberName)
+    {
+        for (var level = typeSymbol;
+            level is not null && level.SpecialType != SpecialType.System_Object;
+            level = level.BaseType)
+        {
+            var members = level.GetMembers(memberName);
+            if (!members.IsEmpty)
+            {
+                return members;
+            }
+        }
+
+        return ImmutableArray<ISymbol>.Empty;
+    }
+
+    /// <summary>
+    /// Reports the shape as an issue when it is one the generator emits nothing for.
+    /// </summary>
+    /// <remarks>
+    /// Only <see cref="DataSourceShape.UnsupportedAwaitable"/> qualifies: every other shape reaches
+    /// a provider builder that returns one. Keeping the test here, rather than in each caller, is
+    /// what makes <see cref="DataSourceBindingIssue.None"/> mean the same thing everywhere.
+    /// </remarks>
+    private static DataSourceBindingIssue ClassifyShapeIssue(
+        ITypeSymbol? memberType,
+        KnownDataSourceTypes knownDataSourceTypes) =>
+        knownDataSourceTypes.Classify(memberType).Shape == DataSourceShape.UnsupportedAwaitable
+            ? DataSourceBindingIssue.UnsupportedAwaitable
+            : DataSourceBindingIssue.None;
+
+    /// <summary>
+    /// Finds a farther base type that also declares <paramref name="memberName"/>, past the nearest
+    /// one that does, and against which resolution would actually succeed.
+    /// </summary>
+    /// <remarks>
+    /// Only asked once a source has already failed to bind, so that the diagnostic can say why the
+    /// obvious reading of the code is not the one that applies. The nearest declaring level is the
+    /// only one the contract considers, and a user looking at a base class that plainly declares the
+    /// member has no way to guess that from a message about the member being missing or
+    /// unreachable. Naming the base type turns the report into the fix: point the attribute at it
+    /// with <c>MemberType</c>.
+    /// <para>
+    /// The candidate level is tested by running <see cref="Resolve"/> against it -- literally
+    /// asking what would happen with <c>MemberType</c> set to that type -- rather than by re-testing
+    /// the rules <see cref="Resolve"/> applies. A parallel predicate was tried and drifted from the
+    /// real rules three times: it missed multi-level blocking, then the per-attribute token rule,
+    /// then a token-taking member whose synchronous return type leaves it unbound. Each miss had the
+    /// same consequence, a message recommending a <c>MemberType</c> that reproduces the same report.
+    /// Sharing the acceptance path means a future change to what binds updates this with it.
+    /// </para>
+    /// </remarks>
+    /// <param name="typeSymbol">The type the attribute names, where the walk starts.</param>
+    /// <param name="memberName">The data source member name.</param>
+    /// <param name="knownDataSourceTypes">The well-known data source types for the compilation.</param>
+    /// <param name="isTestDataSource">
+    /// Whether the attribute is a <c>[TestData]</c> source. A parameter-level source binds only a
+    /// parameterless member, so a level that resolves to a token-taking one is no fix for it.
+    /// </param>
+    public static INamedTypeSymbol? FindShadowedDeclaringType(
+        INamedTypeSymbol typeSymbol,
+        string memberName,
+        KnownDataSourceTypes knownDataSourceTypes,
+        bool isTestDataSource)
+    {
+        var foundNearest = false;
+
+        for (var level = typeSymbol;
+            level is not null && level.SpecialType != SpecialType.System_Object;
+            level = level.BaseType)
+        {
+            if (level.GetMembers(memberName).IsEmpty)
+            {
+                continue;
+            }
+
+            if (!foundNearest)
+            {
+                foundNearest = true;
+                continue;
+            }
+
+            if (WouldBindAt(level, memberName, knownDataSourceTypes, isTestDataSource))
+            {
+                return level;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Answers what <see cref="Resolve"/> would do if the attribute named <paramref name="level"/>.
+    /// </summary>
+    private static bool WouldBindAt(
+        INamedTypeSymbol level,
+        string memberName,
+        KnownDataSourceTypes knownDataSourceTypes,
+        bool isTestDataSource)
+    {
+        // The walk in GetCandidateMembers starts at the type it is given, and this level declares
+        // the name, so resolving against it is exactly the MemberType the hint would recommend.
+        var resolved = Resolve(level, memberName, knownDataSourceTypes);
+
+        if (resolved.Symbol is null || resolved.Issue != DataSourceBindingIssue.None)
+        {
+            return false;
+        }
+
+        // The same reach test the analyzer applies to its own result: a parameter-level source
+        // expands synchronous collections, so a token-taking member is out of its reach whatever
+        // else is true of it.
+        return isTestDataSource ||
+            resolved.Symbol is IMethodSymbol { Parameters.Length: 0 } or IPropertySymbol or IFieldSymbol;
     }
 
     /// <summary>

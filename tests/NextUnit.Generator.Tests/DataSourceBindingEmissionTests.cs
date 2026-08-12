@@ -329,6 +329,195 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
+    /// A source declared on a base test class is emitted as direct access through the derived type,
+    /// which is how the user names it and how C# resolves it. Compiling the output is the half that
+    /// matters: the emitted name has to bind to the inherited member.
+    /// </summary>
+    [Fact]
+    public async Task InheritedMember_EmitsDirectAccessAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("DataSourceProvider = static () => (object?)global::TestProject.DataTests.Rows", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// The parameter-level sources reach inherited members through the same walk.
+    /// </summary>
+    [Fact]
+    public async Task InheritedParameterMember_EmitsDirectAccessAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<int> Values => new[] { 1, 2, 3 };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                [Test]
+                public void Consumes([ValuesFromMember("Values")] int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("global::TestProject.DataTests.Values", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// An inherited member out of reach of the registry is withheld exactly as a local one is, so
+    /// the base chain cannot become a way around the accessibility rule.
+    /// </summary>
+    [Fact]
+    public async Task InheritedProtectedMember_EmitsNoProviderAsync()
+    {
+        var registry = await GenerateRegistryAsync("""
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                protected static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """);
+
+        Assert.Contains("DataSourceName = \"Rows\",", registry);
+        Assert.Contains("DataSourceProvider = null,", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows", registry, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A derived method hides a base member of the same name that is not one, so the base property
+    /// must not be bound: the emitted <c>DataTests.Rows</c> would be a method group where a property
+    /// read was written, and the consumer's build would fail on generated code. The compile check is
+    /// the assertion that matters here.
+    /// </summary>
+    [Fact]
+    public async Task DerivedMethodHidingInheritedProperty_EmitsNoProviderAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                public static new IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("DataSourceProvider = null,", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// The nearest type that declares the name is the only one considered, so a derived
+    /// token-taking overload answers the name outright rather than sharing a method group with the
+    /// inherited parameterless one. C# would accumulate both and prefer the base overload for a
+    /// no-argument call; the contract deliberately does not model that, and binds what the nearest
+    /// level offers.
+    /// </summary>
+    [Fact]
+    public async Task DerivedTokenOverload_ShadowsInheritedParameterlessMemberAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests : DataTestsBase
+            {
+                public static async IAsyncEnumerable<object[]> Rows(CancellationToken token)
+                {
+                    await System.Threading.Tasks.Task.Yield();
+                    yield return new object[] { 2 };
+                }
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("AsyncDataSourceProvider = static ct =>", registry);
+        Assert.Contains("global::TestProject.DataTests.Rows(ct)", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows()", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
     /// Compiles the user's source together with everything the generator emitted for it. Asserting
     /// on the registry text alone would not catch a type reference emitted somewhere the assertions
     /// do not look, and CS0122 inside generated code is exactly the failure being prevented.

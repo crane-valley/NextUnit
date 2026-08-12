@@ -59,7 +59,23 @@ public static class AsyncDataSourceAdapter
         // uninterruptible for as long as the member takes. WaitAsync gives the wait back to the
         // caller on cancellation; the member's own task is left to finish on its own, because
         // there is no way to reach into it and nothing useful left to do with its result.
-        var rows = await source.WaitAsync(cancellationToken).ConfigureAwait(false);
+        TRows rows;
+        try
+        {
+            rows = await source.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // The task left running here is the abandoned one, not the enumerator the expander
+            // races: cancellation can win this wait while the member's own task keeps going and
+            // faults later, with nobody holding it. Observing the enumerator alone left that
+            // failure to surface as an unobserved exception from a run that cancelled cleanly.
+            if (!source.IsCompletedSuccessfully)
+            {
+                AbandonedWork.Observe(source);
+            }
+        }
+
         if (rows is null)
         {
             throw new InvalidOperationException(

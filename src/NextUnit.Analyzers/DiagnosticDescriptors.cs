@@ -39,7 +39,7 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor TestDataMemberNotFound = new(
         id: "NU0003",
         title: "TestData member not found",
-        messageFormat: "TestData member '{0}' was not found or is not accessible in type '{1}'",
+        messageFormat: "TestData member '{0}' was not found or is not accessible in type '{1}'{2}",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
@@ -233,7 +233,7 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor DataSourceMemberNotAccessible = new(
         id: "NU0020",
         title: "Data source member is not accessible to generated code",
-        messageFormat: "Data source member '{0}' on type '{1}' is not accessible from the generated test registry; make the member, a property's getter, and every containing type public, or internal in the test assembly or one that grants it InternalsVisibleTo",
+        messageFormat: "Data source member '{0}' on type '{1}' is not accessible from the generated test registry; make the member, a property's getter, and every containing type public, or internal in the test assembly or one that grants it InternalsVisibleTo{2}",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,

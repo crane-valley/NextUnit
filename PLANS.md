@@ -485,14 +485,23 @@ All three were raised in the final review round of the async member data work, r
 request, and deliberately left out of it: each one changes observable behavior or needs a design
 decision, and none of them was introduced by that change.
 
-- [ ] Abandoned work in the async data source path goes unobserved. `TestDataExpander` walks away
+- [x] Abandoned work in the async data source path goes unobserved. `TestDataExpander` walks away
   from a `MoveNextAsync` that lost its race against the cancellation token, and from the matching
   `DisposeAsync`, on purpose -- awaiting either would reintroduce the hang the race exists to
   prevent. Nothing observes those tasks afterwards, so a source that later faults raises
   `TaskScheduler.UnobservedTaskException` from a task nobody owns. `NextUnitFramework.StartBuild`
   already has the shape this needs: a fault-only continuation whose whole body reads
   `task.Exception`. Applying it here means deciding whether an abandoned source's failure should stay
-  silent or be logged, which is a reporting decision rather than a drive-by fix.
+  silent or be logged, which is a reporting decision rather than a drive-by fix. Done 2026-08-12:
+  silent, matching `StartBuild`. Logging was rejected because the caller is already being told about
+  the cancellation it asked for, and a second report naming work the run deliberately abandoned
+  describes a failure nobody can act on -- the source was told to stop, and stopping mid-operation
+  is how it was told. The continuation is attached whenever the awaited task did not complete
+  successfully, which also covers the narrow case of a move that faulted just as the race was lost,
+  and the successful per-row path allocates nothing extra. Left untested: the only observable is
+  `TaskScheduler.UnobservedTaskException`, which fires from a finalizer, so a test would assert a
+  negative behind a forced GC and depend on the abandoned task actually being collected --
+  `StartBuild` ships the same shape untested for the same reason.
 - [x] A cancellation-token-taking member returning a type that implements both `IEnumerable<T>` and
   `IAsyncEnumerable<T>` binds to nothing, with no diagnostic. `KnownDataSourceTypes.Classify` matches
   the synchronous interface first, deliberately, so that a type which meant `IEnumerable<T>` before
@@ -509,9 +518,13 @@ decision, and none of them was introduced by that change.
   the other way for the token-taking overload alone. The resolver records the combination as a
   `DataSourceBindingIssue` so the generator withholds the provider it was already withholding and
   the analyzer names the fix -- drop the parameter, or return a type that is only
-  `IAsyncEnumerable<T>`. A member returning a plainly synchronous collection with a token stays
-  unbound and unreported: the token was never meaningful there, and that shape predates async
-  sources.
+  `IAsyncEnumerable<T>`. A member returning a plainly synchronous collection with a token stayed
+  unbound and unreported, on the grounds that the token was never meaningful there and that shape
+  predates async sources. Superseded 2026-08-12 by PR #229: it now reports `NU0021` too. Leaving it
+  silent meant a source that binds nothing and says nothing, failing instead at discovery with a
+  member-not-found message, and `NU0021` -- a cancellation-aware member returning a synchronous
+  collection -- describes the plain case as exactly as the mixed one. Reporting where the generator
+  emits nothing is the invariant the analyzer now holds everywhere.
 - [x] Ambiguous row-type selection when a collection implements more than one `IEnumerable<T>`.
   `NU0009` validates row values against the first constructed interface it finds, so a source type
   implementing, say, both `IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>` is validated
@@ -580,8 +593,95 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   without `InternalsVisibleTo` are. `GeneratedRegistryAccess` decides it once for the resolver and
   the analyzer, and the resolver records the verdict so the generator withholds the direct access
   that used to fail with `CS0122`. The runtime reflection fallback still reads whatever reaches it.
-- [ ] Walk the base type chain during member lookup, preserving the parameterless-overload precedence
-  the generator and the analyzer now share.
+- [x] Walk the base type chain during member lookup, preserving the parameterless-overload precedence
+  the generator and the analyzer now share. Done 2026-08-12: `DataSourceMemberResolver` collects
+  candidates across the chain most-derived first, and the analyzer's own existence test and the
+  parameter-level reader take the same list, so a member one of them now binds can never be reported
+  as missing by another. The walk applies C# hiding as it goes, because the generator emits
+  `Derived.Rows` and that name has to mean here what it means to the compiler: a member that is not
+  a method hides everything of that name below it, and a method hides a base member that is not one,
+  so a base property is dropped once a derived type declares a method of the same name -- binding it
+  would emit a property read where the compiler reads a method group, which does not compile.
+  Methods accumulate across levels instead, and both resolver passes run over the whole flattened
+  chain rather than per type, so a base `Rows()` still beats a derived `Rows(CancellationToken)` --
+  the overload C# binds for a call supplying no arguments -- unless a nearer declaration repeats the
+  signature, static or not, since a derived instance `Rows()` makes the emitted `Derived.Rows()` a
+  `CS0120` in generated code and `NU0003` is the better answer. Interfaces are not walked: a static
+  interface member cannot be named through an implementing type. A base type's `private` members are
+  skipped, since C# member lookup never sees them from a derived type and they therefore neither
+  bind nor hide; letting one win would report `NU0020` for a name that resolves further up the chain
+  and compiles. A `private` member on the named type itself is still collected and refused, which is
+  the existing rule and the reason an inherited `protected` source reports `NU0020` naming the fix
+  rather than `NU0003` describing it as missing. The runtime reflection fallback moved into one
+  `DataSourceMemberLookup` shared by `TestDataExpander` and `CombinedDataSourceExpander`, so
+  `[TestData]` and `[ValuesFromMember]` cannot disagree about which member a name means. It selects
+  over the flattened candidates by declaring type rather than by member kind: searching kind by kind
+  reads a base property for a name a derived method has taken over, which runs a test against data
+  the user never pointed at, and it also turns a flattened `Rows()` plus `Rows(CancellationToken)`
+  into an ambiguous match. Instance members are candidates there for hiding only: one cannot be read
+  as a data source, but it hides the base member of the same name, and a candidate list that leaves
+  it out reads the member it hides. Nothing non-static is ever returned. The candidates are gathered
+  with one call per member kind rather than a single `GetMember` with a `MemberTypes` mask, because
+  the trimmer does not read that mask -- it treats `GetMember` as able to return any kind and demands
+  the constructor, event, and nested-type annotations too, which is `IL2070` and a failed Native AOT
+  smoke build.
+- [x] Inherited member lookup is a closed contract, not a model of C# member lookup: **the nearest
+  declaring level wins, or the source is diagnosed**. Whichever type first declares the name -- the
+  type the attribute points at, or the closest base that declares it -- is the only type considered,
+  and the existing single-type selection runs against it unchanged. If nothing on that level binds,
+  for any reason at all, `NU0003`/`NU0020`/`NU0021` report it; resolution never falls through to a
+  farther level. Decided 2026-08-12 after the PR #229 review.
+  Modeling C# faithfully was tried first and abandoned. Three review rounds each found another slice
+  of the specification the model got wrong -- cross-kind hiding, then applicability across levels
+  (optional and `params` overloads), then accessibility staging across an assembly boundary, then
+  implicit-conversion applicability -- and every wrong slice had the same shape: the resolver
+  validating and classifying one member while the emitted call ran another, silently. The domain is
+  unbounded, and reviewer and author disagreeing on specification minutiae is the signal that it
+  cannot be closed by patching. The contract makes that failure structurally impossible instead: the
+  emitted access names the nearest declaring level, so no nearer binding exists for the compiler to
+  prefer.
+  The accepted cost is that a base member becomes unreachable once any nearer type declares the same
+  name, including cases C# resolves happily -- a derived `Rows(CancellationToken)` or `Rows(int)`
+  over a base `Rows()` now reports rather than binding the base member. C#'s accumulation of method
+  overloads across levels is explicitly not modeled. The fix a user makes is to declare the member on
+  the derived type or rename one of them, which the diagnostic names. Loud and mechanical beats a
+  silent mismatch between the rows validated and the rows run. When a farther type does declare the
+  name, `NU0003` and `NU0020` append a sentence naming it and pointing at `MemberType`, which binds
+  the base member directly: the contract is not guessable from a report that calls a member missing
+  while the user is looking at a base class that declares it.
+  The runtime reflection fallback follows the same contract, and scans a whole level before rejecting
+  it so an overload it cannot invoke never hides a sibling it can. Its remaining blind spots are all
+  the same shape: a level whose declaration reflection cannot see is walked past rather than stopping
+  the search, where the compile-time walk stops there and diagnoses. That covers a level declaring
+  only an event or a nested type -- this lookup does not ask for either kind, and `FlattenHierarchy`
+  would not return an inherited nested type anyway -- and a base level whose only declaration is
+  `private`, which `FlattenHierarchy` omits by design. All of them stay deferred: the compile-time
+  walk does see every such declaration, so it stops there and the build fails before the fallback can
+  run. Closing any of them costs the same thing: asking reflection for
+  events and nested types needs those annotations on every entry point -- `GetMember` with a
+  `MemberTypes` mask already demanded exactly that and broke the Native AOT smoke build with
+  `IL2070` -- and seeing a base type's `private` members needs a `DeclaredOnly` walk that reflects
+  over a `Type` obtained from `BaseType`, which carries no annotations at all. Reaching the fallback
+  in any of these cases means having suppressed an error diagnostic first.
+  `TestDataHiddenByDerivedEvent_ReportsNotFoundAsync`,
+  `TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync`, and
+  `TestDataWithPrivateMemberOnIntermediateBase_ReportsInaccessibleAsync` pin the guard.
+- [ ] The emitted data source access is qualified by the target type, so another source generator
+  can capture it. Generators cannot see each other's output: a same-named member that a second
+  generator adds to the same partial test class is invisible while NextUnit resolves, and present
+  once every generated source is compiled together. `TestCaseEmitter` writes `Derived.Rows()`, so the
+  final call can bind that foreign member while NextUnit classified and validated an inherited base
+  one -- rows the user never pointed at, with no diagnostic, since the analyzer saw the same
+  compilation the generator did. Raised by the Codex review of PR #229 and deferred there: the
+  exposure needs a second generator targeting the same partial class and the same member name, and
+  the fix is descriptor and emitter plumbing rather than a lookup change, which does not belong in a
+  pull request already carrying a contract redesign.
+  The route: carry the resolved member's declaring type through the descriptor and qualify the
+  emitted access with it, so the compiler binds the type NextUnit resolved against rather than the
+  one the attribute happens to sit on. It has to be a second type rather than reusing
+  `DataSourceType`, because that one also builds the row id prefix -- switching it would move test
+  case ids from `Derived.Rows` to `Base.Rows`, which filters and the VSTest adapter's id-to-descriptor
+  mapping can both see. Its own change, with its own review of the id surface.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

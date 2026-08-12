@@ -39,6 +39,37 @@ public static class CSharpAnalyzerVerifier<TAnalyzer>
     }
 
     /// <summary>
+    /// Verifies the analyzer against a test project that references a second, separately compiled
+    /// assembly.
+    /// </summary>
+    /// <remarks>
+    /// The only way to exercise rules that turn on an assembly boundary -- <c>internal</c> and
+    /// <c>private protected</c> are visible to a derived class in the declaring assembly and
+    /// invisible outside it, and a single-project test cannot tell those two cases apart.
+    /// </remarks>
+    public static async Task VerifyAnalyzerWithLibraryAsync(
+        string source,
+        string librarySource,
+        params DiagnosticResult[] expected)
+    {
+        const string LibraryProject = "TestLibrary";
+
+        var test = new Test
+        {
+            TestCode = source,
+        };
+
+        test.TestState.AdditionalProjects.Add(
+            LibraryProject,
+            new ProjectState(LibraryProject, LanguageNames.CSharp, "/Library/", "cs"));
+        test.TestState.AdditionalProjects[LibraryProject].Sources.Add(("Library.cs", librarySource));
+        test.TestState.AdditionalProjectReferences.Add(LibraryProject);
+
+        test.ExpectedDiagnostics.AddRange(expected);
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>
     /// Custom test class for analyzer verification.
     /// </summary>
     /// <remarks>

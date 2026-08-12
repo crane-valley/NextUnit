@@ -367,6 +367,15 @@ internal static class TestDataExpander
                         // Only an abandoned move leaves the enumerator unusable. One that
                         // completed, successfully or not, can still be disposed normally.
                         enumeratorIsDisposable = moveTask.IsCompleted;
+
+                        // Anything but a clean result may still carry a failure nobody awaits: an
+                        // abandoned move faults later with no waiter left, and one that faulted as
+                        // the race was lost was never propagated either. The successful case is
+                        // excluded so the per-row path keeps allocating nothing extra.
+                        if (!moveTask.IsCompletedSuccessfully)
+                        {
+                            AbandonedWork.Observe(moveTask);
+                        }
                     }
                 }
 
@@ -446,7 +455,20 @@ internal static class TestDataExpander
                 return;
             }
 
-            await dispose.AsTask().WaitAsync(cancellationToken).ConfigureAwait(false);
+            var disposeTask = dispose.AsTask();
+            try
+            {
+                await disposeTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                // Cleanup abandoned by the race is the other task nobody is left holding, so it is
+                // observed on the same terms as an abandoned move.
+                if (!disposeTask.IsCompletedSuccessfully)
+                {
+                    AbandonedWork.Observe(disposeTask);
+                }
+            }
         }
         catch (OperationCanceledException) when (suppressCancellation && cancellationToken.IsCancellationRequested)
         {
@@ -481,6 +503,10 @@ internal static class TestDataExpander
     /// is unreachable in practice: the generator binds every static member it can see, and a member
     /// it cannot see fails here for the same reason whether it is synchronous or asynchronous.
     /// The <c>NU0014</c> analyzer rule reports the statically detectable cases at build time.
+    /// <para>
+    /// Which member the name means is decided by <see cref="DataSourceMemberLookup"/>, which walks
+    /// the base chain the way C# does so that this and the compile-time resolver cannot disagree.
+    /// </para>
     /// </remarks>
     private static IEnumerable? GetTestData(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)] Type sourceType,
@@ -488,37 +514,9 @@ internal static class TestDataExpander
     {
         try
         {
-            // Try to find a static method first
-            var method = sourceType.GetMethod(
-                memberName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-
-            if (method is not null)
-            {
-                return method.Invoke(null, null) as IEnumerable;
-            }
-
-            // Try to find a static property
-            var property = sourceType.GetProperty(
-                memberName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-
-            if (property is not null)
-            {
-                return property.GetValue(null) as IEnumerable;
-            }
-
-            // Try to find a static field
-            var field = sourceType.GetField(
-                memberName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-
-            if (field is not null)
-            {
-                return field.GetValue(null) as IEnumerable;
-            }
-
-            return null;
+            return DataSourceMemberLookup.TryReadStaticMember(sourceType, memberName, out var value)
+                ? value as IEnumerable
+                : null;
         }
         catch (TargetInvocationException ex)
         {
