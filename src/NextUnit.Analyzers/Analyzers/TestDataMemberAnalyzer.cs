@@ -139,7 +139,8 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 DiagnosticDescriptors.TestDataMemberNotFound,
                 location,
                 memberName,
-                targetType.Name));
+                targetType.Name,
+                DescribeShadowedBaseType(targetType, memberName)));
             return;
         }
 
@@ -163,7 +164,8 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 attribute,
                 DiagnosticDescriptors.DataSourceMemberNotAccessible,
                 memberName,
-                targetType.Name);
+                targetType.Name,
+                DescribeShadowedBaseType(targetType, memberName));
             return;
         }
 
@@ -192,6 +194,25 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 resolved.MemberType,
                 knownDataSourceTypes);
         }
+    }
+
+    /// <summary>
+    /// Builds the sentence appended to a failed lookup when a base type also declares the name.
+    /// </summary>
+    /// <remarks>
+    /// Inherited lookup stops at the nearest type that declares the name, so a base declaration
+    /// further up is not consulted at all. Without this the report describes a member the user can
+    /// see plainly declared on a base class as missing or unreachable, with nothing to suggest why.
+    /// Empty when no farther type declares the name, which is the ordinary case.
+    /// </remarks>
+    private static string DescribeShadowedBaseType(INamedTypeSymbol targetType, string memberName)
+    {
+        var shadowed = DataSourceMemberResolver.FindShadowedDeclaringType(targetType, memberName);
+
+        return shadowed is null
+            ? string.Empty
+            : $". Type '{shadowed.Name}' also declares '{memberName}', but only the nearest type " +
+                $"declaring that name is used; set MemberType = typeof({shadowed.Name}) to bind it directly";
     }
 
     private static bool IsClassDataSourceAttribute(AttributeData attribute)

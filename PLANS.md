@@ -641,7 +641,10 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   over a base `Rows()` now reports rather than binding the base member. C#'s accumulation of method
   overloads across levels is explicitly not modeled. The fix a user makes is to declare the member on
   the derived type or rename one of them, which the diagnostic names. Loud and mechanical beats a
-  silent mismatch between the rows validated and the rows run.
+  silent mismatch between the rows validated and the rows run. When a farther type does declare the
+  name, `NU0003` and `NU0020` append a sentence naming it and pointing at `MemberType`, which binds
+  the base member directly: the contract is not guessable from a report that calls a member missing
+  while the user is looking at a base class that declares it.
   The runtime reflection fallback follows the same contract, and scans a whole level before rejecting
   it so an overload it cannot invoke never hides a sibling it can. Its one remaining blind spot is
   that reflection cannot see a base class's nested types and this lookup does not ask for events or

@@ -48,7 +48,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(6, 6, 6, 35)
-            .WithArguments("NonExistentMember", "Tests");
+            .WithArguments("NonExistentMember", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -75,7 +75,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(9, 6, 9, 27)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -106,7 +106,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -133,7 +133,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -196,7 +196,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Fixtures");
+            .WithArguments("TestCases", "Fixtures", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -228,7 +228,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -266,7 +266,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Fixtures");
+            .WithArguments("TestCases", "Fixtures", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -298,7 +298,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("Rows", "Tests");
+            .WithArguments("Rows", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -328,7 +328,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("Values", "Tests");
+            .WithArguments("Values", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -394,7 +394,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(6, 29, 6, 60)
-            .WithArguments("NonExistent", "Tests");
+            .WithArguments("NonExistent", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -486,7 +486,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(9, 6, 9, 22)
-            .WithArguments("Rows", "Tests");
+            .WithArguments("Rows", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -512,7 +512,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithLocation(0)
-            .WithArguments("Values", "Tests");
+            .WithArguments("Values", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -616,7 +616,7 @@ public class TestDataMemberAnalyzerTests
         var notFound = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithLocation(1)
-            .WithArguments("Rows", "Missing");
+            .WithArguments("Rows", "Missing", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, compilerError, notFound);
     }
@@ -1280,7 +1280,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(14, 6, 14, 27)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1318,7 +1318,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(15, 6, 15, 27)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1356,7 +1356,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(14, 6, 14, 27)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1392,7 +1392,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(14, 6, 14, 27)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1430,7 +1430,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(14, 6, 14, 27)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1473,7 +1473,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(19, 6, 19, 27)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", ShadowedBy("TestBase", "TestCases"));
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1516,7 +1516,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(19, 6, 19, 27)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", ShadowedBy("Root", "TestCases"));
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1561,7 +1561,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", ShadowedBy("Root", "TestCases"));
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerWithLibraryAsync(
             source,
@@ -1639,7 +1639,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", ShadowedBy("Root", "TestCases"));
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1668,7 +1668,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0003")
             .WithSpan(6, 6, 6, 33)
-            .WithArguments("ReferenceEquals", "Tests");
+            .WithArguments("ReferenceEquals", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1762,7 +1762,7 @@ public class TestDataMemberAnalyzerTests
         var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
             .Diagnostic("NU0020")
             .WithLocation(0)
-            .WithArguments("TestCases", "Tests");
+            .WithArguments("TestCases", "Tests", "");
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
@@ -1837,4 +1837,84 @@ public class TestDataMemberAnalyzerTests
 
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
     }
+
+    /// <summary>
+    /// The escape hatch is named in the message, because the nearest-declaring-level contract is
+    /// not guessable from a report that says the member is missing while the user is looking at a
+    /// base class that plainly declares it.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingABaseDeclaration_NamesTheMemberTypeEscapeHatchAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Fixtures
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : Fixtures
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [TestData("Rows")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(14, 6, 14, 22)
+            .WithArguments("Rows", "Tests", ShadowedBy("Fixtures", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The hint is conditional on a farther type actually declaring the name, not merely on the
+    /// test class having a base type. A plain misspelling gets the plain message.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithNoBaseDeclaration_OmitsTheEscapeHatchHintAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Fixtures
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : Fixtures
+            {
+                [Test]
+                [TestData("Rowz")]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithSpan(12, 6, 12, 22)
+            .WithArguments("Rowz", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The sentence the analyzer appends when a base type also declares the name, pointing at the
+    /// escape hatch. Duplicated from the analyzer on purpose: the message is what the user reads,
+    /// so a change to it should have to be made deliberately in both places.
+    /// </summary>
+    private static string ShadowedBy(string declaringType, string memberName) =>
+        $". Type '{declaringType}' also declares '{memberName}', but only the nearest type " +
+        $"declaring that name is used; set MemberType = typeof({declaringType}) to bind it directly";
 }

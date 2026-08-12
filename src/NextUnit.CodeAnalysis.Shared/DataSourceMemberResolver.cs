@@ -230,6 +230,42 @@ internal static class DataSourceMemberResolver
     }
 
     /// <summary>
+    /// Finds a farther base type that also declares <paramref name="memberName"/>, past the nearest
+    /// one that does.
+    /// </summary>
+    /// <remarks>
+    /// Only asked once a source has already failed to bind, so that the diagnostic can say why the
+    /// obvious reading of the code is not the one that applies. The nearest declaring level is the
+    /// only one the contract considers, and a user looking at a base class that plainly declares the
+    /// member has no way to guess that from a message about the member being missing or
+    /// unreachable. Naming the base type turns the report into the fix: point the attribute at it
+    /// with <c>MemberType</c>.
+    /// </remarks>
+    public static INamedTypeSymbol? FindShadowedDeclaringType(INamedTypeSymbol typeSymbol, string memberName)
+    {
+        var foundNearest = false;
+
+        for (var level = typeSymbol;
+            level is not null && level.SpecialType != SpecialType.System_Object;
+            level = level.BaseType)
+        {
+            if (level.GetMembers(memberName).IsEmpty)
+            {
+                continue;
+            }
+
+            if (foundNearest)
+            {
+                return level;
+            }
+
+            foundNearest = true;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Reports whether a member has one of the two shapes a data source can be emitted from: read
     /// directly, or called with no arguments, or called with the discovery token.
     /// </summary>

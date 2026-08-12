@@ -24,9 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Rows()` now reports instead of binding the base member. C#'s accumulation of method overloads
   across levels is not modeled, on purpose -- modeling it means reproducing hiding, applicability,
   and accessibility rules exactly, and getting any of them wrong lets the analyzer validate one
-  member while the generated call runs another, with nothing to warn you. Declare the member on the
-  derived type, or rename one of the two. An inherited member the generated registry cannot reach is
-  reported as `NU0020`, naming the fix rather than describing the member as missing.
+  member while the generated call runs another, with nothing to warn you. When a farther base type
+  does declare the name, `NU0003` and `NU0020` say so and name the escape hatch --
+  `MemberType = typeof(TheBaseType)` binds it directly -- so the contract does not have to be
+  guessed from a report about a member that is plainly there. An inherited member the generated
+  registry cannot reach is reported as `NU0020`, naming the fix rather than describing the member as
+  missing.
 
 - Observe the failure of an asynchronous data source that discovery walked away from. A
   `MoveNextAsync` or `DisposeAsync` that loses its race against the cancellation token is abandoned
