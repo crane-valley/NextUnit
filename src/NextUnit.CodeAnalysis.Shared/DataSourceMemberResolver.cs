@@ -173,22 +173,30 @@ internal static class DataSourceMemberResolver
                     DataSourceBindingIssue.UnsupportedAwaitable);
             }
 
-            // Anything left is a token-taking member whose rows are synchronous, so the token has
-            // nowhere to go: the synchronous provider takes no arguments. It is returned as an issue
-            // rather than falling through to nothing, because falling through leaves the member
-            // resolving to nothing at all -- no provider, and no diagnostic to say why.
+            // A token-taking member whose rows really are synchronous has nowhere to put the token:
+            // the synchronous provider takes no arguments. That is what NU0021 says, and dropping
+            // the token fixes it.
             //
-            // This used to be narrowed to a return type implementing IAsyncEnumerable<T> as well,
-            // on the grounds that a token on a plainly synchronous collection was never meaningful
-            // and predates asynchronous sources. That left the plain case silent at build time and
-            // failing at discovery with "data source not found", which is the shape of report this
-            // resolver exists to replace. Both now report NU0021, whose message -- a
-            // cancellation-aware member returning a synchronous collection -- describes each of them.
-            return new ResolvedDataSourceMember(
-                method,
-                method.ReturnType,
-                false,
-                DataSourceBindingIssue.CancellationTokenOnSynchronousSource);
+            // The test is the collection shape rather than the classification, because Classify
+            // reports Sync for a real synchronous collection and for any type it does not
+            // recognise alike. Reading it as "synchronous source" would tell someone whose member
+            // returns int that it returns a collection, and send them to drop a token that is not
+            // the problem. Those fall through instead, resolve to nothing, and are reported as a
+            // member that cannot be a data source at all.
+            //
+            // NU0021 used to be narrowed further, to a return type implementing IAsyncEnumerable<T>
+            // as well, on the grounds that a token on a plainly synchronous collection was never
+            // meaningful and predates asynchronous sources. That left the plain case silent at build
+            // time and failing at discovery with "data source not found", which is the shape of
+            // report this resolver exists to replace.
+            if (KnownDataSourceTypes.IsSyncCollection(method.ReturnType))
+            {
+                return new ResolvedDataSourceMember(
+                    method,
+                    method.ReturnType,
+                    false,
+                    DataSourceBindingIssue.CancellationTokenOnSynchronousSource);
+            }
         }
 
         return default;

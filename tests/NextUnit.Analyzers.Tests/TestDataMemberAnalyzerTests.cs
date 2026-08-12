@@ -2074,6 +2074,70 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// Classification reports a scalar as synchronous too, so NU0021 must not be reached by it: the
+    /// member does not return a collection, and dropping the token would not make one. It is
+    /// reported as unusable instead.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithTokenOnScalarReturn_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading;
+
+            public class Tests
+            {
+                public static int Rows(CancellationToken token) => 1;
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// The same for a member that returns nothing at all.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithTokenOnVoidReturn_ReportsNotFoundAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading;
+
+            public class Tests
+            {
+                public static void Rows(CancellationToken token)
+                {
+                }
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// A parameter-level source cannot expand an awaitable either, and that path never reached the
     /// row-type validation that reports it. Now the issue carries the report, so neither attribute
     /// kind can bind nothing quietly.

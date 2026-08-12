@@ -191,7 +191,17 @@ internal readonly struct KnownDataSourceTypes
     private static bool Matches(ISymbol candidate, INamedTypeSymbol? known) =>
         known is not null && SymbolEqualityComparer.Default.Equals(candidate, known);
 
-    private static bool IsSyncCollection(ITypeSymbol type)
+    /// <summary>
+    /// Reports whether the type is a synchronous collection: an array, or anything implementing
+    /// non-generic <c>IEnumerable</c>.
+    /// </summary>
+    /// <remarks>
+    /// Public because <see cref="DataSourceShape.Sync"/> alone cannot answer the question.
+    /// <see cref="Classify"/> also reports <c>Sync</c> for any type it does not recognise, so a
+    /// caller that needs "is this really enumerable" -- rather than "did classification fall
+    /// through" -- has to ask this directly.
+    /// </remarks>
+    public static bool IsSyncCollection(ITypeSymbol type)
     {
         if (type is IArrayTypeSymbol)
         {
