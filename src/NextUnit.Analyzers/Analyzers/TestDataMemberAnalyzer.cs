@@ -140,7 +140,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 location,
                 memberName,
                 targetType.Name,
-                DescribeShadowedBaseType(targetType, memberName, context.Compilation.Assembly)));
+                DescribeShadowedBaseType(targetType, memberName, context.Compilation.Assembly, isTestDataSource)));
             return;
         }
 
@@ -165,7 +165,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
                 DiagnosticDescriptors.DataSourceMemberNotAccessible,
                 memberName,
                 targetType.Name,
-                DescribeShadowedBaseType(targetType, memberName, context.Compilation.Assembly));
+                DescribeShadowedBaseType(targetType, memberName, context.Compilation.Assembly, isTestDataSource));
             return;
         }
 
@@ -208,17 +208,28 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
     private static string DescribeShadowedBaseType(
         INamedTypeSymbol targetType,
         string memberName,
-        IAssemblySymbol compilingAssembly)
+        IAssemblySymbol compilingAssembly,
+        bool isTestDataSource)
     {
         var shadowed = DataSourceMemberResolver.FindShadowedDeclaringType(
             targetType,
             memberName,
-            compilingAssembly);
+            compilingAssembly,
+            allowCancellationToken: isTestDataSource);
 
-        return shadowed is null
-            ? string.Empty
-            : $". Type '{shadowed.Name}' also declares '{memberName}', but only the nearest type " +
-                $"declaring that name is used; set MemberType = typeof({shadowed.Name}) to bind it directly";
+        if (shadowed is null)
+        {
+            return string.Empty;
+        }
+
+        // The prose name is the short one a reader recognises; the typeof operand is fully
+        // qualified, because the suggestion is meant to be pasted. A short name would not compile
+        // for a base type in another namespace, nested in another type, or generic.
+        var readableName = shadowed.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var typeOfOperand = shadowed.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+        return $". Type '{readableName}' also declares '{memberName}', but only the nearest type " +
+            $"declaring that name is used; set MemberType = typeof({typeOfOperand}) to bind it directly";
     }
 
     private static bool IsClassDataSourceAttribute(AttributeData attribute)

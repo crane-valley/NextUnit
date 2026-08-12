@@ -241,10 +241,19 @@ internal static class DataSourceMemberResolver
     /// unreachable. Naming the base type turns the report into the fix: point the attribute at it
     /// with <c>MemberType</c>.
     /// </remarks>
+    /// <param name="typeSymbol">The type the attribute names, where the walk starts.</param>
+    /// <param name="memberName">The data source member name.</param>
+    /// <param name="compilingAssembly">The assembly the generated registry is emitted into.</param>
+    /// <param name="allowCancellationToken">
+    /// Whether a token-taking member counts as bindable, which only a <c>[TestData]</c> source can
+    /// use. A parameter-level source expands synchronous collections only, so suggesting a base
+    /// type whose declaration takes the token would name a fix that reports the same thing again.
+    /// </param>
     public static INamedTypeSymbol? FindShadowedDeclaringType(
         INamedTypeSymbol typeSymbol,
         string memberName,
-        IAssemblySymbol? compilingAssembly)
+        IAssemblySymbol? compilingAssembly,
+        bool allowCancellationToken)
     {
         var foundNearest = false;
 
@@ -270,7 +279,7 @@ internal static class DataSourceMemberResolver
             foreach (var member in members)
             {
                 if (member.IsStatic &&
-                    HasBindableShape(member) &&
+                    HasBindableShape(member, allowCancellationToken) &&
                     GeneratedRegistryAccess.CanReachMember(member, compilingAssembly))
                 {
                     return level;
@@ -292,11 +301,21 @@ internal static class DataSourceMemberResolver
     /// admitting it there would leave a source that binds nothing, reports nothing, and supplies
     /// nothing.
     /// </remarks>
-    public static bool HasBindableShape(ISymbol member) => member switch
+    public static bool HasBindableShape(ISymbol member) => HasBindableShape(member, allowCancellationToken: true);
+
+    /// <inheritdoc cref="HasBindableShape(ISymbol)"/>
+    /// <param name="member">The member to test.</param>
+    /// <param name="allowCancellationToken">
+    /// Whether the token-taking shape counts. Only a <c>[TestData]</c> source can use it: a
+    /// parameter-level source expands synchronous collections and has no token to pass.
+    /// </param>
+    public static bool HasBindableShape(ISymbol member, bool allowCancellationToken) => member switch
     {
         IMethodSymbol { Arity: 0 } method =>
             method.Parameters.Length == 0 ||
-            (method.Parameters.Length == 1 && IsCancellationToken(method.Parameters[0])),
+            (allowCancellationToken &&
+                method.Parameters.Length == 1 &&
+                IsCancellationToken(method.Parameters[0])),
         IPropertySymbol or IFieldSymbol => true,
         _ => false
     };

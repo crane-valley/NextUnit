@@ -1919,6 +1919,157 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// The suggestion has to compile where it is pasted, so the <c>typeof</c> operand carries the
+    /// generic argument and a <c>global::</c> qualification.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingAGenericBase_QualifiesTheSuggestedTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Fixtures<T>
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+            }
+
+            public class Tests : Fixtures<int>
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", ShadowedBy("Fixtures<int>", "global::Fixtures<int>", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A nested base type needs its containing type in the operand, which a bare name would drop.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingANestedBase_QualifiesTheSuggestedTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Outer
+            {
+                public class Fixtures
+                {
+                    public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+                }
+            }
+
+            public class Tests : Outer.Fixtures
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            // The prose name stays short; the operand is what has to be unambiguous.
+            .WithArguments("Rows", "Tests", ShadowedBy("Fixtures", "global::Outer.Fixtures", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A base type in a namespace the test file does not import needs the namespace in the operand,
+    /// which is the case a short name silently breaks.
+    /// </summary>
+    [Fact]
+    public async Task TestDataShadowingANamespacedBase_QualifiesTheSuggestedTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace Fixtures.Library
+            {
+                public class Shared
+                {
+                    public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+                }
+            }
+
+            public class Tests : Fixtures.Library.Shared
+            {
+                public static IEnumerable<object[]> Rows(int count) => new[] { new object[] { count } };
+
+                [Test]
+                [{|#0:TestData("Rows")|}]
+                public void TestMethod(int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Rows", "Tests", ShadowedBy("Shared", "global::Fixtures.Library.Shared", "Rows"));
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// A parameter-level source expands synchronous collections only, so a base declaring nothing
+    /// but a token-taking overload is not a fix for it. Suggesting that type would report the same
+    /// thing again.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromMemberShadowingATokenTakingBase_OmitsTheHintAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            public class Fixtures
+            {
+                public static IEnumerable<int> Values(CancellationToken token) => new[] { 1 };
+            }
+
+            public class Tests : Fixtures
+            {
+                public static IEnumerable<int> Values(int count) => new[] { count };
+
+                [Test]
+                public void TestMethod([{|#0:ValuesFromMember("Values")|}] int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Values", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// The hint is conditional on a farther type actually declaring the name, not merely on the
     /// test class having a base type. A plain misspelling gets the plain message.
     /// </summary>
@@ -1958,6 +2109,13 @@ public class TestDataMemberAnalyzerTests
     /// so a change to it should have to be made deliberately in both places.
     /// </summary>
     private static string ShadowedBy(string declaringType, string memberName) =>
-        $". Type '{declaringType}' also declares '{memberName}', but only the nearest type " +
-        $"declaring that name is used; set MemberType = typeof({declaringType}) to bind it directly";
+        ShadowedBy(declaringType, $"global::{declaringType}", memberName);
+
+    /// <summary>
+    /// The prose name and the <c>typeof</c> operand differ on purpose: the operand has to compile
+    /// where it is pasted, so it is fully qualified.
+    /// </summary>
+    private static string ShadowedBy(string readableName, string typeOfOperand, string memberName) =>
+        $". Type '{readableName}' also declares '{memberName}', but only the nearest type " +
+        $"declaring that name is used; set MemberType = typeof({typeOfOperand}) to bind it directly";
 }
