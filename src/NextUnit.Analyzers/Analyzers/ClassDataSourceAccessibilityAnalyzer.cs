@@ -87,11 +87,32 @@ public sealed class ClassDataSourceAccessibilityAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    /// <summary>
+    /// Reports whether the method carries <c>[Test]</c>, the attribute the generator's pipeline
+    /// keys on.
+    /// </summary>
+    /// <remarks>
+    /// Matched by symbol identity rather than by a formatted display string: this runs for every
+    /// attribute on every method in the compilation, and <c>ToDisplayString</c> allocates a string
+    /// per call. <c>ContainingType</c> is compared for the reason the shared matchers give -- a
+    /// nested type reports the namespace of its outermost container, so a user's own
+    /// <c>NextUnit.Container.TestAttribute</c> would otherwise pass as the marker.
+    /// </remarks>
     private static bool HasTestAttribute(IMethodSymbol method)
     {
         foreach (var attribute in method.GetAttributes())
         {
-            if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.Test)
+            if (attribute.AttributeClass is
+                {
+                    Arity: 0,
+                    ContainingType: null,
+                    ContainingNamespace:
+                    {
+                        Name: NextUnitAttributeNames.Namespace,
+                        ContainingNamespace.IsGlobalNamespace: true
+                    }
+                } attributeClass &&
+                attributeClass.Name == NextUnitAttributeNames.SimpleNames.Test)
             {
                 return true;
             }

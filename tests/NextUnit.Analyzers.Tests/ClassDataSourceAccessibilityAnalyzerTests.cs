@@ -352,6 +352,37 @@ public class Tests
     }
 
     /// <summary>
+    /// The suppression covers a type argument too, since reachability recurses into them: an
+    /// unresolved argument must not turn a reachable source into a visibility complaint stacked on
+    /// top of the compiler error that actually needs fixing.
+    /// </summary>
+    [Fact]
+    public async Task UnresolvedTypeArgument_ReportsOnlyTheCompilerErrorAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    public sealed class Rows<T> : System.Collections.Generic.IEnumerable<object[]>
+    {" + RowSourceBody + @"    }
+
+    [Test]
+    [ClassDataSource<Rows<{|#0:Undefined|}>>]
+    public void TestMethod(int value)
+    {
+    }
+}";
+
+        var missingType = DiagnosticResult
+            .CompilerError("CS0246")
+            .WithLocation(0)
+            .WithArguments("Undefined");
+
+        await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(source, missingType);
+    }
+
+    /// <summary>
     /// <c>[ValuesFromMember]</c> names a member rather than a type and is emitted as member access,
     /// so it belongs to NU0020 and must not be drawn in by the name it shares with
     /// <c>[ValuesFrom&lt;T&gt;]</c>.
