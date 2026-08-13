@@ -74,6 +74,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   framework per session -- once per run in console mode, once per request in server mode -- and a
   reused instance could not be served correctly anyway, because its memoized test cases hold
   session-shared data source instances that teardown has already disposed.
+- Name the row type in the emitted asynchronous data source call when a source offers more than one.
+  A `[TestData]` member returning a type that implements `IAsyncEnumerable<T>` twice produced
+  `AsyncDataSourceAdapter.FromAsyncEnumerableAsync(source, ct)` with nothing to infer the type
+  argument from, so the build failed with `CS0411` in a file you did not write. The call now names
+  the row type the analyzers already select -- `TestDataRow<T>` first, then the ordinally first
+  element type -- which both makes the source compile and pins the run to the same arm `NU0009`
+  validates against. A source implementing the interface once is emitted exactly as before, since
+  inference reaches the same type there and a written name only adds a way to fail. The
+  task-wrapped shapes are unchanged too: their type argument is the awaited collection rather than
+  the row, and it was never ambiguous.
 
 ### Changed
 

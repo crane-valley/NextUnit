@@ -8,10 +8,11 @@ namespace NextUnit.CodeAnalysis.Shared;
 /// </summary>
 internal readonly struct DataSourceClassification
 {
-    public DataSourceClassification(DataSourceShape shape, ITypeSymbol? rowType)
+    public DataSourceClassification(DataSourceShape shape, ITypeSymbol? rowType, bool rowTypeIsAmbiguous = false)
     {
         Shape = shape;
         RowType = rowType;
+        RowTypeIsAmbiguous = rowTypeIsAmbiguous;
     }
 
     public DataSourceShape Shape { get; }
@@ -21,6 +22,20 @@ internal readonly struct DataSourceClassification
     /// determined (a non-generic collection, or a type that is not a data source at all).
     /// </summary>
     public ITypeSymbol? RowType { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the source offered more than one element type, making
+    /// <see cref="RowType"/> the answer of a precedence rule rather than the only answer available.
+    /// </summary>
+    /// <remarks>
+    /// Asked by the generator, which names the row type in the emitted adapter call only when this
+    /// is true. Naming it is what a source implementing the element interface twice needs -- the
+    /// call has nothing to infer from otherwise -- but it is also the only way the emitted call can
+    /// fail to compile on a type inference already resolves, since a name reaches nothing an
+    /// <c>extern alias</c> hides. Emitting it exactly where it changes the answer keeps that risk
+    /// confined to the sources that cannot compile without it.
+    /// </remarks>
+    public bool RowTypeIsAmbiguous { get; }
 
     public bool IsAsync =>
         Shape == DataSourceShape.AsyncEnumerable ||
@@ -88,7 +103,7 @@ internal readonly struct KnownDataSourceTypes
     /// collection is what <c>NU0021</c> reports on.
     /// </remarks>
     public bool ImplementsAsyncEnumerable(ITypeSymbol? type) =>
-        type is INamedTypeSymbol namedType && TryGetAsyncElementType(namedType) is not null;
+        type is INamedTypeSymbol namedType && TryGetAsyncElementType(namedType, out _) is not null;
 
     /// <summary>
     /// Classifies the type a data source member exposes.
@@ -108,7 +123,10 @@ internal readonly struct KnownDataSourceTypes
 
         if (IsSyncCollection(memberType))
         {
-            return new DataSourceClassification(DataSourceShape.Sync, TryGetSyncElementType(memberType));
+            return new DataSourceClassification(
+                DataSourceShape.Sync,
+                TryGetSyncElementType(memberType, out var syncIsAmbiguous),
+                syncIsAmbiguous);
         }
 
         if (memberType is not INamedTypeSymbol namedType)
@@ -116,10 +134,13 @@ internal readonly struct KnownDataSourceTypes
             return new DataSourceClassification(DataSourceShape.Sync, null);
         }
 
-        var asyncElementType = TryGetAsyncElementType(namedType);
+        var asyncElementType = TryGetAsyncElementType(namedType, out var asyncIsAmbiguous);
         if (asyncElementType is not null)
         {
-            return new DataSourceClassification(DataSourceShape.AsyncEnumerable, asyncElementType);
+            return new DataSourceClassification(
+                DataSourceShape.AsyncEnumerable,
+                asyncElementType,
+                asyncIsAmbiguous);
         }
 
         return ClassifyAwaitable(namedType);
@@ -152,7 +173,8 @@ internal readonly struct KnownDataSourceTypes
 
                 return new DataSourceClassification(
                     isTask ? DataSourceShape.TaskOfCollection : DataSourceShape.ValueTaskOfCollection,
-                    TryGetSyncElementType(awaitedType));
+                    TryGetSyncElementType(awaitedType, out var isAmbiguous),
+                    isAmbiguous);
             }
 
             if (Matches(current, _task) || Matches(current, _valueTask))
@@ -164,8 +186,10 @@ internal readonly struct KnownDataSourceTypes
         return new DataSourceClassification(DataSourceShape.Sync, null);
     }
 
-    private ITypeSymbol? TryGetAsyncElementType(INamedTypeSymbol namedType)
+    private ITypeSymbol? TryGetAsyncElementType(INamedTypeSymbol namedType, out bool isAmbiguous)
     {
+        isAmbiguous = false;
+
         if (_asyncEnumerable is null)
         {
             return null;
@@ -181,6 +205,7 @@ internal readonly struct KnownDataSourceTypes
         {
             if (Matches(candidate.OriginalDefinition, _asyncEnumerable))
             {
+                isAmbiguous |= selected is not null;
                 selected = SelectRowType(selected, candidate.TypeArguments[0]);
             }
         }
@@ -228,8 +253,15 @@ internal readonly struct KnownDataSourceTypes
     /// Gets the element type of a synchronous collection, or <c>null</c> when only the non-generic
     /// <c>IEnumerable</c> is implemented and the element type is therefore not statically known.
     /// </summary>
-    public static ITypeSymbol? TryGetSyncElementType(ITypeSymbol? type)
+    /// <param name="type">The collection type to read the element type from.</param>
+    /// <param name="isAmbiguous">
+    /// Set when more than one constructed <c>IEnumerable&lt;T&gt;</c> offered an element type, so
+    /// the returned one is the answer of <see cref="SelectRowType"/> rather than the only answer.
+    /// </param>
+    public static ITypeSymbol? TryGetSyncElementType(ITypeSymbol? type, out bool isAmbiguous)
     {
+        isAmbiguous = false;
+
         if (type is IArrayTypeSymbol array)
         {
             return array.ElementType;
@@ -250,6 +282,7 @@ internal readonly struct KnownDataSourceTypes
         {
             if (IsGenericEnumerable(candidate))
             {
+                isAmbiguous |= selected is not null;
                 selected = SelectRowType(selected, candidate.TypeArguments[0]);
             }
         }
