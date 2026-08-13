@@ -137,6 +137,7 @@ internal static class TestCaseEmitter
             dataSource.MemberName,
             dataSource.MemberKind,
             dataSource.Shape,
+            dataSource.RowTypeName,
             dataSource.AcceptsCancellationToken);
         if (asyncDataSourceProvider is not null)
         {

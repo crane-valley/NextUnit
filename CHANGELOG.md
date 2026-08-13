@@ -64,6 +64,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written as `(Direction)-1`, which C# parses as a subtraction and rejects with `CS0075`, so any test
   passing such a member as an argument failed to build. Emitted literals for other members change
   shape from `(Direction)1` to `(Direction)(1)` and are otherwise unaffected.
+- Refuse a second test session on one framework instance rather than half-serving it. The session
+  lifecycle gated `[Before(Session)]` behind a once-gate that was never reset, while teardown was
+  ungated, so an instance asked to serve a second session would skip setup, replay the first
+  session's skip reason onto every test of the second, and run the `[After(Session)]` hooks again --
+  all silently. A spent instance is now refused with an `InvalidOperationException` when a session is
+  opened on it, and again if session setup or session teardown is reached, so not even a session whose
+  filter matches no test can open on it. No supported host reaches this: Microsoft.Testing.Platform builds a test
+  framework per session -- once per run in console mode, once per request in server mode -- and a
+  reused instance could not be served correctly anyway, because its memoized test cases hold
+  session-shared data source instances that teardown has already disposed.
+- Name the row type in the emitted asynchronous data source call when a source offers more than one.
+  A `[TestData]` member returning a type that implements `IAsyncEnumerable<T>` twice produced
+  `AsyncDataSourceAdapter.FromAsyncEnumerableAsync(source, ct)` with nothing to infer the type
+  argument from, so the build failed with `CS0411` in a file you did not write. The call now names
+  the row type the analyzers already select -- `TestDataRow<T>` first, then the ordinally first
+  element type -- which both makes the source compile and pins the run to the same arm `NU0009`
+  validates against. A source implementing the interface once is emitted exactly as before, since
+  inference reaches the same type there and a written name only adds a way to fail. The
+  task-wrapped shapes are unchanged too: their type argument is the awaited collection rather than
+  the row, and it was never ambiguous.
 
 ### Changed
 
@@ -85,6 +105,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   generated code changes; the metadata stops promising an inheritance that never happened. Whether
   NextUnit should inherit attributes and lifecycle hooks is a separate question, deferred to the next
   major version.
+
+### Security
+
+- Cap how many test cases one test method may expand into, at compile time and at discovery time.
+  `[Matrix]`, `[Repeat]`, and parameter-level data sources (`[Values]`, `[ValuesFromMember]`,
+  `[ValuesFrom]`) all multiply, and none of the three was bounded: four `[Matrix]` parameters of a
+  few hundred values, or a single large `[Repeat]`, was enough to make the source generator allocate
+  until the compiler died, and the equivalent combined data source did the same to the test host
+  before a single test ran. Neither needs malice to reach -- a misplaced zero does it -- but both are
+  reachable from an untrusted pull request that CI compiles, or from a file an IDE loads.
+  The generator now projects the emitted count from the source lengths before expanding anything and
+  reports `NEXTUNIT013` when it exceeds the cap, so the compilation fails in milliseconds with a
+  message naming the method and the limit. Discovery applies the same cap to the combined data source
+  product and throws rather than truncating, because a silently shortened suite reports green over
+  tests that never ran.
+  The default cap is 10000 test cases per method, which no hand-written matrix reaches. Projects that
+  legitimately generate more raise it per project with `<NextUnitMaxTestCasesPerMethod>` and per run
+  with the `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` environment variable; an unparseable or non-positive
+  value falls back to the default rather than failing the build, so a typo in the escape hatch cannot
+  become the thing that stops a compilation.
 
 ## [2.0.0] - 2026-08-12
 

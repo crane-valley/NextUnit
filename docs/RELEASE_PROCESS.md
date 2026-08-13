@@ -549,17 +549,22 @@ dotnet build tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageS
 
 Both must finish with 0 warnings and 0 errors.
 
-Do not substitute a solution build or rely on CI here, because neither one compiles the line you
-changed:
+Do not substitute a solution build or the package smoke jobs here, because neither one compiles the
+line you changed:
 
 - Neither smoke project is a member of `NextUnit.slnx`, so `dotnet build NextUnit.slnx` never touches
   them.
 - Every smoke invocation in `.github/workflows/dotnet.yml` and `.github/workflows/release.yml` passes
   `-p:UseLocalNextUnitPackage=true`, which selects the first condition and bypasses the fallback.
 
-No checked-in workflow exercises the fallback, so this direct build is the only verification you
-control. GitHub's automatic dependency submission does restore through it, but that job runs after the
-merge and is not a pre-merge gate.
+One checked-in job does reach the fallback. `check-dependency-vulnerabilities.ps1` names both smoke
+projects as scan targets without pinning `UseLocalNextUnitPackage`, so its plain `dotnet restore`
+resolves them through the fallback line: on every pull request in the `Security Scan` job of
+`.github/workflows/dotnet.yml`, and again in the nightly `Vulnerability Scan`. A fallback naming a
+version nuget.org does not serve usually fails that restore before the merge. Usually, not always:
+that job restores the shared `~/.nuget/packages` cache, which can serve the version without a
+nuget.org round trip. It also restores and lists packages without building either project, so the
+direct build above stays the only check that the changed line compiles.
 
 **Cold cache caveat**: the builds above prove the fallback line compiles, not that nuget.org actually
 serves the version. A warm cache satisfies them on its own, and deleting a package directory or two
