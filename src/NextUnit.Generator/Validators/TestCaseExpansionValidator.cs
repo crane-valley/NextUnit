@@ -67,9 +67,12 @@ internal static class TestCaseExpansionValidator
         }
 
         // [TestData] and [ClassDataSource] emit one descriptor each, so one descriptor is the whole
-        // compile-time cost of them. Their rows are deliberately not capped at discovery either: a
-        // very large row set is a supported case, served by DeferredEnumeration, which keeps
-        // discovery O(1) per source instead of rejecting it.
+        // compile-time cost of them. Their rows are deliberately not capped at discovery either.
+        // What this validator bounds is expansion NextUnit performs from declarative attribute data;
+        // a member's rows come from running the user's own code, and capping the row count would not
+        // cap the time that code takes -- a blocking member has always stalled discovery, and a cap
+        // would only make the protection look wider than it is. A large row set is a supported case
+        // besides, served by DeferredEnumeration, which keeps discovery O(1) per source.
         if (!test.ClassDataSources.IsDefaultOrEmpty || !test.TestDataSources.IsDefaultOrEmpty)
         {
             return 1;

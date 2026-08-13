@@ -173,10 +173,17 @@ NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run --project MyProject.Tests
 
 ## Expansion Limits
 
-`[Matrix]`, `[Arguments]`, `[Repeat]`, and parameter-level data sources multiply, so a small edit can
-ask for millions of test cases. NextUnit caps one test method at **10000** test cases and fails fast
-instead of expanding: the generator reports `NEXTUNIT013` at compile time, and discovery throws when
-a combined data source resolves to more than the cap.
+`[Matrix]`, `[Arguments]`, `[Repeat]`, and parameter-level data sources (`[Values]`,
+`[ValuesFromMember]`, `[ValuesFrom]`) multiply, so a small edit can ask for millions of test cases.
+NextUnit caps those at **10000** test cases per test method and fails fast instead of expanding: the
+generator reports `NEXTUNIT013` at compile time, and discovery throws when a combined data source
+resolves to more than the cap. Neither ever truncates -- a shortened run would report green over
+tests that never ran.
+
+The cap covers the expansions NextUnit performs itself. It does not limit how many rows a
+`[TestData]` or `[ClassDataSource]` member returns, because that member is your code: bounding its
+row count would not bound its running time, and a large row set is a supported case. Use
+[deferred enumeration](docs/GETTING_STARTED.md) to keep discovery cheap for one.
 
 Raise the cap per project for the generator, and per run for discovery:
 

@@ -837,6 +837,16 @@ materialized every combination before it -- was fixed in that PR by charging the
 product. The three below were left, each because the fix is a product decision rather than a hole in
 the bound.
 
+- [x] Decide whether the cap should also bound how many rows a `[TestData]` or `[ClassDataSource]`
+  member returns. It should not, and the boundary is now stated in the README and at the projection
+  site. What the cap bounds is expansion NextUnit performs itself from declarative attribute data,
+  where no user code runs and the count is a product of attribute arguments. A member's rows come
+  from running the user's own code, so bounding the row count would not bound the time that code
+  takes -- a blocking member has always stalled discovery -- and the cap would advertise protection
+  it does not provide. A large row set is a supported case besides, with `DeferredEnumeration` as the
+  answer for keeping discovery cheap. Raised twice by the Codex review of PR #236; resolved by
+  documentation, no code change.
+
 - [ ] `[Repeat]` is silently dropped when a test method also carries parameter-level data sources.
   `RegistryEmitter` partitions such a method into `CombinedDataSourceTests`, and
   `EmitCombinedDataSourceDescriptor` writes no repeat information, so `[Repeat(5)]` beside

@@ -78,7 +78,7 @@ internal static class GeneratorDiagnosticDescriptors
     public static readonly DiagnosticDescriptor TestCaseExpansionLimitExceeded = Error(
         "NEXTUNIT013",
         "Test case expansion limit exceeded",
-        "Test '{0}' expands to {1} test cases, which exceeds the limit of {2}. Reduce the [Matrix], [Arguments], or [Repeat] values, or raise the limit with <NextUnitMaxTestCasesPerMethod> in the project file.");
+        "Test '{0}' expands to {1} test cases, which exceeds the limit of {2}. Reduce the [Matrix], [Arguments], [Repeat], or [Values] values, or raise the limit with <NextUnitMaxTestCasesPerMethod> in the project file.");
 
     private static DiagnosticDescriptor Error(string id, string title, string messageFormat) =>
         Create(id, title, messageFormat, DiagnosticSeverity.Error);

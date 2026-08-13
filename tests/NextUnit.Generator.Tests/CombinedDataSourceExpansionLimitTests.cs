@@ -17,22 +17,39 @@ namespace NextUnit.Generator.Tests;
 /// other test classes expand combined descriptors concurrently, so lowering it for one test would
 /// reach into theirs. The parsing is covered directly instead.
 /// </para>
+/// <para>
+/// Every size below is derived from <see cref="_limit"/>, the cap actually in effect, rather than
+/// written against the default. A developer who exports the variable would otherwise get failures
+/// from a suite that is testing the thing they configured, or -- worse -- an over-limit case that
+/// quietly stops being one and asserts nothing.
+/// </para>
 /// </remarks>
 public sealed class CombinedDataSourceExpansionLimitTests
 {
+    private static readonly int _limit = TestCaseExpansionLimits.MaxTestCasesPerMethod;
+
+    /// <summary>
+    /// The smallest per-parameter length whose cube exceeds <see cref="_limit"/>, so three sources of
+    /// it are over the cap and three of one less are under it.
+    /// </summary>
+    private static readonly int _overLimitCubeRoot = SmallestCubeRootAbove(_limit);
+
+    /// <summary>
+    /// A lazy source length comfortably past the cap, so truncation is provable at any limit.
+    /// </summary>
+    private static readonly int _oversizedSourceLength = _limit + 1_000;
+
     [Fact]
-    public void ExpandSingle_AboveTheDefaultLimit_Throws()
+    public void ExpandSingle_AboveTheLimit_Throws()
     {
-        // 22^3 = 10648 combinations from 66 values.
-        var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: 22);
+        var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: _overLimitCubeRoot);
 
         var exception = Assert.Throws<InvalidOperationException>(
             () => CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
 
-        Assert.Contains("10648", exception.Message);
-        Assert.Contains(
-            TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod.ToString(CultureInfo.InvariantCulture),
-            exception.Message);
+        var expected = (long)_overLimitCubeRoot * _overLimitCubeRoot * _overLimitCubeRoot;
+        Assert.Contains(expected.ToString(CultureInfo.InvariantCulture), exception.Message);
+        Assert.Contains(_limit.ToString(CultureInfo.InvariantCulture), exception.Message);
 
         // The message has to name the escape hatch, or the only way out of a failed discovery is to
         // delete the test.
@@ -40,22 +57,25 @@ public sealed class CombinedDataSourceExpansionLimitTests
     }
 
     [Fact]
-    public void ExpandSingle_AboveTheDefaultLimit_DoesNotTruncate()
+    public void ExpandSingle_AboveTheLimit_DoesNotTruncate()
     {
-        var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: 22);
+        var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: _overLimitCubeRoot);
 
-        // Silently expanding the first 10000 would report a green run over a suite that never ran in
+        // Silently expanding the first N would report a green run over a suite that never ran in
         // full, which is worse than the exhaustion the limit is here to prevent.
         Assert.Throws<InvalidOperationException>(
             () => CombinedDataSourceExpander.ExpandSingle(descriptor).First());
     }
 
     [Fact]
-    public void ExpandSingle_WithinTheDefaultLimit_Expands()
+    public void ExpandSingle_WithinTheLimit_Expands()
     {
-        var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: 21);
+        var perParameter = _overLimitCubeRoot - 1;
+        var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: perParameter);
 
-        Assert.Equal(21 * 21 * 21, CombinedDataSourceExpander.ExpandSingle(descriptor).Count());
+        Assert.Equal(
+            perParameter * perParameter * perParameter,
+            CombinedDataSourceExpander.ExpandSingle(descriptor).Count());
     }
 
     [Fact]
@@ -67,23 +87,25 @@ public sealed class CombinedDataSourceExpansionLimitTests
             ParameterIndex = 0,
             ParameterName = "p0",
             Kind = ParameterDataSourceKind.Member,
-            MemberProvider = () => Counted(200_000, () => drawn++),
+            MemberProvider = () => Counted(_oversizedSourceLength, () => drawn++),
         });
 
         var exception = Assert.Throws<InvalidOperationException>(
             () => CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
 
         // The sequence is drained before any product exists, so a cap that only guarded the product
-        // would have pulled all 200000 values -- and a genuinely unbounded source would never stop.
-        // The bound is the cap plus the one extra value drawn to tell "filled the cap" from
-        // "ended exactly at it".
-        var bound = TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod + 2;
+        // would have pulled every value -- and a genuinely unbounded source would never stop. The
+        // bound is the cap plus the one extra value drawn to tell "filled the cap" from "ended
+        // exactly at it".
+        var bound = _limit + 2;
         Assert.True(drawn <= bound, $"Drew {drawn} values from a source bounded at {bound}.");
 
         // The real length was never learned, so the message reports a bound rather than a count.
         Assert.Contains("more than", exception.Message);
         Assert.False(
-            exception.Message.Contains("200000", StringComparison.Ordinal),
+            exception.Message.Contains(
+                _oversizedSourceLength.ToString(CultureInfo.InvariantCulture),
+                StringComparison.Ordinal),
             $"The message claims a count the expander never computed: {exception.Message}");
     }
 
@@ -98,7 +120,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
                 ParameterIndex = parameterIndex,
                 ParameterName = $"p{parameterIndex}",
                 Kind = ParameterDataSourceKind.Member,
-                MemberProvider = () => Counted(200_000, () => drawn++),
+                MemberProvider = () => Counted(_oversizedSourceLength, () => drawn++),
             })
             .ToArray());
 
@@ -109,7 +131,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
         // buy the exhaustion back. The cap shrinks as the running product grows: once the product is
         // over, the remaining sources are only probed for emptiness, so the total stays limit plus a
         // constant per source rather than limit times the source count.
-        var bound = TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod + (2 * sourceCount);
+        var bound = _limit + (2 * sourceCount);
         Assert.True(
             drawn <= bound,
             $"Drew {drawn} values across {sourceCount} sources, bounded at {bound}.");
@@ -131,7 +153,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
                 ParameterIndex = 1,
                 ParameterName = "p1",
                 Kind = ParameterDataSourceKind.Member,
-                MemberProvider = () => Counted(200_000, static () => { }),
+                MemberProvider = () => Counted(_oversizedSourceLength, static () => { }),
             });
 
         // Order must not decide the outcome: a zero product is zero whichever source is read first.
@@ -147,7 +169,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
                 ParameterIndex = 0,
                 ParameterName = "p0",
                 Kind = ParameterDataSourceKind.Member,
-                MemberProvider = () => Counted(200_000, static () => { }),
+                MemberProvider = () => Counted(_oversizedSourceLength, static () => { }),
             },
             new ParameterDataSource
             {
@@ -191,6 +213,26 @@ public sealed class CombinedDataSourceExpansionLimitTests
     public void Parse_PositiveValue_IsHonored(string value, int expected)
     {
         Assert.Equal(expected, TestCaseExpansionPolicy.Parse(value));
+    }
+
+    /// <summary>
+    /// The smallest length whose cube exceeds <paramref name="limit"/>.
+    /// </summary>
+    /// <remarks>
+    /// Stepped rather than computed from <c>Math.Cbrt</c> alone: the cube root of a large limit lands
+    /// close enough to an integer that a rounding error either side picks a length whose cube is on
+    /// the wrong side of the cap, and every over-limit test here would then assert nothing.
+    /// </remarks>
+    private static int SmallestCubeRootAbove(int limit)
+    {
+        var candidate = Math.Max((int)Math.Cbrt(limit) - 1, 1);
+
+        while ((long)candidate * candidate * candidate <= limit)
+        {
+            candidate++;
+        }
+
+        return candidate;
     }
 
     /// <summary>
