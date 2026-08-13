@@ -196,6 +196,7 @@ internal sealed record TestDataSource
         string? memberTypeName,
         DataSourceMemberKind memberKind,
         DataSourceShape shape,
+        string? rowTypeName,
         bool acceptsCancellationToken,
         bool deferredEnumeration,
         string? unreachableMemberTypeName = null)
@@ -204,6 +205,7 @@ internal sealed record TestDataSource
         MemberTypeName = memberTypeName;
         MemberKind = memberKind;
         Shape = shape;
+        RowTypeName = rowTypeName;
         AcceptsCancellationToken = acceptsCancellationToken;
         DeferredEnumeration = deferredEnumeration;
         UnreachableMemberTypeName = unreachableMemberTypeName;
@@ -230,6 +232,26 @@ internal sealed record TestDataSource
     /// synchronous provider delegate or the asynchronous one.
     /// </summary>
     public DataSourceShape Shape { get; }
+
+    /// <summary>
+    /// Gets the row type to name in the emitted adapter call, or <c>null</c> when inference already
+    /// arrives at the selected one on its own.
+    /// </summary>
+    /// <remarks>
+    /// Only a source offering more than one element type carries a value here. That is the case
+    /// inference cannot resolve -- it reports <c>CS0411</c> in a file the user did not write -- and
+    /// the only case where the arm the call reads can differ from the one
+    /// <c>KnownDataSourceTypes.SelectRowType</c> chose and <c>NU0009</c> validated against. A source
+    /// implementing the interface once is left inferred because the name buys nothing there and can
+    /// still fail: a written type reaches nothing an <c>extern alias</c> hides, where inference
+    /// needs no name at all.
+    /// <para>
+    /// It comes from the same <c>KnownDataSourceTypes.Classify</c> result <see cref="Shape"/> does.
+    /// Recomputing it at the emitter was rejected: a second walk over the interfaces would be a
+    /// second precedence rule, free to drift from the analyzers'.
+    /// </para>
+    /// </remarks>
+    public string? RowTypeName { get; }
 
     /// <summary>
     /// Gets a value indicating whether the member is a method that takes the discovery cancellation

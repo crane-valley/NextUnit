@@ -64,6 +64,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written as `(Direction)-1`, which C# parses as a subtraction and rejects with `CS0075`, so any test
   passing such a member as an argument failed to build. Emitted literals for other members change
   shape from `(Direction)1` to `(Direction)(1)` and are otherwise unaffected.
+- Name the row type in the emitted asynchronous data source call when a source offers more than one.
+  A `[TestData]` member returning a type that implements `IAsyncEnumerable<T>` twice produced
+  `AsyncDataSourceAdapter.FromAsyncEnumerableAsync(source, ct)` with nothing to infer the type
+  argument from, so the build failed with `CS0411` in a file you did not write. The call now names
+  the row type the analyzers already select -- `TestDataRow<T>` first, then the ordinally first
+  element type -- which both makes the source compile and pins the run to the same arm `NU0009`
+  validates against. A source implementing the interface once is emitted exactly as before, since
+  inference reaches the same type there and a written name only adds a way to fail. The
+  task-wrapped shapes are unchanged too: their type argument is the awaited collection rather than
+  the row, and it was never ambiguous.
 
 ### Changed
 
