@@ -64,6 +64,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written as `(Direction)-1`, which C# parses as a subtraction and rejects with `CS0075`, so any test
   passing such a member as an argument failed to build. Emitted literals for other members change
   shape from `(Direction)1` to `(Direction)(1)` and are otherwise unaffected.
+- Refuse a second test session on one framework instance rather than half-serving it. The session
+  lifecycle gated `[Before(Session)]` behind a once-gate that was never reset, while teardown was
+  ungated, so an instance asked to serve a second session would skip setup, replay the first
+  session's skip reason onto every test of the second, and run the `[After(Session)]` hooks again --
+  all silently. A spent instance is now refused with an `InvalidOperationException` when a session is
+  opened on it, and again if session setup or session teardown is reached, so not even a session whose
+  filter matches no test can open on it. No supported host reaches this: Microsoft.Testing.Platform builds a test
+  framework per session -- once per run in console mode, once per request in server mode -- and a
+  reused instance could not be served correctly anyway, because its memoized test cases hold
+  session-shared data source instances that teardown has already disposed.
 - Name the row type in the emitted asynchronous data source call when a source offers more than one.
   A `[TestData]` member returning a type that implements `IAsyncEnumerable<T>` twice produced
   `AsyncDataSourceAdapter.FromAsyncEnumerableAsync(source, ct)` with nothing to infer the type
