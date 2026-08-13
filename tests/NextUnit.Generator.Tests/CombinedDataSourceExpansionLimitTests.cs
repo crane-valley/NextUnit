@@ -37,7 +37,13 @@ public sealed class CombinedDataSourceExpansionLimitTests
     /// <summary>
     /// A lazy source length comfortably past the cap, so truncation is provable at any limit.
     /// </summary>
-    private static readonly int _oversizedSourceLength = _limit + 1_000;
+    /// <remarks>
+    /// Saturating rather than wrapping, because <c>Parse</c> accepts <see cref="int.MaxValue"/> as a
+    /// limit: a wrapped length is negative, <c>Take</c> of it yields nothing, and every over-limit
+    /// test here would pass while asserting the opposite of what it claims.
+    /// </remarks>
+    private static readonly int _oversizedSourceLength =
+        _limit > int.MaxValue - 1_000 ? int.MaxValue : _limit + 1_000;
 
     [Fact]
     public void ExpandSingle_AboveTheLimit_Throws()
@@ -97,7 +103,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
         // would have pulled every value -- and a genuinely unbounded source would never stop. The
         // bound is the cap plus the one extra value drawn to tell "filled the cap" from "ended
         // exactly at it".
-        var bound = _limit + 2;
+        var bound = (long)_limit + 2;
         Assert.True(drawn <= bound, $"Drew {drawn} values from a source bounded at {bound}.");
 
         // The real length was never learned, so the message reports a bound rather than a count.
@@ -131,7 +137,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
         // buy the exhaustion back. The cap shrinks as the running product grows: once the product is
         // over, the remaining sources are only probed for emptiness, so the total stays limit plus a
         // constant per source rather than limit times the source count.
-        var bound = _limit + (2 * sourceCount);
+        var bound = (long)_limit + (2 * sourceCount);
         Assert.True(
             drawn <= bound,
             $"Drew {drawn} values across {sourceCount} sources, bounded at {bound}.");

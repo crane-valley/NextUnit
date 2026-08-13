@@ -191,6 +191,56 @@ public class TestCaseExpansionLimitTests
     }
 
     [Fact]
+    public async Task MatrixExclusionTimesRepeat_UnderTheLimitAfterExclusion_ReportsNothingAsync()
+    {
+        // The emitter excludes first and repeats the survivors, so this is one survivor repeated
+        // twice: two emitted cases, under a cap of three. Charging the pre-exclusion count for the
+        // repeat as well makes it four and rejects a test that excludes its way under the cap.
+        var source = """
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class MatrixTests
+            {
+                [Test]
+                [MatrixExclusion(2)]
+                [Repeat(2)]
+                public void Combined([Matrix(1, 2)] int p0)
+                {
+                }
+            }
+            """;
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "3");
+    }
+
+    [Fact]
+    public async Task MatrixExclusionTimesRepeat_OverTheLimitAfterExclusion_ReportsAsync()
+    {
+        // The same shape, but the exclusion names a value no parameter offers, so it removes nothing
+        // and both combinations survive: four emitted cases against a cap of three. Subtracting an
+        // exclusion that never matches would be a way to slip past the cap.
+        var source = """
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class MatrixTests
+            {
+                [Test]
+                [MatrixExclusion(3)]
+                [Repeat(2)]
+                public void Combined([Matrix(1, 2)] int p0)
+                {
+                }
+            }
+            """;
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: true, configuredLimit: "3");
+    }
+
+    [Fact]
     public async Task Matrix_WithinTheDefaultLimit_ReportsNothingAsync()
     {
         var source = MatrixSource(parameterCount: 2, valuesPerParameter: 3);

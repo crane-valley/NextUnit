@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using NextUnit.Generator.Diagnostics;
 using NextUnit.Generator.Models;
@@ -37,13 +38,20 @@ internal static class TestCaseExpansionValidator
 
             if (projected > maxTestCasesPerMethod)
             {
+                // A saturated projection is reported as a bound rather than as a count, matching the
+                // discovery-time message: long.MaxValue is where MultiplyClamped stops, not a number
+                // of test cases anyone wrote.
+                var countText = projected == long.MaxValue
+                    ? $"more than {maxTestCasesPerMethod}"
+                    : projected.ToString(CultureInfo.InvariantCulture);
+
                 // Location.None matches every other generator diagnostic: the pipeline models are
                 // value objects that carry no syntax reference.
                 context.ReportDiagnostic(Diagnostic.Create(
                     GeneratorDiagnosticDescriptors.TestCaseExpansionLimitExceeded,
                     Location.None,
                     test.Id,
-                    projected,
+                    countText,
                     maxTestCasesPerMethod));
                 continue;
             }
@@ -72,7 +80,8 @@ internal static class TestCaseExpansionValidator
         // a member's rows come from running the user's own code, and capping the row count would not
         // cap the time that code takes -- a blocking member has always stalled discovery, and a cap
         // would only make the protection look wider than it is. A large row set is a supported case
-        // besides, served by DeferredEnumeration, which keeps discovery O(1) per source.
+        // besides: [TestData] serves one with DeferredEnumeration, which keeps discovery O(1) per
+        // source, and [ClassDataSource] has no deferred mode to offer.
         if (!test.ClassDataSources.IsDefaultOrEmpty || !test.TestDataSources.IsDefaultOrEmpty)
         {
             return 1;
@@ -82,9 +91,6 @@ internal static class TestCaseExpansionValidator
 
         if (!test.MatrixParameters.IsDefaultOrEmpty)
         {
-            // [MatrixExclusion] is deliberately not subtracted: the Cartesian product is materialized
-            // in full and only then filtered, so the pre-exclusion size is the work being bounded.
-            //
             // The peak of the running product is charged rather than its final value, because
             // MatrixHelper.ComputeCartesianProduct multiplies one parameter at a time and holds every
             // intermediate combination. An empty [Matrix()] after four 256-value ones ends at zero
@@ -101,11 +107,77 @@ internal static class TestCaseExpansionValidator
                 peak = Math.Max(peak, combinations);
             }
 
-            return Math.Max(peak, TestCaseExpansionPolicy.MultiplyClamped(combinations, repeatCount));
+            // The two halves are charged against different counts because the emitter applies
+            // [MatrixExclusion] between them: the product is built and held in full, then filtered,
+            // and only the survivors are repeated. Charging the pre-exclusion count for the repeat as
+            // well rejects a test that excludes its way under the cap -- one combination left out of
+            // two, repeated 6000 times, is 6000 cases charged as 12000.
+            var emitted = TestCaseExpansionPolicy.MultiplyClamped(
+                Math.Max(combinations - CountExcludedCombinations(test), 0),
+                repeatCount);
+
+            return Math.Max(peak, emitted);
         }
 
         var argumentSetCount = test.ArgumentSets.IsDefaultOrEmpty ? 1L : test.ArgumentSets.Length;
         return TestCaseExpansionPolicy.MultiplyClamped(argumentSetCount, repeatCount);
+    }
+
+    /// <summary>
+    /// Counts the combinations <c>MatrixHelper.ApplyExclusions</c> would remove from the product.
+    /// </summary>
+    /// <remarks>
+    /// Counted from the exclusion patterns rather than by filtering the product, because the product
+    /// is the thing this validator exists to avoid building. An exclusion removes at most one
+    /// combination -- it matches only when its length equals the parameter count and every value
+    /// equals the combination's at that position -- so the removed total is the number of distinct
+    /// patterns whose values are all actually offered by their parameter. A pattern naming a value no
+    /// parameter offers removes nothing, and two identical patterns remove the same one combination,
+    /// which is why they are counted as a set.
+    /// </remarks>
+    private static long CountExcludedCombinations(TestMethodDescriptor test)
+    {
+        if (test.MatrixExclusions.IsDefaultOrEmpty)
+        {
+            return 0;
+        }
+
+        var matched = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var exclusion in test.MatrixExclusions)
+        {
+            if (exclusion.Values.Length != test.MatrixParameters.Length)
+            {
+                continue;
+            }
+
+            var reachable = true;
+
+            for (var index = 0; index < exclusion.Values.Length; index++)
+            {
+                var offered = test.MatrixParameters[index].Values
+                    .Any(value => string.Equals(
+                        value.EqualityKey,
+                        exclusion.Values[index].EqualityKey,
+                        StringComparison.Ordinal));
+
+                if (!offered)
+                {
+                    reachable = false;
+                    break;
+                }
+            }
+
+            if (reachable)
+            {
+                // Separated by a character no equality key contains, so two patterns cannot
+                // collide by concatenation: "ab" then "c" must not key the same combination
+                // as "a" then "bc".
+                matched.Add(string.Join("\u001F", exclusion.Values.Select(value => value.EqualityKey)));
+            }
+        }
+
+        return matched.Count;
     }
 
     /// <summary>

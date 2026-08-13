@@ -182,8 +182,10 @@ tests that never ran.
 
 The cap covers the expansions NextUnit performs itself. It does not limit how many rows a
 `[TestData]` or `[ClassDataSource]` member returns, because that member is your code: bounding its
-row count would not bound its running time, and a large row set is a supported case. Use
-[deferred enumeration](docs/GETTING_STARTED.md) to keep discovery cheap for one.
+row count would not bound its running time, and a large row set is a supported case. For `[TestData]`,
+`DeferredEnumeration` keeps discovery cheap over a large source by reporting one placeholder and
+enumerating rows only during execution; `[ClassDataSource]` has no deferred mode and always
+materializes its rows at discovery.
 
 Raise the cap per project for the generator, and per run for discovery:
 
