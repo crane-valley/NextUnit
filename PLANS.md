@@ -870,6 +870,19 @@ the bound.
   answer for keeping discovery cheap. Raised twice by the Codex review of PR #236; resolved by
   documentation, no code change.
 
+- [ ] The compile-time check on combined parameter sources charges the product of the inline
+  `[Values]` lengths, which over-rejects a method whose real expansion is zero. A runtime-resolved
+  `[ValuesFromMember]` or `[ValuesFrom]` contributes an unknown factor that the projection treats as
+  at least one, but it can resolve to nothing, and `CombinedDataSourceExpander` deliberately keeps a
+  zero product as zero test cases. Seven `[Values]` of four values beside an empty member source is
+  therefore `NEXTUNIT013` for a test that expands to nothing. The rejection is fail-closed and the
+  escape hatch is documented, which is why it ships. The sharper fix, from the Codex Cloud review of
+  PR #236: what the emitter actually writes at compile time is one array literal per inline
+  parameter, so the compile-time cost is the sum of the inline lengths, not their product. Bound the
+  sum here and leave the product entirely to the discovery-time cap, which already computes it with
+  the runtime lengths in hand. That needs the `NEXTUNIT013` message reworded, since it would no
+  longer be reporting a test case count.
+
 - [ ] The cap bounds emitted test cases, not the work of computing them, and `MatrixHelper` now runs
   twice for a matrix test that passes the peak check -- once in `TestCaseExpansionValidator` to count
   survivors exactly, once in `RegistryEmitter` to emit them. Within the cap that is bounded work, but
