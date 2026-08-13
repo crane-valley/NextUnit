@@ -1,5 +1,6 @@
 using System.Globalization;
 using NextUnit.Internal;
+using NextUnit.Shared;
 
 namespace NextUnit.Generator.Tests;
 
@@ -30,7 +31,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
 
         Assert.Contains("10648", exception.Message);
         Assert.Contains(
-            TestCaseExpansionLimits.DefaultMaxTestCasesPerMethod.ToString(CultureInfo.InvariantCulture),
+            TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod.ToString(CultureInfo.InvariantCulture),
             exception.Message);
 
         // The message has to name the escape hatch, or the only way out of a failed discovery is to
@@ -76,7 +77,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
         // would have pulled all 200000 values -- and a genuinely unbounded source would never stop.
         // The bound is the cap plus the one extra value drawn to tell "filled the cap" from
         // "ended exactly at it".
-        var bound = TestCaseExpansionLimits.DefaultMaxTestCasesPerMethod + 2;
+        var bound = TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod + 2;
         Assert.True(drawn <= bound, $"Drew {drawn} values from a source bounded at {bound}.");
 
         // The real length was never learned, so the message reports a bound rather than a count.
@@ -108,7 +109,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
         // buy the exhaustion back. The cap shrinks as the running product grows: once the product is
         // over, the remaining sources are only probed for emptiness, so the total stays limit plus a
         // constant per source rather than limit times the source count.
-        var bound = TestCaseExpansionLimits.DefaultMaxTestCasesPerMethod + (2 * sourceCount);
+        var bound = TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod + (2 * sourceCount);
         Assert.True(
             drawn <= bound,
             $"Drew {drawn} values across {sourceCount} sources, bounded at {bound}.");
@@ -180,7 +181,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [InlineData("2147483648")]
     public void Parse_UnusableValue_FallsBackToTheDefault(string? value)
     {
-        Assert.Equal(TestCaseExpansionLimits.DefaultMaxTestCasesPerMethod, TestCaseExpansionLimits.Parse(value));
+        Assert.Equal(TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod, TestCaseExpansionPolicy.Parse(value));
     }
 
     [Theory]
@@ -189,7 +190,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [InlineData("2147483647", int.MaxValue)]
     public void Parse_PositiveValue_IsHonored(string value, int expected)
     {
-        Assert.Equal(expected, TestCaseExpansionLimits.Parse(value));
+        Assert.Equal(expected, TestCaseExpansionPolicy.Parse(value));
     }
 
     /// <summary>

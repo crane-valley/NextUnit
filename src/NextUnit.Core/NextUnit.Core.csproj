@@ -24,6 +24,13 @@
     <InternalsVisibleTo Include="NextUnit.Benchmarks" />
   </ItemGroup>
 
+  <!-- Linked source, not a project reference: the same file is compiled into NextUnit.Generator,
+       which is a netstandard2.0 analyzer assembly that cannot depend on this package. Sharing the
+       file is what keeps the compile-time and discovery-time expansion caps from drifting apart. -->
+  <ItemGroup>
+    <Compile Include="..\NextUnit.Shared\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using NextUnit.Shared;
 
 namespace NextUnit.Internal;
 
@@ -60,7 +61,7 @@ internal static class CombinedDataSourceExpander
                 parameterValues.Add(resolved.Values);
 
                 truncated |= resolved.Truncated;
-                projected = MultiplyClamped(projected, resolved.Values.Length);
+                projected = TestCaseExpansionPolicy.MultiplyClamped(projected, resolved.Values.Length);
             }
             catch (OperationCanceledException)
             {
@@ -272,25 +273,6 @@ internal static class CombinedDataSourceExpander
         var affordable = maxTestCasesPerMethod / projected;
 
         return affordable >= int.MaxValue - 1 ? int.MaxValue - 1 : (int)affordable + 1;
-    }
-
-    /// <summary>
-    /// Multiplies two non-negative counts, saturating at <see cref="long.MaxValue"/>.
-    /// </summary>
-    /// <remarks>
-    /// Saturation rather than wrapping is the point: a wrapped product lands back under the limit and
-    /// waves through exactly the expansion that would exhaust the host. Three sources of 1626 values
-    /// already overflow <see cref="int"/>, which is why the projection is computed in
-    /// <see cref="long"/> throughout.
-    /// </remarks>
-    private static long MultiplyClamped(long left, long right)
-    {
-        if (left == 0 || right == 0)
-        {
-            return 0;
-        }
-
-        return left > long.MaxValue / right ? long.MaxValue : left * right;
     }
 
     private static List<object?[]> ComputeCartesianProduct(List<object?[]> parameterValues)

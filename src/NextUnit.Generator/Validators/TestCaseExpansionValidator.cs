@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using NextUnit.Generator.Diagnostics;
 using NextUnit.Generator.Models;
+using NextUnit.Shared;
 
 namespace NextUnit.Generator.Validators;
 
@@ -65,8 +66,10 @@ internal static class TestCaseExpansionValidator
             return ProjectCombinedSourceCount(test);
         }
 
-        // [TestData] and [ClassDataSource] emit one descriptor each and resolve their rows at
-        // discovery, where TestCaseExpansionLimits applies the same cap.
+        // [TestData] and [ClassDataSource] emit one descriptor each, so one descriptor is the whole
+        // compile-time cost of them. Their rows are deliberately not capped at discovery either: a
+        // very large row set is a supported case, served by DeferredEnumeration, which keeps
+        // discovery O(1) per source instead of rejecting it.
         if (!test.ClassDataSources.IsDefaultOrEmpty || !test.TestDataSources.IsDefaultOrEmpty)
         {
             return 1;
@@ -81,14 +84,14 @@ internal static class TestCaseExpansionValidator
             var combinations = 1L;
             foreach (var parameter in test.MatrixParameters)
             {
-                combinations = MultiplyClamped(combinations, parameter.Values.Length);
+                combinations = TestCaseExpansionPolicy.MultiplyClamped(combinations, parameter.Values.Length);
             }
 
-            return MultiplyClamped(combinations, repeatCount);
+            return TestCaseExpansionPolicy.MultiplyClamped(combinations, repeatCount);
         }
 
         var argumentSetCount = test.ArgumentSets.IsDefaultOrEmpty ? 1L : test.ArgumentSets.Length;
-        return MultiplyClamped(argumentSetCount, repeatCount);
+        return TestCaseExpansionPolicy.MultiplyClamped(argumentSetCount, repeatCount);
     }
 
     /// <summary>
@@ -120,31 +123,12 @@ internal static class TestCaseExpansionValidator
         {
             if (source.Kind == ParameterDataSourceKind.Inline)
             {
-                inlineCombinations = MultiplyClamped(
+                inlineCombinations = TestCaseExpansionPolicy.MultiplyClamped(
                     inlineCombinations,
                     Math.Max(source.InlineValues.Length, 1));
             }
         }
 
         return inlineCombinations;
-    }
-
-    /// <summary>
-    /// Multiplies two non-negative counts, saturating at <see cref="long.MaxValue"/>.
-    /// </summary>
-    /// <remarks>
-    /// Saturation rather than wrapping is the whole point: a wrapped product lands back under the
-    /// limit and waves through exactly the expansion that would hang the compiler. Four matrix
-    /// parameters of 256 values already overflow <see cref="int"/>, which is why the projection is
-    /// computed in <see cref="long"/> throughout.
-    /// </remarks>
-    private static long MultiplyClamped(long left, long right)
-    {
-        if (left == 0 || right == 0)
-        {
-            return 0;
-        }
-
-        return left > long.MaxValue / right ? long.MaxValue : left * right;
     }
 }
