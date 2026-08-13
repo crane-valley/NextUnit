@@ -78,6 +78,7 @@ internal static class DataSourceAttributeReader
                 memberTypeName,
                 member.Kind,
                 member.Shape,
+                member.RowTypeName,
                 member.AcceptsCancellationToken,
                 deferredEnumeration,
                 unreachableMemberTypeName));
@@ -395,7 +396,7 @@ internal static class DataSourceAttributeReader
     /// member the registry cannot name, or one whose cancellation token the synchronous provider has
     /// no way to pass, would produce generated code that does not compile.
     /// </remarks>
-    private static (DataSourceMemberKind Kind, DataSourceShape Shape, bool AcceptsCancellationToken) ResolveTestDataMember(
+    private static (DataSourceMemberKind Kind, DataSourceShape Shape, string? RowTypeName, bool AcceptsCancellationToken) ResolveTestDataMember(
         INamedTypeSymbol? typeSymbol,
         string memberName,
         KnownDataSourceTypes knownDataSourceTypes)
@@ -412,8 +413,22 @@ internal static class DataSourceAttributeReader
             }
             : DataSourceMemberKind.Unknown;
 
-        return kind == DataSourceMemberKind.Unknown
-            ? (DataSourceMemberKind.Unknown, DataSourceShape.Sync, false)
-            : (kind, knownDataSourceTypes.Classify(resolved.MemberType).Shape, resolved.AcceptsCancellationToken);
+        if (kind == DataSourceMemberKind.Unknown)
+        {
+            return (DataSourceMemberKind.Unknown, DataSourceShape.Sync, null, false);
+        }
+
+        // Classified once and read twice: the walk covers every interface the member's type
+        // implements, and the row type has to be the one this shape was decided from.
+        var classification = knownDataSourceTypes.Classify(resolved.MemberType);
+
+        // Named only when the source offers more than one, which is the only case inference answers
+        // differently -- or not at all. Naming an unambiguous row type would change nothing except
+        // to add a way for the emitted call to fail on a type inference resolves without a name.
+        var rowTypeName = classification.RowTypeIsAmbiguous
+            ? classification.RowType?.ToDisplayString(AttributeHelper.TypeExpressionFormat)
+            : null;
+
+        return (kind, classification.Shape, rowTypeName, resolved.AcceptsCancellationToken);
     }
 }

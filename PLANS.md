@@ -562,7 +562,7 @@ decision, and none of them was introduced by that change.
   fully qualified element type name. Declaration order was rejected as the tie-break because
   `AllInterfaces` does not expose one. The non-generic `IEnumerable` walk needed no change: it
   answers a yes-or-no question, so the order it visits candidates in cannot affect the answer.
-- [ ] The selected row type does not reach the emitted provider. `TestDataSource` carries the shape
+- [x] The selected row type does not reach the emitted provider. `TestDataSource` carries the shape
   but not the row type, so `BuildAsyncTestDataSourceProvider` emits a bare
   `AsyncDataSourceAdapter.FromAsyncEnumerableAsync(source, ct)`. A source implementing
   `IAsyncEnumerable<T>` more than once therefore fails the consumer's build with `CS0411`, because
@@ -571,7 +571,34 @@ decision, and none of them was introduced by that change.
   the row type has never reached the generator -- and surfaced by the Codex review of the row-type
   precedence work (2026-08-12). Closing it means threading the selected row type through the
   descriptor model and emitting an explicitly typed adapter call, which moves every async snapshot
-  baseline, so it is its own change with its own review.
+  baseline, so it is its own change with its own review. Done 2026-08-13: `TestDataSource` gained a
+  `RowTypeName`, taken from the same `KnownDataSourceTypes.Classify` result its `Shape` comes from,
+  and the `IAsyncEnumerable<T>` arm emits `FromAsyncEnumerableAsync<TRow>`. Recomputing the row type
+  at the emitter was rejected because a second walk over the interfaces is a second precedence rule,
+  free to drift from the one the analyzers apply. Naming the type argument of the task-wrapped arms
+  was rejected too: theirs is the awaited collection rather than the row, and `Task<TRows>` admits
+  exactly one inference, so it would move baselines to state what the compiler had no choice about.
+  No baseline moved in the end, because the name is emitted only for a source offering more than one
+  element type, which the classification now reports as `RowTypeIsAmbiguous`. Emitting it for every
+  asynchronous source was rejected on the Codex review of this change: a written type name reaches
+  nothing an `extern alias` hides, so naming an unambiguous row type would have failed the build of
+  a source inference compiles today, and it settles nothing when there is only one candidate. The
+  same limit leaves one case unfixed -- two same-named row types from two aliased assemblies, which
+  `SelectRowType` tie-breaks on assembly identity and no written name can express -- and that case
+  does not compile today either. The threading is orthogonal to the declaring-type item below --
+  `RowTypeName` is its own field and touches neither `MemberTypeName` nor the emitted
+  `DataSourceType` -- so that route is unaffected.
+- [ ] Rows still reach the runtime through the non-generic `IEnumerable`, which is the other half of
+  the bullet above. Both the synchronous provider and `AsyncDataSourceAdapter.FromTaskAsync`
+  enumerate whatever `IEnumerable.GetEnumerator` dispatches to, so a source implementing
+  `IEnumerable<T>` more than once still yields rows of a different arm than the one `NU0009`
+  validated. Naming the row type at those call sites does not fix it: a cast selects no
+  implementation, because the runtime re-reads the value as non-generic `IEnumerable` and dispatches
+  virtually. Closing it means a typed synchronous adapter -- new public API on `NextUnit.Core`, and
+  it moves every synchronous snapshot baseline rather than only the async ones, which is why it was
+  left out of the row type threading. Nothing here fails a build: the shape resolves and runs, and
+  only the arm chosen is wrong, which is why it is worth less than the `CS0411` half and is recorded
+  separately rather than held open with it.
 
 ### Priority 2 — Emitted type names do not escape keyword identifiers
 
@@ -775,7 +802,7 @@ and need a deliberate decision before implementation.
   Resolved: session hooks stay Microsoft.Testing.Platform-only. VSTest executes per assembly with no
   session boundary to attach them to, so wiring stays declined and the documented limitation on the
   executor stands; revisit only if a concrete need arises. No code change.
-- [ ] Decide what session scope means if one framework instance ever serves two sequential sessions.
+- [x] Decide what session scope means if one framework instance ever serves two sequential sessions.
   `SessionLifecycleRunner` gates setup with an `AsyncOnceGate` that is never reset, while teardown is
   ungated and runs on every `CloseTestSessionAsync`, so a second session on the same instance would
   run teardown without a matching setup and would inherit the first session's skip reason. This is
@@ -783,7 +810,30 @@ and need a deliberate decision before implementation.
   the instance lifetime is the session, and running `[Before(Session)]` again would contradict the
   scope name. Surfaced by review on PR #183, which kept the pre-existing once-per-instance semantics.
   Closing it means either resetting the gate at close (session hooks re-run) or gating teardown to
-  pair with setup; both change observable hook behavior, so neither is a drive-by fix.
+  pair with setup; both change observable hook behavior, so neither is a drive-by fix. Resolved: one
+  runner serves one session, and that is now enforced rather than assumed. Opening a session, running
+  session setup, and running session teardown all throw `InvalidOperationException` once teardown has
+  claimed the instance, which is the same treatment `TestExecutionEngine.RunAsync` gives its
+  sequential-only contract. The check runs before `CreateTestSessionAsync` builds its test cases,
+  because a session whose filter matches no test returns before session setup and would otherwise be
+  refused only at the close that follows it.
+  Neither of the two options the item listed was taken. Resetting the gate at close invents a
+  per-session re-run of `[Before(Session)]` that no caller asks for, and pairing teardown with setup
+  would silently stop the `[After(Session)]` hooks on the reachable path where a filter matches no
+  tests and `CreateTestSessionAsync` returns before setup runs. Enforcement was chosen over both
+  because the instance-per-session contract is a fact of the host rather than a convention:
+  Microsoft.Testing.Platform runs the registered framework factory inside
+  `TestHostBuilder.BuildTestFrameworkAsync`, which `ConsoleTestHost` calls once per run and
+  `ServerTestHost` calls per request, and `TestHostTestFrameworkInvoker` then issues exactly one
+  create/execute/close cycle per instance (verified against microsoft/testfx `v4.3.3`, the tag
+  carrying the platform 2.3.x sources this repo pins). A reused instance could not be served
+  correctly in any case, because `NextUnitFramework` memoizes its test cases for the instance
+  lifetime and session teardown disposes the session-shared data source instances those cases hold.
+  Two interleavings are left unarbitrated on purpose: a second create before the session closes is
+  answered by the setup that already ran, which is what once-per-session means, and a setup racing a
+  teardown would need both phases under one lock held across user hooks, where a `[Before(Session)]`
+  hook that never returns would hang session close instead of letting it release the shared instances.
+  Pinned by five tests in `SessionLifecycleRunnerTests`.
 
 ### Priority 2 — A parallel group's declared limit overrides its unannotated members' default
 
