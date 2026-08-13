@@ -26,6 +26,18 @@ namespace NextUnit.Generator.Tests;
 /// </remarks>
 public sealed class CombinedDataSourceExpansionLimitTests
 {
+    /// <summary>
+    /// The highest configured cap these tests can still exercise by actually expanding.
+    /// </summary>
+    /// <remarks>
+    /// Sizes derived from a cap in the millions would have the assertions themselves materialize
+    /// what the cap exists to prevent -- a cap of <see cref="int.MaxValue"/> asks the within-limit
+    /// case for two billion test cases. Past this the tests skip loudly rather than hang, which is
+    /// the honest report: the mechanism is unchanged, this suite just cannot afford to demonstrate
+    /// it at that setting.
+    /// </remarks>
+    private const int MaxExercisableLimit = 1_000_000;
+
     private static readonly int _limit = TestCaseExpansionLimits.MaxTestCasesPerMethod;
 
     /// <summary>
@@ -48,6 +60,10 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [Fact]
     public void ExpandSingle_AboveTheLimit_Throws()
     {
+        Assert.SkipWhen(
+            _limit > MaxExercisableLimit,
+            $"A configured cap of {_limit} is larger than this suite can expand.");
+
         var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: _overLimitCubeRoot);
 
         var exception = Assert.Throws<InvalidOperationException>(
@@ -65,6 +81,10 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [Fact]
     public void ExpandSingle_AboveTheLimit_DoesNotTruncate()
     {
+        Assert.SkipWhen(
+            _limit > MaxExercisableLimit,
+            $"A configured cap of {_limit} is larger than this suite can expand.");
+
         var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: _overLimitCubeRoot);
 
         // Silently expanding the first N would report a green run over a suite that never ran in
@@ -76,6 +96,10 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [Fact]
     public void ExpandSingle_WithinTheLimit_Expands()
     {
+        Assert.SkipWhen(
+            _limit > MaxExercisableLimit,
+            $"A configured cap of {_limit} is larger than this suite can expand.");
+
         var perParameter = _overLimitCubeRoot - 1;
         var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: perParameter);
 
@@ -87,6 +111,10 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [Fact]
     public void ExpandSingle_LazySourceLongerThanTheLimit_StopsDrawingAtTheCap()
     {
+        Assert.SkipWhen(
+            _limit > MaxExercisableLimit,
+            $"A configured cap of {_limit} is larger than this suite can expand.");
+
         var drawn = 0;
         var descriptor = CreateDescriptor(new ParameterDataSource
         {
@@ -118,6 +146,10 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [Fact]
     public void ExpandSingle_ManyOversizedSources_DrawsNoMoreThanTheLimitInTotal()
     {
+        Assert.SkipWhen(
+            _limit > MaxExercisableLimit,
+            $"A configured cap of {_limit} is larger than this suite can expand.");
+
         const int sourceCount = 5;
         var drawn = 0;
         var descriptor = CreateDescriptor(Enumerable.Range(0, sourceCount)
@@ -146,6 +178,10 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [Fact]
     public void ExpandSingle_EmptySourceBeforeAnOversizedOne_ExpandsToNothing()
     {
+        Assert.SkipWhen(
+            _limit > MaxExercisableLimit,
+            $"A configured cap of {_limit} is larger than this suite can expand.");
+
         var descriptor = CreateDescriptor(
             new ParameterDataSource
             {
@@ -169,6 +205,10 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [Fact]
     public void ExpandSingle_EmptySourceBesideAnOversizedOne_ExpandsToNothing()
     {
+        Assert.SkipWhen(
+            _limit > MaxExercisableLimit,
+            $"A configured cap of {_limit} is larger than this suite can expand.");
+
         var descriptor = CreateDescriptor(
             new ParameterDataSource
             {

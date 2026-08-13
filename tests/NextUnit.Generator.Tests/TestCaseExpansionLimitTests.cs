@@ -241,6 +241,23 @@ public class TestCaseExpansionLimitTests
     }
 
     [Fact]
+    public async Task Matrix_SaturatingTheProjection_ReportsABoundRatherThanACountAsync()
+    {
+        // 2^63 is past long.MaxValue, so MultiplyClamped saturates and the projection stops being a
+        // count of anything. Printing long.MaxValue as the number of test cases would claim a figure
+        // the generator never computed, so the message reports a bound instead -- the same wording
+        // discovery uses when it truncates a source before learning its length.
+        var source = MatrixSource(parameterCount: 63, valuesPerParameter: 2);
+
+        await VerifyAsync(
+            source,
+            expectExpansionLimitDiagnostic: true,
+            expectedMessage: "Test 'TestProject.MatrixTests.Combined' expands to more than 10000 test cases, " +
+                "which exceeds the limit of 10000. Reduce the [Matrix], [Arguments], [Repeat], or [Values] " +
+                "values, or raise the limit with <NextUnitMaxTestCasesPerMethod> in the project file.");
+    }
+
+    [Fact]
     public async Task Matrix_WithinTheDefaultLimit_ReportsNothingAsync()
     {
         var source = MatrixSource(parameterCount: 2, valuesPerParameter: 3);
@@ -446,7 +463,8 @@ public class TestCaseExpansionLimitTests
     private static async Task VerifyAsync(
         string source,
         bool expectExpansionLimitDiagnostic,
-        string? configuredLimit = null)
+        string? configuredLimit = null,
+        string? expectedMessage = null)
     {
         var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
         {
@@ -468,7 +486,14 @@ public class TestCaseExpansionLimitTests
 
         if (expectExpansionLimitDiagnostic)
         {
-            test.ExpectedDiagnostics.Add(new DiagnosticResult(ExpansionLimitId, DiagnosticSeverity.Error));
+            var expected = new DiagnosticResult(ExpansionLimitId, DiagnosticSeverity.Error);
+
+            if (expectedMessage is not null)
+            {
+                expected = expected.WithMessage(expectedMessage);
+            }
+
+            test.ExpectedDiagnostics.Add(expected);
         }
 
         await test.RunAsync(TestContext.Current.CancellationToken);

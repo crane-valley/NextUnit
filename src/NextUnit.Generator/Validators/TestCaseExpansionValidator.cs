@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using Microsoft.CodeAnalysis;
 using NextUnit.Generator.Diagnostics;
+using NextUnit.Generator.Helpers;
 using NextUnit.Generator.Models;
 using NextUnit.Shared;
 
@@ -12,12 +13,14 @@ namespace NextUnit.Generator.Validators;
 /// would expand into more test cases than the project allows.
 /// </summary>
 /// <remarks>
-/// The count is projected from the source lengths alone, before <c>MatrixHelper.ComputeCartesianProduct</c>
-/// and the emission loops materialize anything: four <c>[Matrix]</c> parameters, or one large
-/// <c>[Repeat]</c>, are enough to make the generator allocate until the compiler dies, and a check
-/// that ran after the expansion would never be reached. Over-limit methods are also dropped from the
-/// registry rather than only reported, because reporting alone still leaves the emitter to run the
-/// expansion this exists to prevent.
+/// Every rejection is decided from the source lengths alone, before
+/// <c>MatrixHelper.ComputeCartesianProduct</c> and the emission loops materialize anything: four
+/// <c>[Matrix]</c> parameters, or one large <c>[Repeat]</c>, are enough to make the generator
+/// allocate until the compiler dies, and a check that ran after the expansion would never be
+/// reached. An expansion already known to fit inside the cap is a different matter -- there the
+/// emitter's own helpers are run to count exactly what it will emit, at a cost the cap itself
+/// bounds. Over-limit methods are also dropped from the registry rather than only reported, because
+/// reporting alone still leaves the emitter to run the expansion this exists to prevent.
 /// </remarks>
 internal static class TestCaseExpansionValidator
 {
@@ -34,7 +37,7 @@ internal static class TestCaseExpansionValidator
 
         foreach (var test in tests)
         {
-            var projected = ProjectTestCaseCount(test);
+            var projected = ProjectTestCaseCount(test, maxTestCasesPerMethod);
 
             if (projected > maxTestCasesPerMethod)
             {
@@ -65,7 +68,7 @@ internal static class TestCaseExpansionValidator
     /// <summary>
     /// Projects how many test cases the registry would emit for one test method.
     /// </summary>
-    private static long ProjectTestCaseCount(TestMethodDescriptor test)
+    private static long ProjectTestCaseCount(TestMethodDescriptor test, int maxTestCasesPerMethod)
     {
         // The bucket order mirrors RegistryEmitter's partition precedence, or a method carrying both
         // [Matrix] and [TestData] would be charged for an expansion the emitter never performs.
@@ -107,77 +110,28 @@ internal static class TestCaseExpansionValidator
                 peak = Math.Max(peak, combinations);
             }
 
-            // The two halves are charged against different counts because the emitter applies
-            // [MatrixExclusion] between them: the product is built and held in full, then filtered,
-            // and only the survivors are repeated. Charging the pre-exclusion count for the repeat as
-            // well rejects a test that excludes its way under the cap -- one combination left out of
-            // two, repeated 6000 times, is 6000 cases charged as 12000.
-            var emitted = TestCaseExpansionPolicy.MultiplyClamped(
-                Math.Max(combinations - CountExcludedCombinations(test), 0),
-                repeatCount);
+            if (peak > maxTestCasesPerMethod)
+            {
+                return peak;
+            }
 
-            return Math.Max(peak, emitted);
+            // Past the peak check the product is known to fit inside the cap, so the emitter's own
+            // expansion can be run here to get the emitted count exactly. It is run rather than
+            // modelled on purpose: the emitter applies [MatrixExclusion] between building the product
+            // and repeating the survivors, and every attempt to predict how many combinations an
+            // exclusion removes has to re-derive matching rules that already live in MatrixHelper --
+            // an exclusion naming a value no parameter offers removes none, duplicate [Matrix] values
+            // let one exclusion remove several, and two identical exclusions remove one between them.
+            // Calling the same helpers cannot disagree with the emitter about any of that.
+            var survivors = MatrixHelper.ApplyExclusions(
+                MatrixHelper.ComputeCartesianProduct(test.MatrixParameters),
+                test.MatrixExclusions).Length;
+
+            return TestCaseExpansionPolicy.MultiplyClamped(survivors, repeatCount);
         }
 
         var argumentSetCount = test.ArgumentSets.IsDefaultOrEmpty ? 1L : test.ArgumentSets.Length;
         return TestCaseExpansionPolicy.MultiplyClamped(argumentSetCount, repeatCount);
-    }
-
-    /// <summary>
-    /// Counts the combinations <c>MatrixHelper.ApplyExclusions</c> would remove from the product.
-    /// </summary>
-    /// <remarks>
-    /// Counted from the exclusion patterns rather than by filtering the product, because the product
-    /// is the thing this validator exists to avoid building. An exclusion removes at most one
-    /// combination -- it matches only when its length equals the parameter count and every value
-    /// equals the combination's at that position -- so the removed total is the number of distinct
-    /// patterns whose values are all actually offered by their parameter. A pattern naming a value no
-    /// parameter offers removes nothing, and two identical patterns remove the same one combination,
-    /// which is why they are counted as a set.
-    /// </remarks>
-    private static long CountExcludedCombinations(TestMethodDescriptor test)
-    {
-        if (test.MatrixExclusions.IsDefaultOrEmpty)
-        {
-            return 0;
-        }
-
-        var matched = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var exclusion in test.MatrixExclusions)
-        {
-            if (exclusion.Values.Length != test.MatrixParameters.Length)
-            {
-                continue;
-            }
-
-            var reachable = true;
-
-            for (var index = 0; index < exclusion.Values.Length; index++)
-            {
-                var offered = test.MatrixParameters[index].Values
-                    .Any(value => string.Equals(
-                        value.EqualityKey,
-                        exclusion.Values[index].EqualityKey,
-                        StringComparison.Ordinal));
-
-                if (!offered)
-                {
-                    reachable = false;
-                    break;
-                }
-            }
-
-            if (reachable)
-            {
-                // Separated by a character no equality key contains, so two patterns cannot
-                // collide by concatenation: "ab" then "c" must not key the same combination
-                // as "a" then "bc".
-                matched.Add(string.Join("\u001F", exclusion.Values.Select(value => value.EqualityKey)));
-            }
-        }
-
-        return matched.Count;
     }
 
     /// <summary>
