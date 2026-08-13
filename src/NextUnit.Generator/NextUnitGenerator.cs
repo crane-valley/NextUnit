@@ -47,16 +47,23 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             .Where(static method => method is not null)
             .Select(static (method, _) => method!);
 
+        // Projected to an int before it enters the pipeline: the options provider itself is a new
+        // instance on every compilation, so combining it directly would invalidate the source output
+        // on every keystroke, while the parsed value compares equal and keeps the output cached.
+        var maxTestCasesPerMethod = context.AnalyzerConfigOptionsProvider
+            .Select(static (provider, _) => GeneratorOptions.ReadMaxTestCasesPerMethod(provider.GlobalOptions));
+
         // Collect() compares the batched arrays element-wise, and the descriptors are value models,
         // so an edit that leaves the discovered tests unchanged leaves this input cached.
         var combined = testMethods.Collect()
             .Combine(beforeMethods.Collect())
-            .Combine(afterMethods.Collect());
+            .Combine(afterMethods.Collect())
+            .Combine(maxTestCasesPerMethod);
 
         context.RegisterSourceOutput(combined, static (spc, source) =>
         {
-            var ((tests, beforeLifecycle), afterLifecycle) = source;
-            EmitRegistry(spc, tests, beforeLifecycle, afterLifecycle);
+            var (((tests, beforeLifecycle), afterLifecycle), maxTestCases) = source;
+            EmitRegistry(spc, tests, beforeLifecycle, afterLifecycle, maxTestCases);
         });
 
         var requiresEntryPoint = context.CompilationProvider
@@ -226,7 +233,8 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         SourceProductionContext context,
         ImmutableArray<TestMethodDescriptor> tests,
         ImmutableArray<LifecycleMethodDescriptor> beforeLifecycle,
-        ImmutableArray<LifecycleMethodDescriptor> afterLifecycle)
+        ImmutableArray<LifecycleMethodDescriptor> afterLifecycle,
+        int maxTestCasesPerMethod)
     {
         // Ordinal ordering by test id keeps the emitted registry stable across compilations,
         // which is what lets the snapshot tests compare generated text byte for byte.
@@ -234,9 +242,14 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
             .ToImmutableArray();
 
+        // Runs against every discovered test, before the expansion filter drops any of them, so a
+        // method that is dropped for being oversized still counts as a resolved [DependsOn] target.
         TestMethodValidator.ValidateAll(context, allTests);
 
-        var source = RegistryEmitter.Emit(allTests, beforeLifecycle, afterLifecycle);
+        var emittableTests = TestCaseExpansionValidator.RemoveOverLimitTests(
+            context, allTests, maxTestCasesPerMethod);
+
+        var source = RegistryEmitter.Emit(emittableTests, beforeLifecycle, afterLifecycle);
         context.AddSource("GeneratedTestRegistry.g.cs", SourceText.From(source, Encoding.UTF8));
     }
 
