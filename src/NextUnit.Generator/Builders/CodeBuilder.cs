@@ -188,12 +188,19 @@ internal static class CodeBuilder
     /// The adapter calls exist because C# has no async iterator lambda, so the conversion to an
     /// untyped row sequence cannot be inlined here. Every emitted call binds its type argument
     /// statically, which is what keeps the generated path free of runtime reflection.
+    /// <para>
+    /// Only the <c>IAsyncEnumerable&lt;T&gt;</c> arm ever names that type argument in source, and
+    /// only for a source that offers more than one. The task-wrapped arms take the awaited
+    /// collection type rather than the row type, and <c>Task&lt;TRows&gt;</c> admits exactly one
+    /// inference, so there is nothing there for a name to settle.
+    /// </para>
     /// </remarks>
     public static string? BuildAsyncTestDataSourceProvider(
         string typeName,
         string memberName,
         DataSourceMemberKind memberKind,
         DataSourceShape shape,
+        string? rowTypeName,
         bool acceptsCancellationToken)
     {
         if (memberKind == DataSourceMemberKind.Unknown)
@@ -209,7 +216,7 @@ internal static class CodeBuilder
         return shape switch
         {
             DataSourceShape.AsyncEnumerable =>
-                $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync({access}, ct)",
+                $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync{FormatRowTypeArgument(rowTypeName)}({access}, ct)",
             DataSourceShape.TaskOfCollection =>
                 $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync({access}, ct)",
             DataSourceShape.ValueTaskOfCollection =>
@@ -217,6 +224,20 @@ internal static class CodeBuilder
             _ => null
         };
     }
+
+    /// <summary>
+    /// Formats the row type argument of the asynchronous enumerable adapter call, which the
+    /// descriptor supplies only for a source inference cannot resolve on its own.
+    /// </summary>
+    /// <remarks>
+    /// Naming the row type is what lets a source implementing <c>IAsyncEnumerable&lt;T&gt;</c> more
+    /// than once compile at all: inference has two candidates and reports <c>CS0411</c> against the
+    /// generated file. It also pins which arm is read to the one
+    /// <c>KnownDataSourceTypes.SelectRowType</c> chose, so the rows the run enumerates are the rows
+    /// <c>NU0009</c> validated rather than whichever arm inference happened to reach.
+    /// </remarks>
+    private static string FormatRowTypeArgument(string? rowTypeName) =>
+        rowTypeName is null ? "" : $"<{rowTypeName}>";
 
     /// <summary>
     /// Builds the provider for a data source whose declaring type the generated registry cannot
