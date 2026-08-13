@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Qualify the emitted data source access by the type that declares the resolved member, so another
+  source generator cannot capture it. Source generators cannot see each other's output: a same-named
+  member that a second generator adds to the same partial test class is absent from the compilation
+  NextUnit resolves against and present in the one that finally compiles. The emitted call named the
+  type the attribute sits on, so for an inherited source it could bind that foreign member while
+  NextUnit had classified and validated the base one -- rows you never pointed at, with no
+  diagnostic, because the analyzer reads the same pre-merge compilation the generator does. The call
+  now names the declaring type, which leaves the foreign member two ways to go and no silent one: on
+  the declaring type it is a duplicate-member build error, on any nearer type it is not what the
+  emitted access names. Test case ids are unaffected -- the descriptor's `DataSourceType`, which the
+  runtime reads into the row id prefix, still names the type the attribute points at, so an
+  inherited source keeps its `Derived.Rows` ids rather than moving to `Base.Rows` where filters and
+  the VSTest adapter's id-to-descriptor mapping would see the change.
+
 - Resolve a `[TestData]` or `[ValuesFromMember]` member declared on a base test class. Member lookup
   used `GetMembers`, which stops at the declaring type, so a source C# resolves as `Derived.Rows` was
   reported as `NU0003`, and both runtime reflection fallbacks missed it the same way because

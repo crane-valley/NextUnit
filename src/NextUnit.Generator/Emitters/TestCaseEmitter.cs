@@ -120,20 +120,27 @@ internal static class TestCaseEmitter
     {
         var dataSourceType = dataSource.MemberTypeName ?? test.FullyQualifiedTypeName;
 
+        // The type the attribute points at names the descriptor, and the type that declares the
+        // resolved member qualifies the call. They are the same except for an inherited source, and
+        // keeping them apart is deliberate: DataSourceType builds the row id prefix, so binding the
+        // call correctly must not move a single test case id. The fallback covers the unbound case
+        // only, which emits no access at all.
+        var accessType = dataSource.DeclaringTypeName ?? dataSourceType;
+
         BeginDescriptor(writer, "TestDataDescriptor");
         EmitRuntimeDescriptorHeader(writer, test, lifecycleMethods);
         writer.WriteLine($"DataSourceName = {AttributeHelper.ToLiteral(dataSource.MemberName)},");
         writer.WriteLine($"DataSourceType = typeof({dataSourceType}),");
         var dataSourceProvider = dataSource.UnreachableMemberTypeName is { } unreachableTypeName
             ? CodeBuilder.BuildUnreachableDataSourceProvider(unreachableTypeName, dataSource.MemberName)
-            : CodeBuilder.BuildTestDataSourceProvider(dataSourceType, dataSource.MemberName, dataSource.MemberKind, dataSource.Shape);
+            : CodeBuilder.BuildTestDataSourceProvider(accessType, dataSource.MemberName, dataSource.MemberKind, dataSource.Shape);
         writer.WriteLine($"DataSourceProvider = {dataSourceProvider},");
 
         // Emitted only for an asynchronous source. The descriptor property already defaults to
         // null, so writing it for every synchronous source would be pure noise in the generated
         // file and would churn every existing snapshot baseline.
         var asyncDataSourceProvider = CodeBuilder.BuildAsyncTestDataSourceProvider(
-            dataSourceType,
+            accessType,
             dataSource.MemberName,
             dataSource.MemberKind,
             dataSource.Shape,
@@ -425,9 +432,13 @@ internal static class TestCaseEmitter
                 sb.Append($"MemberName = {AttributeHelper.ToLiteral(source.MemberName!)}, ");
                 var memberType = source.MemberTypeName ?? testClassName;
                 sb.Append($"MemberType = typeof({memberType}), ");
+
+                // Split for the same reason as the [TestData] access above: MemberType is what the
+                // runtime reflection fallback searches from, and the declaring type is what makes
+                // the emitted call bind the member this generator resolved.
                 var memberProvider = source.UnreachableMemberTypeName is { } unreachableMemberType
                     ? CodeBuilder.BuildUnreachableDataSourceProvider(unreachableMemberType, source.MemberName!)
-                    : CodeBuilder.BuildDataSourceProvider(memberType, source.MemberName!, source.MemberKind);
+                    : CodeBuilder.BuildDataSourceProvider(source.DeclaringTypeName ?? memberType, source.MemberName!, source.MemberKind);
                 sb.Append($"MemberProvider = {memberProvider}, ");
                 sb.Append("ClassDataSourceType = null, ");
                 sb.Append("ClassDataSourceFactory = null, ");

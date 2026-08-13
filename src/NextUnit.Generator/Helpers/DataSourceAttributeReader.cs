@@ -74,14 +74,15 @@ internal static class DataSourceAttributeReader
             var member = ResolveTestDataMember(memberType, memberName, knownDataSourceTypes);
 
             builder.Add(new TestDataSource(
-                memberName,
-                memberTypeName,
-                member.Kind,
-                member.Shape,
-                member.RowTypeName,
-                member.AcceptsCancellationToken,
-                deferredEnumeration,
-                unreachableMemberTypeName));
+                memberName: memberName,
+                memberTypeName: memberTypeName,
+                declaringTypeName: member.DeclaringTypeName,
+                memberKind: member.Kind,
+                shape: member.Shape,
+                rowTypeName: member.RowTypeName,
+                acceptsCancellationToken: member.AcceptsCancellationToken,
+                deferredEnumeration: deferredEnumeration,
+                unreachableMemberTypeName: unreachableMemberTypeName));
         }
 
         return builder.ToImmutable();
@@ -232,6 +233,7 @@ internal static class DataSourceAttributeReader
                     inlineValues: ConstantValueFactory.CreateRange(attribute.ConstructorArguments[0].Values),
                     memberName: null,
                     memberTypeName: null,
+                    declaringTypeName: null,
                     memberKind: DataSourceMemberKind.Unknown,
                     classTypeName: null,
                     sharedType: 0,
@@ -253,6 +255,10 @@ internal static class DataSourceAttributeReader
                     memberTypeArg,
                     knownDataSourceTypes,
                     AttributeHelper.TypeExpressionFormat);
+                var (memberKind, declaringTypeName) = GetDataSourceMemberKind(
+                    memberType,
+                    memberName,
+                    knownDataSourceTypes);
 
                 return new ParameterDataSourceDescriptor(
                     parameterIndex: index,
@@ -261,7 +267,8 @@ internal static class DataSourceAttributeReader
                     inlineValues: EquatableArray<ConstantValue>.Empty,
                     memberName: memberName,
                     memberTypeName: memberTypeName,
-                    memberKind: GetDataSourceMemberKind(memberType, memberName, knownDataSourceTypes),
+                    declaringTypeName: declaringTypeName,
+                    memberKind: memberKind,
                     classTypeName: null,
                     sharedType: 0,
                     sharedKey: null,
@@ -301,6 +308,7 @@ internal static class DataSourceAttributeReader
                         inlineValues: EquatableArray<ConstantValue>.Empty,
                         memberName: null,
                         memberTypeName: null,
+                        declaringTypeName: null,
                         memberKind: DataSourceMemberKind.Unknown,
                         classTypeName: classTypeName,
                         sharedType: sharedType,
@@ -362,14 +370,14 @@ internal static class DataSourceAttributeReader
     /// whose declaring type is the unreachable part is handled in
     /// <see cref="GetEmittableTypeName"/> instead, and does not reach the fallback at all.
     /// </remarks>
-    private static DataSourceMemberKind GetDataSourceMemberKind(
+    private static (DataSourceMemberKind Kind, string? DeclaringTypeName) GetDataSourceMemberKind(
         INamedTypeSymbol? typeSymbol,
         string memberName,
         KnownDataSourceTypes knownDataSourceTypes)
     {
         if (typeSymbol is null)
         {
-            return DataSourceMemberKind.Unknown;
+            return (DataSourceMemberKind.Unknown, null);
         }
 
         foreach (var member in DataSourceMemberResolver.GetCandidateMembers(typeSymbol, memberName))
@@ -395,11 +403,11 @@ internal static class DataSourceAttributeReader
             }
 
             return GeneratedRegistryAccess.CanReachMember(member, knownDataSourceTypes.CompilingAssembly)
-                ? kind
-                : DataSourceMemberKind.Unknown;
+                ? (kind, GetDeclaringTypeName(member))
+                : (DataSourceMemberKind.Unknown, null);
         }
 
-        return DataSourceMemberKind.Unknown;
+        return (DataSourceMemberKind.Unknown, null);
     }
 
     /// <summary>
@@ -412,7 +420,7 @@ internal static class DataSourceAttributeReader
     /// member the registry cannot name, or one whose cancellation token the synchronous provider has
     /// no way to pass, would produce generated code that does not compile.
     /// </remarks>
-    private static (DataSourceMemberKind Kind, DataSourceShape Shape, string? RowTypeName, bool AcceptsCancellationToken) ResolveTestDataMember(
+    private static (DataSourceMemberKind Kind, string? DeclaringTypeName, DataSourceShape Shape, string? RowTypeName, bool AcceptsCancellationToken) ResolveTestDataMember(
         INamedTypeSymbol? typeSymbol,
         string memberName,
         KnownDataSourceTypes knownDataSourceTypes)
@@ -431,7 +439,7 @@ internal static class DataSourceAttributeReader
 
         if (kind == DataSourceMemberKind.Unknown)
         {
-            return (DataSourceMemberKind.Unknown, DataSourceShape.Sync, null, false);
+            return (DataSourceMemberKind.Unknown, null, DataSourceShape.Sync, null, false);
         }
 
         // Classified once and read twice: the walk covers every interface the member's type
@@ -445,6 +453,24 @@ internal static class DataSourceAttributeReader
             ? classification.RowType?.ToDisplayString(AttributeHelper.TypeExpressionFormat)
             : null;
 
-        return (kind, classification.Shape, rowTypeName, resolved.AcceptsCancellationToken);
+        return (
+            kind,
+            GetDeclaringTypeName(resolved.Symbol),
+            classification.Shape,
+            rowTypeName,
+            resolved.AcceptsCancellationToken);
     }
+
+    /// <summary>
+    /// Names the type that declares a resolved data source member, for the emitted access to be
+    /// qualified with.
+    /// </summary>
+    /// <remarks>
+    /// A type expression format rather than the one <c>MemberType</c> is read with: a member access
+    /// qualifier is parsed as C#, where a nullable reference annotation would not compile. The
+    /// containing type of a declaration carries none, so the two agree on every real symbol; the
+    /// format is chosen for what the text has to be rather than for what it happens to produce.
+    /// </remarks>
+    private static string? GetDeclaringTypeName(ISymbol? member) =>
+        member?.ContainingType?.ToDisplayString(AttributeHelper.TypeExpressionFormat);
 }

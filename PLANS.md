@@ -719,7 +719,7 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   `TestDataHiddenByDerivedEvent_ReportsNotFoundAsync`,
   `TestDataHiddenByNestedTypeOnIntermediateBase_ReportsNotFoundAsync`, and
   `TestDataWithPrivateMemberOnIntermediateBase_ReportsInaccessibleAsync` pin the guard.
-- [ ] The emitted data source access is qualified by the target type, so another source generator
+- [x] The emitted data source access is qualified by the target type, so another source generator
   can capture it. Generators cannot see each other's output: a same-named member that a second
   generator adds to the same partial test class is invisible while NextUnit resolves, and present
   once every generated source is compiled together. `TestCaseEmitter` writes `Derived.Rows()`, so the
@@ -729,12 +729,25 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   exposure needs a second generator targeting the same partial class and the same member name, and
   the fix is descriptor and emitter plumbing rather than a lookup change, which does not belong in a
   pull request already carrying a contract redesign.
-  The route: carry the resolved member's declaring type through the descriptor and qualify the
-  emitted access with it, so the compiler binds the type NextUnit resolved against rather than the
-  one the attribute happens to sit on. It has to be a second type rather than reusing
-  `DataSourceType`, because that one also builds the row id prefix -- switching it would move test
-  case ids from `Derived.Rows` to `Base.Rows`, which filters and the VSTest adapter's id-to-descriptor
-  mapping can both see. Its own change, with its own review of the id surface.
+  Done 2026-08-13 by the recorded route. `TestDataSource.DeclaringTypeName` and
+  `ParameterDataSourceDescriptor.DeclaringTypeName` carry the resolved member's containing type from
+  the same `DataSourceMemberResolver` result that decided the shape and the accessibility verdict,
+  and the emitters qualify the provider access with it. A second lookup at the emitter was rejected
+  for the reason the row type was: it would be a second precedence rule, free to drift from the one
+  the analyzers validated.
+  Both descriptors keep the target type as a separate field, exactly as the route required.
+  `DataSourceType` and the parameter-level `MemberType` are unchanged, so the row id prefix the
+  runtime builds from `DataSourceType.FullName` is unchanged: an inherited source keeps its
+  `Derived.Rows` ids instead of moving to `Base.Rows`, and no snapshot baseline moved -- the id
+  surface is pinned by an assertion on the emitted `DataSourceType` alongside the base-qualified
+  access.
+  The remaining exposure is one the compiler makes loud. Where the resolved member is declared on
+  the target type itself, the emitted access still names that type, and a foreign generator adding
+  the name there is a duplicate-member build error rather than a silent capture. Only the inherited
+  case could ever bind silently, and that is the case this moved.
+  `InheritedMember_IsNotCapturedByAConcurrentGeneratorAsync` and its parameter-level twin pin it by
+  adding the foreign member to the compilation only after the generator has run, which is what a
+  second generator's output actually looks like.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths
