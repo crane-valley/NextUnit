@@ -847,6 +847,17 @@ the bound.
   answer for keeping discovery cheap. Raised twice by the Codex review of PR #236; resolved by
   documentation, no code change.
 
+- [ ] The cap bounds emitted test cases, not the work of computing them, and `MatrixHelper` now runs
+  twice for a matrix test that passes the peak check -- once in `TestCaseExpansionValidator` to count
+  survivors exactly, once in `RegistryEmitter` to emit them. Within the cap that is bounded work, but
+  `ApplyExclusions` is exclusions x combinations x parameter width, and nothing bounds the exclusion
+  count separately: a method at the cap with thousands of `[MatrixExclusion]` attributes pays it
+  twice. The double run buys the property that the validator cannot disagree with the emitter about
+  what an exclusion removes, which is worth more than the duplicated pass; caching the expansion
+  between the two, or bounding the exclusion count on its own, would buy it back. Raised as a
+  follow-up candidate by the Codex review of PR #236, which noted the emitter already carried this
+  cost.
+
 - [ ] `[Repeat]` is silently dropped when a test method also carries parameter-level data sources.
   `RegistryEmitter` partitions such a method into `CombinedDataSourceTests`, and
   `EmitCombinedDataSourceDescriptor` writes no repeat information, so `[Repeat(5)]` beside

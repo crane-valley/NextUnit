@@ -241,6 +241,34 @@ public class TestCaseExpansionLimitTests
     }
 
     [Fact]
+    public async Task ExpansionLimit_SuppressedInEditorConfig_StillReportsAsync()
+    {
+        // Reporting is only half of what an over-limit method gets: it is also dropped from the
+        // registry, because leaving it in would run the expansion the cap exists to prevent. If the
+        // rule could be switched off, the build would go green while silently omitting those tests,
+        // which is the shortened suite this whole feature is written to avoid. NEXTUNIT013 carries
+        // NotConfigurable so severity = none cannot reach it.
+        var source = MatrixSource(parameterCount: 4, valuesPerParameter: 11);
+
+        var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
+        {
+            TestCode = source,
+            TestBehaviors = TestBehaviors.SkipGeneratedSourcesCheck,
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add((
+            "/.globalconfig",
+            """
+            is_global = true
+            dotnet_diagnostic.NEXTUNIT013.severity = none
+            """));
+
+        test.ExpectedDiagnostics.Add(new DiagnosticResult(ExpansionLimitId, DiagnosticSeverity.Error));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task Matrix_SaturatingTheProjection_ReportsABoundRatherThanACountAsync()
     {
         // 2^63 is past long.MaxValue, so MultiplyClamped saturates and the projection stops being a

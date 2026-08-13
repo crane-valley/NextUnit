@@ -75,10 +75,24 @@ internal static class GeneratorDiagnosticDescriptors
         "Missing Key for Keyed ValuesFrom",
         "Test '{0}' uses [ValuesFrom] with SharedType.Keyed on parameter '{1}' but no Key is specified.");
 
-    public static readonly DiagnosticDescriptor TestCaseExpansionLimitExceeded = Error(
+    /// <summary>
+    /// Reported for a test method that would expand past the configured test case cap.
+    /// </summary>
+    /// <remarks>
+    /// Not configurable, unlike every other rule here, because reporting it is only half of what the
+    /// generator does: the method is also dropped from the registry, since leaving it in would run
+    /// the expansion the cap exists to prevent. Suppressing the rule would therefore turn a failed
+    /// build into a green one that silently omits those tests -- the shortened suite the whole
+    /// feature is written to avoid. Raising the cap with
+    /// <c>&lt;NextUnitMaxTestCasesPerMethod&gt;</c> is the escape hatch, so nothing is trapped by
+    /// taking suppression away.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor TestCaseExpansionLimitExceeded = Create(
         "NEXTUNIT013",
         "Test case expansion limit exceeded",
-        "Test '{0}' expands to {1} test cases, which exceeds the limit of {2}. Reduce the [Matrix], [Arguments], [Repeat], or [Values] values, or raise the limit with <NextUnitMaxTestCasesPerMethod> in the project file.");
+        "Test '{0}' expands to {1} test cases, which exceeds the limit of {2}. Reduce the [Matrix], [Arguments], [Repeat], or [Values] values, or raise the limit with <NextUnitMaxTestCasesPerMethod> in the project file.",
+        DiagnosticSeverity.Error,
+        WellKnownDiagnosticTags.NotConfigurable);
 
     private static DiagnosticDescriptor Error(string id, string title, string messageFormat) =>
         Create(id, title, messageFormat, DiagnosticSeverity.Error);
@@ -90,6 +104,7 @@ internal static class GeneratorDiagnosticDescriptors
         string id,
         string title,
         string messageFormat,
-        DiagnosticSeverity severity) =>
-        new(id, title, messageFormat, Category, severity, isEnabledByDefault: true);
+        DiagnosticSeverity severity,
+        params string[] customTags) =>
+        new(id, title, messageFormat, Category, severity, isEnabledByDefault: true, customTags: customTags);
 }
