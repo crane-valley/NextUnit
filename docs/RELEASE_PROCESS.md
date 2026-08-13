@@ -350,12 +350,31 @@ nuget.org publishing credential.
    signature and nuspec metadata and runs the consumer smokes against nuget.org from an empty cache. No
    OIDC permission.
 
-The `publish` job targets the `release` GitHub environment, so the release pauses for a deployment
-approval before any credential is minted. Nothing is published until that approval is granted.
+The `publish` job targets the `release` GitHub environment. The release pauses for a deployment
+approval before any credential is minted only once that environment has been created with a required
+reviewer, as described under
+[One-time release setup](#one-time-release-setup-required-before-the-first-release). Until that
+one-time setup is done, GitHub auto-creates the `release` environment unprotected on first use and
+publish proceeds with no approval.
 
 No manual API key or `dotnet nuget push` command is needed. If the run goes red at or after the
 `publish` job, do not re-run it and do not unlist anything before reading the
 [Partial Publish Runbook](#partial-publish-runbook).
+
+#### One-time release setup (required before the first release)
+
+Two setup items live outside this repository and must be handled once, before the first release:
+
+1. **Create the `release` GitHub environment with a required reviewer.** Without it there is no
+   approval gate: GitHub auto-creates the environment unprotected the first time the `publish` job
+   references it, and the release publishes with no pause. Configure the intended `v*`
+   deployment-tag policy on the same environment.
+2. **Pin the nuget.org Trusted Publishing policy** to repository `crane-valley/NextUnit`, workflow
+   `release.yml`, and environment `release`, matching the workflow's `environment:` value. The
+   environment field is optional on nuget.org, so adding `environment: release` does not by itself
+   break an existing policy that pins no environment; pinning it is recommended hardening that binds
+   the credential to this one environment. A policy pinned to a different environment fails
+   `NuGet/login` closed.
 
 ### 9. Verify Release
 

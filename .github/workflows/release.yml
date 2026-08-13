@@ -356,7 +356,7 @@ jobs:
     name: Publish to NuGet.org
     needs: [build, smoke]
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     environment: release
     permissions:
       # Deliberately the ONLY permission granted anywhere in this workflow: the
@@ -366,13 +366,17 @@ jobs:
       PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
 
     steps:
+      # Cap each pre-push step so a slow-but-successful one cannot silently consume the budget the
+      # push needs. Likelihood-reduction only: runner overhead and a hung push stay the Partial Publish Runbook's.
       - name: Download packages
+        timeout-minutes: 5
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: packages
           path: ./artifacts/packages
 
       - name: Verify package artifact integrity
+        timeout-minutes: 2
         shell: bash
         env:
           FILES_SHA256: ${{ needs.build.outputs.files_sha256 }}
@@ -397,6 +401,7 @@ jobs:
           echo "Package artifact matches the sealed digest manifest ($EXPECTED_PACKAGE_FILE_COUNT files)."
 
       - name: Check nuget.org for an existing release of this version
+        timeout-minutes: 6
         shell: bash
         run: |
           set -euo pipefail
@@ -471,6 +476,7 @@ jobs:
 
       - name: NuGet login (OIDC)
         id: login
+        timeout-minutes: 2
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           user: ${{ secrets.NUGET_USER }}
