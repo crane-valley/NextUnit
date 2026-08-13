@@ -77,6 +77,12 @@ internal static class CombinedDataSourceExpander
 
         // An empty source collapses the product to nothing, exactly as it did before the limit
         // existed, so an oversized sibling must not turn "no test cases" into a failed discovery.
+        // Skipping the check here cannot hide a truncation, because emptiness is never something the
+        // cap produced: PerSourceCap never returns less than one, so a source reports zero values
+        // only when it genuinely has none, and zero values means zero combinations however long its
+        // siblings are. Rejecting on a truncated sibling anyway was considered and dropped -- it
+        // fails discovery for a method whose real expansion is, and always was, no test cases.
+        // ComputeCartesianProduct short-circuits on a zero-length source, so nothing is built either.
         if (projected != 0)
         {
             EnsureWithinExpansionLimit(descriptor, projected, truncated, maxTestCasesPerMethod);

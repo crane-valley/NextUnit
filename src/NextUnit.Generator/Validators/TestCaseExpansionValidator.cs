@@ -81,13 +81,24 @@ internal static class TestCaseExpansionValidator
         {
             // [MatrixExclusion] is deliberately not subtracted: the Cartesian product is materialized
             // in full and only then filtered, so the pre-exclusion size is the work being bounded.
+            //
+            // The peak of the running product is charged rather than its final value, because
+            // MatrixHelper.ComputeCartesianProduct multiplies one parameter at a time and holds every
+            // intermediate combination. An empty [Matrix()] after four 256-value ones ends at zero
+            // combinations, but only after 2^32 of them have been allocated, so the final product
+            // reads as "no test cases" for precisely the expansion that hangs the compiler. The peak
+            // cannot over-reject the mirror case: a zero arriving first keeps every later product at
+            // zero, which is the emitter doing no work at all.
             var combinations = 1L;
+            var peak = 1L;
+
             foreach (var parameter in test.MatrixParameters)
             {
                 combinations = TestCaseExpansionPolicy.MultiplyClamped(combinations, parameter.Values.Length);
+                peak = Math.Max(peak, combinations);
             }
 
-            return TestCaseExpansionPolicy.MultiplyClamped(combinations, repeatCount);
+            return Math.Max(peak, TestCaseExpansionPolicy.MultiplyClamped(combinations, repeatCount));
         }
 
         var argumentSetCount = test.ArgumentSets.IsDefaultOrEmpty ? 1L : test.ArgumentSets.Length;

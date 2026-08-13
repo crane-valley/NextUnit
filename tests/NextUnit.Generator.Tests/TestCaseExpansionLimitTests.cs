@@ -133,6 +133,64 @@ public class TestCaseExpansionLimitTests
     }
 
     [Fact]
+    public async Task Matrix_OversizedBeforeAnEmptyOne_ReportsAsync()
+    {
+        // MatrixHelper.ComputeCartesianProduct multiplies the running product parameter by parameter
+        // and materializes it at every step, so the empty parameter zeroes the result only after the
+        // 14641 combinations before it have been allocated. Charging the final product would read
+        // that as zero test cases and wave the expansion through -- with 256 values per parameter
+        // instead of 11, that is 2^32 combinations built before the zero arrives.
+        var source = """
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class MatrixTests
+            {
+                [Test]
+                public void Combined(
+                    [Matrix(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)] int p0,
+                    [Matrix(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)] int p1,
+                    [Matrix(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)] int p2,
+                    [Matrix(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)] int p3,
+                    [Matrix()] int p4)
+                {
+                }
+            }
+            """;
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: true);
+    }
+
+    [Fact]
+    public async Task Matrix_EmptyBeforeAnOversizedOne_ReportsNothingAsync()
+    {
+        // The mirror image: the zero arrives first, so every later step multiplies a product that is
+        // already empty and the emitter allocates nothing. Charging each parameter at least one value
+        // would reject this, which is why the projection tracks the running peak instead.
+        var source = """
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class MatrixTests
+            {
+                [Test]
+                public void Combined(
+                    [Matrix()] int p0,
+                    [Matrix(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)] int p1,
+                    [Matrix(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)] int p2,
+                    [Matrix(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)] int p3,
+                    [Matrix(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)] int p4)
+                {
+                }
+            }
+            """;
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: false);
+    }
+
+    [Fact]
     public async Task Matrix_WithinTheDefaultLimit_ReportsNothingAsync()
     {
         var source = MatrixSource(parameterCount: 2, valuesPerParameter: 3);

@@ -829,6 +829,45 @@ sized separately.
   documentation: the group limit is deliberately authoritative, and the `ParallelLimitAttribute`
   remarks say so as of PR #219. No code change.
 
+### Priority 2 — Expansion-limit follow-ups deferred by the PR #236 review
+
+Surfaced by the Codex review of the test-case expansion limits (2026-08-13). The bypass that review
+found -- an empty `[Matrix()]` zeroing the projected product after the emitter had already
+materialized every combination before it -- was fixed in that PR by charging the peak of the running
+product. The three below were left, each because the fix is a product decision rather than a hole in
+the bound.
+
+- [ ] `[Repeat]` is silently dropped when a test method also carries parameter-level data sources.
+  `RegistryEmitter` partitions such a method into `CombinedDataSourceTests`, and
+  `EmitCombinedDataSourceDescriptor` writes no repeat information, so `[Repeat(5)]` beside
+  `[Values(1, 2)]` runs two test cases rather than ten and says nothing. The projection in
+  `TestCaseExpansionValidator` matches the emitter and is therefore correct about the bound, which is
+  why this is not a limit defect; the defect is that the README describes every source as multiplying
+  while one combination silently does not. Pre-dates the limits work. Either thread the repeat count
+  through `CombinedDataSourceDescriptor` and into `CombinedDataSourceExpander`'s product, or diagnose
+  the combination and say so in the documentation. The first is the honest reading of the attribute
+  and the more invasive change, since it moves repeat from a compile-time expansion to a runtime one.
+
+- [ ] The compile-time and discovery-time caps are configured independently, so raising one does not
+  raise the other. `<NextUnitMaxTestCasesPerMethod>50000</NextUnitMaxTestCasesPerMethod>` lets the
+  generator emit 50000 cases while discovery still rejects a combined data source at the 10000
+  default, and the user learns this only when the run fails. The README documents both knobs, so the
+  behavior is not a surprise so much as a chore. The clean fix is to emit the project's cap into the
+  generated registry and have discovery read it as the baseline, keeping
+  `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` as an explicit per-run override above it. That changes the
+  registry contract and the snapshot baselines, which is why it did not ride along with a security
+  fix.
+
+- [ ] A cap override that is present but unusable falls back to the default without a word, so a typo
+  meant to tighten the cap loosens it instead: `100O` for `1000` silently permits 10000. The fallback
+  is deliberate and documented -- a typo in an escape hatch should not be the thing that stops a
+  build -- but it is fail-open on a security bound, and it is not how the rest of the repo treats an
+  unusable configured value: `TestFilterConfigurationLoader.CompileRegexPatterns` throws on a
+  malformed `NEXTUNIT_TEST_NAME_REGEX` precisely because silently dropping the filter would run
+  everything. Distinguishing unset from unusable, and reporting the second through a new generator
+  diagnostic and a discovery exception, needs a rule ID and a decision about whether a mistyped limit
+  may fail a build.
+
 ## Deferred to the next major version
 
 Breaking changes that could not ship in 1.x. All three shipped in 2.0.0, and the
