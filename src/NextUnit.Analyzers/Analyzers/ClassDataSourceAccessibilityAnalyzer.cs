@@ -129,7 +129,12 @@ public sealed class ClassDataSourceAccessibilityAnalyzer : DiagnosticAnalyzer
     {
         // The same rule the emission site asks, rather than a second reading of it: a diagnostic
         // that disagreed with what the generator emits would either miss the CS0122 it exists to
-        // replace or report a type that compiles.
+        // replace or report a type that compiles. An unresolved type needs no guard of its own
+        // here: CanReachType answers TypeKind.Error as reachable and recurses into type arguments,
+        // so a type that does not resolve keeps its own compiler error rather than collecting a
+        // visibility complaint on top of it. A local error-type test would be a second copy of
+        // that decision, and two copies of "is this reachable" drifting apart is exactly what this
+        // rule is built to prevent.
         if (GeneratedRegistryAccess.CanReachType(sourceType, context.Compilation.Assembly))
         {
             return;
