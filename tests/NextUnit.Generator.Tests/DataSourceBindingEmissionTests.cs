@@ -796,6 +796,70 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
+    /// A base declared in a reference reachable only through <c>extern alias</c> cannot qualify the
+    /// emitted access. The generated file carries no alias directive, so the base's name binds
+    /// nothing there -- or binds a homonym that happens to sit in the global namespace.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromAnAliasOnlyBase_KeepsTheDerivedQualifierAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references = [await CreateAliasOnlyFixtureReferenceAsync()];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::TestProject.DataTests.Rows", registry);
+        Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// The parameter-level twin: <c>[ValuesFromMember]</c> takes the same qualifier.
+    /// </summary>
+    [Fact]
+    public async Task ParameterMemberInheritedFromAnAliasOnlyBase_KeepsTheDerivedQualifierAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                public void Consumes([ValuesFromMember("Values")] int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references = [await CreateAliasOnlyFixtureReferenceAsync()];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
     /// Stands in for a second source generator that adds <c>Rows</c> to the same partial test class.
     /// </summary>
     private const string ConcurrentlyGeneratedRows = """
@@ -834,15 +898,21 @@ public class DataSourceBindingEmissionTests
     /// to the generator is the whole point: it reproduces a member this generator could not see and
     /// the compiler can.
     /// </param>
+    /// <param name="extraReferences">
+    /// References the shared set does not carry, given to the generator and to the final
+    /// compilation alike so both see the same assemblies the user's project would.
+    /// </param>
     private static async Task AssertGeneratedOutputCompilesAsync(
         string source,
-        string? concurrentlyGeneratedSource = null)
+        string? concurrentlyGeneratedSource = null,
+        IEnumerable<MetadataReference>? extraReferences = null)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var compilation = await GeneratorDriverHarness.CreateCompilationAsync(
             source,
             OutputKind.DynamicallyLinkedLibrary,
-            cancellationToken);
+            cancellationToken,
+            extraReferences);
 
         GeneratorDriverHarness.CreateDriver(trackIncrementalGeneratorSteps: false)
             .RunGeneratorsAndUpdateCompilation(compilation, out var updated, out _, cancellationToken);
@@ -863,13 +933,16 @@ public class DataSourceBindingEmissionTests
         Assert.Empty(errors);
     }
 
-    private static async Task<string> GenerateRegistryAsync(string source)
+    private static async Task<string> GenerateRegistryAsync(
+        string source,
+        IEnumerable<MetadataReference>? extraReferences = null)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var compilation = await GeneratorDriverHarness.CreateCompilationAsync(
             source,
             OutputKind.DynamicallyLinkedLibrary,
-            cancellationToken);
+            cancellationToken,
+            extraReferences);
         var driver = GeneratorDriverHarness.CreateDriver(trackIncrementalGeneratorSteps: false)
             .RunGenerators(compilation, cancellationToken);
 
@@ -877,5 +950,44 @@ public class DataSourceBindingEmissionTests
             .Single(static generated => generated.HintName == "GeneratedTestRegistry.g.cs")
             .SourceText
             .ToString();
+    }
+
+    /// <summary>
+    /// Builds a second assembly referenced only under an <c>extern alias</c>, so its types are
+    /// absent from the global namespace the generated file is compiled in.
+    /// </summary>
+    private static async Task<MetadataReference> CreateAliasOnlyFixtureReferenceAsync()
+    {
+        const string source = """
+            namespace Fixtures
+            {
+                public class RowsBase
+                {
+                    public static System.Collections.Generic.IEnumerable<object[]> Rows =>
+                        new[] { new object[] { 1 } };
+
+                    public static System.Collections.Generic.IEnumerable<int> Values =>
+                        new[] { 1 };
+                }
+            }
+            """;
+
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
+        var compilation = CSharpCompilation.Create(
+            "AliasedFixtures",
+            [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var stream = new MemoryStream();
+        var emitResult = compilation.Emit(stream, cancellationToken: cancellationToken);
+        Xunit.Assert.True(
+            emitResult.Success,
+            string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        return MetadataReference.CreateFromImage(
+            stream.ToArray(),
+            new MetadataReferenceProperties(aliases: ImmutableArray.Create("Aliased")));
     }
 }

@@ -403,7 +403,7 @@ internal static class DataSourceAttributeReader
             }
 
             return GeneratedRegistryAccess.CanReachMember(member, knownDataSourceTypes.CompilingAssembly)
-                ? (kind, GetDeclaringTypeName(member))
+                ? (kind, GetDeclaringTypeName(member, knownDataSourceTypes))
                 : (DataSourceMemberKind.Unknown, null);
         }
 
@@ -455,7 +455,7 @@ internal static class DataSourceAttributeReader
 
         return (
             kind,
-            GetDeclaringTypeName(resolved.Symbol),
+            GetDeclaringTypeName(resolved.Symbol, knownDataSourceTypes),
             classification.Shape,
             rowTypeName,
             resolved.AcceptsCancellationToken);
@@ -463,14 +463,31 @@ internal static class DataSourceAttributeReader
 
     /// <summary>
     /// Names the type that declares a resolved data source member, for the emitted access to be
-    /// qualified with.
+    /// qualified with, or <c>null</c> to leave the caller on the qualifier it already had.
     /// </summary>
     /// <remarks>
     /// A type expression format rather than the one <c>MemberType</c> is read with: a member access
     /// qualifier is parsed as C#, where a nullable reference annotation would not compile. The
     /// containing type of a declaration carries none, so the two agree on every real symbol; the
     /// format is chosen for what the text has to be rather than for what it happens to produce.
+    /// <para>
+    /// A declaring type that only an <c>extern alias</c> reaches is given up on instead. The
+    /// generated file carries no alias directive, so its <c>global::</c> name binds nothing there --
+    /// or binds a homonym from some other reference -- and the type the attribute points at is a
+    /// qualifier already known to bind, since the user's own source names it. That leaves the
+    /// inherited-source capture this qualification closes open for an aliased base, which is where
+    /// it was before: a name that does not compile closes nothing.
+    /// </para>
     /// </remarks>
-    private static string? GetDeclaringTypeName(ISymbol? member) =>
-        member?.ContainingType?.ToDisplayString(AttributeHelper.TypeExpressionFormat);
+    private static string? GetDeclaringTypeName(ISymbol? member, KnownDataSourceTypes knownDataSourceTypes)
+    {
+        if (member?.ContainingType is not { } declaringType)
+        {
+            return null;
+        }
+
+        return GeneratedRegistryAccess.CanNameTypeWithoutAlias(declaringType, knownDataSourceTypes.Compilation)
+            ? declaringType.ToDisplayString(AttributeHelper.TypeExpressionFormat)
+            : null;
+    }
 }

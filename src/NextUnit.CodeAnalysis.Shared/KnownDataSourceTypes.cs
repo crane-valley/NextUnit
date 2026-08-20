@@ -65,25 +65,32 @@ internal readonly struct KnownDataSourceTypes
         INamedTypeSymbol? valueTask,
         INamedTypeSymbol? genericValueTask,
         INamedTypeSymbol? asyncEnumerable,
-        IAssemblySymbol? compilingAssembly)
+        Compilation? compilation)
     {
         _task = task;
         _genericTask = genericTask;
         _valueTask = valueTask;
         _genericValueTask = genericValueTask;
         _asyncEnumerable = asyncEnumerable;
-        CompilingAssembly = compilingAssembly;
+        Compilation = compilation;
     }
 
     /// <summary>
-    /// Gets the assembly being compiled, which is where the generated registry lands.
+    /// Gets the compilation the data source member is resolved against.
     /// </summary>
     /// <remarks>
     /// Carried here rather than passed alongside because every caller that resolves a data source
     /// member already threads this value through, and because it is resolved once per compilation
-    /// for the same reason the type symbols are.
+    /// for the same reason the type symbols are. The compilation rather than its assembly alone,
+    /// because a reference's <c>extern alias</c> list hangs off the compilation and not off any
+    /// symbol.
     /// </remarks>
-    public IAssemblySymbol? CompilingAssembly { get; }
+    public Compilation? Compilation { get; }
+
+    /// <summary>
+    /// Gets the assembly being compiled, which is where the generated registry lands.
+    /// </summary>
+    public IAssemblySymbol? CompilingAssembly => Compilation?.Assembly;
 
     public static KnownDataSourceTypes Create(Compilation compilation) =>
         new(
@@ -92,7 +99,7 @@ internal readonly struct KnownDataSourceTypes
             compilation.GetTypeByMetadataName(WellKnownTypeNames.ValueTask),
             compilation.GetTypeByMetadataName(WellKnownTypeNames.GenericValueTask),
             compilation.GetTypeByMetadataName(WellKnownTypeNames.AsyncEnumerable),
-            compilation.Assembly);
+            compilation);
 
     /// <summary>
     /// Reports whether the type implements <c>IAsyncEnumerable&lt;T&gt;</c>.
