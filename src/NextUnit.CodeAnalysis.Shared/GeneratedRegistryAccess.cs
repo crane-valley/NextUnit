@@ -120,8 +120,8 @@ internal static class GeneratedRegistryAccess
     /// The question binding cannot answer: which diagnostic the use would carry. A name declared
     /// twice still binds -- to source, over metadata -- and warns with <c>CS0436</c>, so it is
     /// refused here rather than emitted into a build that may promote that warning. The nesting chain
-    /// is checked link by link because the shadowed declaration can be an outer type, and the type
-    /// arguments because they are written out too.
+    /// is checked link by link because the shadowed declaration can be an outer type, and every
+    /// link's type arguments because they are written out too.
     /// </remarks>
     private static bool IsDeclaredOnce(ITypeSymbol type, Compilation compilation)
     {
@@ -135,19 +135,22 @@ internal static class GeneratedRegistryAccess
             return true;
         }
 
-        for (INamedTypeSymbol? current = namedType.OriginalDefinition; current is not null; current = current.ContainingType)
+        // The chain is walked constructed rather than as definitions, and each link asked about both
+        // ways: Outer<Shadowed>.Inner carries its distinguishing argument one level up, which
+        // OriginalDefinition would drop, while the lookup itself needs the definition it names.
+        for (INamedTypeSymbol? current = namedType; current is not null; current = current.ContainingType)
         {
-            if (compilation.GetTypesByMetadataName(GetFullMetadataName(current)).Length > 1)
+            if (compilation.GetTypesByMetadataName(GetFullMetadataName(current.OriginalDefinition)).Length > 1)
             {
                 return false;
             }
-        }
 
-        foreach (var typeArgument in namedType.TypeArguments)
-        {
-            if (!IsDeclaredOnce(typeArgument, compilation))
+            foreach (var typeArgument in current.TypeArguments)
             {
-                return false;
+                if (!IsDeclaredOnce(typeArgument, compilation))
+                {
+                    return false;
+                }
             }
         }
 
