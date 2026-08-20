@@ -748,6 +748,20 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   `InheritedMember_IsNotCapturedByAConcurrentGeneratorAsync` and its parameter-level twin pin it by
   adding the foreign member to the compilation only after the generator has run, which is what a
   second generator's output actually looks like.
+  One case declines the qualification, on the Codex review of this change: a declaring type whose
+  assembly is referenced only under an `extern alias`. The generated file carries no alias directive,
+  so `global::Base.Rows` there fails with `CS0400` -- reproduced, in a file the user did not write --
+  or silently binds a homonym some other reference did put in the global namespace.
+  `GeneratedRegistryAccess.CanNameTypeWithoutAlias` reads the aliases off the reference the
+  compilation hands back for the assembly, walking type arguments because `Base<A::Row>` is hidden by
+  its argument, and `GetDeclaringTypeName` withholds the name when they exclude the global one. The
+  emitters then stay on the type the attribute points at, which the user's own source names and which
+  therefore binds. Emitting an `extern alias` directive from the registry was rejected as the
+  alternative: a reference can carry several aliases and the registry would have to pick one, the
+  directive would head every generated file for every consumer, and every emission site would have to
+  agree on the choice -- for a case that keeps exactly the exposure it had before, since a name that
+  does not compile closes no capture. `InheritedFromAnAliasOnlyBase_KeepsTheDerivedQualifierAsync`
+  and its parameter-level twin pin it against a second assembly built and referenced under an alias.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

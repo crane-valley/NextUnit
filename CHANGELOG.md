@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runtime reads into the row id prefix, still names the type the attribute points at, so an
   inherited source keeps its `Derived.Rows` ids rather than moving to `Base.Rows` where filters and
   the VSTest adapter's id-to-descriptor mapping would see the change.
+  A declaring type reached only through an `extern alias` does not qualify the call. The generated
+  file carries no alias directive, so the base's `global::` name would bind nothing there, or bind a
+  homonym another reference put in the global namespace; the emitted access stays on the type the
+  attribute points at, which the user's own source names and which therefore binds.
 
 - Resolve a `[TestData]` or `[ValuesFromMember]` member declared on a base test class. Member lookup
   used `GetMembers`, which stops at the declaring type, so a source C# resolves as `Derived.Rows` was
