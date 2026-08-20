@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -72,6 +73,13 @@ internal static class GeneratedRegistryAccess
     /// write anything else.
     /// </para>
     /// <para>
+    /// Binding alone is not quite enough, because it discards diagnostics. A name that source and
+    /// metadata both declare binds to source and warns with <c>CS0436</c>, and a project promoting
+    /// warnings to errors would fail on the generated file even though the user's own file may carry
+    /// a <c>#pragma</c> for it. So a name any other assembly also declares is refused as well: the
+    /// qualifier is only worth having where it costs the consumer's build nothing.
+    /// </para>
+    /// <para>
     /// Emitting an <c>extern alias</c> directive of its own was rejected as the alternative. A
     /// reference can carry several aliases and the registry would have to pick one, the directive
     /// would head every generated file for every consumer, and every emission site would have to
@@ -79,11 +87,11 @@ internal static class GeneratedRegistryAccess
     /// back to it.
     /// </para>
     /// </remarks>
-    public static bool NameBindsToType(string typeExpression, ITypeSymbol type, Compilation? compilation)
+    public static bool NameBindsToType(string typeExpression, ITypeSymbol type, SemanticModel? semanticModel)
     {
         // Nothing to bind against. Returning true keeps the caller on its previous behavior rather
-        // than withholding a name on the strength of a missing compilation.
-        if (compilation is null || compilation.SyntaxTrees.FirstOrDefault() is not { } tree)
+        // than withholding a name on the strength of a missing semantic model.
+        if (semanticModel is null)
         {
             return true;
         }
@@ -96,11 +104,75 @@ internal static class GeneratedRegistryAccess
 
         // Position zero rather than a position near the member: the binder there differs only in the
         // usings and aliases in scope, and this name reads through neither.
-        var bound = compilation.GetSemanticModel(tree)
+        var bound = semanticModel
             .GetSpeculativeSymbolInfo(0, name, SpeculativeBindingOption.BindAsTypeOrNamespace)
             .Symbol;
 
-        return SymbolEqualityComparer.Default.Equals(bound, type);
+        return SymbolEqualityComparer.Default.Equals(bound, type) &&
+            IsDeclaredOnce(type, semanticModel.Compilation);
+    }
+
+    /// <summary>
+    /// Reports whether the type, and everything its name is composed from, is declared by one
+    /// assembly only.
+    /// </summary>
+    /// <remarks>
+    /// The question binding cannot answer: which diagnostic the use would carry. A name declared
+    /// twice still binds -- to source, over metadata -- and warns with <c>CS0436</c>, so it is
+    /// refused here rather than emitted into a build that may promote that warning. The nesting chain
+    /// is checked link by link because the shadowed declaration can be an outer type, and the type
+    /// arguments because they are written out too.
+    /// </remarks>
+    private static bool IsDeclaredOnce(ITypeSymbol type, Compilation compilation)
+    {
+        if (type is IArrayTypeSymbol array)
+        {
+            return IsDeclaredOnce(array.ElementType, compilation);
+        }
+
+        if (type is not INamedTypeSymbol namedType)
+        {
+            return true;
+        }
+
+        for (INamedTypeSymbol? current = namedType.OriginalDefinition; current is not null; current = current.ContainingType)
+        {
+            if (compilation.GetTypesByMetadataName(GetFullMetadataName(current)).Length > 1)
+            {
+                return false;
+            }
+        }
+
+        foreach (var typeArgument in namedType.TypeArguments)
+        {
+            if (!IsDeclaredOnce(typeArgument, compilation))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Builds the metadata name a type is looked up by: namespace-qualified, nesting joined with
+    /// <c>+</c>, and generic arity already carried by each part's own metadata name.
+    /// </summary>
+    private static string GetFullMetadataName(INamedTypeSymbol type)
+    {
+        var builder = new StringBuilder(type.MetadataName);
+
+        for (var containing = type.ContainingType; containing is not null; containing = containing.ContainingType)
+        {
+            builder.Insert(0, '+').Insert(0, containing.MetadataName);
+        }
+
+        if (type.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
+        {
+            builder.Insert(0, '.').Insert(0, containingNamespace.ToDisplayString());
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>

@@ -94,7 +94,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return TransformMethod(
             methodSymbol,
             KnownReturnTypes.Create(context.SemanticModel.Compilation),
-            KnownDataSourceTypes.Create(context.SemanticModel.Compilation));
+            KnownDataSourceTypes.Create(context.SemanticModel));
     }
 
     private static TestMethodDescriptor? TransformMethod(

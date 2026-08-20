@@ -755,15 +755,17 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   file the user did not write. A base whose fully qualified name a second reference also declares is
   `CS0433`, which the user's own source dodges by writing the alias and the generated file cannot.
   A base whose namespace name is a type in another reference binds the name to that type's nested
-  member instead, silently. Source and metadata sharing a name is none of those: C# takes the source
-  declaration and only warns, so withholding the qualifier there would cost it exactly where it is
-  worth most, a test class deriving from a base of its own.
+  member instead, silently. A base whose name source and metadata both declare binds -- to source,
+  over metadata -- and warns with `CS0436`, which a project promoting warnings to errors fails on,
+  and the user's own file can carry a `#pragma` for that where the generated one cannot.
   Enumerating those rules was tried first, one review round each, and abandoned: the domain is C#
   name resolution and every round modelled one more of it. `GeneratedRegistryAccess.NameBindsToType`
   hands the emitted text to the binder that will read it instead --
   `GetSpeculativeSymbolInfo` with `BindAsTypeOrNamespace` -- and requires the symbol that comes back
-  to be the declaring type. The answer cannot disagree with the file being emitted, and it covers the
-  whole expression including type arguments, so `Base<A::Row>` needs no separate walk. Speculative
+  to be the declaring type, plus one thing binding cannot answer: speculative binding discards
+  diagnostics, so a name any other assembly also declares is refused as well, which is the `CS0436`
+  case above. The answer cannot disagree with the file being emitted, and it covers the whole
+  expression including type arguments, so `Base<A::Row>` needs no separate walk. Speculative
   binding is position-independent for these names, because a `global::`-rooted name reads through no
   `using` and no `extern alias`, which is the same reason the registry cannot write anything else.
   Two rejected alternatives are worth recording. Reading the aliases off the reference
@@ -778,10 +780,9 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   `InheritedFromAnAliasOnlyBase_KeepsTheDerivedQualifierAsync` and its parameter-level twin pin the
   alias case, `InheritedFromAnAmbiguouslyNamedBase_KeepsTheDerivedQualifierAsync` the homonym case,
   `InheritedFromABaseWhoseNamespaceNameIsATypeElsewhere_KeepsTheDerivedQualifierAsync` the
-  namespace-versus-type case, and the two that assert the qualifier is kept --
-  `InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync` and
-  `InheritedFromASourceBaseShadowingAReference_QualifiesByTheDeclaringTypeAsync` -- pin the cases the
-  rejected heuristics got backwards.
+  namespace-versus-type case, `InheritedFromASourceBaseShadowingAReference_KeepsTheDerivedQualifierAsync`
+  the promotable-warning case, and `InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync`
+  the duplicate-reference case that the rejected alias heuristic got backwards.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

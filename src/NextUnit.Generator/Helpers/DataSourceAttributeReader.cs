@@ -488,7 +488,7 @@ internal static class DataSourceAttributeReader
 
         var typeExpression = declaringType.ToDisplayString(AttributeHelper.TypeExpressionFormat);
 
-        return GeneratedRegistryAccess.NameBindsToType(typeExpression, declaringType, knownDataSourceTypes.Compilation)
+        return GeneratedRegistryAccess.NameBindsToType(typeExpression, declaringType, knownDataSourceTypes.SemanticModel)
             ? typeExpression
             : null;
     }
