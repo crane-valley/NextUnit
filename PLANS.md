@@ -865,6 +865,79 @@ sized separately.
   documentation: the group limit is deliberately authoritative, and the `ParallelLimitAttribute`
   remarks say so as of PR #219. No code change.
 
+### Priority 2 — Expansion-limit follow-ups deferred by the PR #236 review
+
+Surfaced by the Codex review of the test-case expansion limits (2026-08-13). The bypass that review
+found -- an empty `[Matrix()]` zeroing the projected product after the emitter had already
+materialized every combination before it -- was fixed in that PR by charging the peak of the running
+product. The three below were left, each because the fix is a product decision rather than a hole in
+the bound.
+
+- [x] Decide whether the cap should also bound how many rows a `[TestData]` or `[ClassDataSource]`
+  member returns. It should not, and the boundary is now stated in the README and at the projection
+  site. What the cap bounds is expansion NextUnit performs itself from declarative attribute data,
+  where no user code runs and the count is a product of attribute arguments. A member's rows come
+  from running the user's own code, so bounding the row count would not bound the time that code
+  takes -- a blocking member has always stalled discovery -- and the cap would advertise protection
+  it does not provide. A large row set is a supported case besides, with `DeferredEnumeration` as the
+  answer for keeping discovery cheap. Raised twice by the Codex review of PR #236; resolved by
+  documentation, no code change.
+
+- [ ] The compile-time check on combined parameter sources charges the product of the inline
+  `[Values]` lengths, which over-rejects a method whose real expansion is zero. A runtime-resolved
+  `[ValuesFromMember]` or `[ValuesFrom]` contributes an unknown factor that the projection treats as
+  at least one, but it can resolve to nothing, and `CombinedDataSourceExpander` deliberately keeps a
+  zero product as zero test cases. Seven `[Values]` of four values beside an empty member source is
+  therefore `NEXTUNIT013` for a test that expands to nothing. The rejection is fail-closed and the
+  escape hatch is documented, which is why it ships. The sharper fix, from the Codex Cloud review of
+  PR #236: what the emitter actually writes at compile time is one array literal per inline
+  parameter, so the compile-time cost is the sum of the inline lengths, not their product. Bound the
+  sum here and leave the product entirely to the discovery-time cap, which already computes it with
+  the runtime lengths in hand. That needs the `NEXTUNIT013` message reworded, since it would no
+  longer be reporting a test case count.
+
+- [ ] The cap bounds emitted test cases, not the work of computing them, and `MatrixHelper` now runs
+  twice for a matrix test that passes the peak check -- once in `TestCaseExpansionValidator` to count
+  survivors exactly, once in `RegistryEmitter` to emit them. Within the cap that is bounded work, but
+  `ApplyExclusions` is exclusions x combinations x parameter width, and nothing bounds the exclusion
+  count separately: a method at the cap with thousands of `[MatrixExclusion]` attributes pays it
+  twice. The double run buys the property that the validator cannot disagree with the emitter about
+  what an exclusion removes, which is worth more than the duplicated pass; caching the expansion
+  between the two, or bounding the exclusion count on its own, would buy it back. Raised as a
+  follow-up candidate by the Codex review of PR #236, which noted the emitter already carried this
+  cost.
+
+- [ ] `[Repeat]` is silently dropped when a test method also carries parameter-level data sources.
+  `RegistryEmitter` partitions such a method into `CombinedDataSourceTests`, and
+  `EmitCombinedDataSourceDescriptor` writes no repeat information, so `[Repeat(5)]` beside
+  `[Values(1, 2)]` runs two test cases rather than ten and says nothing. The projection in
+  `TestCaseExpansionValidator` matches the emitter and is therefore correct about the bound, which is
+  why this is not a limit defect; the defect is that the README describes every source as multiplying
+  while one combination silently does not. Pre-dates the limits work. Either thread the repeat count
+  through `CombinedDataSourceDescriptor` and into `CombinedDataSourceExpander`'s product, or diagnose
+  the combination and say so in the documentation. The first is the honest reading of the attribute
+  and the more invasive change, since it moves repeat from a compile-time expansion to a runtime one.
+
+- [ ] The compile-time and discovery-time caps are configured independently, so raising one does not
+  raise the other. `<NextUnitMaxTestCasesPerMethod>50000</NextUnitMaxTestCasesPerMethod>` lets the
+  generator emit 50000 cases while discovery still rejects a combined data source at the 10000
+  default, and the user learns this only when the run fails. The README documents both knobs, so the
+  behavior is not a surprise so much as a chore. The clean fix is to emit the project's cap into the
+  generated registry and have discovery read it as the baseline, keeping
+  `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` as an explicit per-run override above it. That changes the
+  registry contract and the snapshot baselines, which is why it did not ride along with a security
+  fix.
+
+- [ ] A cap override that is present but unusable falls back to the default without a word, so a typo
+  meant to tighten the cap loosens it instead: `100O` for `1000` silently permits 10000. The fallback
+  is deliberate and documented -- a typo in an escape hatch should not be the thing that stops a
+  build -- but it is fail-open on a security bound, and it is not how the rest of the repo treats an
+  unusable configured value: `TestFilterConfigurationLoader.CompileRegexPatterns` throws on a
+  malformed `NEXTUNIT_TEST_NAME_REGEX` precisely because silently dropping the filter would run
+  everything. Distinguishing unset from unusable, and reporting the second through a new generator
+  diagnostic and a discovery exception, needs a rule ID and a decision about whether a mistyped limit
+  may fail a build.
+
 ## Deferred to the next major version
 
 Breaking changes that could not ship in 1.x. All three shipped in 2.0.0, and the

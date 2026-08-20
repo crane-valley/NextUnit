@@ -4,35 +4,74 @@ on:
   release:
     types: [published]
 
+# Default deny. Every job below grants itself exactly what it needs, and a job
+# added later without a permissions block inherits nothing rather than the
+# repository default -- which is what keeps "no repository code runs in a job
+# holding id-token: write" true for future edits too.
+permissions: {}
+
+# Two release runs must never interleave: the publish job's duplicate gate is
+# stateless and fail-closed, so a second run racing the first would see a
+# half-published version and hard-fail. cancel-in-progress stays false because
+# cancelling a run mid-push is exactly the state this workflow cannot recover
+# from.
+#
+# Limitation: this group holds a single pending slot, so a third release event
+# arriving while one run is in flight and one is already pending cancels the
+# older pending run. That is safe here -- the pending run never reached the
+# publish job, and the duplicate gate is stateless, so the cancelled release can
+# simply be re-run. A `queue: max` key would remove the limitation but actionlint
+# v1.7.12 rejects it as unknown, so it is deliberately not used.
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+
 env:
   DOTNET_VERSION: '10.0.x'
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_SOURCE: 'https://api.nuget.org/v3/index.json'
+  NUGET_FLATCONTAINER_BASE: 'https://api.nuget.org/v3-flatcontainer'
+  # 7 primary .nupkg + 4 .snupkg (Core, Platform, TestAdapter, AspNetCore).
+  EXPECTED_PACKAGE_FILE_COUNT: '11'
+  EXPECTED_SYMBOL_PACKAGE_COUNT: '4'
 
 jobs:
-  publish:
+  # No id-token here: restore/build/pack execute repository-controlled logic, so
+  # this job must not be able to mint an OIDC token. dotnet test lives in the
+  # smoke job for the same reason.
+  build:
+    name: Build and pack
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
-      id-token: write  # enable GitHub OIDC token for NuGet Trusted Publishing
     env:
       NUGET_PACKAGES: ${{ github.workspace }}/artifacts/packages-cache
+    outputs:
+      package_version: ${{ steps.version.outputs.package_version }}
+      files_sha256: ${{ steps.seal.outputs.files_sha256 }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # No step here talks to git, and this workflow uploads an artifact, so
+          # the checkout must not leave a credential in .git/config.
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Verify tag matches package version
+        id: version
         shell: bash
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
+          set -euo pipefail
           PACKAGE_VERSION=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Directory.Build.props)
           if [ -z "$PACKAGE_VERSION" ]; then
             echo "Error: package version not found in Directory.Build.props"
@@ -47,16 +86,23 @@ jobs:
             echo "Error: release tag $RELEASE_TAG does not match package version $PACKAGE_VERSION"
             exit 1
           fi
+          # Allowlist for this repository's version scheme, deliberately narrower
+          # than NuGet's grammar. Every accepted string is byte-identical to its
+          # NuGet-normalized form, which is what makes it safe to reuse verbatim in
+          # file names, flat-container URLs, and download paths downstream.
+          if ! printf '%s' "$PACKAGE_VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc|preview)(\.(0|[1-9][0-9]*))?)?$'; then
+            echo "Error: package version '$PACKAGE_VERSION' is outside this repository's allowed version scheme"
+            echo "Allowed: MAJOR.MINOR.PATCH with no leading zeros, optionally -alpha|-beta|-rc|-preview with an optional .N suffix"
+            exit 1
+          fi
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
+          echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependencies
         run: dotnet restore NextUnit.slnx
 
       - name: Build
         run: dotnet build NextUnit.slnx --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test --solution NextUnit.slnx --configuration Release --no-build
 
       - name: Pack all packages
         run: |
@@ -103,33 +149,138 @@ jobs:
             --no-build
 
           echo "Packages created:"
-          ls -lh ./artifacts/packages/*.nupkg
+          ls -lh ./artifacts/packages
 
       - name: Verify package contents
         shell: bash
         run: |
-          packages=(
-            NextUnit
-            NextUnit.Core
-            NextUnit.Generator
-            NextUnit.Platform
-            NextUnit.TestAdapter
-            NextUnit.AspNetCore
-            NextUnit.Templates
+          set -euo pipefail
+          expected_files=(
+            "NextUnit.$PACKAGE_VERSION.nupkg"
+            "NextUnit.Core.$PACKAGE_VERSION.nupkg"
+            "NextUnit.Generator.$PACKAGE_VERSION.nupkg"
+            "NextUnit.Platform.$PACKAGE_VERSION.nupkg"
+            "NextUnit.TestAdapter.$PACKAGE_VERSION.nupkg"
+            "NextUnit.AspNetCore.$PACKAGE_VERSION.nupkg"
+            "NextUnit.Templates.$PACKAGE_VERSION.nupkg"
+            "NextUnit.Core.$PACKAGE_VERSION.snupkg"
+            "NextUnit.Platform.$PACKAGE_VERSION.snupkg"
+            "NextUnit.TestAdapter.$PACKAGE_VERSION.snupkg"
+            "NextUnit.AspNetCore.$PACKAGE_VERSION.snupkg"
           )
-          for package in "${packages[@]}"; do
-            path="./artifacts/packages/$package.$PACKAGE_VERSION.nupkg"
+          for expected_file in "${expected_files[@]}"; do
+            path="./artifacts/packages/$expected_file"
             if [ ! -f "$path" ]; then
-              echo "Error: required package not found: $path"
+              echo "Error: required package file not found: $path"
               exit 1
             fi
             echo "Verified $path"
           done
-          package_count=$(find ./artifacts/packages -maxdepth 1 -type f -name '*.nupkg' | wc -l)
-          if [ "$package_count" -ne "${#packages[@]}" ]; then
-            echo "Error: expected ${#packages[@]} packages, found $package_count"
+          # Closed set: an extra file would ride along into the sealed artifact and
+          # the symbol push phase, so count equality is part of the check.
+          file_count=$(find ./artifacts/packages -maxdepth 1 -type f \( -name '*.nupkg' -o -name '*.snupkg' \) | wc -l)
+          if [ "$file_count" -ne "${#expected_files[@]}" ] || [ "$file_count" -ne "$EXPECTED_PACKAGE_FILE_COUNT" ]; then
+            echo "Error: expected $EXPECTED_PACKAGE_FILE_COUNT package files, found $file_count"
             exit 1
           fi
+
+      - name: Seal package digest manifest
+        id: seal
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=$(cd ./artifacts/packages && find . -maxdepth 1 -type f \( -name '*.nupkg' -o -name '*.snupkg' \) -printf '%P\0' | LC_ALL=C sort -z | xargs -0 -r sha256sum)
+          manifest_count=$(printf '%s\n' "$manifest" | wc -l)
+          if [ "$manifest_count" -ne "$EXPECTED_PACKAGE_FILE_COUNT" ]; then
+            echo "Error: digest manifest has $manifest_count entries, expected $EXPECTED_PACKAGE_FILE_COUNT"
+            exit 1
+          fi
+          echo "Package digest manifest (sha256, sorted by file name):"
+          printf '%s\n' "$manifest"
+          # Job outputs are immutable once this job completes, so downstream jobs
+          # compare against this value rather than against anything stored in the
+          # artifact, which any other job in the run could overwrite.
+          {
+            echo "files_sha256<<NEXTUNIT_MANIFEST_EOF"
+            printf '%s\n' "$manifest"
+            echo "NEXTUNIT_MANIFEST_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: packages
+          path: |
+            ./artifacts/packages/*.nupkg
+            ./artifacts/packages/*.snupkg
+          if-no-files-found: error
+          # "Re-run all jobs" reuses the run-scoped artifact name.
+          overwrite: true
+
+  # Everything that executes repository or package code lives here, one job away
+  # from any OIDC capability.
+  smoke:
+    name: Verify packages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}/artifacts/packages-cache
+      PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # No step here talks to git, and this workflow uploads an artifact, so
+          # the checkout must not leave a credential in .git/config.
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore NextUnit.slnx
+
+      - name: Build
+        run: dotnet build NextUnit.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --solution NextUnit.slnx --configuration Release --no-build
+
+      - name: Download packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: packages
+          path: ./artifacts/packages
+
+      - name: Verify package artifact integrity
+        shell: bash
+        env:
+          FILES_SHA256: ${{ needs.build.outputs.files_sha256 }}
+        run: |
+          set -euo pipefail
+          sealed=$(printf '%s' "$FILES_SHA256")
+          manifest=$(cd ./artifacts/packages && find . -maxdepth 1 -type f \( -name '*.nupkg' -o -name '*.snupkg' \) -printf '%P\0' | LC_ALL=C sort -z | xargs -0 -r sha256sum)
+          sealed_count=$(printf '%s\n' "$sealed" | wc -l)
+          manifest_count=$(printf '%s\n' "$manifest" | wc -l)
+          if [ "$sealed_count" -ne "$EXPECTED_PACKAGE_FILE_COUNT" ] || [ "$manifest_count" -ne "$EXPECTED_PACKAGE_FILE_COUNT" ]; then
+            echo "::error::expected $EXPECTED_PACKAGE_FILE_COUNT package files; sealed manifest has $sealed_count, downloaded artifact has $manifest_count"
+            exit 1
+          fi
+          if [ "$manifest" != "$sealed" ]; then
+            echo "::error::package artifact does not match the digest manifest sealed by the build job"
+            echo "--- sealed manifest ---"
+            printf '%s\n' "$sealed"
+            echo "--- downloaded artifact ---"
+            printf '%s\n' "$manifest"
+            exit 1
+          fi
+          echo "Package artifact matches the sealed digest manifest ($EXPECTED_PACKAGE_FILE_COUNT files)."
 
       - name: Verify one-package integration
         run: |
@@ -167,16 +318,16 @@ jobs:
             echo "See the Version Update Checklist in docs/RELEASE_PROCESS.md."
             exit 1
           fi
-          dotnet new install "${{ github.workspace }}/artifacts/packages/NextUnit.Templates.$PACKAGE_VERSION.nupkg"
+          dotnet new install "$GITHUB_WORKSPACE/artifacts/packages/NextUnit.Templates.$PACKAGE_VERSION.nupkg"
           dotnet new nextunit --name TemplateSmoke --output "$TEMPLATE_OUTPUT_DIR/TemplateSmoke" --no-restore
           # Source mapping keeps NextUnit* on the packages this run just built. The same version may
           # already exist on nuget.org from a re-run, and either copy could otherwise win.
-          cat > "$TEMPLATE_OUTPUT_DIR/TemplateSmoke/NuGet.Config" <<'EOF'
+          cat > "$TEMPLATE_OUTPUT_DIR/TemplateSmoke/NuGet.Config" <<EOF
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
             <packageSources>
               <clear />
-              <add key="local-nextunit" value="${{ github.workspace }}/artifacts/packages" />
+              <add key="local-nextunit" value="$GITHUB_WORKSPACE/artifacts/packages" />
               <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
             </packageSources>
             <packageSourceMapping>
@@ -194,15 +345,447 @@ jobs:
           dotnet build "$project" --configuration Release --no-restore
           dotnet run --project "$project" --configuration Release --no-build -- --minimum-expected-tests 1
 
+  # The only job that can mint an OIDC token, and the only one that never runs
+  # repository or package code: no checkout, no setup-dotnet, no restore/build/
+  # pack/run. It executes exactly two SHA-pinned actions plus runner-image
+  # binaries. ubuntu-24.04 pins the OS series only -- the image's .NET SDK still
+  # updates weekly, so it is a mutable trusted dependency of this job, the same
+  # trust class as the runner image itself and a smaller surface than adding a
+  # setup-dotnet download step here.
+  publish:
+    name: Publish to NuGet.org
+    needs: [build, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      # Deliberately the ONLY permission granted anywhere in this workflow: the
+      # job needs no repository access because it never checks anything out.
+      id-token: write  # mint the GitHub OIDC token NuGet/login exchanges for a short-lived nuget.org credential
+    env:
+      PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
+
+    steps:
+      # Cap each pre-push step so a slow-but-successful one cannot silently consume the budget the
+      # push needs. Likelihood-reduction only: runner overhead and a hung push stay the Partial Publish Runbook's.
+      - name: Download packages
+        timeout-minutes: 5
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: packages
+          path: ./artifacts/packages
+
+      - name: Verify package artifact integrity
+        timeout-minutes: 2
+        shell: bash
+        env:
+          FILES_SHA256: ${{ needs.build.outputs.files_sha256 }}
+        run: |
+          set -euo pipefail
+          sealed=$(printf '%s' "$FILES_SHA256")
+          manifest=$(cd ./artifacts/packages && find . -maxdepth 1 -type f \( -name '*.nupkg' -o -name '*.snupkg' \) -printf '%P\0' | LC_ALL=C sort -z | xargs -0 -r sha256sum)
+          sealed_count=$(printf '%s\n' "$sealed" | wc -l)
+          manifest_count=$(printf '%s\n' "$manifest" | wc -l)
+          if [ "$sealed_count" -ne "$EXPECTED_PACKAGE_FILE_COUNT" ] || [ "$manifest_count" -ne "$EXPECTED_PACKAGE_FILE_COUNT" ]; then
+            echo "::error::expected $EXPECTED_PACKAGE_FILE_COUNT package files; sealed manifest has $sealed_count, downloaded artifact has $manifest_count"
+            exit 1
+          fi
+          if [ "$manifest" != "$sealed" ]; then
+            echo "::error::package artifact does not match the digest manifest sealed by the build job"
+            echo "--- sealed manifest ---"
+            printf '%s\n' "$sealed"
+            echo "--- downloaded artifact ---"
+            printf '%s\n' "$manifest"
+            exit 1
+          fi
+          echo "Package artifact matches the sealed digest manifest ($EXPECTED_PACKAGE_FILE_COUNT files)."
+
+      - name: Check nuget.org for an existing release of this version
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          set -euo pipefail
+          packages=(
+            NextUnit
+            NextUnit.Core
+            NextUnit.Generator
+            NextUnit.Platform
+            NextUnit.TestAdapter
+            NextUnit.AspNetCore
+            NextUnit.Templates
+          )
+          VERSION_LOWER=$(printf '%s' "$PACKAGE_VERSION" | tr '[:upper:]' '[:lower:]')
+          # Query rules: HTTP 200 -> parse the version index (a parse failure is a
+          # hard failure); HTTP 404 -> not published; anything else -> hard failure.
+          # A failed query is NEVER read as "version absent".
+          flatcontainer_has_version() {
+            local id_lower=$1
+            local body status matches
+            HAS_VERSION=no
+            body=$(mktemp)
+            status=$(curl --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors --max-time 30 --write-out '%{http_code}' --output "$body" "$NUGET_FLATCONTAINER_BASE/$id_lower/index.json") || {
+              echo "::error::flat-container query for $id_lower failed at the network level"
+              exit 1
+            }
+            case "$status" in
+              200)
+                jq -e 'has("versions") and (.versions | type == "array")' "$body" > /dev/null || {
+                  echo "::error::flat-container index for $id_lower is not a valid version index (HTTP 200)"
+                  exit 1
+                }
+                matches=$(jq --arg v "$VERSION_LOWER" '[.versions[] | ascii_downcase | select(. == $v)] | length' "$body")
+                case "$matches" in
+                  '' | *[!0-9]*)
+                    echo "::error::flat-container index for $id_lower produced a non-numeric match count"
+                    exit 1
+                    ;;
+                esac
+                if [ "$matches" -gt 0 ]; then
+                  HAS_VERSION=yes
+                fi
+                ;;
+              404)
+                ;;
+              *)
+                echo "::error::flat-container query for $id_lower returned HTTP $status"
+                exit 1
+                ;;
+            esac
+            rm -f "$body"
+          }
+          existing=()
+          for package in "${packages[@]}"; do
+            id_lower=$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')
+            flatcontainer_has_version "$id_lower"
+            if [ "$HAS_VERSION" = yes ]; then
+              existing+=("$package")
+              echo "EXISTS: $package $PACKAGE_VERSION"
+            else
+              echo "ABSENT: $package $PACKAGE_VERSION"
+            fi
+          done
+          if [ "${#existing[@]}" -gt 0 ]; then
+            echo "::error::version $PACKAGE_VERSION is already published for: ${existing[*]}"
+            echo "This gate is stateless and always fail-closed: there is no resume path."
+            echo "Do NOT re-run this workflow and do NOT unlist anything based on this message alone."
+            echo "Follow the Partial Publish Runbook in docs/RELEASE_PROCESS.md:"
+            echo "https://github.com/crane-valley/NextUnit/blob/main/docs/RELEASE_PROCESS.md#partial-publish-runbook"
+            exit 1
+          fi
+          echo "No published packages carry version $PACKAGE_VERSION; proceeding to publish."
+
       - name: NuGet login (OIDC)
         id: login
+        timeout-minutes: 2
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           user: ${{ secrets.NUGET_USER }}
 
       - name: Publish to NuGet.org
+        shell: bash
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
         run: |
-          dotnet nuget push "./artifacts/packages/*.nupkg" \
-            --source https://api.nuget.org/v3/index.json \
-            --api-key ${{ steps.login.outputs.NUGET_API_KEY }} \
-            --skip-duplicate
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(
+            NextUnit
+            NextUnit.Core
+            NextUnit.Generator
+            NextUnit.Platform
+            NextUnit.TestAdapter
+            NextUnit.AspNetCore
+            NextUnit.Templates
+          )
+          # Log lines are named for what they prove. ATTEMPTING: means the push was
+          # started and its outcome is unknown unless a later line resolves it.
+          # PUSHED: means accepted-by-server; nuget.org validation is asynchronous
+          # and can still reject afterwards. Neither line authorizes a destructive
+          # action -- see the Partial Publish Runbook.
+          #
+          # Phase 1: every primary package, with --no-symbols so the client cannot
+          # silently push an adjacent .snupkg here. --source is explicit because
+          # this job has no checkout and therefore no configured DefaultPushSource.
+          # No --skip-duplicate: a duplicate must be a hard failure.
+          for package in "${packages[@]}"; do
+            path="./artifacts/packages/$package.$PACKAGE_VERSION.nupkg"
+            echo "ATTEMPTING: $package $PACKAGE_VERSION"
+            dotnet nuget push "$path" \
+              --source "$NUGET_SOURCE" \
+              --api-key "$NUGET_API_KEY" \
+              --no-symbols
+            echo "PUSHED: $package $PACKAGE_VERSION"
+          done
+          # Phase 2 starts only after every primary was accepted, so a symbol
+          # failure can never leave the primary set partial. Such a release is kept
+          # and symbols are fixed forward in the next release.
+          symbol_log="$RUNNER_TEMP/symbol-push.log"
+          : > "$symbol_log"
+          for path in ./artifacts/packages/*.snupkg; do
+            name=$(basename "$path")
+            id=${name%".$PACKAGE_VERSION.snupkg"}
+            echo "ATTEMPTING-SYMBOLS: $id $PACKAGE_VERSION"
+            dotnet nuget push "$path" \
+              --source "$NUGET_SOURCE" \
+              --api-key "$NUGET_API_KEY"
+            echo "PUSHED-SYMBOLS: $id $PACKAGE_VERSION" | tee -a "$symbol_log"
+          done
+          pushed_symbols=$(grep -c '^PUSHED-SYMBOLS: ' "$symbol_log" || true)
+          if [ "$pushed_symbols" -ne "$EXPECTED_SYMBOL_PACKAGE_COUNT" ]; then
+            echo "::error::expected $EXPECTED_SYMBOL_PACKAGE_COUNT accepted symbol packages, observed $pushed_symbols"
+            exit 1
+          fi
+          echo "All ${#packages[@]} primary packages and $pushed_symbols symbol packages were accepted by nuget.org."
+
+  # Runs published package code, so it must not hold id-token. It runs on publish
+  # success, failure, and best-effort on cancellation, because a red publish is
+  # exactly when an operator needs an inventory of what actually landed.
+  verify-published:
+    name: Verify published packages
+    needs: [build, publish]
+    if: ${{ always() && needs.build.result == 'success' && contains(fromJSON('["success","failure","cancelled"]'), needs.publish.result) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
+      PUBLISH_RESULT: ${{ needs.publish.result }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # No step here talks to git, and this workflow uploads an artifact, so
+          # the checkout must not leave a credential in .git/config.
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Poll nuget.org for the published set
+        id: poll
+        shell: bash
+        run: |
+          set -euo pipefail
+          packages=(
+            NextUnit
+            NextUnit.Core
+            NextUnit.Generator
+            NextUnit.Platform
+            NextUnit.TestAdapter
+            NextUnit.AspNetCore
+            NextUnit.Templates
+          )
+          VERSION_LOWER=$(printf '%s' "$PACKAGE_VERSION" | tr '[:upper:]' '[:lower:]')
+          # Query rules: HTTP 200 -> parse the version index (a parse failure is a
+          # hard failure); HTTP 404 -> not published; anything else -> hard failure.
+          # A failed query is NEVER read as "version absent".
+          flatcontainer_has_version() {
+            local id_lower=$1
+            local body status matches
+            HAS_VERSION=no
+            body=$(mktemp)
+            status=$(curl --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors --max-time 30 --write-out '%{http_code}' --output "$body" "$NUGET_FLATCONTAINER_BASE/$id_lower/index.json") || {
+              echo "::error::flat-container query for $id_lower failed at the network level"
+              exit 1
+            }
+            case "$status" in
+              200)
+                jq -e 'has("versions") and (.versions | type == "array")' "$body" > /dev/null || {
+                  echo "::error::flat-container index for $id_lower is not a valid version index (HTTP 200)"
+                  exit 1
+                }
+                matches=$(jq --arg v "$VERSION_LOWER" '[.versions[] | ascii_downcase | select(. == $v)] | length' "$body")
+                case "$matches" in
+                  '' | *[!0-9]*)
+                    echo "::error::flat-container index for $id_lower produced a non-numeric match count"
+                    exit 1
+                    ;;
+                esac
+                if [ "$matches" -gt 0 ]; then
+                  HAS_VERSION=yes
+                fi
+                ;;
+              404)
+                ;;
+              *)
+                echo "::error::flat-container query for $id_lower returned HTTP $status"
+                exit 1
+                ;;
+            esac
+            rm -f "$body"
+          }
+          attempts=40
+          sleep_seconds=30
+          missing=()
+          for ((attempt = 1; attempt <= attempts; attempt++)); do
+            missing=()
+            for package in "${packages[@]}"; do
+              id_lower=$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')
+              flatcontainer_has_version "$id_lower"
+              if [ "$HAS_VERSION" != yes ]; then
+                missing+=("$package")
+              fi
+            done
+            if [ "${#missing[@]}" -eq 0 ]; then
+              echo "All ${#packages[@]} primary packages list $PACKAGE_VERSION after $attempt attempt(s)."
+              break
+            fi
+            echo "Attempt $attempt/$attempts: still unlisted: ${missing[*]}"
+            if [ "$attempt" -lt "$attempts" ]; then
+              sleep "$sleep_seconds"
+            fi
+          done
+          {
+            echo "## Published package inventory for $PACKAGE_VERSION"
+            echo
+            echo "Publish job result: \`$PUBLISH_RESULT\`."
+            echo
+            if [ "${#missing[@]}" -eq 0 ]; then
+              echo "All ${#packages[@]} primary packages are listed on nuget.org."
+            else
+              echo "Not listed after the polling budget: \`${missing[*]}\`."
+            fi
+            echo
+            echo "Read this as evidence, not as a decision:"
+            echo
+            echo "- Index lag means absence here is NOT proof a package was never published."
+            echo "- \`PUSHED:\` in the publish log means accepted-by-server, not validated publication."
+            echo "- \`ATTEMPTING:\` without a matching \`PUSHED:\` is an unresolved candidate."
+            echo "- Symbol packages never appear in flat-container queries; the"
+            echo "  \`ATTEMPTING-SYMBOLS:\`/\`PUSHED-SYMBOLS:\` pair is their only record."
+            echo "- Before unlisting anything, re-check the nuget.org owner UI after about an hour,"
+            echo "  per the Partial Publish Runbook in docs/RELEASE_PROCESS.md."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "complete=false" >> "$GITHUB_OUTPUT"
+          if [ "$PUBLISH_RESULT" = success ]; then
+            echo "::error::publish succeeded but these packages are still unlisted after the polling budget: ${missing[*]}"
+            exit 1
+          fi
+          echo "Publish did not succeed ($PUBLISH_RESULT); stopping after the inventory report."
+
+      - name: Verify published signatures and metadata
+        if: ${{ steps.poll.outputs.complete == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          packages=(
+            NextUnit
+            NextUnit.Core
+            NextUnit.Generator
+            NextUnit.Platform
+            NextUnit.TestAdapter
+            NextUnit.AspNetCore
+            NextUnit.Templates
+          )
+          version_lower=$(printf '%s' "$PACKAGE_VERSION" | tr '[:upper:]' '[:lower:]')
+          workdir="$RUNNER_TEMP/published-verify"
+          rm -rf "$workdir"
+          mkdir -p "$workdir"
+          for package in "${packages[@]}"; do
+            id_lower=$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')
+            file="$workdir/$id_lower.$version_lower.nupkg"
+            curl --silent --show-error --fail --location --retry 5 --retry-delay 5 --retry-all-errors --max-time 120 --output "$file" "$NUGET_FLATCONTAINER_BASE/$id_lower/$version_lower/$id_lower.$version_lower.nupkg"
+            # Byte comparison against our artifact is impossible: nuget.org
+            # repository-signs the package. Assert the signature in the tool OUTPUT
+            # rather than trusting the exit code alone.
+            verify_output=$(dotnet nuget verify "$file" --all)
+            printf '%s\n' "$verify_output"
+            if ! printf '%s' "$verify_output" | grep -q 'Signature type: Repository'; then
+              echo "::error::$package $PACKAGE_VERSION carries no repository signature"
+              exit 1
+            fi
+            if ! printf '%s' "$verify_output" | grep -qF "$NUGET_SOURCE"; then
+              echo "::error::$package $PACKAGE_VERSION repository signature does not name $NUGET_SOURCE"
+              exit 1
+            fi
+            nuspec_dir="$workdir/nuspec-$id_lower"
+            mkdir -p "$nuspec_dir"
+            unzip -o -q -j "$file" '*.nuspec' -d "$nuspec_dir"
+            mapfile -t nuspec_files < <(find "$nuspec_dir" -maxdepth 1 -type f -name '*.nuspec' | LC_ALL=C sort)
+            if [ "${#nuspec_files[@]}" -ne 1 ]; then
+              echo "::error::$package $PACKAGE_VERSION contains ${#nuspec_files[@]} .nuspec entries, expected exactly 1"
+              exit 1
+            fi
+            nuspec_id=$(sed -n 's|.*<id>\([^<]*\)</id>.*|\1|p' "${nuspec_files[0]}")
+            nuspec_version=$(sed -n 's|.*<version>\([^<]*\)</version>.*|\1|p' "${nuspec_files[0]}")
+            if [ "$nuspec_id" != "$package" ] || [ "$nuspec_version" != "$PACKAGE_VERSION" ]; then
+              echo "::error::$package $PACKAGE_VERSION has nuspec id '$nuspec_id' version '$nuspec_version'"
+              exit 1
+            fi
+            echo "Verified $package $PACKAGE_VERSION: repository signature and nuspec metadata."
+          done
+          # Symbol packages cannot be verified here: nuget.org validates and indexes
+          # .snupkg asynchronously and exposes no public index for them. This is a
+          # documented limitation, not an omission.
+
+      - name: Verify published packages from a clean cache
+        if: ${{ steps.poll.outputs.complete == 'true' }}
+        shell: bash
+        env:
+          # Empty per-step global-packages folder. The HTTP cache and the configured
+          # feeds are separate caches, so restore also passes --no-http-cache and an
+          # explicit nuget.org --source, and every run passes --no-restore so the
+          # implicit restore cannot bypass those constraints.
+          NUGET_PACKAGES: ${{ runner.temp }}/clean-package-cache
+        run: |
+          set -euo pipefail
+          mkdir -p "$NUGET_PACKAGES"
+          # The smoke projects default to a previously published version, so the
+          # override is what makes this a test of THIS release.
+          dotnet restore tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+            --source "$NUGET_SOURCE" \
+            --no-http-cache \
+            -p:NextUnitPackageSmokeVersion="$PACKAGE_VERSION"
+          dotnet run --project tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:NextUnitPackageSmokeVersion="$PACKAGE_VERSION" \
+            -- --minimum-expected-tests 2
+          dotnet restore tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj \
+            --source "$NUGET_SOURCE" \
+            --no-http-cache \
+            -p:NextUnitPackageSmokeVersion="$PACKAGE_VERSION"
+          dotnet run --project tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:NextUnitPackageSmokeVersion="$PACKAGE_VERSION" \
+            -- --minimum-expected-tests 1
+
+      - name: Verify published template from a clean cache
+        if: ${{ steps.poll.outputs.complete == 'true' }}
+        shell: bash
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/clean-template-cache
+          TEMPLATE_SCRATCH_DIR: ${{ runner.temp }}/nextunit-template-published-check
+        run: |
+          set -euo pipefail
+          mkdir -p "$NUGET_PACKAGES"
+          rm -rf "$TEMPLATE_SCRATCH_DIR"
+          mkdir -p "$TEMPLATE_SCRATCH_DIR"
+          # dotnet new install resolves through the NuGet.Config hierarchy of the
+          # current directory, and --nuget-source only ADDS a source, so isolating
+          # this to nuget.org has to happen at config scope.
+          cat > "$TEMPLATE_SCRATCH_DIR/NuGet.Config" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="nuget.org" value="$NUGET_SOURCE" protocolVersion="3" />
+            </packageSources>
+          </configuration>
+          EOF
+          cd "$TEMPLATE_SCRATCH_DIR"
+          dotnet new install "NextUnit.Templates@$PACKAGE_VERSION"
+          dotnet new nextunit --name TemplateSmoke --output "$TEMPLATE_SCRATCH_DIR/TemplateSmoke" --no-restore
+          project="$TEMPLATE_SCRATCH_DIR/TemplateSmoke/TemplateSmoke.csproj"
+          dotnet restore "$project" --source "$NUGET_SOURCE" --no-http-cache
+          dotnet build "$project" --configuration Release --no-restore
+          dotnet run --project "$project" --configuration Release --no-build -- --minimum-expected-tests 1

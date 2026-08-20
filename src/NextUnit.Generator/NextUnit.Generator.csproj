@@ -37,9 +37,12 @@
   </ItemGroup>
 
   <!-- Linked source, not a project reference: the generator ships as a single self-contained
-       analyzer assembly, so the shared code is compiled into it rather than added as a dependency. -->
+       analyzer assembly, so the shared code is compiled into it rather than added as a dependency.
+       NextUnit.Shared is linked into NextUnit.Core as well, which is what keeps the compile-time and
+       discovery-time expansion caps from drifting apart. -->
   <ItemGroup>
     <Compile Include="..\NextUnit.CodeAnalysis.Shared\*.cs" LinkBase="CodeAnalysisShared" />
+    <Compile Include="..\NextUnit.Shared\*.cs" LinkBase="Shared" />
   </ItemGroup>
 
   <ItemGroup>
