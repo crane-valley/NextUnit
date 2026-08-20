@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
 namespace NextUnit.CodeAnalysis.Shared;
@@ -61,7 +62,8 @@ internal static class GeneratedRegistryAccess
     /// <c>extern alias</c> puts nothing in the global namespace, so the name binds nothing --
     /// <c>CS0400</c> in a file the user did not write. Two assemblies that are both in the global
     /// namespace and both declare the name make it <c>CS0433</c> instead, which the user's own
-    /// source can dodge with an alias and the generated file cannot.
+    /// source can dodge with an alias and the generated file cannot. A name shared between source
+    /// and metadata is neither: C# binds it to the source declaration and warns.
     /// <para>
     /// Both are answered by walking <c>Compilation.GlobalNamespace</c> along the path the emitted
     /// text spells out and requiring the walk to arrive at exactly one type, this one. That is the
@@ -253,16 +255,57 @@ internal static class GeneratedRegistryAccess
 
         foreach (var link in nesting)
         {
-            var candidates = container.GetTypeMembers(link.Name, link.Arity);
-            if (candidates.Length != 1)
+            resolved = SelectBoundCandidate(container.GetTypeMembers(link.Name, link.Arity), compilation);
+            if (resolved is null)
             {
                 return false;
             }
 
-            resolved = candidates[0];
             container = resolved;
         }
 
         return SymbolEqualityComparer.Default.Equals(resolved, definition);
+    }
+
+    /// <summary>
+    /// Picks the candidate the name binds to, or <c>null</c> when the name binds to none of them.
+    /// </summary>
+    /// <remarks>
+    /// One candidate is the whole answer. Several is only fatal between references, which is the
+    /// <c>CS0433</c> the caller exists to avoid; a name declared both in source and in metadata is
+    /// resolved by C# to the source declaration, with <c>CS0436</c> as a warning rather than an
+    /// error. Rejecting that case would cost the qualification exactly where it is worth most --
+    /// a test class deriving from a base of its own -- so the source declaration is allowed to win
+    /// on the same rule the compiler applies.
+    /// </remarks>
+    private static INamedTypeSymbol? SelectBoundCandidate(
+        ImmutableArray<INamedTypeSymbol> candidates,
+        Compilation compilation)
+    {
+        if (candidates.Length == 1)
+        {
+            return candidates[0];
+        }
+
+        INamedTypeSymbol? fromSource = null;
+
+        foreach (var candidate in candidates)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(candidate.ContainingAssembly, compilation.Assembly))
+            {
+                continue;
+            }
+
+            // Two source declarations of one name is a duplicate-definition error of the user's own,
+            // and nothing here should pick a winner between them.
+            if (fromSource is not null)
+            {
+                return null;
+            }
+
+            fromSource = candidate;
+        }
+
+        return fromSource;
     }
 }

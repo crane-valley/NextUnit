@@ -933,6 +933,65 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
+    /// A base declared in source that a referenced assembly also declares under the same fully
+    /// qualified name. C# binds that to the source declaration and warns with <c>CS0436</c>, so the
+    /// qualification holds -- and it has to, because this is a test class deriving from a base of its
+    /// own, which is where a concurrent generator has something to capture.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromASourceBaseShadowingAReference_QualifiesByTheDeclaringTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace Fixtures
+            {
+                public class RowsBase
+                {
+                    public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+                }
+            }
+
+            namespace TestProject
+            {
+                public partial class DataTests : global::Fixtures.RowsBase
+                {
+                    [Test]
+                    [TestData("Rows")]
+                    public void Consumes(int value)
+                    {
+                    }
+                }
+            }
+            """;
+
+        MetadataReference[] references = [Reference(await CompileFixtureAssemblyAsync("HomonymFixtures"))];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::Fixtures.RowsBase.Rows", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, ConcurrentlyGeneratedShadowedRows, references);
+    }
+
+    /// <summary>
+    /// The concurrent generator's member for the shadowed-base case, whose test class declares no
+    /// namespace-level partial of its own.
+    /// </summary>
+    private const string ConcurrentlyGeneratedShadowedRows = """
+        using System.Collections.Generic;
+
+        namespace TestProject;
+
+        public partial class DataTests
+        {
+            public static new IEnumerable<object[]> Rows => new[] { new object[] { 99 } };
+        }
+        """;
+
+    /// <summary>
     /// Stands in for a second source generator that adds <c>Rows</c> to the same partial test class.
     /// </summary>
     private const string ConcurrentlyGeneratedRows = """

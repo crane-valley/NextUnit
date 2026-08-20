@@ -756,8 +756,11 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   own source dodges by writing the alias and the generated file cannot.
   `GeneratedRegistryAccess.CanNameTypeWithoutAlias` answers both by walking
   `Compilation.GlobalNamespace` along the path the emitted text spells out -- namespaces, then the
-  nesting chain -- and requiring it to arrive at exactly one type, this one. Type arguments are
-  walked too, because `Base<A::Row>` is hidden by its argument rather than by itself.
+  nesting chain -- and requiring each step to arrive at this type by the rule C# binds it with: one
+  candidate, or the source declaration where source and metadata share a name, which is `CS0436` and
+  a warning rather than an error. Rejecting that last case would have cost the qualification exactly
+  where it is worth most, a test class deriving from a base of its own. Type arguments are walked
+  too, because `Base<A::Row>` is hidden by its argument rather than by itself.
   `GetDeclaringTypeName` withholds the name when the walk fails and the emitters stay on the type the
   attribute points at, which the user's own source names and which therefore binds.
   Reading the aliases off the reference `Compilation.GetMetadataReference` returns for the assembly

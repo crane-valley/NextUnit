@@ -82,8 +82,8 @@ internal readonly struct KnownDataSourceTypes
     /// Carried here rather than passed alongside because every caller that resolves a data source
     /// member already threads this value through, and because it is resolved once per compilation
     /// for the same reason the type symbols are. The compilation rather than its assembly alone,
-    /// because a reference's <c>extern alias</c> list hangs off the compilation and not off any
-    /// symbol.
+    /// because deciding whether the generated file can name a type means walking the merged
+    /// <c>GlobalNamespace</c>, which only the compilation exposes.
     /// </remarks>
     public Compilation? Compilation { get; }
 
