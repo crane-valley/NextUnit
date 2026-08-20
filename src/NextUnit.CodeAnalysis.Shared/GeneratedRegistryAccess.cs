@@ -56,10 +56,20 @@ internal static class GeneratedRegistryAccess
     /// </summary>
     /// <remarks>
     /// Accessibility is only half of naming a type. The registry is emitted with no
-    /// <c>extern alias</c> directives, so a reference whose aliases exclude the global one puts
-    /// nothing in the global namespace the emitted text reads from: <c>global::N.T</c> there fails
-    /// to bind, or binds a homonym some other reference did put in the global namespace. Asked of
-    /// the reference rather than of the symbol, because that is the only place the aliases live.
+    /// <c>extern alias</c> directives, so the question is what <c>global::N.T</c> binds to in a file
+    /// that has none, and there are two ways to lose. An assembly reached only through an
+    /// <c>extern alias</c> puts nothing in the global namespace, so the name binds nothing --
+    /// <c>CS0400</c> in a file the user did not write. Two assemblies that are both in the global
+    /// namespace and both declare the name make it <c>CS0433</c> instead, which the user's own
+    /// source can dodge with an alias and the generated file cannot.
+    /// <para>
+    /// Both are answered by walking <c>Compilation.GlobalNamespace</c> along the path the emitted
+    /// text spells out and requiring the walk to arrive at exactly one type, this one. That is the
+    /// merged namespace the compiler itself binds <c>global::</c> against, which is why it is asked
+    /// rather than the aliases on the references: one assembly identity referenced twice keeps a
+    /// single reference symbol, and its alias list can read <c>Aliased</c> while the global namespace
+    /// holds the type all the same.
+    /// </para>
     /// <para>
     /// Emitting an <c>extern alias</c> directive of its own was rejected as the answer. A reference
     /// can carry several aliases and the registry would have to pick one, the directive would head
@@ -84,7 +94,7 @@ internal static class GeneratedRegistryAccess
             return true;
         }
 
-        if (!IsInGlobalAlias(namedType.ContainingAssembly, compilation))
+        if (!BindsUniquelyInGlobalNamespace(namedType, compilation))
         {
             return false;
         }
@@ -191,26 +201,68 @@ internal static class GeneratedRegistryAccess
     }
 
     /// <summary>
-    /// Reports whether an assembly's contents reach the global namespace.
+    /// Reports whether <c>global::</c> plus the type's name arrives at this type and nothing else.
     /// </summary>
-    private static bool IsInGlobalAlias(IAssemblySymbol? assembly, Compilation compilation)
+    /// <remarks>
+    /// The walk is the lookup the emitted text will get: each namespace of the path taken from the
+    /// merged global namespace, then each link of the nesting chain taken from the type before it.
+    /// A step that finds nothing means an <c>extern alias</c> hides the declaring assembly; a step
+    /// that finds more than one means the name is ambiguous whichever of them was meant. Both leave
+    /// the caller to fall back on a qualifier it already knows binds.
+    /// </remarks>
+    private static bool BindsUniquelyInGlobalNamespace(INamedTypeSymbol type, Compilation compilation)
     {
-        // Source is always in the global namespace, and a symbol with no assembly is an error type
-        // that carries a compiler error of its own; neither is judged on a reference it has none of.
-        if (assembly is null || SymbolEqualityComparer.Default.Equals(assembly, compilation.Assembly))
+        // A namespace holds declarations, so a constructed generic is looked up as the definition it
+        // was constructed from; its type arguments are walked separately by the caller.
+        var definition = type.OriginalDefinition;
+
+        var nesting = new List<INamedTypeSymbol>();
+        for (INamedTypeSymbol? current = definition; current is not null; current = current.ContainingType)
         {
-            return true;
+            nesting.Add(current);
         }
 
-        // A reference the compilation cannot hand back leaves nothing to read the aliases from.
-        // Answering yes keeps the caller on the name it would have written anyway rather than
-        // withholding one on the strength of a missing reference.
-        if (compilation.GetMetadataReference(assembly) is not { } reference)
+        nesting.Reverse();
+
+        var namespaceNames = new List<string>();
+        for (var current = nesting[0].ContainingNamespace; current is { IsGlobalNamespace: false }; current = current.ContainingNamespace)
         {
-            return true;
+            namespaceNames.Add(current.Name);
         }
 
-        var aliases = reference.Properties.Aliases;
-        return aliases.IsEmpty || aliases.Contains(MetadataReferenceProperties.GlobalAlias);
+        namespaceNames.Reverse();
+
+        var containingNamespace = compilation.GlobalNamespace;
+        foreach (var name in namespaceNames)
+        {
+            // A merged namespace exposes one member per distinct name, so nothing is disambiguated
+            // here: the ambiguity that matters lands on the types inside it.
+            var next = containingNamespace.GetNamespaceMembers()
+                .FirstOrDefault(member => member.Name == name);
+
+            if (next is null)
+            {
+                return false;
+            }
+
+            containingNamespace = next;
+        }
+
+        INamespaceOrTypeSymbol container = containingNamespace;
+        INamedTypeSymbol? resolved = null;
+
+        foreach (var link in nesting)
+        {
+            var candidates = container.GetTypeMembers(link.Name, link.Arity);
+            if (candidates.Length != 1)
+            {
+                return false;
+            }
+
+            resolved = candidates[0];
+            container = resolved;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(resolved, definition);
     }
 }

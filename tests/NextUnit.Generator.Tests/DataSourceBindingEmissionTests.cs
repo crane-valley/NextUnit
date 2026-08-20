@@ -819,7 +819,7 @@ public class DataSourceBindingEmissionTests
             }
             """;
 
-        MetadataReference[] references = [await CreateAliasOnlyFixtureReferenceAsync()];
+        MetadataReference[] references = [Reference(await CompileFixtureAssemblyAsync("AliasedFixtures"), "Aliased")];
 
         var registry = await GenerateRegistryAsync(source, references);
 
@@ -850,11 +850,84 @@ public class DataSourceBindingEmissionTests
             }
             """;
 
-        MetadataReference[] references = [await CreateAliasOnlyFixtureReferenceAsync()];
+        MetadataReference[] references = [Reference(await CompileFixtureAssemblyAsync("AliasedFixtures"), "Aliased")];
 
         var registry = await GenerateRegistryAsync(source, references);
 
         Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// A declaring type the global namespace does hold, but not alone: a second reference declares
+    /// the same fully qualified name. The user's source dodges that with the alias and the generated
+    /// file cannot, so the emitted access stays on the derived type rather than taking a CS0433.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromAnAmbiguouslyNamedBase_KeepsTheDerivedQualifierAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references =
+        [
+            Reference(await CompileFixtureAssemblyAsync("AliasedFixtures"), "global", "Aliased"),
+            Reference(await CompileFixtureAssemblyAsync("HomonymFixtures")),
+        ];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::TestProject.DataTests.Rows", registry);
+        Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// One assembly referenced twice, once globally and once under an alias. The base is in the
+    /// global namespace and stays the qualifier, which reading the aliases off the reference the
+    /// compilation hands back for the assembly would have got backwards: that reference is the
+    /// alias-only one, while the type it declares is globally bindable all the same.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var image = await CompileFixtureAssemblyAsync("AliasedFixtures");
+        MetadataReference[] references = [Reference(image), Reference(image, "Aliased")];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::Fixtures.RowsBase.Rows", registry);
 
         await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
     }
@@ -953,10 +1026,14 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
-    /// Builds a second assembly referenced only under an <c>extern alias</c>, so its types are
-    /// absent from the global namespace the generated file is compiled in.
+    /// Compiles a second assembly declaring <c>Fixtures.RowsBase</c> and hands back its image, for
+    /// the caller to reference under whichever aliases the case under test needs.
     /// </summary>
-    private static async Task<MetadataReference> CreateAliasOnlyFixtureReferenceAsync()
+    /// <remarks>
+    /// The image rather than a reference, because two of these cases need the same assembly, or the
+    /// same fully qualified name, referenced twice with different <c>MetadataReferenceProperties</c>.
+    /// </remarks>
+    private static async Task<ImmutableArray<byte>> CompileFixtureAssemblyAsync(string assemblyName)
     {
         const string source = """
             namespace Fixtures
@@ -975,7 +1052,7 @@ public class DataSourceBindingEmissionTests
         var cancellationToken = TestContext.Current.CancellationToken;
         var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
         var compilation = CSharpCompilation.Create(
-            "AliasedFixtures",
+            assemblyName,
             [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -986,8 +1063,11 @@ public class DataSourceBindingEmissionTests
             emitResult.Success,
             string.Join(Environment.NewLine, emitResult.Diagnostics));
 
-        return MetadataReference.CreateFromImage(
-            stream.ToArray(),
-            new MetadataReferenceProperties(aliases: ImmutableArray.Create("Aliased")));
+        return ImmutableArray.Create(stream.ToArray());
     }
+
+    private static MetadataReference Reference(ImmutableArray<byte> image, params string[] aliases) =>
+        MetadataReference.CreateFromImage(
+            image,
+            new MetadataReferenceProperties(aliases: ImmutableArray.Create(aliases)));
 }
