@@ -57,23 +57,14 @@ public sealed class ClassDataSourceAccessibilityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // A parameter-level source shadows every method-level one, so these are emitted only when
-        // no parameter carries a source of its own: TestPartition.Create buckets a test by its
-        // combined parameter sources before its class data sources, and the generator already warns
-        // as NEXTUNIT010 that only the parameter-level sources are processed. Reporting a type that
-        // nothing constructs would turn that warning into a failed build, and widening the type
-        // would not put it back in play.
-        if (!ParameterDataSourceSelector.AnyParameterHasDataSource(method))
+        foreach (var attribute in method.GetAttributes())
         {
-            foreach (var attribute in method.GetAttributes())
+            // Every type argument is emitted, so each is reported separately: one unreachable
+            // source in [ClassDataSource<A, B>] leaves the other perfectly usable, and naming the
+            // attribute rather than the type would not say which half to widen.
+            foreach (var sourceType in ClassDataSourceAttributeMatcher.GetClassDataSourceTypes(attribute))
             {
-                // Every type argument is emitted, so each is reported separately: one unreachable
-                // source in [ClassDataSource<A, B>] leaves the other perfectly usable, and naming
-                // the attribute rather than the type would not say which half to widen.
-                foreach (var sourceType in ClassDataSourceAttributeMatcher.GetClassDataSourceTypes(attribute))
-                {
-                    ReportIfUnreachable(context, method, attribute, sourceType);
-                }
+                ReportIfUnreachable(context, method, attribute, sourceType);
             }
         }
 

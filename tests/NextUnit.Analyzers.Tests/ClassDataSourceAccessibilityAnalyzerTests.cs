@@ -704,13 +704,16 @@ public class Tests
     }
 
     /// <summary>
-    /// A parameter-level source shadows the method-level ones: the generator buckets the test by
-    /// its combined parameter sources, never constructs the class source, and warns as
-    /// NEXTUNIT010 that only the parameter-level sources are processed. Reporting the shadowed
-    /// type would fail a build over an attribute nothing emits.
+    /// A parameter-level source shadows the method-level one for row expansion -- the generator
+    /// buckets the test by its combined parameter sources and warns as NEXTUNIT010 that only those
+    /// are processed -- but the class source is still reported here, because the registry roots
+    /// every declared class data source for trimming whether or not it expands rows. That
+    /// <c>DynamicDependency(..., typeof(T))</c> is itself what fails the consumer's build with
+    /// <c>CS0122</c>, so gating the rule on the expansion precedence would drop the name and leave
+    /// behind the bare compiler error the rule exists to replace.
     /// </summary>
     [Fact]
-    public async Task ClassDataSourceShadowedByParameterValues_NoDiagnosticAsync()
+    public async Task ClassDataSourceShadowedByParameterValues_ReportsDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -721,43 +724,15 @@ public class Tests
     {" + RowSourceBody + @"    }
 
     [Test]
-    [ClassDataSource<Rows>]
+    [{|#0:ClassDataSource<Rows>|}]
     public void TestMethod([Values(1, 2)] int value)
-    {
-    }
-}";
-
-        await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
-    }
-
-    /// <summary>
-    /// The shadowing is decided per method, not per attribute: the parameter source that wins is
-    /// still emitted and still reported, while the method-level source it displaced is not.
-    /// </summary>
-    [Fact]
-    public async Task ClassDataSourceShadowedByParameterValuesFrom_ReportsOnlyTheParameterSourceAsync()
-    {
-        var source = @"
-using NextUnit;
-
-public class Tests
-{
-    private sealed class Rows : System.Collections.Generic.IEnumerable<object[]>
-    {" + RowSourceBody + @"    }
-
-    private sealed class Values : System.Collections.Generic.IEnumerable<int>
-    {" + ValueSourceBody + @"    }
-
-    [Test]
-    [ClassDataSource<Rows>]
-    public void TestMethod([{|#0:ValuesFrom<Values>|}] int value)
     {
     }
 }";
 
         await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(
             source,
-            Expected("Tests.Values"));
+            Expected("Tests.Rows"));
     }
 
     [Fact]
