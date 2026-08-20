@@ -471,12 +471,12 @@ internal static class DataSourceAttributeReader
     /// containing type of a declaration carries none, so the two agree on every real symbol; the
     /// format is chosen for what the text has to be rather than for what it happens to produce.
     /// <para>
-    /// A declaring type that only an <c>extern alias</c> reaches is given up on instead. The
-    /// generated file carries no alias directive, so its <c>global::</c> name binds nothing there --
-    /// or binds a homonym from some other reference -- and the type the attribute points at is a
-    /// qualifier already known to bind, since the user's own source names it. That leaves the
-    /// inherited-source capture this qualification closes open for an aliased base, which is where
-    /// it was before: a name that does not compile closes nothing.
+    /// A name that would not bind to the declaring type from the generated file is given up on
+    /// instead -- an <c>extern alias</c> hiding the assembly is the case that shows up first, and
+    /// the binder is asked rather than the cases enumerated. The caller then keeps the type the
+    /// attribute points at, a qualifier already known to bind because the user's own source names
+    /// it. That leaves the inherited-source capture this qualification closes open for such a base,
+    /// which is where it was before: a name that does not compile closes nothing.
     /// </para>
     /// </remarks>
     private static string? GetDeclaringTypeName(ISymbol? member, KnownDataSourceTypes knownDataSourceTypes)
@@ -486,8 +486,10 @@ internal static class DataSourceAttributeReader
             return null;
         }
 
-        return GeneratedRegistryAccess.CanNameTypeWithoutAlias(declaringType, knownDataSourceTypes.Compilation)
-            ? declaringType.ToDisplayString(AttributeHelper.TypeExpressionFormat)
+        var typeExpression = declaringType.ToDisplayString(AttributeHelper.TypeExpressionFormat);
+
+        return GeneratedRegistryAccess.NameBindsToType(typeExpression, declaringType, knownDataSourceTypes.Compilation)
+            ? typeExpression
             : null;
     }
 }

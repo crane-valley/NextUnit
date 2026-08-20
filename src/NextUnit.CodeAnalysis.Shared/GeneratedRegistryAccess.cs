@@ -1,5 +1,5 @@
-using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace NextUnit.CodeAnalysis.Shared;
 
@@ -52,70 +52,55 @@ internal static class GeneratedRegistryAccess
     }
 
     /// <summary>
-    /// Reports whether the generated registry can write <paramref name="type"/> as a
-    /// <c>global::</c>-qualified name.
+    /// Reports whether <paramref name="typeExpression"/>, read as a type name in the generated
+    /// registry, binds to <paramref name="type"/>.
     /// </summary>
     /// <remarks>
-    /// Accessibility is only half of naming a type. The registry is emitted with no
-    /// <c>extern alias</c> directives, so the question is what <c>global::N.T</c> binds to in a file
-    /// that has none, and there are two ways to lose. An assembly reached only through an
-    /// <c>extern alias</c> puts nothing in the global namespace, so the name binds nothing --
-    /// <c>CS0400</c> in a file the user did not write. Two assemblies that are both in the global
-    /// namespace and both declare the name make it <c>CS0433</c> instead, which the user's own
-    /// source can dodge with an alias and the generated file cannot. A name shared between source
-    /// and metadata is neither: C# binds it to the source declaration and warns.
+    /// Accessibility is only half of naming a type; the other half is whether the name reaches it
+    /// from where the registry is emitted. An assembly reached only through an <c>extern alias</c>
+    /// is absent from the global namespace, so the name binds nothing there -- <c>CS0400</c> in a
+    /// file the user did not write. Two references that both declare it make the name ambiguous
+    /// where the user's own source could have picked one with an alias. A namespace and a type can
+    /// collide on it. Source and metadata can share it, and there C# binds to source and only warns.
     /// <para>
-    /// Both are answered by walking <c>Compilation.GlobalNamespace</c> along the path the emitted
-    /// text spells out and requiring the walk to arrive at exactly one type, this one. That is the
-    /// merged namespace the compiler itself binds <c>global::</c> against, which is why it is asked
-    /// rather than the aliases on the references: one assembly identity referenced twice keeps a
-    /// single reference symbol, and its alias list can read <c>Aliased</c> while the global namespace
-    /// holds the type all the same.
+    /// So the name is not judged by rules restated here -- it is handed to the binder that will read
+    /// it, and the symbol that comes back has to be the intended one. Enumerating the ways a name
+    /// can fail to bind was tried first and abandoned: three review rounds each found a rule the
+    /// previous one had not modelled, which is what reimplementing name resolution costs. Speculative
+    /// binding is position-independent for these names, because a <c>global::</c>-rooted name reads
+    /// through no <c>using</c> and no <c>extern alias</c> -- the very reason the registry cannot
+    /// write anything else.
     /// </para>
     /// <para>
-    /// Emitting an <c>extern alias</c> directive of its own was rejected as the answer. A reference
-    /// can carry several aliases and the registry would have to pick one, the directive would head
-    /// every generated file for every consumer, and every emission site would have to agree on the
-    /// choice; the callers here have a qualifier that is known to bind and can fall back to it.
+    /// Emitting an <c>extern alias</c> directive of its own was rejected as the alternative. A
+    /// reference can carry several aliases and the registry would have to pick one, the directive
+    /// would head every generated file for every consumer, and every emission site would have to
+    /// agree on the choice; the callers here have a qualifier that is known to bind and can fall
+    /// back to it.
     /// </para>
     /// </remarks>
-    public static bool CanNameTypeWithoutAlias(ITypeSymbol type, Compilation? compilation)
+    public static bool NameBindsToType(string typeExpression, ITypeSymbol type, Compilation? compilation)
     {
-        if (compilation is null)
+        // Nothing to bind against. Returning true keeps the caller on its previous behavior rather
+        // than withholding a name on the strength of a missing compilation.
+        if (compilation is null || compilation.SyntaxTrees.FirstOrDefault() is not { } tree)
         {
             return true;
         }
 
-        if (type is IArrayTypeSymbol array)
-        {
-            return CanNameTypeWithoutAlias(array.ElementType, compilation);
-        }
-
-        if (type is not INamedTypeSymbol namedType)
-        {
-            return true;
-        }
-
-        if (!BindsUniquelyInGlobalNamespace(namedType, compilation))
+        var name = SyntaxFactory.ParseTypeName(typeExpression);
+        if (name.ContainsDiagnostics)
         {
             return false;
         }
 
-        // The containing type chain is walked for its type arguments and not for its assembly, which
-        // is always the assembly of the type it contains: Outer<A::Row>.Inner carries the argument
-        // that decides the answer one level up.
-        for (INamedTypeSymbol? current = namedType; current is not null; current = current.ContainingType)
-        {
-            foreach (var typeArgument in current.TypeArguments)
-            {
-                if (!CanNameTypeWithoutAlias(typeArgument, compilation))
-                {
-                    return false;
-                }
-            }
-        }
+        // Position zero rather than a position near the member: the binder there differs only in the
+        // usings and aliases in scope, and this name reads through neither.
+        var bound = compilation.GetSemanticModel(tree)
+            .GetSpeculativeSymbolInfo(0, name, SpeculativeBindingOption.BindAsTypeOrNamespace)
+            .Symbol;
 
-        return true;
+        return SymbolEqualityComparer.Default.Equals(bound, type);
     }
 
     /// <summary>
@@ -202,110 +187,4 @@ internal static class GeneratedRegistryAccess
         }
     }
 
-    /// <summary>
-    /// Reports whether <c>global::</c> plus the type's name arrives at this type and nothing else.
-    /// </summary>
-    /// <remarks>
-    /// The walk is the lookup the emitted text will get: each namespace of the path taken from the
-    /// merged global namespace, then each link of the nesting chain taken from the type before it.
-    /// A step that finds nothing means an <c>extern alias</c> hides the declaring assembly; a step
-    /// that finds more than one means the name is ambiguous whichever of them was meant. Both leave
-    /// the caller to fall back on a qualifier it already knows binds.
-    /// </remarks>
-    private static bool BindsUniquelyInGlobalNamespace(INamedTypeSymbol type, Compilation compilation)
-    {
-        // A namespace holds declarations, so a constructed generic is looked up as the definition it
-        // was constructed from; its type arguments are walked separately by the caller.
-        var definition = type.OriginalDefinition;
-
-        var nesting = new List<INamedTypeSymbol>();
-        for (INamedTypeSymbol? current = definition; current is not null; current = current.ContainingType)
-        {
-            nesting.Add(current);
-        }
-
-        nesting.Reverse();
-
-        var namespaceNames = new List<string>();
-        for (var current = nesting[0].ContainingNamespace; current is { IsGlobalNamespace: false }; current = current.ContainingNamespace)
-        {
-            namespaceNames.Add(current.Name);
-        }
-
-        namespaceNames.Reverse();
-
-        var containingNamespace = compilation.GlobalNamespace;
-        foreach (var name in namespaceNames)
-        {
-            // A merged namespace exposes one member per distinct name, so nothing is disambiguated
-            // here: the ambiguity that matters lands on the types inside it.
-            var next = containingNamespace.GetNamespaceMembers()
-                .FirstOrDefault(member => member.Name == name);
-
-            if (next is null)
-            {
-                return false;
-            }
-
-            containingNamespace = next;
-        }
-
-        INamespaceOrTypeSymbol container = containingNamespace;
-        INamedTypeSymbol? resolved = null;
-
-        foreach (var link in nesting)
-        {
-            resolved = SelectBoundCandidate(container.GetTypeMembers(link.Name, link.Arity), compilation);
-            if (resolved is null)
-            {
-                return false;
-            }
-
-            container = resolved;
-        }
-
-        return SymbolEqualityComparer.Default.Equals(resolved, definition);
-    }
-
-    /// <summary>
-    /// Picks the candidate the name binds to, or <c>null</c> when the name binds to none of them.
-    /// </summary>
-    /// <remarks>
-    /// One candidate is the whole answer. Several is only fatal between references, which is the
-    /// <c>CS0433</c> the caller exists to avoid; a name declared both in source and in metadata is
-    /// resolved by C# to the source declaration, with <c>CS0436</c> as a warning rather than an
-    /// error. Rejecting that case would cost the qualification exactly where it is worth most --
-    /// a test class deriving from a base of its own -- so the source declaration is allowed to win
-    /// on the same rule the compiler applies.
-    /// </remarks>
-    private static INamedTypeSymbol? SelectBoundCandidate(
-        ImmutableArray<INamedTypeSymbol> candidates,
-        Compilation compilation)
-    {
-        if (candidates.Length == 1)
-        {
-            return candidates[0];
-        }
-
-        INamedTypeSymbol? fromSource = null;
-
-        foreach (var candidate in candidates)
-        {
-            if (!SymbolEqualityComparer.Default.Equals(candidate.ContainingAssembly, compilation.Assembly))
-            {
-                continue;
-            }
-
-            // Two source declarations of one name is a duplicate-definition error of the user's own,
-            // and nothing here should pick a winner between them.
-            if (fromSource is not null)
-            {
-                return null;
-            }
-
-            fromSource = candidate;
-        }
-
-        return fromSource;
-    }
 }

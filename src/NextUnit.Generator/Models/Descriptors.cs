@@ -218,7 +218,8 @@ internal sealed record TestDataSource
 
     /// <summary>
     /// Gets the type that declares the resolved member, which qualifies the emitted access, or
-    /// <c>null</c> when no member was bound.
+    /// <c>null</c> when no member was bound -- or when the declaring type has a name the generated
+    /// file cannot bind, where the emitter keeps the type the attribute points at instead.
     /// </summary>
     /// <remarks>
     /// Deliberately a second type rather than a correction to <see cref="MemberTypeName"/>: that one
@@ -470,7 +471,8 @@ internal sealed record ParameterDataSourceDescriptor
 
     /// <summary>
     /// Gets the type that declares the resolved member, which qualifies the emitted access, or
-    /// <c>null</c> when no member was bound.
+    /// <c>null</c> when no member was bound -- or when the declaring type has a name the generated
+    /// file cannot bind, where the emitter keeps the type the attribute points at instead.
     /// </summary>
     /// <remarks>
     /// The parameter-level counterpart of <see cref="TestDataSource.DeclaringTypeName"/>, kept

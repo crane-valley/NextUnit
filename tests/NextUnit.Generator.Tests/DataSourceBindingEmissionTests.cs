@@ -992,6 +992,44 @@ public class DataSourceBindingEmissionTests
         """;
 
     /// <summary>
+    /// The base sits in an alias-hidden namespace whose name a globally referenced <em>type</em> also
+    /// carries. The emitted name would compile and read the wrong member: <c>global::Fixtures</c> is
+    /// that type, and its nested <c>RowsBase.Rows</c> is not the source anything validated.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromABaseWhoseNamespaceNameIsATypeElsewhere_KeepsTheDerivedQualifierAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references =
+        [
+            Reference(await CompileFixtureAssemblyAsync("AliasedFixtures"), "Aliased"),
+            Reference(await CompileShadowingTypeAssemblyAsync()),
+        ];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::TestProject.DataTests.Rows", registry);
+        Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
     /// Stands in for a second source generator that adds <c>Rows</c> to the same partial test class.
     /// </summary>
     private const string ConcurrentlyGeneratedRows = """
@@ -1112,6 +1150,41 @@ public class DataSourceBindingEmissionTests
         var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
         var compilation = CSharpCompilation.Create(
             assemblyName,
+            [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var stream = new MemoryStream();
+        var emitResult = compilation.Emit(stream, cancellationToken: cancellationToken);
+        Xunit.Assert.True(
+            emitResult.Success,
+            string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        return ImmutableArray.Create(stream.ToArray());
+    }
+
+    /// <summary>
+    /// Compiles an assembly whose global-scope <em>type</em> <c>Fixtures</c> carries the name the
+    /// aliased assembly uses for a namespace, with a nested <c>RowsBase.Rows</c> for the emitted
+    /// name to bind to if the qualifier is written anyway.
+    /// </summary>
+    private static async Task<ImmutableArray<byte>> CompileShadowingTypeAssemblyAsync()
+    {
+        const string source = """
+            public class Fixtures
+            {
+                public class RowsBase
+                {
+                    public static System.Collections.Generic.IEnumerable<object[]> Rows =>
+                        new[] { new object[] { 99 } };
+                }
+            }
+            """;
+
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
+        var compilation = CSharpCompilation.Create(
+            "ShadowingType",
             [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));

@@ -22,11 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runtime reads into the row id prefix, still names the type the attribute points at, so an
   inherited source keeps its `Derived.Rows` ids rather than moving to `Base.Rows` where filters and
   the VSTest adapter's id-to-descriptor mapping would see the change.
-  A declaring type the generated file cannot name does not qualify the call. The registry carries no
-  `extern alias` directive, so a base reached only through one binds nothing there, and a base whose
-  fully qualified name two referenced assemblies both declare is ambiguous where the user's own
-  source could have picked one with an alias. In either case the emitted access stays on the type the
-  attribute points at, which the user's source names and which therefore binds.
+  A name that would not bind to the declaring type from the generated file does not qualify the call.
+  The registry carries no `extern alias` directive, so a base reached only through one binds nothing
+  there, and a base whose fully qualified name another reference also declares is ambiguous where the
+  user's own source could have picked one with an alias. The emitted text is handed to the compiler's
+  own binder rather than judged by restated rules, and where it does not come back as the declaring
+  type the access stays on the type the attribute points at, which the user's source names and which
+  therefore binds.
 
 - Resolve a `[TestData]` or `[ValuesFromMember]` member declared on a base test class. Member lookup
   used `GetMembers`, which stops at the declaring type, so a source C# resolves as `Derived.Rows` was

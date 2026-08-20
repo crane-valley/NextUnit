@@ -748,35 +748,40 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   `InheritedMember_IsNotCapturedByAConcurrentGeneratorAsync` and its parameter-level twin pin it by
   adding the foreign member to the compilation only after the generator has run, which is what a
   second generator's output actually looks like.
-  The qualification is declined where the generated file cannot name the declaring type, which the
-  Codex review of this change raised twice. A base whose assembly is referenced only under an
-  `extern alias` is the first case: the registry carries no alias directive, so `global::Base.Rows`
-  there fails with `CS0400` -- reproduced, in a file the user did not write. A base whose fully
-  qualified name a second referenced assembly also declares is the second: `CS0433`, which the user's
-  own source dodges by writing the alias and the generated file cannot.
-  `GeneratedRegistryAccess.CanNameTypeWithoutAlias` answers both by walking
-  `Compilation.GlobalNamespace` along the path the emitted text spells out -- namespaces, then the
-  nesting chain -- and requiring each step to arrive at this type by the rule C# binds it with: one
-  candidate, or the source declaration where source and metadata share a name, which is `CS0436` and
-  a warning rather than an error. Rejecting that last case would have cost the qualification exactly
-  where it is worth most, a test class deriving from a base of its own. Type arguments are walked
-  too, because `Base<A::Row>` is hidden by its argument rather than by itself.
-  `GetDeclaringTypeName` withholds the name when the walk fails and the emitters stay on the type the
-  attribute points at, which the user's own source names and which therefore binds.
-  Reading the aliases off the reference `Compilation.GetMetadataReference` returns for the assembly
-  was tried first and rejected on measurement: one assembly identity referenced twice keeps a single
-  reference symbol, and with the aliased reference declared second that symbol reports `Aliased`
-  while the global namespace holds the type all the same, so the heuristic withheld a name that binds.
-  The merged global namespace is what the compiler binds `global::` against, so asking it is the only
-  answer that cannot disagree with the file being emitted. Emitting an `extern alias` directive from
-  the registry was rejected as the alternative: a reference can carry several aliases and the registry
-  would have to pick one, the directive would head every generated file for every consumer, and every
-  emission site would have to agree on the choice -- for a case that keeps exactly the exposure it had
-  before, since a name that does not compile closes no capture.
+  The qualification is declined where the emitted name would not bind to the declaring type, which
+  the Codex review of this change raised over three rounds and one round of each was enough to show
+  the shape of the problem. A base whose assembly is referenced only under an `extern alias` is
+  absent from the global namespace, so `global::Base.Rows` fails with `CS0400` -- reproduced, in a
+  file the user did not write. A base whose fully qualified name a second reference also declares is
+  `CS0433`, which the user's own source dodges by writing the alias and the generated file cannot.
+  A base whose namespace name is a type in another reference binds the name to that type's nested
+  member instead, silently. Source and metadata sharing a name is none of those: C# takes the source
+  declaration and only warns, so withholding the qualifier there would cost it exactly where it is
+  worth most, a test class deriving from a base of its own.
+  Enumerating those rules was tried first, one review round each, and abandoned: the domain is C#
+  name resolution and every round modelled one more of it. `GeneratedRegistryAccess.NameBindsToType`
+  hands the emitted text to the binder that will read it instead --
+  `GetSpeculativeSymbolInfo` with `BindAsTypeOrNamespace` -- and requires the symbol that comes back
+  to be the declaring type. The answer cannot disagree with the file being emitted, and it covers the
+  whole expression including type arguments, so `Base<A::Row>` needs no separate walk. Speculative
+  binding is position-independent for these names, because a `global::`-rooted name reads through no
+  `using` and no `extern alias`, which is the same reason the registry cannot write anything else.
+  Two rejected alternatives are worth recording. Reading the aliases off the reference
+  `Compilation.GetMetadataReference` returns for the assembly fails on measurement: one assembly
+  identity referenced twice keeps a single reference symbol, and with the aliased reference declared
+  second that symbol reports `Aliased` while the global namespace holds the type all the same, so the
+  heuristic withheld a name that binds. Emitting an `extern alias` directive from the registry fails
+  on design: a reference can carry several aliases and the registry would have to pick one, the
+  directive would head every generated file for every consumer, and every emission site would have to
+  agree on the choice -- for a case that keeps exactly the exposure it had before, since a name that
+  does not compile closes no capture.
   `InheritedFromAnAliasOnlyBase_KeepsTheDerivedQualifierAsync` and its parameter-level twin pin the
-  alias case, `InheritedFromAnAmbiguouslyNamedBase_KeepsTheDerivedQualifierAsync` pins the homonym
-  case, and `InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync` pins the
-  duplicate-reference case that the rejected heuristic got wrong.
+  alias case, `InheritedFromAnAmbiguouslyNamedBase_KeepsTheDerivedQualifierAsync` the homonym case,
+  `InheritedFromABaseWhoseNamespaceNameIsATypeElsewhere_KeepsTheDerivedQualifierAsync` the
+  namespace-versus-type case, and the two that assert the qualifier is kept --
+  `InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync` and
+  `InheritedFromASourceBaseShadowingAReference_QualifiesByTheDeclaringTypeAsync` -- pin the cases the
+  rejected heuristics got backwards.
 - [ ] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths
