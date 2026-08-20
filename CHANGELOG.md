@@ -130,6 +130,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   NextUnit should inherit attributes and lifecycle hooks is a separate question, deferred to the next
   major version.
 
+### Security
+
+- Cap how many test cases one test method may expand into, at compile time and at discovery time.
+  `[Matrix]`, `[Repeat]`, and parameter-level data sources (`[Values]`, `[ValuesFromMember]`,
+  `[ValuesFrom]`) all multiply, and none of the three was bounded: four `[Matrix]` parameters of a
+  few hundred values, or a single large `[Repeat]`, was enough to make the source generator allocate
+  until the compiler died, and the equivalent combined data source did the same to the test host
+  before a single test ran. Neither needs malice to reach -- a misplaced zero does it -- but both are
+  reachable from an untrusted pull request that CI compiles, or from a file an IDE loads.
+  The generator now projects the emitted count from the source lengths before expanding anything and
+  reports `NEXTUNIT013` when it exceeds the cap, so the compilation fails in milliseconds with a
+  message naming the method and the limit. Discovery applies the same cap to the combined data source
+  product and throws rather than truncating, because a silently shortened suite reports green over
+  tests that never ran.
+  The default cap is 10000 test cases per method, which no hand-written matrix reaches. Projects that
+  legitimately generate more raise it per project with `<NextUnitMaxTestCasesPerMethod>` and per run
+  with the `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` environment variable; an unparseable or non-positive
+  value falls back to the default rather than failing the build, so a typo in the escape hatch cannot
+  become the thing that stops a compilation.
+
 ## [2.0.0] - 2026-08-12
 
 ### Changed

@@ -11,6 +11,13 @@
     <IsTestingPlatformEnabled>true</IsTestingPlatformEnabled>
   </PropertyGroup>
 
+  <!-- Surfaces the property to the source generator as an AnalyzerConfig global option. Without this
+       item the generator only ever sees its built-in default, because MSBuild writes nothing about a
+       property the compiler was not told to make visible. -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="NextUnitMaxTestCasesPerMethod" />
+  </ItemGroup>
+
   <ItemGroup>
     <TestingPlatformBuilderHook Include="EC4B718B-4D5D-4200-8DA0-34A102B3AFB2">
       <DisplayName>NextUnit</DisplayName>
