@@ -23,9 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rows.
   The rule reports only where the generator emits: on a method carrying `[Test]`, which is where its
   pipeline starts, and for the one parameter-level attribute it selects, since a parameter takes its
-  values from the first data source attribute that answers and never constructs the rest. A source
-  the generator ignores is left to `NU0013`, so `NU0022` does not break a build that had no generated
-  code to break.
+  values from the first data source attribute that answers and never constructs the rest. A
+  method-level source is skipped when any parameter carries a source of its own, because
+  parameter-level sources take precedence and the generator processes only those, reporting the
+  conflict as `NEXTUNIT010`. A source the generator ignores is left to `NU0013`, so `NU0022` does not
+  break a build that had no generated code to break.
   This can still fail a build that was compiling. The rule is an error rather than a warning, so a
   suite that reached the registry through a source the generator emitted but whose consumer build was
   already failing on `CS0122` now fails earlier and by name, and any suite that suppressed that

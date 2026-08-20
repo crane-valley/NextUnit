@@ -703,6 +703,63 @@ public class Tests
         await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
     }
 
+    /// <summary>
+    /// A parameter-level source shadows the method-level ones: the generator buckets the test by
+    /// its combined parameter sources, never constructs the class source, and warns as
+    /// NEXTUNIT010 that only the parameter-level sources are processed. Reporting the shadowed
+    /// type would fail a build over an attribute nothing emits.
+    /// </summary>
+    [Fact]
+    public async Task ClassDataSourceShadowedByParameterValues_NoDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    private sealed class Rows : System.Collections.Generic.IEnumerable<object[]>
+    {" + RowSourceBody + @"    }
+
+    [Test]
+    [ClassDataSource<Rows>]
+    public void TestMethod([Values(1, 2)] int value)
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// The shadowing is decided per method, not per attribute: the parameter source that wins is
+    /// still emitted and still reported, while the method-level source it displaced is not.
+    /// </summary>
+    [Fact]
+    public async Task ClassDataSourceShadowedByParameterValuesFrom_ReportsOnlyTheParameterSourceAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    private sealed class Rows : System.Collections.Generic.IEnumerable<object[]>
+    {" + RowSourceBody + @"    }
+
+    private sealed class Values : System.Collections.Generic.IEnumerable<int>
+    {" + ValueSourceBody + @"    }
+
+    [Test]
+    [ClassDataSource<Rows>]
+    public void TestMethod([{|#0:ValuesFrom<Values>|}] int value)
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(
+            source,
+            Expected("Tests.Values"));
+    }
+
     [Fact]
     public async Task NoDataSourceAttribute_NoDiagnosticAsync()
     {

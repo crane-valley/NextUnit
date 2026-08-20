@@ -45,6 +45,36 @@ internal static class ParameterDataSourceSelector
         return (ParameterDataSourceAttributeKind.None, null);
     }
 
+    /// <summary>
+    /// Reports whether any parameter carries a data source attribute the generator reads.
+    /// </summary>
+    /// <remarks>
+    /// This answers the emitter's precedence question, not a convenience one:
+    /// <c>TestPartition.Create</c> buckets a test by its combined parameter sources before its
+    /// class data sources, so a method with any parameter source has its method-level
+    /// <c>[ClassDataSource&lt;T&gt;]</c> ignored -- a conflict the generator reports separately as
+    /// <c>NEXTUNIT010</c>.
+    /// <para>
+    /// The quantifier is the one <c>GetCombinedParameterSources</c> applies: that reader marks a
+    /// method as carrying combined sources for exactly the parameters <see cref="Select"/> answers
+    /// for, because <c>Classify</c> validates each kind's shape before returning it, so every arm
+    /// of the reader's switch binds. Asking <see cref="Select"/> here rather than restating that
+    /// test keeps the emitted set and the reported set from drifting apart.
+    /// </para>
+    /// </remarks>
+    public static bool AnyParameterHasDataSource(IMethodSymbol method)
+    {
+        foreach (var parameter in method.Parameters)
+        {
+            if (Select(parameter).Kind != ParameterDataSourceAttributeKind.None)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static ParameterDataSourceAttributeKind Classify(AttributeData attribute)
     {
         if (IsNonGenericNextUnitAttribute(attribute, NextUnitAttributeNames.SimpleNames.Values) &&
