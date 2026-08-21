@@ -135,6 +135,13 @@ internal static class LifecycleMethodFactory
             // never call one: they report Private accessibility, so the reachability check turns
             // them into NEXTUNIT015. Skipping them here would drop an attributed hook without a
             // word, which is the failure this walk exists to remove.
+            //
+            // One case stays out of reach, and no filter here changes it: a compilation imports
+            // metadata with MetadataImportOptions.Public by default, so an explicit implementation
+            // on a base class in a *referenced* assembly is not in GetMembers() at all and cannot
+            // be reported. Raising the import options is a compilation-level setting a generator
+            // does not own. The hook has never run in any version, so nothing regresses; it is
+            // recorded in PLANS.md rather than worked around here.
             if (member is not IMethodSymbol
                 {
                     MethodKind: MethodKind.Ordinary or MethodKind.ExplicitInterfaceImplementation

@@ -189,6 +189,22 @@ instance by C# itself -- which is why this was not bundled into the 3.0.0 inheri
   teardown observes the timeout token, and how the rule interacts with `[Retry]`, `[Timeout]`,
   `[Skip]`, and run cancellation.
 
+### Priority 3 -- An explicit interface hook on a base class in a referenced assembly is invisible
+
+Surfaced by the Codex review of the inherited-hooks change (2026-08-22). A `[Before]` declared as
+`void IFixture.Setup()` reports `Private` accessibility, so when the base class is in this
+compilation the base-chain walk collects it and `NEXTUNIT015` reports that the registry cannot call
+it. When the base class comes from a referenced assembly it never reaches the walk at all: a
+compilation imports metadata with `MetadataImportOptions.Public`, so the member is not in
+`GetMembers()`, and the import options are a compilation-level setting a generator does not own.
+
+Nothing regresses -- the hook has never run in any version -- but it is the one inherited hook shape
+that still disappears without a word.
+
+- [ ] Decide whether to reject an explicit interface hook at its own declaration site, where the
+  declaring assembly can see it, so a consumer never inherits one that cannot be reported; or to
+  call such a hook through its interface, which would make the shape work rather than diagnose it.
+
 ### Priority 2 — Display names are formatted with whichever culture happens to be ambient
 
 Surfaced while adding culture isolation (2026-08-04) and confirmed to pre-date it. Nothing in the
