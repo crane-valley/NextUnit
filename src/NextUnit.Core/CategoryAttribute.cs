@@ -6,6 +6,11 @@ namespace NextUnit;
 /// <remarks>
 /// Categories can be used to group related tests and enable selective test execution.
 /// Multiple categories can be applied by using the attribute multiple times.
+/// <para>
+/// Inherited and accumulated: a test carries the categories declared on its method, on the methods
+/// it overrides, on its class, and on every base class, in that order. Duplicates are kept, and
+/// nothing removes an inherited category -- move the attribute down to the classes that want it.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -18,7 +23,7 @@ namespace NextUnit;
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
 public sealed class CategoryAttribute : Attribute
 {
     /// <summary>
@@ -43,6 +48,10 @@ public sealed class CategoryAttribute : Attribute
 /// Tags provide a flexible way to mark tests with arbitrary metadata.
 /// Multiple tags can be applied by using the attribute multiple times.
 /// Tags are similar to categories but intended for more fine-grained classification.
+/// <para>
+/// Inherited and accumulated on the same rule as [Category]: declarations from every level are
+/// collected, duplicates kept, and nothing removes an inherited tag.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -55,7 +64,7 @@ public sealed class CategoryAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
 public sealed class TagAttribute : Attribute
 {
     /// <summary>

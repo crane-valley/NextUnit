@@ -245,12 +245,18 @@ Hooks may return `void`, `Task`, `Task<T>`, `ValueTask`, or `ValueTask<T>`, so t
 MSTest supports convert directly. A class-scoped hook takes no `TestContext` parameter; inject
 `ITestContext` into the test class when a test needs the context.
 
-Hooks are not inherited, which matters if your suite puts them on a shared base class. MSTest runs an
-inherited `[TestInitialize]`; NextUnit's generator attaches lifecycle methods to the exact type that
-declares them, so converting a base-class hook in place stops it running for the derived classes that
-hold the tests -- silently, because the tests still run, just without their setup. Declare `[Before]`
-and `[After]` on each concrete test class, or have a base-class method do the work and call it from a
-hook on each derived class.
+Hooks on a shared base class convert in place. Like MSTest's inherited `[TestInitialize]`, a
+`[Before]` or `[After]` declared on a base test class runs for every class derived from it, base
+first for `[Before]` and derived first for `[After]`. The hook has to be `public` or `internal`,
+because the generated registry calls it from outside your class; a `protected` one is reported as
+`NEXTUNIT014`. Configuration attributes such as `[Timeout]` and `[Category]` are inherited too. See
+[Inheritance from a base test class](GETTING_STARTED.md#inheritance-from-a-base-test-class) for the
+override, hiding, and scope rules.
+
+One difference from MSTest to plan for: MSTest runs `[TestCleanup]` even after `[TestInitialize]`
+fails, and NextUnit does not -- a failing `[Before]`, or a failing test, skips every `[After]` hook.
+Release resources with `IDisposable` or `IAsyncDisposable` on the test class, which the engine
+disposes after every attempt whatever happened.
 
 ## Data sources
 

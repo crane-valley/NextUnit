@@ -3,19 +3,45 @@ using System.Reflection;
 namespace NextUnit.Core.Tests;
 
 /// <summary>
-/// Pins that every public NextUnit attribute declares <c>Inherited = false</c>.
+/// Pins every public NextUnit attribute to the <c>Inherited</c> value the generator implements.
 /// </summary>
 /// <remarks>
-/// The generator reads directly applied attributes only - <c>ISymbol.GetAttributes()</c>, never the
-/// base type or the overridden method - so an attribute that inherits, or that leaves
-/// <see cref="AttributeUsageAttribute.Inherited"/> at its default of <see langword="true"/>,
-/// advertises a behavior nothing implements. Asserted over the whole assembly rather than one type
-/// at a time so that a newly added attribute cannot reintroduce the mismatch unnoticed.
+/// The rule the map encodes: an attribute that configures how a test runs or how it is labelled is
+/// inherited, and an attribute that decides what the test set is -- whether a method is a test, what
+/// data it runs with, how many cases it expands to, what it depends on -- is not. Asserted as an
+/// explicit map rather than one blanket value so that adding an attribute is a deliberate choice
+/// between the two, and asserted over the whole assembly so a new attribute cannot skip the choice.
+/// <para>
+/// <c>[Before]</c> and <c>[After]</c> are deliberately on the false side. Hooks declared on a base
+/// class do run for derived classes, but that is a rule about declarations, not CLR attribute
+/// inheritance: the attributes allow multiple, a derived override can re-declare one scope and not
+/// another, and <c>Inherited = true</c> would advertise a merge the generator does not perform.
+/// </para>
 /// </remarks>
 public class AttributeInheritanceMetadataTests
 {
+    private static readonly HashSet<string> _inheritedAttributes = new(StringComparer.Ordinal)
+    {
+        "NextUnit.CategoryAttribute",
+        "NextUnit.CultureAttribute",
+        "NextUnit.DisplayNameFormatterAttribute",
+        "NextUnit.DisplayNameFormatterAttribute`1",
+        "NextUnit.ExecutionPriorityAttribute",
+        "NextUnit.ExplicitAttribute",
+        "NextUnit.FlakyAttribute",
+        "NextUnit.InvariantCultureAttribute",
+        "NextUnit.NotInParallelAttribute",
+        "NextUnit.ParallelGroupAttribute",
+        "NextUnit.ParallelLimitAttribute",
+        "NextUnit.RetryAttribute",
+        "NextUnit.RetryAttribute`1",
+        "NextUnit.TagAttribute",
+        "NextUnit.TimeoutAttribute",
+        "NextUnit.UICultureAttribute",
+    };
+
     [Test]
-    public void EveryPublicAttribute_DeclaresInheritedFalse()
+    public void EveryPublicAttribute_DeclaresTheInheritedValueTheGeneratorImplements()
     {
         var attributes = PublicAttributeTypes();
 
@@ -23,11 +49,25 @@ public class AttributeInheritanceMetadataTests
         // relocated assembly would produce.
         Assert.NotEmpty(attributes);
 
-        var offenders = Names(attributes.Where(static type => Usage(type)?.Inherited != false));
+        var offenders = Names(attributes.Where(static type =>
+            Usage(type)?.Inherited != _inheritedAttributes.Contains(NameOf(type))));
 
         Assert.Empty(
             offenders,
-            $"These attributes do not declare Inherited = false: {string.Join(", ", offenders)}");
+            $"These attributes declare an Inherited value the generator does not implement: {string.Join(", ", offenders)}");
+    }
+
+    [Test]
+    public void EveryInheritedAttributeName_ResolvesToAnAttributeThatExists()
+    {
+        var declared = PublicAttributeTypes().Select(NameOf).ToHashSet(StringComparer.Ordinal);
+
+        var missing = _inheritedAttributes.Where(name => !declared.Contains(name)).OrderBy(
+            static name => name, StringComparer.Ordinal).ToList();
+
+        // A renamed or removed attribute would otherwise leave a dead entry in the map, and the
+        // remaining assertion cannot see one: an attribute that no longer exists offends nothing.
+        Assert.Empty(missing, $"These names are in the inherited map but declare no attribute: {string.Join(", ", missing)}");
     }
 
     [Test]
@@ -48,9 +88,11 @@ public class AttributeInheritanceMetadataTests
             .Where(static type => !type.IsAbstract && typeof(Attribute).IsAssignableFrom(type))
             .ToList();
 
+    private static string NameOf(Type type) => type.FullName ?? type.Name;
+
     private static List<string> Names(IEnumerable<Type> types) =>
         types
-            .Select(static type => type.FullName ?? type.Name)
+            .Select(NameOf)
             .OrderBy(static name => name, StringComparer.Ordinal)
             .ToList();
 

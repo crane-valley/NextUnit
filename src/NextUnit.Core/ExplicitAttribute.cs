@@ -12,6 +12,12 @@ namespace NextUnit;
 /// <item><description>Are used for debugging or exploration purposes</description></item>
 /// <item><description>Interact with external services that aren't always available</description></item>
 /// </list>
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes. A derived class cannot make an inherited explicit test implicit again; move the
+/// attribute down to the classes that want it.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -30,7 +36,7 @@ namespace NextUnit;
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
 public sealed class ExplicitAttribute : Attribute
 {
     /// <summary>

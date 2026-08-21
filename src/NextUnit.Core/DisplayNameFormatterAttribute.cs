@@ -11,6 +11,11 @@ namespace NextUnit;
 /// by a method-level <see cref="DisplayNameAttribute"/> or <see cref="DisplayNameFormatterAttribute"/>.
 /// A derived test class does not pick the formatter up from its base, because the generator reads
 /// only directly applied attributes.
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -32,7 +37,7 @@ namespace NextUnit;
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
 public sealed class DisplayNameFormatterAttribute : Attribute
 {
     /// <summary>
@@ -76,6 +81,11 @@ public sealed class DisplayNameFormatterAttribute : Attribute
 /// by a method-level <see cref="DisplayNameAttribute"/> or <see cref="DisplayNameFormatterAttribute{TFormatter}"/>.
 /// A derived test class does not pick the formatter up from its base, because the generator reads
 /// only directly applied attributes.
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -97,7 +107,7 @@ public sealed class DisplayNameFormatterAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
 public sealed class DisplayNameFormatterAttribute<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TFormatter> : Attribute
     where TFormatter : IDisplayNameFormatter, new()
 {

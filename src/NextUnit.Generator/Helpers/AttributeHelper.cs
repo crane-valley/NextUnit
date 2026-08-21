@@ -71,6 +71,58 @@ internal static class AttributeHelper
             == NextUnitAttributeNames.GlobalPrefix + fullName;
     }
 
+    /// <summary>
+    /// The declarations a test method inherits an attribute from, nearest first.
+    /// </summary>
+    /// <remarks>
+    /// The method own override chain first, then the containing type base chain -- the order C#
+    /// itself resolves a member in, so a reader that takes the first level to answer implements
+    /// "the nearest declaration wins" without a rule of its own. Levels are yielded as whole symbols
+    /// rather than flattened into one attribute sequence because some readers must not merge across
+    /// levels: <c>[Retry]</c> takes its whole declaration from one symbol, and flattening would let a
+    /// policy on a base class attach itself to a plain budget on the derived one.
+    /// <para>
+    /// <c>System.Object</c> ends the type walk. Interfaces are not walked: an attribute on an
+    /// implemented interface has no single nearest declaration when two interfaces carry it.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<ISymbol> InheritanceLevels(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol)
+    {
+        for (IMethodSymbol? method = methodSymbol; method is not null; method = method.OverriddenMethod)
+        {
+            yield return method;
+        }
+
+        for (INamedTypeSymbol? type = typeSymbol;
+             type is not null && type.SpecialType != SpecialType.System_Object;
+             type = type.BaseType)
+        {
+            yield return type;
+        }
+    }
+
+    /// <summary>
+    /// <see cref="InheritanceLevels"/> followed by the assembly, for the attributes that also
+    /// declare <see cref="AttributeTargets.Assembly"/>.
+    /// </summary>
+    private static IEnumerable<ISymbol> InheritanceLevelsWithAssembly(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol)
+    {
+        foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
+        {
+            yield return level;
+        }
+
+        var assembly = typeSymbol.ContainingAssembly;
+        if (assembly is not null)
+        {
+            yield return assembly;
+        }
+    }
+
     public static string CreateTestId(IMethodSymbol methodSymbol)
     {
         var typeName = methodSymbol.ContainingType.ToDisplayString(TestIdTypeFormat);
@@ -173,15 +225,16 @@ internal static class AttributeHelper
     /// <returns>A tuple indicating if the test is explicit and the optional reason.</returns>
     public static (bool isExplicit, string? explicitReason) GetExplicitInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
-        // Check method-level attribute first
-        var methodResult = GetExplicitFromSymbol(methodSymbol);
-        if (methodResult.isExplicit)
+        foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
         {
-            return methodResult;
+            var result = GetExplicitFromSymbol(level);
+            if (result.isExplicit)
+            {
+                return result;
+            }
         }
 
-        // Check class-level attribute
-        return GetExplicitFromSymbol(typeSymbol);
+        return (false, null);
     }
 
     private static (bool isExplicit, string? explicitReason) GetExplicitFromSymbol(ISymbol symbol)
@@ -203,74 +256,49 @@ internal static class AttributeHelper
         return (true, null);
     }
 
-    public static EquatableArray<string> GetCategories(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    /// <summary>
+    /// Collects every <c>[Category]</c> that applies to a test, nearest declaration first.
+    /// </summary>
+    /// <remarks>
+    /// Accumulated rather than resolved, because the attribute allows multiple and a label is
+    /// additive by nature: a base class saying "Integration" and a derived class saying "Slow" means
+    /// both. Duplicates are kept -- a method and its class have always been able to declare the same
+    /// category twice, and collapsing them is a separate change to what
+    /// <c>ITestContext.Categories</c> reports. Nothing removes an inherited category; move the
+    /// attribute down to the classes that want it.
+    /// </remarks>
+    public static EquatableArray<string> GetCategories(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol) =>
+        CollectStrings(methodSymbol, typeSymbol, NextUnitAttributeNames.Category);
+
+    /// <summary>
+    /// Collects every <c>[Tag]</c> that applies to a test, on the same rule as
+    /// <see cref="GetCategories"/>.
+    /// </summary>
+    public static EquatableArray<string> GetTags(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol) =>
+        CollectStrings(methodSymbol, typeSymbol, NextUnitAttributeNames.Tag);
+
+    private static EquatableArray<string> CollectStrings(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol,
+        string attributeName)
     {
         var builder = ImmutableArray.CreateBuilder<string>();
 
-        foreach (var attribute in methodSymbol.GetAttributes())
+        foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
         {
-            if (!IsAttribute(attribute, NextUnitAttributeNames.Category))
+            foreach (var attribute in level.GetAttributes())
             {
-                continue;
-            }
+                if (!IsAttribute(attribute, attributeName))
+                {
+                    continue;
+                }
 
-            if (attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Value is string categoryName &&
-                !string.IsNullOrWhiteSpace(categoryName))
-            {
-                builder.Add(categoryName);
-            }
-        }
-
-        foreach (var attribute in typeSymbol.GetAttributes())
-        {
-            if (!IsAttribute(attribute, NextUnitAttributeNames.Category))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Value is string categoryName &&
-                !string.IsNullOrWhiteSpace(categoryName))
-            {
-                builder.Add(categoryName);
-            }
-        }
-
-        return builder.ToImmutable();
-    }
-
-    public static EquatableArray<string> GetTags(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
-    {
-        var builder = ImmutableArray.CreateBuilder<string>();
-
-        foreach (var attribute in methodSymbol.GetAttributes())
-        {
-            if (!IsAttribute(attribute, NextUnitAttributeNames.Tag))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Value is string tagName &&
-                !string.IsNullOrWhiteSpace(tagName))
-            {
-                builder.Add(tagName);
-            }
-        }
-
-        foreach (var attribute in typeSymbol.GetAttributes())
-        {
-            if (!IsAttribute(attribute, NextUnitAttributeNames.Tag))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Value is string tagName &&
-                !string.IsNullOrWhiteSpace(tagName))
-            {
-                builder.Add(tagName);
+                if (attribute.ConstructorArguments.Length > 0 &&
+                    attribute.ConstructorArguments[0].Value is string value &&
+                    !string.IsNullOrWhiteSpace(value))
+                {
+                    builder.Add(value);
+                }
             }
         }
 
@@ -290,20 +318,16 @@ internal static class AttributeHelper
     /// </remarks>
     public static int? GetParallelLimit(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
-        var methodLimit = GetParallelLimitFromSymbol(methodSymbol);
-        if (methodLimit.HasValue)
+        foreach (var level in InheritanceLevelsWithAssembly(methodSymbol, typeSymbol))
         {
-            return methodLimit;
+            var limit = GetParallelLimitFromSymbol(level);
+            if (limit.HasValue)
+            {
+                return limit;
+            }
         }
 
-        var classLimit = GetParallelLimitFromSymbol(typeSymbol);
-        if (classLimit.HasValue)
-        {
-            return classLimit;
-        }
-
-        var assemblyLimit = GetParallelLimitFromSymbol(typeSymbol.ContainingAssembly);
-        return assemblyLimit;
+        return null;
     }
 
     private static int? GetParallelLimitFromSymbol(ISymbol symbol)
@@ -339,18 +363,13 @@ internal static class AttributeHelper
 
     public static (bool notInParallel, EquatableArray<string> constraintKeys) GetNotInParallelInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
-        // Method-level takes precedence
-        var methodInfo = GetNotInParallelFromSymbol(methodSymbol);
-        if (methodInfo.HasValue)
+        foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
         {
-            return (true, methodInfo.Value);
-        }
-
-        // Fall back to class-level
-        var classInfo = GetNotInParallelFromSymbol(typeSymbol);
-        if (classInfo.HasValue)
-        {
-            return (true, classInfo.Value);
+            var info = GetNotInParallelFromSymbol(level);
+            if (info.HasValue)
+            {
+                return (true, info.Value);
+            }
         }
 
         return (false, ImmutableArray<string>.Empty);
@@ -392,15 +411,16 @@ internal static class AttributeHelper
 
     public static string? GetParallelGroup(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
-        // Method-level takes precedence
-        var methodGroup = GetParallelGroupFromSymbol(methodSymbol);
-        if (methodGroup is not null)
+        foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
         {
-            return methodGroup;
+            var group = GetParallelGroupFromSymbol(level);
+            if (group is not null)
+            {
+                return group;
+            }
         }
 
-        // Fall back to class-level
-        return GetParallelGroupFromSymbol(typeSymbol);
+        return null;
     }
 
     private static string? GetParallelGroupFromSymbol(ISymbol symbol)
@@ -452,20 +472,16 @@ internal static class AttributeHelper
 
     public static int? GetTimeout(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
-        var methodTimeout = GetTimeoutFromSymbol(methodSymbol);
-        if (methodTimeout.HasValue)
+        foreach (var level in InheritanceLevelsWithAssembly(methodSymbol, typeSymbol))
         {
-            return methodTimeout;
+            var timeout = GetTimeoutFromSymbol(level);
+            if (timeout.HasValue)
+            {
+                return timeout;
+            }
         }
 
-        var classTimeout = GetTimeoutFromSymbol(typeSymbol);
-        if (classTimeout.HasValue)
-        {
-            return classTimeout;
-        }
-
-        var assemblyTimeout = GetTimeoutFromSymbol(typeSymbol.ContainingAssembly);
-        return assemblyTimeout;
+        return null;
     }
 
     private static int? GetTimeoutFromSymbol(ISymbol symbol)
@@ -508,7 +524,7 @@ internal static class AttributeHelper
         string? cultureName = null;
         string? uiCultureName = null;
 
-        foreach (var symbol in new ISymbol[] { methodSymbol, typeSymbol, typeSymbol.ContainingAssembly })
+        foreach (var symbol in InheritanceLevelsWithAssembly(methodSymbol, typeSymbol))
         {
             var isInvariant = HasAttribute(symbol, NextUnitAttributeNames.InvariantCulture);
 
@@ -573,14 +589,16 @@ internal static class AttributeHelper
 
     public static int GetExecutionPriority(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
     {
-        var methodPriority = GetExecutionPriorityFromSymbol(methodSymbol);
-        if (methodPriority.HasValue)
+        foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
         {
-            return methodPriority.Value;
+            var priority = GetExecutionPriorityFromSymbol(level);
+            if (priority.HasValue)
+            {
+                return priority.Value;
+            }
         }
 
-        var classPriority = GetExecutionPriorityFromSymbol(typeSymbol);
-        return classPriority ?? 0;
+        return 0;
     }
 
     private static int? GetExecutionPriorityFromSymbol(ISymbol symbol)
@@ -606,23 +624,104 @@ internal static class AttributeHelper
         return null;
     }
 
-    public static (int? retryCount, int retryDelayMs, string? retryPolicyTypeName, bool isFlaky, string? flakyReason) GetRetryInfo(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    /// <summary>
+    /// Resolves the retry budget and the flaky marking that apply to a test.
+    /// </summary>
+    /// <remarks>
+    /// The whole retry declaration is taken from one level rather than merged property by property:
+    /// a method that restates the count must not silently inherit the enclosing policy, which is the
+    /// same rule the delay has always followed, and which now also keeps a base class policy from
+    /// attaching itself to a derived class budget.
+    /// <para>
+    /// <c>[Flaky]</c> resolves differently because it is a marking, not a setting: a test is flaky
+    /// when any level says so, and the reason is the nearest one that gives a reason. Nothing
+    /// un-marks an inherited <c>[Flaky]</c>.
+    /// </para>
+    /// </remarks>
+    public static (int? retryCount, int retryDelayMs, string? retryPolicyTypeName, bool isFlaky, string? flakyReason) GetRetryInfo(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol,
+        IAssemblySymbol? compilingAssembly)
     {
-        var methodRetry = GetRetryFromSymbol(methodSymbol);
-        var classRetry = GetRetryFromSymbol(typeSymbol);
+        var retry = default(RetryDeclaration);
+        var isFlaky = false;
+        string? flakyReason = null;
 
-        // The whole retry declaration is taken from one symbol rather than merged property by
-        // property: a method that restates the count must not silently inherit the class's policy,
-        // which is the same rule the delay has always followed.
-        var retry = methodRetry.Count.HasValue ? methodRetry : classRetry;
+        foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
+        {
+            if (!retry.Count.HasValue)
+            {
+                retry = GetRetryFromSymbol(level);
+            }
 
-        var (methodIsFlaky, methodFlakyReason) = GetFlakyFromSymbol(methodSymbol);
-        var (classIsFlaky, classFlakyReason) = GetFlakyFromSymbol(typeSymbol);
+            var (levelIsFlaky, levelReason) = GetFlakyFromSymbol(level);
+            isFlaky |= levelIsFlaky;
+            flakyReason ??= levelReason;
+        }
 
-        var isFlaky = methodIsFlaky || classIsFlaky;
-        var flakyReason = methodFlakyReason ?? classFlakyReason;
+        // Dropped rather than emitted when the registry cannot name it: NEXTUNIT015 already fails the
+        // build, and emitting a constructor call for an unreachable policy on top of it would bury
+        // that report under a CS0122 in a file the user did not write.
+        var policyType = retry.PolicyType is not null &&
+            !GeneratedRegistryAccess.CanReachType(retry.PolicyType, compilingAssembly)
+                ? null
+                : retry.PolicyType;
 
-        return (retry.Count, retry.DelayMs, retry.PolicyTypeName, isFlaky, flakyReason);
+        return (retry.Count, retry.DelayMs, FormatPolicyType(policyType), isFlaky, flakyReason);
+    }
+
+    /// <summary>
+    /// Names a type the generated registry would emit but cannot reach, or <c>null</c> when every
+    /// emitted type is in reach.
+    /// </summary>
+    /// <remarks>
+    /// Two families reach here for different reasons. A display name formatter is checked wherever
+    /// it is declared, because no analyzer covers formatter accessibility at all and the emitted
+    /// <c>typeof</c> fails the same way for a directly applied one. A retry policy is checked only
+    /// when it is inherited, because <c>NU0016</c> already reports a directly applied one -- and only
+    /// an inherited declaration can name a type that was reachable in the assembly that wrote it and
+    /// is not reachable here.
+    /// </remarks>
+    public static string? GetUnreachableEmittedTypeName(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol,
+        IAssemblySymbol? compilingAssembly)
+    {
+        var formatterType = ResolveDisplayNameFormatterType(methodSymbol, typeSymbol);
+        if (formatterType is not null && !GeneratedRegistryAccess.CanReachType(formatterType, compilingAssembly))
+        {
+            return formatterType.ToDisplayString(FullyQualifiedTypeFormat);
+        }
+
+        var policyType = ResolveInheritedRetryPolicyType(methodSymbol, typeSymbol);
+        if (policyType is not null && !GeneratedRegistryAccess.CanReachType(policyType, compilingAssembly))
+        {
+            return policyType.ToDisplayString(FullyQualifiedTypeFormat);
+        }
+
+        return null;
+    }
+
+    private static ITypeSymbol? ResolveInheritedRetryPolicyType(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol)
+    {
+        foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
+        {
+            var declaration = GetRetryFromSymbol(level);
+            if (!declaration.Count.HasValue)
+            {
+                continue;
+            }
+
+            var isDeclaredHere =
+                SymbolEqualityComparer.Default.Equals(level, methodSymbol) ||
+                SymbolEqualityComparer.Default.Equals(level, typeSymbol);
+
+            return isDeclaredHere ? null : declaration.PolicyType;
+        }
+
+        return null;
     }
 
     public static int? GetRepeatCount(IMethodSymbol methodSymbol)
@@ -758,8 +857,8 @@ internal static class AttributeHelper
 
         foreach (var attribute in symbol.GetAttributes())
         {
-            var policyTypeName = GetRetryPolicyTypeName(attribute);
-            var isRetry = policyTypeName is not null || RetryAttributeMatcher.IsPlainRetry(attribute);
+            var policyType = RetryAttributeMatcher.GetPolicyType(attribute);
+            var isRetry = policyType is not null || RetryAttributeMatcher.IsPlainRetry(attribute);
             if (!isRetry || attribute.ConstructorArguments.Length == 0)
             {
                 continue;
@@ -770,27 +869,28 @@ internal static class AttributeHelper
                 ? attribute.ConstructorArguments[1].Value as int? ?? 0
                 : 0;
 
-            if (policyTypeName is not null)
+            if (policyType is not null)
             {
-                return new RetryDeclaration(count, delayMs, policyTypeName);
+                return new RetryDeclaration(count, delayMs, policyType);
             }
 
-            plain ??= new RetryDeclaration(count, delayMs, policyTypeName: null);
+            plain ??= new RetryDeclaration(count, delayMs, policyType: null);
         }
 
-        return plain ?? new RetryDeclaration(count: null, delayMs: 0, policyTypeName: null);
+        return plain ?? new RetryDeclaration(count: null, delayMs: 0, policyType: null);
     }
 
     /// <summary>
-    /// Returns the policy type of a <c>[Retry&lt;TPolicy&gt;]</c> attribute, or null for any other attribute.
+    /// Formats a retry policy for the constructor call the registry emits.
     /// </summary>
-    private static string? GetRetryPolicyTypeName(AttributeData attribute)
-    {
-        // Formatted for a constructor call, not for a type reference: `new global::Policy?()` is not
-        // valid C#, and `[Retry<Policy?>(2)]` is only a nullability warning at the attribute, so a
-        // consumer that does not promote warnings would otherwise get a hard error in generated code.
-        return RetryAttributeMatcher.GetPolicyType(attribute)?.ToDisplayString(TypeExpressionFormat);
-    }
+    /// <remarks>
+    /// Formatted for a constructor call, not for a type reference: <c>new global::Policy?()</c> is
+    /// not valid C#, and <c>[Retry&lt;Policy?&gt;(2)]</c> is only a nullability warning at the
+    /// attribute, so a consumer that does not promote warnings would otherwise get a hard error in
+    /// generated code.
+    /// </remarks>
+    private static string? FormatPolicyType(ITypeSymbol? policyType) =>
+        policyType?.ToDisplayString(TypeExpressionFormat);
 
     /// <summary>
     /// One symbol's retry declaration. A plain struct rather than a record: the generator targets
@@ -798,16 +898,16 @@ internal static class AttributeHelper
     /// </summary>
     private readonly struct RetryDeclaration
     {
-        public RetryDeclaration(int? count, int delayMs, string? policyTypeName)
+        public RetryDeclaration(int? count, int delayMs, ITypeSymbol? policyType)
         {
             Count = count;
             DelayMs = delayMs;
-            PolicyTypeName = policyTypeName;
+            PolicyType = policyType;
         }
 
         public int? Count { get; }
         public int DelayMs { get; }
-        public string? PolicyTypeName { get; }
+        public ITypeSymbol? PolicyType { get; }
     }
 
     private static (bool isFlaky, string? reason) GetFlakyFromSymbol(ISymbol symbol)
@@ -848,18 +948,42 @@ internal static class AttributeHelper
         return null;
     }
 
-    public static string? GetDisplayNameFormatterType(IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol)
+    /// <summary>
+    /// Resolves the display name formatter that applies to a test, nearest declaration first.
+    /// </summary>
+    /// <remarks>
+    /// A formatter the registry cannot name is dropped rather than emitted, for the reason
+    /// <see cref="GetRetryInfo"/> drops an unreachable policy: <c>NEXTUNIT015</c> already fails the
+    /// build, and the emitted <c>typeof</c> would bury it under a <c>CS0122</c>.
+    /// </remarks>
+    public static string? GetDisplayNameFormatterType(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol,
+        IAssemblySymbol? compilingAssembly)
     {
-        var methodFormatter = GetDisplayNameFormatterFromSymbol(methodSymbol);
-        if (methodFormatter is not null)
-        {
-            return methodFormatter;
-        }
+        var formatterType = ResolveDisplayNameFormatterType(methodSymbol, typeSymbol);
 
-        return GetDisplayNameFormatterFromSymbol(typeSymbol);
+        return formatterType is null || !GeneratedRegistryAccess.CanReachType(formatterType, compilingAssembly)
+            ? null
+            : formatterType.ToDisplayString(FullyQualifiedTypeFormat);
     }
 
-    private static string? GetDisplayNameFormatterFromSymbol(ISymbol symbol)
+    private static ITypeSymbol? ResolveDisplayNameFormatterType(
+        IMethodSymbol methodSymbol,
+        INamedTypeSymbol typeSymbol)
+    {
+        foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
+        {
+            if (GetDisplayNameFormatterFromSymbol(level) is { } formatter)
+            {
+                return formatter;
+            }
+        }
+
+        return null;
+    }
+
+    private static ITypeSymbol? GetDisplayNameFormatterFromSymbol(ISymbol symbol)
     {
         foreach (var attribute in symbol.GetAttributes())
         {
@@ -867,7 +991,7 @@ internal static class AttributeHelper
                 attribute.ConstructorArguments.Length > 0 &&
                 attribute.ConstructorArguments[0].Value is INamedTypeSymbol formatterType)
             {
-                return formatterType.ToDisplayString(FullyQualifiedTypeFormat);
+                return formatterType;
             }
 
             var attrClass = attribute.AttributeClass;
@@ -877,8 +1001,7 @@ internal static class AttributeHelper
                 if (constructedFrom.MetadataName == "DisplayNameFormatterAttribute`1" &&
                     constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace)
                 {
-                    var typeArg = attrClass.TypeArguments[0];
-                    return typeArg.ToDisplayString(FullyQualifiedTypeFormat);
+                    return attrClass.TypeArguments[0];
                 }
             }
         }

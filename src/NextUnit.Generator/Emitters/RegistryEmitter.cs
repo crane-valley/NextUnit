@@ -197,6 +197,10 @@ internal static class RegistryEmitter
     {
         writer.Write($"public static global::NextUnit.Internal.LifecycleMethodDelegate[] {propertyName} {{ get; }} = ");
 
+        // An unreachable hook is dropped rather than emitted: NEXTUNIT014 already fails the build,
+        // and emitting the call would add a CS0122 in a file the user did not write.
+        methods = methods.Where(method => method.IsReachable).ToList();
+
         if (methods.Count == 0)
         {
             writer.WriteLine("EmptyLifecycleMethods;");
@@ -208,7 +212,7 @@ internal static class RegistryEmitter
             writer.Indent();
             foreach (var method in methods)
             {
-                writer.WriteLine($"{CodeBuilder.BuildLifecycleMethodDelegate(method.FullyQualifiedTypeName, method.MethodName, method.IsStatic, method.ReturnKind, method.AcceptsCancellationToken)},");
+                writer.WriteLine($"{CodeBuilder.BuildLifecycleMethodDelegate(method.InvocationTypeName, method.MethodName, method.IsStatic, method.ReturnKind, method.AcceptsCancellationToken)},");
             }
 
             writer.Unindent();
@@ -270,12 +274,26 @@ internal static class RegistryEmitter
         writer.WriteLine("}");
     }
 
-    private static List<LifecycleMethodDescriptor> LifecycleMethodsFor(
+    /// <summary>
+    /// The hooks that apply to one test, base classes first.
+    /// </summary>
+    /// <remarks>
+    /// The inherited hooks come from the descriptor, which walked the base chain with symbols in
+    /// hand, and the test class own hooks from the two syntax providers, which is where they have
+    /// always come from. Joining the base levels here against the providers instead was rejected:
+    /// the providers see only this compilation, so a base class in a referenced assembly would keep
+    /// contributing nothing, silently, which is the failure this change exists to remove.
+    /// </remarks>
+    private static TestLifecycleMethods LifecycleMethodsFor(
         Dictionary<string, List<LifecycleMethodDescriptor>> lifecycleByType,
-        TestMethodDescriptor test) =>
-        lifecycleByType.TryGetValue(test.FullyQualifiedTypeName, out var methods)
+        TestMethodDescriptor test)
+    {
+        var declared = lifecycleByType.TryGetValue(test.FullyQualifiedTypeName, out var methods)
             ? methods
             : new List<LifecycleMethodDescriptor>();
+
+        return TestLifecycleMethods.Create(test.InheritedLifecycleMethods, declared);
+    }
 
     /// <summary>
     /// Splits the discovered tests by which registry property they belong to.

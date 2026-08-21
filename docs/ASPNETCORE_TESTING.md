@@ -41,7 +41,7 @@ public class WeatherApiTests : WebApplicationTest<Program>
 ### Key Points
 
 1. **Inherit from `WebApplicationTest<TEntryPoint>`** - `TEntryPoint` is typically your `Program` class
-2. **Add `[NotInParallel("WebApplicationFactory")]`** - Required on each test class (not inherited from base)
+2. **Inherit `[NotInParallel("WebApplicationFactory")]`** - Declared on the base class and inherited by your test classes
 3. **Use `Client` property** - Pre-configured `HttpClient` for making requests
 
 ## WebApplicationTest Base Class
@@ -203,18 +203,20 @@ public class AdvancedTests
 
 ### NotInParallel Attribute
 
-**The `[NotInParallel("WebApplicationFactory")]` attribute must be applied to each concrete test class.**
-
-NextUnit's source generator does not traverse base classes for attributes, so the attribute on `WebApplicationTest<TEntryPoint>` is not inherited. Always add it to your test classes:
+`[NotInParallel("WebApplicationFactory")]` is inherited from `WebApplicationTest<TEntryPoint>`, so a test
+class that derives from it is already serialized against the other classes sharing the factory.
+Declaring it again on the concrete class is harmless but no longer necessary:
 
 ```csharp
-// Required - attribute must be on the concrete class
-[NotInParallel("WebApplicationFactory")]
+// The constraint comes from the base class
 public class MyApiTests : WebApplicationTest<Program>
 {
     // ...
 }
 ```
+
+There is no way to opt back into parallel execution from a derived class. A test class that must
+run in parallel with the rest should not derive from a base class that declares `[NotInParallel]`.
 
 ### Lazy Initialization
 

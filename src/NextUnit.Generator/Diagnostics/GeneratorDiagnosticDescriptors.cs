@@ -94,6 +94,39 @@ internal static class GeneratorDiagnosticDescriptors
         DiagnosticSeverity.Error,
         WellKnownDiagnosticTags.NotConfigurable);
 
+    /// <summary>
+    /// Reported for a lifecycle hook the generated registry cannot call.
+    /// </summary>
+    /// <remarks>
+    /// Not configurable, for the reason <see cref="TestCaseExpansionLimitExceeded"/> is not: the
+    /// hook is also dropped from the registry, because emitting a call the registry cannot make
+    /// would replace this report with a <c>CS0122</c> in a file the user did not write. Suppressing
+    /// the rule would therefore turn a failed build into a green one whose setup silently does not
+    /// run -- the failure inherited hooks exist to remove.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor LifecycleMethodNotAccessible = Create(
+        "NEXTUNIT014",
+        "Lifecycle method is not accessible to generated code",
+        "Lifecycle method '{0}.{1}' is not accessible from the generated test registry; make it public, or internal in the test assembly.",
+        DiagnosticSeverity.Error,
+        WellKnownDiagnosticTags.NotConfigurable);
+
+    /// <summary>
+    /// Reported for a type a test attribute names and the generated registry cannot.
+    /// </summary>
+    /// <remarks>
+    /// Covers a display name formatter wherever it is declared, since no analyzer checks formatter
+    /// accessibility, and a retry policy only when it is inherited, since <c>NU0016</c> reports a
+    /// directly applied one already. Not configurable and the declaration is dropped, for the same
+    /// reason as <see cref="LifecycleMethodNotAccessible"/>.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InheritedTypeNotAccessible = Create(
+        "NEXTUNIT015",
+        "Attribute type is not accessible to generated code",
+        "Test '{0}' uses type '{1}', which is not accessible from the generated test registry; make it public, or internal in the test assembly.",
+        DiagnosticSeverity.Error,
+        WellKnownDiagnosticTags.NotConfigurable);
+
     private static DiagnosticDescriptor Error(string id, string title, string messageFormat) =>
         Create(id, title, messageFormat, DiagnosticSeverity.Error);
 
