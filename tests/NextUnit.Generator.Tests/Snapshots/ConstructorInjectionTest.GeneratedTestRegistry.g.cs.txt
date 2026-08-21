@@ -375,7 +375,7 @@ internal static class GeneratedTestRegistry
                 DisplayName = "Test",
                 TestClass = typeof(global::TestProject.PrivateOnlyTests),
                 MethodName = "Test",
-                TestClassFactory = null,
+                TestClassFactory = static (output, context) => throw new global::System.InvalidOperationException("Test class 'global::TestProject.PrivateOnlyTests' has no public constructor that NextUnit can call, but a test in it needs an instance -- either the test itself, or a test-scoped or class-scoped instance lifecycle hook it declares or inherits. Make the hook static, or add a public constructor."),
                 TestMethod = static (instance, ct) => { ((global::TestProject.PrivateOnlyTests)instance).Test(); return global::System.Threading.Tasks.Task.CompletedTask; },
                 Lifecycle = new global::NextUnit.Internal.LifecycleInfo
                 {

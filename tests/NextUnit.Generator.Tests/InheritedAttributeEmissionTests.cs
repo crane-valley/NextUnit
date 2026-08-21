@@ -568,6 +568,35 @@ public class InheritedAttributeEmissionTests
             "an abstract class must not be constructed");
     }
 
+    [Fact]
+    public async Task AStaticTestInAClassWithNoPublicConstructor_FailsWithTheReasonAsync()
+    {
+        var registry = await GenerateAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class FixtureBase
+            {
+                [Before(LifecycleScope.Test)]
+                public void Setup() { }
+            }
+
+            public sealed class SealedStaticTests : FixtureBase
+            {
+                private SealedStaticTests() { }
+
+                [Test]
+                public static void Run() { }
+            }
+            """);
+
+        // The reflection fallback is not an answer here: Type.GetConstructors() is public-only and
+        // so is the Activator.CreateInstance it ends at, so emitting no factory bought only a
+        // MissingMethodException naming no test and no remedy.
+        Assert.Contains("has no public constructor that NextUnit can call", registry);
+    }
+
     private static string FormatIds(IReadOnlyList<Diagnostic> diagnostics) =>
         $"reported: {string.Join(", ", diagnostics.Select(static diagnostic => diagnostic.Id))}";
 
