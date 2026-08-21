@@ -243,22 +243,66 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [Theory]
     [InlineData(null)]
     [InlineData("")]
+    [InlineData("   ")]
+    public void TryResolve_UnsetOverride_UsesTheDefault(string? value)
+    {
+        // Blank has to read as unset, not as a typo: MSBuild writes every CompilerVisibleProperty
+        // into the generated analyzer config whether or not the project defines it, so the generator
+        // is handed an empty value by every consumer that never touched the escape hatch.
+        Assert.True(TestCaseExpansionPolicy.TryResolve(value, out var cap));
+        Assert.Equal(TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod, cap);
+    }
+
+    [Theory]
     [InlineData("0")]
     [InlineData("-1")]
     [InlineData("not-a-number")]
+    [InlineData("100O")]
     [InlineData("2147483648")]
-    public void Parse_UnusableValue_FallsBackToTheDefault(string? value)
+    public void TryResolve_UnusableOverride_IsRefused(string value)
     {
-        Assert.Equal(TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod, TestCaseExpansionPolicy.Parse(value));
+        // "100O" is the case the refusal exists for: written for 1000, it used to be discarded, and
+        // discarding it granted the 10000 default -- ten times the bound the user was tightening to.
+        Assert.False(TestCaseExpansionPolicy.TryResolve(value, out var cap));
+        Assert.Equal(TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod, cap);
     }
 
     [Theory]
     [InlineData("1", 1)]
     [InlineData("50", 50)]
     [InlineData("2147483647", int.MaxValue)]
-    public void Parse_PositiveValue_IsHonored(string value, int expected)
+    public void TryResolve_PositiveOverride_IsHonored(string value, int expected)
     {
-        Assert.Equal(expected, TestCaseExpansionPolicy.Parse(value));
+        Assert.True(TestCaseExpansionPolicy.TryResolve(value, out var cap));
+        Assert.Equal(expected, cap);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void Resolve_UnsetEnvironmentValue_UsesTheDefault(string? value)
+    {
+        Assert.Equal(TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod, TestCaseExpansionLimits.Resolve(value));
+    }
+
+    [Fact]
+    public void Resolve_UsableEnvironmentValue_IsHonored()
+    {
+        Assert.Equal(50, TestCaseExpansionLimits.Resolve("50"));
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("100O")]
+    public void Resolve_UnusableEnvironmentValue_Throws(string value)
+    {
+        // The discovery-time half of the same decision the generator makes with NEXTUNIT014: a
+        // mistyped bound stops the run instead of quietly widening it to the default.
+        var exception = Assert.Throws<InvalidOperationException>(() => TestCaseExpansionLimits.Resolve(value));
+
+        Assert.Contains(TestCaseExpansionLimits.EnvironmentVariableName, exception.Message);
+        Assert.Contains(value, exception.Message);
     }
 
     /// <summary>

@@ -1039,7 +1039,7 @@ the bound.
   registry contract and the snapshot baselines, which is why it did not ride along with a security
   fix.
 
-- [ ] A cap override that is present but unusable falls back to the default without a word, so a typo
+- [x] A cap override that is present but unusable falls back to the default without a word, so a typo
   meant to tighten the cap loosens it instead: `100O` for `1000` silently permits 10000. The fallback
   is deliberate and documented -- a typo in an escape hatch should not be the thing that stops a
   build -- but it is fail-open on a security bound, and it is not how the rest of the repo treats an
@@ -1048,6 +1048,14 @@ the bound.
   everything. Distinguishing unset from unusable, and reporting the second through a new generator
   diagnostic and a discovery exception, needs a rule ID and a decision about whether a mistyped limit
   may fail a build.
+  Both answers are yes, since 3.0.0 is a major. `TestCaseExpansionPolicy.TryResolve` now separates
+  unset from unusable, `NEXTUNIT014` reports the second at error severity, and
+  `TestCaseExpansionLimits.Resolve` throws for the environment variable. Blank stays unset because
+  MSBuild writes every `CompilerVisibleProperty` into the generated analyzer config whether or not
+  the project defines it, so refusing blank would fail every consumer that never set the property.
+  Precedence is that there is none: the property is read only by the generator, the environment
+  variable only by the test host, and each is validated where it is read -- which leaves the item
+  above, on the two caps being configured independently, exactly where it was.
 
 ## Deferred to the next major version
 

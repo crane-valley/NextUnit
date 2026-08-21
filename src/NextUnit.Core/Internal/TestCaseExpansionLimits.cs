@@ -1,3 +1,4 @@
+using System.Globalization;
 using NextUnit.Shared;
 
 namespace NextUnit.Internal;
@@ -24,11 +25,42 @@ internal static class TestCaseExpansionLimits
     /// <summary>
     /// Gets the cap in effect for this run.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The environment variable is set to something other than a positive 32-bit integer.
+    /// </exception>
     /// <remarks>
     /// Read on every call rather than cached: discovery resolves data sources by reflection around
     /// it, so the read costs nothing measurable, and a cached value would fix the limit at whichever
     /// moment the type happened to be initialized.
     /// </remarks>
-    public static int MaxTestCasesPerMethod =>
-        TestCaseExpansionPolicy.Parse(Environment.GetEnvironmentVariable(EnvironmentVariableName));
+    public static int MaxTestCasesPerMethod => Resolve(Environment.GetEnvironmentVariable(EnvironmentVariableName));
+
+    /// <summary>
+    /// Resolves the cap from a raw override value.
+    /// </summary>
+    /// <param name="rawValue">The environment variable's value, or <see langword="null"/> when unset.</param>
+    /// <returns>The cap to apply.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// <paramref name="rawValue"/> is neither unset nor a positive 32-bit integer.
+    /// </exception>
+    /// <remarks>
+    /// Split out from the property so the refusal can be tested without setting a process-wide
+    /// variable that every other test in the assembly reads concurrently.
+    /// </remarks>
+    internal static int Resolve(string? rawValue)
+    {
+        if (TestCaseExpansionPolicy.TryResolve(rawValue, out var cap))
+        {
+            return cap;
+        }
+
+        // Throwing rather than falling back mirrors NEXTUNIT014 on the compile-time side, for the
+        // same reason: the fallback is always looser than the value that was typed, so a mistyped
+        // bound meant to tighten discovery silently widened it instead. This follows
+        // TestFilterConfigurationLoader, which refuses a malformed NEXTUNIT_TEST_NAME_REGEX because
+        // dropping the only include filter would quietly run everything.
+        throw new InvalidOperationException(string.Create(
+            CultureInfo.InvariantCulture,
+            $"The {EnvironmentVariableName} value '{rawValue}' is not a positive 32-bit integer. Set it to a value between 1 and {int.MaxValue}, or unset it to use the default limit of {TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod}."));
+    }
 }

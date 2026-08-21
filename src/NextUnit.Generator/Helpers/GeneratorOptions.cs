@@ -23,15 +23,22 @@ internal static class GeneratorOptions
     /// </summary>
     /// <param name="globalOptions">The analyzer config global options for the compilation.</param>
     /// <returns>
-    /// The configured cap, or <see cref="TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod"/> when
-    /// the property is unset or unusable.
+    /// The cap to apply, and the raw property value when one was set but is unusable
+    /// (<see langword="null"/> when the property is unset or usable).
     /// </returns>
-    public static int ReadMaxTestCasesPerMethod(AnalyzerConfigOptions globalOptions)
+    /// <remarks>
+    /// A tuple rather than a record: this value enters the incremental pipeline, where it is compared
+    /// against the previous run to decide whether the source output can be reused, so it has to carry
+    /// structural equality -- and the generator targets netstandard2.0, which has no
+    /// <c>IsExternalInit</c> for a record's synthesized init accessors. Returning the rejected value
+    /// rather than reporting it here keeps the reading side free of a <c>SourceProductionContext</c>
+    /// it would hold for one diagnostic.
+    /// </remarks>
+    public static (int Cap, string? UnusableValue) ReadMaxTestCasesPerMethod(AnalyzerConfigOptions globalOptions)
     {
-        // An unset property and an unusable one take the same path: TryGetValue leaves the value null
-        // on a miss, and Parse already treats null as unset.
+        // TryGetValue leaves the value null on a miss, and TryResolve already reads null as unset.
         _ = globalOptions.TryGetValue(MaxTestCasesPerMethodKey, out var raw);
 
-        return TestCaseExpansionPolicy.Parse(raw);
+        return TestCaseExpansionPolicy.TryResolve(raw, out var cap) ? (cap, null) : (cap, raw);
     }
 }

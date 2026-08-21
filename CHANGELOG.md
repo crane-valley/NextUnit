@@ -147,6 +147,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refuse a test case expansion cap override that is set but unusable, instead of falling back to the
+  default. `<NextUnitMaxTestCasesPerMethod>` and `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` used to discard
+  anything that was not a positive 32-bit integer and apply the 10000 default without a word, so
+  `100O` typed for `1000` did not tighten the cap to a tenth of the default -- it granted the whole
+  default. The fallback was deliberate, on the reasoning that a typo in an escape hatch should not
+  stop a build, but the escape hatch guards a bound that exists to stop a compilation or a test host
+  from allocating until it dies, and the fallback only ever erred in the loosening direction.
+  The generator now reports the new `NEXTUNIT014` at error severity, naming the rejected value and
+  the default, and discovery throws an `InvalidOperationException` naming the environment variable.
+  Blank still reads as unset: MSBuild writes every `CompilerVisibleProperty` into the generated
+  analyzer config whether or not the project defines it, so an empty value is what the generator sees
+  from every consumer that never touched the property, and refusing it would fail their builds.
+  Like `NEXTUNIT013`, `NEXTUNIT014` is not configurable -- suppressing it would restore exactly the
+  fail-open behavior it replaces. The registry is still emitted under the default cap after the
+  report, so the error is not buried under a `CS0246` for every symbol a withheld registry would have
+  failed to declare.
+  The two settings are validated independently, and neither overrides the other: the property is the
+  compile-time cap that only the generator reads, the environment variable is the discovery-time cap
+  that only the test host reads, and each fails at its own read site. This can fail a build or a run
+  that was previously green while silently using the default.
+
 - **Breaking.** Lifecycle hooks and configuration attributes declared on a base test class now apply
   to the classes derived from it. Before this, `RegistryEmitter.LifecycleMethodsFor` looked hooks up
   by the test's exact type name and `AttributeHelper` read `ISymbol.GetAttributes()` only, so a
@@ -192,6 +213,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Inherited = true` would advertise a merge the generator does not perform. Nothing in NextUnit
   reads `Inherited`, so no generated code changes; what changes is what third-party tooling and
   readers are told.
+  This supersedes an entry earlier in this same unreleased cycle that set `Inherited = false` on
+  every attribute. That decision was right while the generator read directly applied attributes
+  only; the generator now walks the chains, so the honest metadata moved with it. Neither version
+  shipped, so there is nothing for a released suite to have depended on.
 
 - Format display-name arguments with the invariant culture at both ends. `[Arguments]` constants are
   formatted when the generator bakes the name into the registry, and `[TestData]`,
@@ -202,15 +227,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   human-readable name therefore changes, and a name-based filter written against the old text stops
   matching. Test IDs are unaffected: an ID is structural -- `Type.Method` plus an `[index]` suffix --
   and is never derived from a formatted argument.
-- Declare `Inherited = false` on every NextUnit attribute, which is what the generator has always
-  implemented: it reads directly applied attributes only and never walks base types or overridden
-  methods, so a `[Timeout]`, `[Retry]`, `[Category]`, or `[Culture]` on a base test class has never
-  reached the classes derived from it. `[Category]`, `[Tag]`, and both `[DisplayNameFormatter]` forms
-  declared `Inherited = true` outright, and most of the remaining attributes left `Inherited`
-  unspecified, which defaults to `true`. Nothing in NextUnit reads the flag, so no behavior and no
-  generated code changes; the metadata stops promising an inheritance that never happened. Whether
-  NextUnit should inherit attributes and lifecycle hooks is a separate question, deferred to the next
-  major version.
 
 ### Security
 
@@ -228,9 +244,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tests that never ran.
   The default cap is 10000 test cases per method, which no hand-written matrix reaches. Projects that
   legitimately generate more raise it per project with `<NextUnitMaxTestCasesPerMethod>` and per run
-  with the `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` environment variable; an unparseable or non-positive
-  value falls back to the default rather than failing the build, so a typo in the escape hatch cannot
-  become the thing that stops a compilation.
+  with the `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` environment variable; a value that is set but is not
+  a positive 32-bit integer is refused rather than discarded, as the Changed entry above describes.
 
 ## [2.0.0] - 2026-08-12
 

@@ -4,10 +4,12 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using NextUnit.CodeAnalysis.Shared;
+using NextUnit.Generator.Diagnostics;
 using NextUnit.Generator.Emitters;
 using NextUnit.Generator.Helpers;
 using NextUnit.Generator.Models;
 using NextUnit.Generator.Validators;
+using NextUnit.Shared;
 
 namespace NextUnit.Generator;
 
@@ -47,9 +49,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             .Where(static method => method is not null)
             .Select(static (method, _) => method!);
 
-        // Projected to an int before it enters the pipeline: the options provider itself is a new
-        // instance on every compilation, so combining it directly would invalidate the source output
-        // on every keystroke, while the parsed value compares equal and keeps the output cached.
+        // Projected to a value model before it enters the pipeline: the options provider itself is a
+        // new instance on every compilation, so combining it directly would invalidate the source
+        // output on every keystroke, while the resolved value compares equal and keeps it cached.
         var maxTestCasesPerMethod = context.AnalyzerConfigOptionsProvider
             .Select(static (provider, _) => GeneratorOptions.ReadMaxTestCasesPerMethod(provider.GlobalOptions));
 
@@ -231,8 +233,20 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         ImmutableArray<TestMethodDescriptor> tests,
         ImmutableArray<LifecycleMethodDescriptor> beforeLifecycle,
         ImmutableArray<LifecycleMethodDescriptor> afterLifecycle,
-        int maxTestCasesPerMethod)
+        (int Cap, string? UnusableValue) maxTestCasesPerMethod)
     {
+        if (maxTestCasesPerMethod.UnusableValue is { } unusableValue)
+        {
+            // Reported, and then the default cap is applied and the registry emitted anyway. The
+            // error already fails the build; emitting nothing on top of it would bury NEXTUNIT014
+            // under a CS0246 for every symbol the missing registry was supposed to declare.
+            context.ReportDiagnostic(Diagnostic.Create(
+                GeneratorDiagnosticDescriptors.TestCaseExpansionLimitOverrideUnusable,
+                Location.None,
+                unusableValue,
+                TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod));
+        }
+
         // Ordinal ordering by test id keeps the emitted registry stable across compilations,
         // which is what lets the snapshot tests compare generated text byte for byte.
         var allTests = tests
@@ -245,7 +259,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         LifecycleMethodValidator.ValidateAll(context, allTests, beforeLifecycle, afterLifecycle);
 
         var emittableTests = TestCaseExpansionValidator.RemoveOverLimitTests(
-            context, allTests, maxTestCasesPerMethod);
+            context, allTests, maxTestCasesPerMethod.Cap);
 
         var source = RegistryEmitter.Emit(emittableTests, beforeLifecycle, afterLifecycle);
         context.AddSource("GeneratedTestRegistry.g.cs", SourceText.From(source, Encoding.UTF8));
