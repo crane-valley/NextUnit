@@ -3,6 +3,8 @@ NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer
 NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer.ArgumentsCountAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer
 NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer.AsyncVoidTestAnalyzer() -> void
+NextUnit.Analyzers.Analyzers.ClassDataSourceAccessibilityAnalyzer
+NextUnit.Analyzers.Analyzers.ClassDataSourceAccessibilityAnalyzer.ClassDataSourceAccessibilityAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer
 NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.ConflictingRetryAttributeAnalyzer() -> void
 NextUnit.Analyzers.Analyzers.CultureNameAnalyzer
@@ -39,6 +41,8 @@ override NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer.Initialize(Microsof
 override NextUnit.Analyzers.Analyzers.ArgumentsCountAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
 override NextUnit.Analyzers.Analyzers.AsyncVoidTestAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override NextUnit.Analyzers.Analyzers.ClassDataSourceAccessibilityAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override NextUnit.Analyzers.Analyzers.ClassDataSourceAccessibilityAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
 override NextUnit.Analyzers.Analyzers.ConflictingRetryAttributeAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
 override NextUnit.Analyzers.Analyzers.CultureNameAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void

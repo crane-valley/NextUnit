@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-08-22
+
+### Upgrading from 2.x
+
+3.0.0 turns several previously silent situations into build errors, and makes lifecycle
+declarations on a base test class take effect. A suite that built and ran green on 2.0.0 can
+therefore fail to build on 3.0.0, or run setup it used to skip.
+
+New errors that can fail a build that used to compile:
+
+- `NEXTUNIT015` -- a `[Before]` or `[After]` hook the generated registry cannot call. Make the hook
+  `public`, or `internal` in the test assembly. A `protected` setup on a shared base class is the
+  most likely break, because that is the ordinary shape in an xUnit or NUnit suite.
+- `NEXTUNIT016` -- a `[DisplayNameFormatter]`, `[DisplayNameFormatter<T>]`, or inherited
+  `[Retry<TPolicy>]` that names a type the registry cannot name. Make that type `public`, or
+  `internal` in the test assembly.
+- `NU0022` -- a `[ClassDataSource<T>]` or `[ValuesFrom<T>]` source type the registry cannot name.
+  Make it, every type it is nested in, and every type argument it names `public`, or `internal` in
+  the test assembly.
+- `NEXTUNIT013` -- one test method expands past the new 10000 test case cap. Reduce the `[Matrix]`,
+  `[Repeat]`, `[Values]`, or `[Arguments]` values, or raise the compile-time cap with
+  `<NextUnitMaxTestCasesPerMethod>` in the project file. Discovery applies its own cap, to the
+  combined data source product only, and throws rather than reporting; raise
+  `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` for the run only if that product is what exceeds the limit,
+  since a `[Matrix]`, `[Arguments]`, or `[Repeat]` expansion is settled at compile time.
+- `NEXTUNIT014` -- `<NextUnitMaxTestCasesPerMethod>` is set to something that is not a positive
+  32-bit integer, where it used to be discarded in favor of the default. Correct the value, or
+  remove the property; blank still reads as unset. The environment variable is checked the same way
+  at its own read site, where discovery throws an `InvalidOperationException` instead.
+- `NU0003`, `NU0014`, `NU0020`, and `NU0021` now report data sources that used to compile clean,
+  emit no provider, and fail at discovery with a member-not-found message. Each message names the
+  fix, including `MemberType = typeof(TheBaseType)` for a member on a farther base class.
+
+`NEXTUNIT013` through `NEXTUNIT016` are not configurable. `NEXTUNIT013`, `NEXTUNIT015`, and
+`NEXTUNIT016` also drop the declaration they report, so suppressing the severity would turn a failed
+build into a green one that silently runs less than you wrote. `NEXTUNIT014` instead emits the
+registry under the default cap after reporting, and suppressing it would restore exactly the
+fail-open behavior it replaces, where a typo meant to tighten the cap loosened it to the default.
+`NU0022` takes an `.editorconfig` severity like any analyzer rule, but lowering it only puts the
+`CS0122` it replaced back inside generated code.
+
+Behavior changes in a build that still compiles:
+
+- Lifecycle hooks and configuration attributes declared on a base test class now apply to the
+  classes derived from it, so a test that silently skipped a base class's setup now runs it, and a
+  base class's `[Timeout]` or `[Retry]` now applies. To opt one derived class out of an inherited
+  hook, override a `virtual` or `abstract` hook with a body that does nothing; a `new` method is a
+  second hook rather than a replacement, so a non-virtual hook has no per-class opt-out. To opt
+  every class out, move the hook down to the ones that want it. An inherited `[Category]`, `[Tag]`,
+  `[Explicit]`, `[Flaky]`, or `[NotInParallel]` has no opt-out, so a class that must not carry one
+  cannot derive from a class that declares it.
+- `[After]` hooks now run after a failing `[Before]` hook or a failing test, where they used to be
+  skipped entirely, and teardown unwinds only the classes whose setup was reached. There is no
+  opt-out. A failing `[After]` hook fails the test and is never retried, and a `[Timeout]` does not
+  bound one.
+- Display names format their arguments with the invariant culture at both ends, so on a machine
+  whose ambient culture is not invariant a name-based filter written against the old text stops
+  matching. Test IDs are structural and are unaffected.
+
 ### Added
 
 - `NEXTUNIT015` reports a lifecycle hook the generated registry cannot call, and `NEXTUNIT016` an
@@ -44,7 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This can still fail a build that was compiling. The rule is an error rather than a warning, so a
   suite that reached the registry through a source the generator emitted but whose consumer build was
   already failing on `CS0122` now fails earlier and by name, and any suite that suppressed that
-  compiler error fails outright. Whether that warrants a major version is a release-time decision.
+  compiler error fails outright. That is one of the reasons this release is a major version.
 
 ### Fixed
 
@@ -238,7 +297,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Inherited = true` would advertise a merge the generator does not perform. Nothing in NextUnit
   reads `Inherited`, so no generated code changes; what changes is what third-party tooling and
   readers are told.
-  This supersedes an entry earlier in this same unreleased cycle that set `Inherited = false` on
+  This supersedes an entry earlier in this same release cycle that set `Inherited = false` on
   every attribute. That decision was right while the generator read directly applied attributes
   only; the generator now walks the chains, so the honest metadata moved with it. Neither version
   shipped, so there is nothing for a released suite to have depended on.
@@ -1751,6 +1810,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 3.0.0 | 2026-08-22 | 1630 | Lifecycle hooks and configuration attributes inherited from base test classes, [After] hooks run after failures with teardown unwinding only entered levels, test case expansion cap, invariant-culture display names, NU0022 and NEXTUNIT013-NEXTUNIT016 | Released |
 | 2.0.0 | 2026-08-12 | 1402 | Unified shared data source instances with session-end disposal, NextUnit.Internal execution types demoted to internal, obsolete Assert.Throws expectedMessage overloads removed, deterministic data source row-type selection, assembly-level ParallelLimit resolution, NU0019-NU0021 | Released |
 | 1.19.1 | 2026-08-10 | 1342 | --list-tests discovery reporting, keyword identifier escaping in generated type names | Released |
 | 1.19.0 | 2026-08-05 | 1333 | Async and deferred [TestData] sources, selective retry with IRetryPolicy, deterministic culture isolation, dotnet new nextunit template | Released |

@@ -37,3 +37,14 @@ Rule ID | Category | Severity | Notes
 NEXTUNIT010 | NextUnit | Warning | Conflicting test data attributes (parameter-level sources with other sources)
 NEXTUNIT011 | NextUnit | Error | Incomplete parameter data sources
 NEXTUNIT012 | NextUnit | Error | Missing Key for Keyed ValuesFrom
+
+## Release 3.0.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+NEXTUNIT013 | NextUnit | Error | Test case expansion limit exceeded
+NEXTUNIT014 | NextUnit | Error | Test case expansion limit override is unusable
+NEXTUNIT015 | NextUnit | Error | Lifecycle method is not accessible to generated code
+NEXTUNIT016 | NextUnit | Error | Attribute type is not accessible to generated code
