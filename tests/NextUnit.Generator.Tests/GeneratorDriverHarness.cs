@@ -24,10 +24,6 @@ internal static class GeneratorDriverHarness
         string assemblyName = "TestProject")
     {
         var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
-        if (extraReferences is not null)
-        {
-            references = references.AddRange(extraReferences);
-        }
 
         return CSharpCompilation.Create(
             assemblyName,

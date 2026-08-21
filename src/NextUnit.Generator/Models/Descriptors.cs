@@ -238,7 +238,22 @@ internal sealed record LifecycleMethodDescriptor
 
 internal enum TestClassConstructorKind
 {
+    /// <summary>
+    /// No constructor the generator can call, but the runtime reflection fallback still can -- a
+    /// class whose only constructor is private, for instance.
+    /// </summary>
     None,
+
+    /// <summary>
+    /// Nothing can construct the class, so a hook needing an instance cannot be honored.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="None"/> because the two want opposite treatment: a private
+    /// constructor is handed to the reflection fallback on purpose, while an abstract class has no
+    /// instance to fall back to and only produces an <c>Activator</c> message about a type the user
+    /// never asked it to build.
+    /// </remarks>
+    Uninstantiable,
     Parameterless,
     Context,
     Output,

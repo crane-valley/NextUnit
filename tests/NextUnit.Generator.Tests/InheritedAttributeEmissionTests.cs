@@ -502,6 +502,72 @@ public class InheritedAttributeEmissionTests
             "a lookalike attribute must not supply a formatter");
     }
 
+    [Fact]
+    public async Task AMethodThatNamesItself_KeepsThatNameOverAnInheritedFormatterAsync()
+    {
+        var registry = await GenerateAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public sealed class UpperCaseFormatter : IDisplayNameFormatter
+            {
+                public string Format(DisplayNameContext context) => context.MethodName;
+            }
+
+            [DisplayNameFormatter<UpperCaseFormatter>]
+            public class BaseTests
+            {
+            }
+
+            public class DerivedTests : BaseTests
+            {
+                [Test]
+                [DisplayName("Reads an order")]
+                public void Named() { }
+
+                [Test]
+                public void Unnamed() { }
+            }
+            """);
+
+        // DisplayNameBuilder applies a formatter ahead of the template, so leaving the inherited
+        // formatter on the named method would silently discard the name it asked for.
+        Assert.Contains("CustomDisplayNameTemplate = \"Reads an order\"", registry);
+        Assert.Equal(1, Occurrences(registry, "DisplayNameFormatterType = typeof("));
+    }
+
+    [Fact]
+    public async Task AStaticTestInAClassThatCannotBeConstructed_FailsWithTheReasonAsync()
+    {
+        var registry = await GenerateAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public abstract class FixtureBase
+            {
+                [Before(LifecycleScope.Test)]
+                public void Setup() { }
+            }
+
+            public abstract class StaticTests : FixtureBase
+            {
+                [Test]
+                public static void Run() { }
+            }
+            """);
+
+        // The inherited instance hook needs an instance the static test never required, and an
+        // abstract class cannot supply one. Emitting no factory would hand the case to the
+        // reflection fallback, which reports it as whatever Activator.CreateInstance says about a
+        // type the user never asked it to build. A private constructor stays on the fallback.
+        Assert.Contains("is abstract and cannot be instantiated", registry);
+        Assert.False(
+            registry.Contains("TestClassFactory = static (output, context) => new global::TestProject.StaticTests()", StringComparison.Ordinal),
+            "an abstract class must not be constructed");
+    }
+
     private static string FormatIds(IReadOnlyList<Diagnostic> diagnostics) =>
         $"reported: {string.Join(", ", diagnostics.Select(static diagnostic => diagnostic.Id))}";
 

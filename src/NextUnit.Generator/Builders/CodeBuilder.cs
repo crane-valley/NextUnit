@@ -130,6 +130,22 @@ internal static class CodeBuilder
             test.MethodName);
     }
 
+    /// <summary>
+    /// Builds the factory the runtime calls to obtain the test class instance.
+    /// </summary>
+    /// <remarks>
+    /// An abstract class gets a factory that fails with the reason instead of no factory at all.
+    /// Emitting nothing hands the case to the reflection fallback, which reports whatever
+    /// <c>Activator.CreateInstance</c> says about a type the user never asked it to build; naming the
+    /// class and the ways out is the same trade <see cref="BuildUnreachableDataSourceProvider"/>
+    /// makes. A static test whose class inherits an instance <c>[Before]</c> or <c>[After]</c> hook
+    /// reaches it: the hook needs an instance the static test never required.
+    /// <para>
+    /// A class with only a private constructor is deliberately not treated this way. It emits no
+    /// factory and the reflection fallback constructs it, which is existing behavior a snapshot
+    /// pins.
+    /// </para>
+    /// </remarks>
     public static string BuildTestClassFactory(
         string typeName,
         TestClassConstructorKind constructorKind,
@@ -138,6 +154,17 @@ internal static class CodeBuilder
         if (!requiresInstance)
         {
             return "static (output, context) => null!";
+        }
+
+        if (constructorKind == TestClassConstructorKind.Uninstantiable)
+        {
+            return "static (output, context) => throw new global::System.InvalidOperationException(" +
+                AttributeHelper.ToLiteral(
+                    $"Test class '{typeName}' is abstract and cannot be instantiated, but a test in it needs " +
+                    "an instance -- either the test itself, or a test-scoped or class-scoped instance " +
+                    "lifecycle hook it declares or inherits. Make the hook static, or move the test to a " +
+                    "concrete class.") +
+                ")";
         }
 
         return constructorKind switch

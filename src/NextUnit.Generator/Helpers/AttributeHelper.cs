@@ -817,6 +817,14 @@ internal static class AttributeHelper
 
     public static TestClassConstructorMetadata GetTestClassConstructorMetadata(INamedTypeSymbol typeSymbol)
     {
+        if (typeSymbol.IsAbstract)
+        {
+            return new TestClassConstructorMetadata(
+                TestClassConstructorKind.Uninstantiable,
+                requiresTestOutput: false,
+                requiresTestContext: false);
+        }
+
         var hasParameterless = false;
         var hasContext = false;
         var hasOutput = false;
@@ -1018,8 +1026,22 @@ internal static class AttributeHelper
         IMethodSymbol methodSymbol,
         INamedTypeSymbol typeSymbol)
     {
+        // A method that names itself with [DisplayName] keeps that name: the attribute documents the
+        // method-level name as the override of an enclosing formatter, and only a formatter on the
+        // method itself -- the other override it names -- outranks it. Without this the two would
+        // resolve the wrong way round, because DisplayNameBuilder applies a formatter ahead of the
+        // template, so an inherited formatter would silently discard a name the method asked for.
+        // Reversing that priority in the builder instead was rejected: it would also change what a
+        // formatter on the test's own class does, which has nothing to do with inheritance.
+        var namesItself = GetCustomDisplayName(methodSymbol) is not null;
+
         foreach (var level in InheritanceLevels(methodSymbol, typeSymbol))
         {
+            if (namesItself && !SymbolEqualityComparer.Default.Equals(level, methodSymbol))
+            {
+                return null;
+            }
+
             if (GetDisplayNameFormatterFromSymbol(level) is { } formatter)
             {
                 return formatter;
