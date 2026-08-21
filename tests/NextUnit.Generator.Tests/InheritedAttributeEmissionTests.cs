@@ -461,6 +461,47 @@ public class InheritedAttributeEmissionTests
         Assert.False(registry.Contains("AliasedFormatter", StringComparison.Ordinal), "the unnameable formatter must not be emitted");
     }
 
+    [Fact]
+    public async Task ATypeThatMerelyLooksLikeTheGenericFormatterAttribute_IsNotReadAsOneAsync()
+    {
+        var registry = await GenerateAsync("""
+            using System;
+
+            namespace NextUnit
+            {
+                public static class Lookalike
+                {
+                    public sealed class DisplayNameFormatterAttribute<T> : Attribute
+                    {
+                    }
+                }
+            }
+
+            namespace TestProject
+            {
+                using NextUnit;
+
+                public sealed class NotAFormatter
+                {
+                }
+
+                public class OwnTests
+                {
+                    [Test]
+                    [Lookalike.DisplayNameFormatter<NotAFormatter>]
+                    public void Run() { }
+                }
+            }
+            """);
+
+        // The nested type reports the same metadata name and the same enclosing namespace as the
+        // real attribute, so matching on those two alone would hand the registry a formatter that
+        // does not implement IDisplayNameFormatter.
+        Assert.False(
+            registry.Contains("DisplayNameFormatterType = typeof(", StringComparison.Ordinal),
+            "a lookalike attribute must not supply a formatter");
+    }
+
     private static string FormatIds(IReadOnlyList<Diagnostic> diagnostics) =>
         $"reported: {string.Join(", ", diagnostics.Select(static diagnostic => diagnostic.Id))}";
 

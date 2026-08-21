@@ -1044,8 +1044,20 @@ internal static class AttributeHelper
             if (attrClass is { IsGenericType: true })
             {
                 var constructedFrom = attrClass.ConstructedFrom;
-                if (constructedFrom.MetadataName == "DisplayNameFormatterAttribute`1" &&
-                    constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace)
+
+                // Matched by arity-bearing metadata name and namespace rather than through
+                // IsAttribute, because the constructed display string carries the type argument and
+                // so never equals a stored name. The containing type must be absent and the
+                // namespace must be NextUnit directly under the global one: a nested
+                // NextUnit.Something.DisplayNameFormatterAttribute<T> reports the same metadata name
+                // and the same enclosing namespace, so without both checks a user type that merely
+                // looks like the attribute would supply the formatter.
+                if (constructedFrom is
+                    {
+                        MetadataName: "DisplayNameFormatterAttribute`1",
+                        ContainingType: null,
+                        ContainingNamespace: { Name: NextUnitAttributeNames.Namespace, ContainingNamespace.IsGlobalNamespace: true }
+                    })
                 {
                     return attrClass.TypeArguments[0];
                 }
