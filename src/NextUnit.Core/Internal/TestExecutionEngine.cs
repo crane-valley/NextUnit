@@ -1152,15 +1152,12 @@ internal sealed class TestExecutionEngine
                 // Runtime skip - do not retry skips
                 result = AttemptResult.Skipped(ex);
             }
-            catch (OutOfMemoryException ex)
+            catch (Exception ex) when (ExceptionHelper.IsCriticalException(ex))
             {
                 // Captured rather than rethrown so the unwind below still runs and cannot replace it;
                 // fail-fast behavior for critical exception types is preserved by rethrowing it after.
-                bodyCritical = ExceptionDispatchInfo.Capture(ex);
-                result = AttemptResult.Reported;
-            }
-            catch (StackOverflowException ex)
-            {
+                // Asked of ExceptionHelper rather than spelled out as two catch clauses, so the set
+                // cannot drift from the one every other guard in the engine uses.
                 bodyCritical = ExceptionDispatchInfo.Capture(ex);
                 result = AttemptResult.Reported;
             }

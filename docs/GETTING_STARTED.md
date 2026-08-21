@@ -728,7 +728,9 @@ public class FlakyIntegrationTests
 }
 ```
 
-Timeouts, runtime skips, and run cancellation are never retried. A `[Timeout]` budget applies to each
+Timeouts, runtime skips, and run cancellation are never retried, and neither is a failure that came
+from cleaning up after the test rather than from the test: an `[After]` hook that threw, or a
+`Dispose` that threw, ends the attempts where it happened. A `[Timeout]` budget applies to each
 attempt separately, not to the whole retry sequence. A count below 1 is reported as `NU0017`.
 
 ### Retrying Selectively

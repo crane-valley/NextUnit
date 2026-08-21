@@ -803,7 +803,9 @@ and a failing repetition no longer stops the ones after it. Add `[NotInParallel]
 the problem, and write an ordinary loop inside one test when you need stop-on-first-failure.
 
 The retryable set is wider here than in NUnit. NextUnit's `[Retry]` re-runs a test after any failure
-except a timeout, a runtime skip, and cancellation, including one that threw an unexpected exception.
+except a timeout, a runtime skip, cancellation, and a failure thrown while cleaning up after the test
+rather than by the test -- an `[After]` hook or a `Dispose` -- including one that threw an unexpected
+exception.
 NUnit's `[Retry]` re-runs an assertion failure and leaves an error alone, so a test that used to fail
 at once can now be retried into passing. `IRetryPolicy`, attached with `[Retry<TPolicy>(count)]`,
 decides per failure. A policy that accepts only `AssertionFailedException` is the closest match to
