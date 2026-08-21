@@ -1020,6 +1020,36 @@ the bound.
   variable only by the test host, and each is validated where it is read -- which leaves the item
   above, on the two caps being configured independently, exactly where it was.
 
+### Priority 3 — Trimming roots are emitted for class data sources that never expand
+
+Surfaced by the Codex review of PR #234 (2026-08-21) and left open there. `EmitDynamicDependencies`
+in `src/NextUnit.Generator/Emitters/RegistryEmitter.cs` builds its reflection root set from every
+descriptor's `ClassDataSources`, before `TestPartition.Create` in the same file has decided which
+bucket the test belongs to. That partition puts a test carrying any parameter-level source into
+`CombinedDataSourceTests` ahead of `ClassDataSourceTests`, so a method with both
+`[ClassDataSource<T>]` and a parameter-level `[Values]` or `[ValuesFrom<U>]` expands the parameter
+sources only, and still emits `[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(T))]`,
+holding every member of `T` against the trimmer for a source no row ever comes from. `NEXTUNIT010`
+already warns on the combination, so the shape is known at generation time.
+
+The per-parameter case is already right. `ParameterDataSourceSelector` in
+`src/NextUnit.CodeAnalysis.Shared/ParameterDataSourceSelector.cs` picks one attribute per parameter,
+so `[Values(1)] [ValuesFrom<U>]` records no class type name in
+`DataSourceAttributeReader.TryGetParameterDataSource` and roots nothing. What leaks is only the
+method-level source the partition passes over.
+
+- [ ] Decide whether the reflection roots should be computed from the partition rather than from the
+  raw descriptor list, dropping a class data source that a parameter-level source shadows.
+
+Only the root may be dropped. The NU0022 contract deliberately does not withhold the type, so an
+unreachable shadowed class source must still be diagnosed loudly. The same review proposed gating
+`src/NextUnit.Analyzers/Analyzers/ClassDataSourceAccessibilityAnalyzer.cs` on "parameter sources
+win"; that gate was implemented and reverted inside PR #234, because `EmitDynamicDependencies` writes
+`typeof(T)` for the shadowed source regardless, so suppressing NU0022 left the consumer with the bare
+`CS0122` in generated code that the rule exists to replace. A test pins the reporting. Dropping the
+root and keeping the diagnostic are therefore one change and not two: NU0022 stays unconditional
+unless the emitted `typeof(T)` goes with it.
+
 ## Deferred to the next major version
 
 Breaking changes that could not ship in 1.x. All three shipped in 2.0.0, and the

@@ -500,7 +500,7 @@ automatic dependency submission restores these projects without the local packag
 pointing at an unpublished version breaks that job.
 
 This bump belongs in its own chore PR after the release, never in the release PR, because the version
-has to be live on nuget.org first. Recent examples: #172, #179, #195.
+has to be live on nuget.org first. Recent examples: #211, #216, #227.
 
 #### 1. Wait for nuget.org to index the new version
 
