@@ -260,7 +260,17 @@ NextUnit.Internal.LifecycleInfo.BeforeSessionMethods.get -> System.Collections.G
 NextUnit.Internal.LifecycleInfo.BeforeSessionMethods.init -> void
 NextUnit.Internal.LifecycleInfo.BeforeTestMethods.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleMethodDelegate!>!
 NextUnit.Internal.LifecycleInfo.BeforeTestMethods.init -> void
+NextUnit.Internal.LifecycleInfo.ClassLevels.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleLevel!>!
+NextUnit.Internal.LifecycleInfo.ClassLevels.init -> void
 NextUnit.Internal.LifecycleInfo.LifecycleInfo() -> void
+NextUnit.Internal.LifecycleInfo.TestLevels.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.LifecycleLevel!>!
+NextUnit.Internal.LifecycleInfo.TestLevels.init -> void
+NextUnit.Internal.LifecycleLevel
+NextUnit.Internal.LifecycleLevel.AfterCount.get -> int
+NextUnit.Internal.LifecycleLevel.AfterCount.init -> void
+NextUnit.Internal.LifecycleLevel.BeforeCount.get -> int
+NextUnit.Internal.LifecycleLevel.BeforeCount.init -> void
+NextUnit.Internal.LifecycleLevel.LifecycleLevel() -> void
 NextUnit.Internal.LifecycleMethodDelegate
 NextUnit.Internal.ParallelInfo
 NextUnit.Internal.ParallelInfo.ConstraintKeys.get -> System.Collections.Generic.IReadOnlyList<string!>!

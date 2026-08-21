@@ -1,5 +1,1 @@
 #nullable enable
-NextUnit.Analyzers.Analyzers.ClassDataSourceAccessibilityAnalyzer
-NextUnit.Analyzers.Analyzers.ClassDataSourceAccessibilityAnalyzer.ClassDataSourceAccessibilityAnalyzer() -> void
-override NextUnit.Analyzers.Analyzers.ClassDataSourceAccessibilityAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
-override NextUnit.Analyzers.Analyzers.ClassDataSourceAccessibilityAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>

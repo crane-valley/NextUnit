@@ -11,7 +11,7 @@
   <ItemGroup>
     <!-- The NextUnit meta-package brings the runtime, the source generator, the analyzers, and the
          Microsoft.Testing.Platform entry point, so no other package reference is needed. -->
-    <PackageReference Include="NextUnit" Version="2.0.0" />
+    <PackageReference Include="NextUnit" Version="3.0.0" />
   </ItemGroup>
 
   <ItemGroup>
