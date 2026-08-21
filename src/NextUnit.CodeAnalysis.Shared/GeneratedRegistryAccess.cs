@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -73,11 +72,16 @@ internal static class GeneratedRegistryAccess
     /// write anything else.
     /// </para>
     /// <para>
-    /// Binding alone is not quite enough, because it discards diagnostics. A name that source and
-    /// metadata both declare binds to source and warns with <c>CS0436</c>, and a project promoting
-    /// warnings to errors would fail on the generated file even though the user's own file may carry
-    /// a <c>#pragma</c> for it. So a name any other assembly also declares is refused as well: the
-    /// qualifier is only worth having where it costs the consumer's build nothing.
+    /// Requiring the name to be declared by one assembly only was tried on top of this and removed.
+    /// It was there because binding discards diagnostics, and a name that source and metadata both
+    /// declare binds to source while warning with <c>CS0436</c>. But the registry's file header is a
+    /// bare <c>#pragma warning disable</c>, so no warning this name can add reaches the consumer's
+    /// build, <c>TreatWarningsAsErrors</c> included -- a suppressed diagnostic is never reported, so
+    /// there is nothing left to promote. The check bought nothing and cost the capture this
+    /// qualification exists to close: refusing a name falls back to the derived type, which is the
+    /// one member a concurrent generator can add. What no pragma suppresses is an error, and the
+    /// errors this name can take -- <c>CS0400</c>, <c>CS0433</c> -- already fail the comparison
+    /// above, because neither binds to the intended symbol.
     /// </para>
     /// <para>
     /// Emitting an <c>extern alias</c> directive of its own was rejected as the alternative. A
@@ -108,74 +112,7 @@ internal static class GeneratedRegistryAccess
             .GetSpeculativeSymbolInfo(0, name, SpeculativeBindingOption.BindAsTypeOrNamespace)
             .Symbol;
 
-        return SymbolEqualityComparer.Default.Equals(bound, type) &&
-            IsDeclaredOnce(type, semanticModel.Compilation);
-    }
-
-    /// <summary>
-    /// Reports whether the type, and everything its name is composed from, is declared by one
-    /// assembly only.
-    /// </summary>
-    /// <remarks>
-    /// The question binding cannot answer: which diagnostic the use would carry. A name declared
-    /// twice still binds -- to source, over metadata -- and warns with <c>CS0436</c>, so it is
-    /// refused here rather than emitted into a build that may promote that warning. The nesting chain
-    /// is checked link by link because the shadowed declaration can be an outer type, and every
-    /// link's type arguments because they are written out too.
-    /// </remarks>
-    private static bool IsDeclaredOnce(ITypeSymbol type, Compilation compilation)
-    {
-        if (type is IArrayTypeSymbol array)
-        {
-            return IsDeclaredOnce(array.ElementType, compilation);
-        }
-
-        if (type is not INamedTypeSymbol namedType)
-        {
-            return true;
-        }
-
-        // The chain is walked constructed rather than as definitions, and each link asked about both
-        // ways: Outer<Shadowed>.Inner carries its distinguishing argument one level up, which
-        // OriginalDefinition would drop, while the lookup itself needs the definition it names.
-        for (INamedTypeSymbol? current = namedType; current is not null; current = current.ContainingType)
-        {
-            if (compilation.GetTypesByMetadataName(GetFullMetadataName(current.OriginalDefinition)).Length > 1)
-            {
-                return false;
-            }
-
-            foreach (var typeArgument in current.TypeArguments)
-            {
-                if (!IsDeclaredOnce(typeArgument, compilation))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Builds the metadata name a type is looked up by: namespace-qualified, nesting joined with
-    /// <c>+</c>, and generic arity already carried by each part's own metadata name.
-    /// </summary>
-    private static string GetFullMetadataName(INamedTypeSymbol type)
-    {
-        var builder = new StringBuilder(type.MetadataName);
-
-        for (var containing = type.ContainingType; containing is not null; containing = containing.ContainingType)
-        {
-            builder.Insert(0, '+').Insert(0, containing.MetadataName);
-        }
-
-        if (type.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
-        {
-            builder.Insert(0, '.').Insert(0, containingNamespace.ToDisplayString());
-        }
-
-        return builder.ToString();
+        return SymbolEqualityComparer.Default.Equals(bound, type);
     }
 
     /// <summary>

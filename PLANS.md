@@ -756,16 +756,14 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   `CS0433`, which the user's own source dodges by writing the alias and the generated file cannot.
   A base whose namespace name is a type in another reference binds the name to that type's nested
   member instead, silently. A base whose name source and metadata both declare binds -- to source,
-  over metadata -- and warns with `CS0436`, which a project promoting warnings to errors fails on,
-  and the user's own file can carry a `#pragma` for that where the generated one cannot.
+  over metadata -- and warns with `CS0436`, which looked like a fifth case for two rounds and is not
+  one; the refusal built for it is recorded below, with the measurement that removed it.
   Enumerating those rules was tried first, one review round each, and abandoned: the domain is C#
   name resolution and every round modelled one more of it. `GeneratedRegistryAccess.NameBindsToType`
   hands the emitted text to the binder that will read it instead --
   `GetSpeculativeSymbolInfo` with `BindAsTypeOrNamespace` -- and requires the symbol that comes back
-  to be the declaring type, plus one thing binding cannot answer: speculative binding discards
-  diagnostics, so a name any other assembly also declares is refused as well, which is the `CS0436`
-  case above. The answer cannot disagree with the file being emitted, and it covers the whole
-  expression including type arguments, so `Base<A::Row>` needs no separate walk. Speculative
+  to be the declaring type. The answer cannot disagree with the file being emitted, and it covers the
+  whole expression including type arguments, so `Base<A::Row>` needs no separate walk. Speculative
   binding is position-independent for these names, because a `global::`-rooted name reads through no
   `using` and no `extern alias`, which is the same reason the registry cannot write anything else.
   Two rejected alternatives are worth recording. Reading the aliases off the reference
@@ -777,11 +775,22 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   directive would head every generated file for every consumer, and every emission site would have to
   agree on the choice -- for a case that keeps exactly the exposure it had before, since a name that
   does not compile closes no capture.
+  A third was tried, shipped for two rounds, and removed on 2026-08-22: requiring the name, its
+  nesting chain, and its type arguments to be declared by one assembly each, on the grounds that
+  binding discards diagnostics and the `CS0436` a source-over-metadata name carries would fail a
+  build promoting warnings to errors. It would not. The registry's file header is a bare
+  `#pragma warning disable`, so no warning the qualifier can add reaches the consumer's build --
+  measured both ways: a `TreatWarningsAsErrors` build of a registry-shaped file naming a source type
+  that a reference also declares is clean, and deleting only the pragma line turns it into
+  `error CS0436` at that expression. The refusal bought nothing and cost the capture this item exists
+  to close, because refusing a name falls back to the derived type, which is the one member a
+  concurrent generator can add. Raised by the Codex review of PR #237 and accepted.
   `InheritedFromAnAliasOnlyBase_KeepsTheDerivedQualifierAsync` and its parameter-level twin pin the
   alias case, `InheritedFromAnAmbiguouslyNamedBase_KeepsTheDerivedQualifierAsync` the homonym case,
   `InheritedFromABaseWhoseNamespaceNameIsATypeElsewhere_KeepsTheDerivedQualifierAsync` the
-  namespace-versus-type case, `InheritedFromASourceBaseShadowingAReference_KeepsTheDerivedQualifierAsync`
-  the promotable-warning case, and `InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync`
+  namespace-versus-type case, `InheritedFromASourceBaseShadowingAReference_QualifiesByTheDeclaringTypeAsync`
+  the source-shadows-metadata case that stays base-qualified, and
+  `InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync`
   the duplicate-reference case that the rejected alias heuristic got backwards.
 - [ ] The declaring-type qualifier spells type arguments the consumer's own source may never spell,
   and an `[Obsolete(error: true)]` one fails the generated file with `CS0619`. Raised by the Codex

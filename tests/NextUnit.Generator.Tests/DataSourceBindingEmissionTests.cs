@@ -934,13 +934,14 @@ public class DataSourceBindingEmissionTests
 
     /// <summary>
     /// A base declared in source that a referenced assembly also declares under the same fully
-    /// qualified name. That name binds -- to source, over metadata -- so binding alone would accept
-    /// it, but the use carries <c>CS0436</c>, which a project promoting warnings to errors fails on.
-    /// The user's own file can carry a <c>#pragma</c> for that; the generated one cannot, so the
-    /// qualifier is given up rather than emitted into a build it might break.
+    /// qualified name. C# binds that to the source declaration and warns with <c>CS0436</c>, and the
+    /// warning does not travel: the registry's file header is a bare <c>#pragma warning disable</c>,
+    /// so the generated file carries none of it even under <c>TreatWarningsAsErrors</c>. So the
+    /// qualification holds -- and it has to, because this is a test class deriving from a base of its
+    /// own, which is where a concurrent generator has something to capture.
     /// </summary>
     [Fact]
-    public async Task InheritedFromASourceBaseShadowingAReference_KeepsTheDerivedQualifierAsync()
+    public async Task InheritedFromASourceBaseShadowingAReference_QualifiesByTheDeclaringTypeAsync()
     {
         var source = """
             using NextUnit;
@@ -956,7 +957,7 @@ public class DataSourceBindingEmissionTests
 
             namespace TestProject
             {
-                public class DataTests : global::Fixtures.RowsBase
+                public partial class DataTests : global::Fixtures.RowsBase
                 {
                     [Test]
                     [TestData("Rows")]
@@ -971,11 +972,26 @@ public class DataSourceBindingEmissionTests
 
         var registry = await GenerateRegistryAsync(source, references);
 
-        Assert.Contains("global::TestProject.DataTests.Rows", registry);
-        Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+        Assert.Contains("global::Fixtures.RowsBase.Rows", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows", registry, StringComparison.Ordinal);
 
-        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+        await AssertGeneratedOutputCompilesAsync(source, ConcurrentlyGeneratedShadowedRows, references);
     }
+
+    /// <summary>
+    /// The concurrent generator's member for the shadowed-base case, whose test class declares no
+    /// namespace-level partial of its own.
+    /// </summary>
+    private const string ConcurrentlyGeneratedShadowedRows = """
+        using System.Collections.Generic;
+
+        namespace TestProject;
+
+        public partial class DataTests
+        {
+            public static new IEnumerable<object[]> Rows => new[] { new object[] { 99 } };
+        }
+        """;
 
     /// <summary>
     /// The base sits in an alias-hidden namespace whose name a globally referenced <em>type</em> also
