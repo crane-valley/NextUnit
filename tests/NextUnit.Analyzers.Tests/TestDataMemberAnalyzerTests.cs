@@ -812,6 +812,43 @@ public class TestDataMemberAnalyzerTests
         await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
     }
 
+    /// <summary>
+    /// An unresolved source type classifies as supplying no statically known row type, so row
+    /// validation stops before it can report. Pinned for the same reason the sibling
+    /// <c>[TestData]</c> cases are: a row-shape complaint about a type nobody can resolve would
+    /// bury the compiler error that actually needs fixing.
+    /// </summary>
+    [Fact]
+    public async Task ClassDataSourceWithUnresolvedTypeArgument_ReportsOnlyTheCompilerErrorAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            public sealed class Rows<T> : IEnumerable<TestDataRow<(int, string)>>
+            {
+                public IEnumerator<TestDataRow<(int, string)>> GetEnumerator() => throw new System.NotImplementedException();
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public class Tests
+            {
+                [Test]
+                [ClassDataSource<{|#0:Missing|}>]
+                public void TestMethod(int value, int other)
+                {
+                }
+            }
+            """;
+
+        var compilerError = DiagnosticResult.CompilerError("CS0246")
+            .WithLocation(0)
+            .WithArguments("Missing");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, compilerError);
+    }
+
     [Fact]
     public async Task TestDataWithCancellableAsyncEnumerable_NoDiagnosticAsync()
     {

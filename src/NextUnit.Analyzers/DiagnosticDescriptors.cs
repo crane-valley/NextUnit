@@ -250,4 +250,16 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "A data source type that implements IEnumerable, generic or not, as well as IAsyncEnumerable<T> is classified as synchronous, so that a type which meant IEnumerable before asynchronous sources existed keeps meaning it. The synchronous provider takes no arguments, so there is no token to pass and the member binds to nothing; without this rule the only symptom is a parameter-count failure from the runtime reflection fallback, which mentions neither the token nor the reason.");
+
+    /// <summary>
+    /// NU0022: Class data source type is not reachable from the generated registry.
+    /// </summary>
+    public static readonly DiagnosticDescriptor ClassDataSourceTypeNotAccessible = new(
+        id: "NU0022",
+        title: "Class data source type is not accessible to generated code",
+        messageFormat: "Class data source '{0}' is not accessible from the generated test registry; make it, every type it is nested in, and every type argument it names public, or internal in the test assembly or one that grants it InternalsVisibleTo",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "[ClassDataSource<T>] and [ValuesFrom<T>] are emitted as typeof(T) and new T() inside the generated registry, which is what keeps them AOT-safe, so the type has to be visible from there. The IEnumerable and new() constraints are satisfied at the attribute by a private or protected nested type, which then fails the build with CS0122 inside generated code. An unreachable [TestData] MemberType is withheld from the registry instead of reported this way, but that is not available here: the emitted factory is the only way a class data source is constructed, so withholding the type would trade a build error for a source that silently supplies no rows.");
 }
