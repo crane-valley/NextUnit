@@ -12,7 +12,7 @@
          breaks that job between a release merge and NuGet indexing. CI opts into
          the freshly packed version via -p:UseLocalNextUnitPackage=true. -->
     <NextUnitPackageSmokeVersion Condition="'$(UseLocalNextUnitPackage)' == 'true'">$(NextUnitVersion)</NextUnitPackageSmokeVersion>
-    <NextUnitPackageSmokeVersion Condition="'$(NextUnitPackageSmokeVersion)' == ''">2.0.0</NextUnitPackageSmokeVersion>
+    <NextUnitPackageSmokeVersion Condition="'$(NextUnitPackageSmokeVersion)' == ''">3.0.0</NextUnitPackageSmokeVersion>
   </PropertyGroup>
 
   <ItemGroup>
