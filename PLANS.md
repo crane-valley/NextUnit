@@ -1073,6 +1073,51 @@ the bound.
   variable only by the test host, and each is validated where it is read -- which leaves the item
   above, on the two caps being configured independently, exactly where it was.
 
+### Priority 3 — Trimming roots are emitted for class data sources that never expand
+
+Surfaced by the Codex review of PR #234 (2026-08-21) and left open there. `EmitDynamicDependencies`
+in `src/NextUnit.Generator/Emitters/RegistryEmitter.cs` builds its reflection root set from every
+descriptor's `ClassDataSources`, before `TestPartition.Create` in the same file has decided which
+bucket the test belongs to. That partition puts a test carrying any parameter-level source into
+`CombinedDataSourceTests` ahead of `ClassDataSourceTests`, so a method with both
+`[ClassDataSource<T>]` and a parameter-level `[Values]` or `[ValuesFrom<U>]` expands the parameter
+sources only, and still emits `[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(T))]`,
+holding every member of `T` against the trimmer for a source no row ever comes from. `NEXTUNIT010`
+already warns on the combination, so the shape is known at generation time.
+
+The per-parameter case is already right. `ParameterDataSourceSelector` in
+`src/NextUnit.CodeAnalysis.Shared/ParameterDataSourceSelector.cs` picks one attribute per parameter,
+so `[Values(1)] [ValuesFrom<U>]` records no class type name in
+`DataSourceAttributeReader.TryGetParameterDataSource` and roots nothing. What leaks is only the
+method-level source the partition passes over.
+
+- [ ] Decide whether the reflection roots should be computed from the partition rather than from the
+  raw descriptor list, dropping a class data source that a parameter-level source shadows.
+
+- [ ] Decide what the NU0022 contract becomes if that root is dropped. Today the root is the last
+  thing in the registry that names a shadowed `T`, and NU0022 exists to replace the `CS0122` that
+  reference produces on a private or protected nested source. Drop the root and the registry stops
+  naming `T` at all, so that same test compiles; an unconditional NU0022 would then reject a
+  compilable test rather than name an error the user was going to hit anyway. Either the rule gains
+  the shadowing gate it does not have today, or the root stays. This is the coupling the record
+  below is about, read in the opposite direction.
+
+- [ ] Decide whether `NEXTUNIT009` should be gated the same way. `TestMethodValidator`
+  (`src/NextUnit.Generator/Validators/TestMethodValidator.cs`) runs `ValidateClassDataSources` for
+  every test whose `ClassDataSources` is non-empty and never consults `CombinedParameterSources`, so
+  a shadowed `[ClassDataSource<T>(Shared = SharedType.Keyed)]` with no `Key` is an error today on a
+  test that expands none of it. The honest reading may be that a malformed declaration stays an
+  error whatever the partition does with it, which is a different answer from the one NU0022 needs;
+  what the item rejects is deciding the two by reflex rather than deliberately.
+
+Record of what was already settled, to keep it from being relitigated as written: the same review
+proposed gating `src/NextUnit.Analyzers/Analyzers/ClassDataSourceAccessibilityAnalyzer.cs` on
+"parameter sources win" on its own, and that gate was implemented and reverted inside PR #234.
+`EmitDynamicDependencies` writes `typeof(T)` for the shadowed source regardless, so suppressing
+NU0022 by itself left the consumer with the bare `CS0122` in generated code that the rule exists to
+replace, and a test now pins the reporting. That verdict holds only while the root is emitted, which
+is why the two decisions above are one change and not two.
+
 ## Deferred to the next major version
 
 Breaking changes that could not ship in 1.x. All three shipped in 2.0.0, and the
