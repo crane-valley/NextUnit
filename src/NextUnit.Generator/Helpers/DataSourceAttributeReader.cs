@@ -74,14 +74,15 @@ internal static class DataSourceAttributeReader
             var member = ResolveTestDataMember(memberType, memberName, knownDataSourceTypes);
 
             builder.Add(new TestDataSource(
-                memberName,
-                memberTypeName,
-                member.Kind,
-                member.Shape,
-                member.RowTypeName,
-                member.AcceptsCancellationToken,
-                deferredEnumeration,
-                unreachableMemberTypeName));
+                memberName: memberName,
+                memberTypeName: memberTypeName,
+                declaringTypeName: member.DeclaringTypeName,
+                memberKind: member.Kind,
+                shape: member.Shape,
+                rowTypeName: member.RowTypeName,
+                acceptsCancellationToken: member.AcceptsCancellationToken,
+                deferredEnumeration: deferredEnumeration,
+                unreachableMemberTypeName: unreachableMemberTypeName));
         }
 
         return builder.ToImmutable();
@@ -93,17 +94,8 @@ internal static class DataSourceAttributeReader
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            var attrClass = attribute.AttributeClass;
-            if (attrClass is not { IsGenericType: true })
-            {
-                continue;
-            }
-
-            var constructedFrom = attrClass.ConstructedFrom;
-            var metadataName = constructedFrom.MetadataName;
-
-            if (!metadataName.StartsWith(NextUnitAttributeNames.MetadataNames.ClassDataSourceAttributePrefix, StringComparison.Ordinal) ||
-                constructedFrom.ContainingNamespace.ToDisplayString() != NextUnitAttributeNames.Namespace)
+            var sourceTypes = ClassDataSourceAttributeMatcher.GetClassDataSourceTypes(attribute);
+            if (sourceTypes.IsEmpty)
             {
                 continue;
             }
@@ -123,7 +115,7 @@ internal static class DataSourceAttributeReader
                 }
             }
 
-            foreach (var typeArg in attrClass.TypeArguments)
+            foreach (var typeArg in sourceTypes)
             {
                 var typeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
                 builder.Add(new ClassDataSource(typeName, sharedType, key));
@@ -219,12 +211,15 @@ internal static class DataSourceAttributeReader
         int index,
         KnownDataSourceTypes knownDataSourceTypes)
     {
-        foreach (var attribute in parameter.GetAttributes())
+        var selected = ParameterDataSourceSelector.Select(parameter);
+        if (selected.Attribute is not { } attribute)
         {
-            if (AttributeHelper.IsAttribute(attribute, NextUnitAttributeNames.Values) &&
-                attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Kind == TypedConstantKind.Array)
-            {
+            return null;
+        }
+
+        switch (selected.Kind)
+        {
+            case ParameterDataSourceAttributeKind.Values:
                 return new ParameterDataSourceDescriptor(
                     parameterIndex: index,
                     parameterName: parameter.Name,
@@ -232,16 +227,14 @@ internal static class DataSourceAttributeReader
                     inlineValues: ConstantValueFactory.CreateRange(attribute.ConstructorArguments[0].Values),
                     memberName: null,
                     memberTypeName: null,
+                    declaringTypeName: null,
                     memberKind: DataSourceMemberKind.Unknown,
                     classTypeName: null,
                     sharedType: 0,
                     sharedKey: null);
-            }
 
-            if (AttributeHelper.IsAttribute(attribute, NextUnitAttributeNames.ValuesFromMember) &&
-                attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Value is string memberName &&
-                !string.IsNullOrEmpty(memberName))
+            case ParameterDataSourceAttributeKind.ValuesFromMember
+                when attribute.ConstructorArguments[0].Value is string memberName:
             {
                 var memberTypeArg = attribute.NamedArguments
                     .Where(arg => arg.Key == "MemberType")
@@ -253,6 +246,10 @@ internal static class DataSourceAttributeReader
                     memberTypeArg,
                     knownDataSourceTypes,
                     AttributeHelper.TypeExpressionFormat);
+                var (memberKind, declaringTypeName) = GetDataSourceMemberKind(
+                    memberType,
+                    memberName,
+                    knownDataSourceTypes);
 
                 return new ParameterDataSourceDescriptor(
                     parameterIndex: index,
@@ -261,55 +258,50 @@ internal static class DataSourceAttributeReader
                     inlineValues: EquatableArray<ConstantValue>.Empty,
                     memberName: memberName,
                     memberTypeName: memberTypeName,
-                    memberKind: GetDataSourceMemberKind(memberType, memberName, knownDataSourceTypes),
+                    declaringTypeName: declaringTypeName,
+                    memberKind: memberKind,
                     classTypeName: null,
                     sharedType: 0,
                     sharedKey: null,
                     unreachableMemberTypeName: unreachableMemberTypeName);
             }
 
-            var attrClass = attribute.AttributeClass;
-            if (attrClass is { IsGenericType: true })
+            case ParameterDataSourceAttributeKind.ValuesFrom
+                when ClassDataSourceAttributeMatcher.GetValuesFromType(attribute) is { } typeArg:
             {
-                var constructedFrom = attrClass.ConstructedFrom;
-                var metadataName = constructedFrom.MetadataName;
+                var classTypeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
+                var sharedType = 0;
+                var key = (string?)null;
 
-                if (metadataName.StartsWith(NextUnitAttributeNames.MetadataNames.ValuesFromAttributePrefix, StringComparison.Ordinal) &&
-                    constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace)
+                foreach (var namedArg in attribute.NamedArguments)
                 {
-                    var typeArg = attrClass.TypeArguments[0];
-                    var classTypeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
-                    var sharedType = 0;
-                    var key = (string?)null;
-
-                    foreach (var namedArg in attribute.NamedArguments)
+                    if (namedArg.Key == "Shared" && namedArg.Value.Value is int sharedValue)
                     {
-                        if (namedArg.Key == "Shared" && namedArg.Value.Value is int sharedValue)
-                        {
-                            sharedType = sharedValue;
-                        }
-                        else if (namedArg.Key == "Key" && namedArg.Value.Value is string keyValue)
-                        {
-                            key = keyValue;
-                        }
+                        sharedType = sharedValue;
                     }
-
-                    return new ParameterDataSourceDescriptor(
-                        parameterIndex: index,
-                        parameterName: parameter.Name,
-                        kind: ParameterDataSourceKind.Class,
-                        inlineValues: EquatableArray<ConstantValue>.Empty,
-                        memberName: null,
-                        memberTypeName: null,
-                        memberKind: DataSourceMemberKind.Unknown,
-                        classTypeName: classTypeName,
-                        sharedType: sharedType,
-                        sharedKey: key);
+                    else if (namedArg.Key == "Key" && namedArg.Value.Value is string keyValue)
+                    {
+                        key = keyValue;
+                    }
                 }
-            }
-        }
 
-        return null;
+                return new ParameterDataSourceDescriptor(
+                    parameterIndex: index,
+                    parameterName: parameter.Name,
+                    kind: ParameterDataSourceKind.Class,
+                    inlineValues: EquatableArray<ConstantValue>.Empty,
+                    memberName: null,
+                    memberTypeName: null,
+                    declaringTypeName: null,
+                    memberKind: DataSourceMemberKind.Unknown,
+                    classTypeName: classTypeName,
+                    sharedType: sharedType,
+                    sharedKey: key);
+            }
+
+            default:
+                return null;
+        }
     }
 
     /// <summary>
@@ -362,14 +354,14 @@ internal static class DataSourceAttributeReader
     /// whose declaring type is the unreachable part is handled in
     /// <see cref="GetEmittableTypeName"/> instead, and does not reach the fallback at all.
     /// </remarks>
-    private static DataSourceMemberKind GetDataSourceMemberKind(
+    private static (DataSourceMemberKind Kind, string? DeclaringTypeName) GetDataSourceMemberKind(
         INamedTypeSymbol? typeSymbol,
         string memberName,
         KnownDataSourceTypes knownDataSourceTypes)
     {
         if (typeSymbol is null)
         {
-            return DataSourceMemberKind.Unknown;
+            return (DataSourceMemberKind.Unknown, null);
         }
 
         foreach (var member in DataSourceMemberResolver.GetCandidateMembers(typeSymbol, memberName))
@@ -395,11 +387,11 @@ internal static class DataSourceAttributeReader
             }
 
             return GeneratedRegistryAccess.CanReachMember(member, knownDataSourceTypes.CompilingAssembly)
-                ? kind
-                : DataSourceMemberKind.Unknown;
+                ? (kind, GetDeclaringTypeName(member, knownDataSourceTypes))
+                : (DataSourceMemberKind.Unknown, null);
         }
 
-        return DataSourceMemberKind.Unknown;
+        return (DataSourceMemberKind.Unknown, null);
     }
 
     /// <summary>
@@ -412,7 +404,7 @@ internal static class DataSourceAttributeReader
     /// member the registry cannot name, or one whose cancellation token the synchronous provider has
     /// no way to pass, would produce generated code that does not compile.
     /// </remarks>
-    private static (DataSourceMemberKind Kind, DataSourceShape Shape, string? RowTypeName, bool AcceptsCancellationToken) ResolveTestDataMember(
+    private static (DataSourceMemberKind Kind, string? DeclaringTypeName, DataSourceShape Shape, string? RowTypeName, bool AcceptsCancellationToken) ResolveTestDataMember(
         INamedTypeSymbol? typeSymbol,
         string memberName,
         KnownDataSourceTypes knownDataSourceTypes)
@@ -431,7 +423,7 @@ internal static class DataSourceAttributeReader
 
         if (kind == DataSourceMemberKind.Unknown)
         {
-            return (DataSourceMemberKind.Unknown, DataSourceShape.Sync, null, false);
+            return (DataSourceMemberKind.Unknown, null, DataSourceShape.Sync, null, false);
         }
 
         // Classified once and read twice: the walk covers every interface the member's type
@@ -445,6 +437,43 @@ internal static class DataSourceAttributeReader
             ? classification.RowType?.ToDisplayString(AttributeHelper.TypeExpressionFormat)
             : null;
 
-        return (kind, classification.Shape, rowTypeName, resolved.AcceptsCancellationToken);
+        return (
+            kind,
+            GetDeclaringTypeName(resolved.Symbol, knownDataSourceTypes),
+            classification.Shape,
+            rowTypeName,
+            resolved.AcceptsCancellationToken);
+    }
+
+    /// <summary>
+    /// Names the type that declares a resolved data source member, for the emitted access to be
+    /// qualified with, or <c>null</c> to leave the caller on the qualifier it already had.
+    /// </summary>
+    /// <remarks>
+    /// A type expression format rather than the one <c>MemberType</c> is read with: a member access
+    /// qualifier is parsed as C#, where a nullable reference annotation would not compile. The
+    /// containing type of a declaration carries none, so the two agree on every real symbol; the
+    /// format is chosen for what the text has to be rather than for what it happens to produce.
+    /// <para>
+    /// A name that would not bind to the declaring type from the generated file is given up on
+    /// instead -- an <c>extern alias</c> hiding the assembly is the case that shows up first, and
+    /// the binder is asked rather than the cases enumerated. The caller then keeps the type the
+    /// attribute points at, a qualifier already known to bind because the user's own source names
+    /// it. That leaves the inherited-source capture this qualification closes open for such a base,
+    /// which is where it was before: a name that does not compile closes nothing.
+    /// </para>
+    /// </remarks>
+    private static string? GetDeclaringTypeName(ISymbol? member, KnownDataSourceTypes knownDataSourceTypes)
+    {
+        if (member?.ContainingType is not { } declaringType)
+        {
+            return null;
+        }
+
+        var typeExpression = declaringType.ToDisplayString(AttributeHelper.TypeExpressionFormat);
+
+        return GeneratedRegistryAccess.NameBindsToType(typeExpression, declaringType, knownDataSourceTypes.SemanticModel)
+            ? typeExpression
+            : null;
     }
 }

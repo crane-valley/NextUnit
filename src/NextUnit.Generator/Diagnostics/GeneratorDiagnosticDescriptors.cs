@@ -94,6 +94,29 @@ internal static class GeneratorDiagnosticDescriptors
         DiagnosticSeverity.Error,
         WellKnownDiagnosticTags.NotConfigurable);
 
+    /// <summary>
+    /// Reported when <c>&lt;NextUnitMaxTestCasesPerMethod&gt;</c> is set to something that cannot be
+    /// used as a cap.
+    /// </summary>
+    /// <remarks>
+    /// Not configurable, for the reason <see cref="TestCaseExpansionLimitExceeded"/> is and one more:
+    /// suppressing it would restore exactly the fail-open behavior it replaces, where a typo meant to
+    /// tighten the cap loosened it to the default instead. Nothing is trapped by taking suppression
+    /// away, because correcting the value or deleting the property both resolve it, and deleting it
+    /// is what the default was always for.
+    /// <para>
+    /// Reported rather than silently rounded to the nearest usable cap: there is no reading of
+    /// <c>100O</c> that yields a number the user asked for, and guessing one on a bound that governs
+    /// how much a compilation may expand is the failure mode this rule exists to remove.
+    /// </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor TestCaseExpansionLimitOverrideUnusable = Create(
+        "NEXTUNIT014",
+        "Test case expansion limit override is unusable",
+        "The <NextUnitMaxTestCasesPerMethod> value '{0}' is not a positive 32-bit integer. Set it to a value between 1 and 2147483647, or remove the property to use the default limit of {1}.",
+        DiagnosticSeverity.Error,
+        WellKnownDiagnosticTags.NotConfigurable);
+
     private static DiagnosticDescriptor Error(string id, string title, string messageFormat) =>
         Create(id, title, messageFormat, DiagnosticSeverity.Error);
 

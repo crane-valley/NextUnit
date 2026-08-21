@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
+using NextUnit.Internal;
 
 namespace NextUnit.Generator.Tests;
 
@@ -16,6 +17,7 @@ namespace NextUnit.Generator.Tests;
 public class TestCaseExpansionLimitTests
 {
     private const string ExpansionLimitId = "NEXTUNIT013";
+    private const string OverrideUnusableId = "NEXTUNIT014";
 
     [Fact]
     public async Task Repeat_AboveTheDefaultLimit_ReportsAsync()
@@ -314,10 +316,30 @@ public class TestCaseExpansionLimitTests
     [InlineData("0")]
     [InlineData("-1")]
     [InlineData("not-a-number")]
-    [InlineData("")]
-    public async Task ConfiguredLimit_Unusable_FallsBackToTheDefaultAsync(string configuredLimit)
+    [InlineData("100O")]
+    [InlineData("2147483648")]
+    public async Task ConfiguredLimit_Unusable_ReportsAsync(string configuredLimit)
     {
-        // A cap of 0 or a typo must not reject a nine-case matrix the default plainly allows.
+        // Nine cases are far under any cap, so nothing here is over-limit: the only thing that can
+        // fail this build is the override itself, which is the point. Falling back would have let
+        // "100O" -- written for 1000 -- grant the 10000 default instead of tightening anything.
+        var source = MatrixSource(parameterCount: 2, valuesPerParameter: 3);
+
+        await VerifyAsync(
+            source,
+            expectExpansionLimitDiagnostic: false,
+            configuredLimit: configuredLimit,
+            expectedUnusableOverride: configuredLimit);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ConfiguredLimit_Blank_UsesTheDefaultSilentlyAsync(string configuredLimit)
+    {
+        // Blank is how MSBuild spells "unset": it writes every CompilerVisibleProperty into the
+        // generated analyzer config whether or not the project defines the property, so reporting
+        // blank would fail the build of every consumer that never touched the escape hatch.
         var source = MatrixSource(parameterCount: 2, valuesPerParameter: 3);
 
         await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: configuredLimit);
@@ -326,6 +348,9 @@ public class TestCaseExpansionLimitTests
     [Fact]
     public async Task ConfiguredLimit_Unusable_StillAppliesTheDefaultAsync()
     {
+        // The registry is still emitted under the default cap after NEXTUNIT014, so an over-limit
+        // method is reported by name rather than buried under a CS0246 for every symbol a withheld
+        // registry would have failed to declare.
         var source = """
             using NextUnit;
 
@@ -341,7 +366,75 @@ public class TestCaseExpansionLimitTests
             }
             """;
 
-        await VerifyAsync(source, expectExpansionLimitDiagnostic: true, configuredLimit: "0");
+        await VerifyAsync(
+            source,
+            expectExpansionLimitDiagnostic: true,
+            configuredLimit: "0",
+            expectedUnusableOverride: "0");
+    }
+
+    [Fact]
+    public async Task ConfiguredLimit_Unusable_ReportsTheValueAndTheDefaultAsync()
+    {
+        var source = MatrixSource(parameterCount: 2, valuesPerParameter: 3);
+
+        await VerifyAsync(
+            source,
+            expectExpansionLimitDiagnostic: false,
+            configuredLimit: "100O",
+            expectedUnusableOverride: "100O",
+            expectedOverrideMessage: "The <NextUnitMaxTestCasesPerMethod> value '100O' is not a positive 32-bit " +
+                "integer. Set it to a value between 1 and 2147483647, or remove the property to use the default " +
+                "limit of 10000.");
+    }
+
+    [Fact]
+    public async Task OverrideUnusable_SuppressedInEditorConfig_StillReportsAsync()
+    {
+        // Suppressing NEXTUNIT014 would restore exactly the behavior it replaces -- the unusable
+        // value discarded, the default applied, nothing said -- so it carries NotConfigurable and
+        // severity = none cannot reach it.
+        var source = MatrixSource(parameterCount: 2, valuesPerParameter: 3);
+
+        var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
+        {
+            TestCode = source,
+            TestBehaviors = TestBehaviors.SkipGeneratedSourcesCheck,
+        };
+
+        test.TestState.AnalyzerConfigFiles.Add((
+            "/.globalconfig",
+            """
+            is_global = true
+            build_property.NextUnitMaxTestCasesPerMethod = 100O
+            dotnet_diagnostic.NEXTUNIT014.severity = none
+            """));
+
+        test.ExpectedDiagnostics.Add(new DiagnosticResult(OverrideUnusableId, DiagnosticSeverity.Error));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task BothOverrides_AreValidatedWhereEachIsReadAsync()
+    {
+        // The precedence rule, in executable form: neither override wins over the other, because the
+        // two are never read by the same component. The MSBuild property is the compile-time cap and
+        // only the generator sees it; NEXTUNIT_MAX_TEST_CASES_PER_METHOD is the discovery-time cap
+        // and only the test host sees it, since EnforceExtendedAnalyzerRules bans environment access
+        // from the analyzer assembly. So a usable property does not rescue an unusable environment
+        // value, and a usable environment value does not rescue an unusable property.
+        var source = MatrixSource(parameterCount: 2, valuesPerParameter: 3);
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "50");
+        Assert.Throws<InvalidOperationException>(() => TestCaseExpansionLimits.Resolve("100O"));
+
+        await VerifyAsync(
+            source,
+            expectExpansionLimitDiagnostic: false,
+            configuredLimit: "100O",
+            expectedUnusableOverride: "100O");
+        Assert.Equal(50, TestCaseExpansionLimits.Resolve("50"));
     }
 
     [Fact]
@@ -492,7 +585,9 @@ public class TestCaseExpansionLimitTests
         string source,
         bool expectExpansionLimitDiagnostic,
         string? configuredLimit = null,
-        string? expectedMessage = null)
+        string? expectedMessage = null,
+        string? expectedUnusableOverride = null,
+        string? expectedOverrideMessage = null)
     {
         var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
         {
@@ -510,6 +605,18 @@ public class TestCaseExpansionLimitTests
                 is_global = true
                 build_property.NextUnitMaxTestCasesPerMethod = {configuredLimit}
                 """));
+        }
+
+        if (expectedUnusableOverride is not null)
+        {
+            var expectedOverride = new DiagnosticResult(OverrideUnusableId, DiagnosticSeverity.Error);
+
+            if (expectedOverrideMessage is not null)
+            {
+                expectedOverride = expectedOverride.WithMessage(expectedOverrideMessage);
+            }
+
+            test.ExpectedDiagnostics.Add(expectedOverride);
         }
 
         if (expectExpansionLimitDiagnostic)

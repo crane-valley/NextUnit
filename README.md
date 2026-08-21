@@ -199,7 +199,18 @@ Raise the cap per project for the generator, and per run for discovery:
 NEXTUNIT_MAX_TEST_CASES_PER_METHOD=50000 dotnet run --project MyProject.Tests
 ```
 
-An unset, unparseable, or non-positive value uses the default.
+Leave both unset and the default applies. Set either one to anything that is not a positive 32-bit
+integer -- `100O` for `1000`, a `0`, a negative -- and NextUnit refuses it instead of falling back:
+the generator reports `NEXTUNIT014` and the build fails, and discovery throws before it resolves a
+single data source. A typo in a cap is always looser than the value you typed, so accepting the
+default in its place would quietly grant more than you asked for.
+
+Neither setting overrides the other, because nothing reads both. `NextUnitMaxTestCasesPerMethod` is
+the compile-time cap and only the generator sees it; `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` is the
+discovery-time cap and only the test host sees it. Each is validated where it is read, so a valid
+property does not rescue an unusable environment variable, and a valid environment variable does not
+rescue an unusable property. Raising one does not raise the other either -- set both when you want a
+larger cap in both places.
 
 ## Performance
 

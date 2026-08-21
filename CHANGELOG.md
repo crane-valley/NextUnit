@@ -7,7 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `NU0022` reports a `[ClassDataSource<T>]` or `[ValuesFrom<T>]` source type the generated registry
+  cannot name. Both attributes are emitted as `typeof(T)` and `new T()`, so an unreachable `T` used to
+  fail the build with `CS0122` inside generated code, in a file you did not write and with nothing
+  naming the attribute that caused it. C# accepts more at the attribute than the registry can name:
+  a `private` or `protected` nested source satisfies the `IEnumerable` and `new()` constraints where
+  the attribute is written, and a `protected` source on a base class is in scope in the derived test
+  class. The reachability decision is the one the emitter already makes, so the rule fires exactly
+  where the generated code would not compile.
+  Unlike an unreachable `[TestData]` `MemberType`, which is withheld from the registry, the type is
+  reported rather than dropped: the emitted factory is the only way a class data source is
+  constructed, so withholding it would trade a build error for a source that silently supplies no
+  rows.
+  The rule reports only where the generator emits: on a method carrying `[Test]`, which is where its
+  pipeline starts, and for the one parameter-level attribute it selects, since a parameter takes its
+  values from the first data source attribute that answers and never constructs the rest. A
+  method-level source is still reported when a parameter-level source shadows its rows, since the
+  registry roots every declared class data source for trimming and it is that `typeof(T)` which
+  fails the build. A source the generator ignores is left to `NU0013`, so `NU0022` does not break a
+  build that had no generated code to break.
+  This can still fail a build that was compiling. The rule is an error rather than a warning, so a
+  suite that reached the registry through a source the generator emitted but whose consumer build was
+  already failing on `CS0122` now fails earlier and by name, and any suite that suppressed that
+  compiler error fails outright. Whether that warrants a major version is a release-time decision.
+
 ### Fixed
+
+- Qualify the emitted data source access by the type that declares the resolved member, so another
+  source generator cannot capture it. Source generators cannot see each other's output: a same-named
+  member that a second generator adds to the same partial test class is absent from the compilation
+  NextUnit resolves against and present in the one that finally compiles. The emitted call named the
+  type the attribute sits on, so for an inherited source it could bind that foreign member while
+  NextUnit had classified and validated the base one -- rows you never pointed at, with no
+  diagnostic, because the analyzer reads the same pre-merge compilation the generator does. The call
+  now names the declaring type, which leaves the foreign member two ways to go and no silent one: on
+  the declaring type it is a duplicate-member build error, on any nearer type it is not what the
+  emitted access names. Test case ids are unaffected -- the descriptor's `DataSourceType`, which the
+  runtime reads into the row id prefix, still names the type the attribute points at, so an
+  inherited source keeps its `Derived.Rows` ids rather than moving to `Base.Rows` where filters and
+  the VSTest adapter's id-to-descriptor mapping would see the change.
+  A name that would not bind to the declaring type from the generated file does not qualify the call.
+  The registry carries no `extern alias` directive, so a base reached only through one binds nothing
+  there, and a base whose fully qualified name another reference also declares is ambiguous where the
+  user's own source could have picked one with an alias. The emitted text is handed to the compiler's
+  own binder rather than judged by restated rules, and where it does not come back as the declaring
+  type the access stays on the type the attribute points at, which the user's source names and which
+  therefore binds.
 
 - Resolve a `[TestData]` or `[ValuesFromMember]` member declared on a base test class. Member lookup
   used `GetMembers`, which stops at the declaring type, so a source C# resolves as `Derived.Rows` was
@@ -87,6 +134,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refuse a test case expansion cap override that is set but unusable, instead of falling back to the
+  default. `<NextUnitMaxTestCasesPerMethod>` and `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` used to discard
+  anything that was not a positive 32-bit integer and apply the 10000 default without a word, so
+  `100O` typed for `1000` did not tighten the cap to a tenth of the default -- it granted the whole
+  default. The fallback was deliberate, on the reasoning that a typo in an escape hatch should not
+  stop a build, but the escape hatch guards a bound that exists to stop a compilation or a test host
+  from allocating until it dies, and the fallback only ever erred in the loosening direction.
+  The generator now reports the new `NEXTUNIT014` at error severity, naming the rejected value and
+  the default, and discovery throws an `InvalidOperationException` naming the environment variable.
+  Blank still reads as unset: MSBuild writes every `CompilerVisibleProperty` into the generated
+  analyzer config whether or not the project defines it, so an empty value is what the generator sees
+  from every consumer that never touched the property, and refusing it would fail their builds.
+  Like `NEXTUNIT013`, `NEXTUNIT014` is not configurable -- suppressing it would restore exactly the
+  fail-open behavior it replaces. The registry is still emitted under the default cap after the
+  report, so the error is not buried under a `CS0246` for every symbol a withheld registry would have
+  failed to declare.
+  The two settings are validated independently, and neither overrides the other: the property is the
+  compile-time cap that only the generator reads, the environment variable is the discovery-time cap
+  that only the test host reads, and each fails at its own read site. This can fail a build or a run
+  that was previously green while silently using the default.
+
 - Format display-name arguments with the invariant culture at both ends. `[Arguments]` constants are
   formatted when the generator bakes the name into the registry, and `[TestData]`,
   `[ClassDataSource<T>]`, and combined-source rows are formatted on whichever machine runs them.
@@ -122,9 +190,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tests that never ran.
   The default cap is 10000 test cases per method, which no hand-written matrix reaches. Projects that
   legitimately generate more raise it per project with `<NextUnitMaxTestCasesPerMethod>` and per run
-  with the `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` environment variable; an unparseable or non-positive
-  value falls back to the default rather than failing the build, so a typo in the escape hatch cannot
-  become the thing that stops a compilation.
+  with the `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` environment variable; a value that is set but is not
+  a positive 32-bit integer is refused rather than discarded, as the Changed entry above describes.
 
 ## [2.0.0] - 2026-08-12
 
