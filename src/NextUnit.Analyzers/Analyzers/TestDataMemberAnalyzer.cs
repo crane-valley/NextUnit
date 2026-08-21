@@ -53,7 +53,7 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             {
                 ValidateMemberReference(context, method, attribute, knownDataSourceTypes, isTestDataSource: true);
             }
-            else if (IsClassDataSourceAttribute(attribute))
+            else
             {
                 ValidateClassDataSourceTypes(context, method, attribute, knownDataSourceTypes);
             }
@@ -229,30 +229,27 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             $"declaring that name is used; set MemberType = typeof({typeOfOperand}) to bind it directly";
     }
 
-    private static bool IsClassDataSourceAttribute(AttributeData attribute)
-    {
-        var attributeClass = attribute.AttributeClass;
-        return attributeClass is { IsGenericType: true } &&
-            attributeClass.ConstructedFrom.MetadataName.StartsWith(
-                NextUnitAttributeNames.MetadataNames.ClassDataSourceAttributePrefix,
-                StringComparison.Ordinal) &&
-            attributeClass.ContainingNamespace.ToDisplayString() == "NextUnit";
-    }
-
     private static void ValidateClassDataSourceTypes(
         SymbolAnalysisContext context,
         IMethodSymbol method,
         AttributeData attribute,
         KnownDataSourceTypes knownDataSourceTypes)
     {
-        foreach (var sourceType in attribute.AttributeClass!.TypeArguments.OfType<INamedTypeSymbol>())
+        foreach (var sourceType in ClassDataSourceAttributeMatcher.GetClassDataSourceTypes(attribute))
         {
+            // A type argument that is not a named type -- an array, or an unsubstituted type
+            // parameter -- has no simple name to report and no row type the generator could read.
+            if (sourceType is not INamedTypeSymbol namedSourceType)
+            {
+                continue;
+            }
+
             ValidateRowType(
                 context,
                 method,
                 attribute,
-                sourceType.Name,
-                sourceType,
+                namedSourceType.Name,
+                namedSourceType,
                 knownDataSourceTypes);
         }
     }

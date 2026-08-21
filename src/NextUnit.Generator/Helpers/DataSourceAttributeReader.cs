@@ -93,17 +93,8 @@ internal static class DataSourceAttributeReader
 
         foreach (var attribute in methodSymbol.GetAttributes())
         {
-            var attrClass = attribute.AttributeClass;
-            if (attrClass is not { IsGenericType: true })
-            {
-                continue;
-            }
-
-            var constructedFrom = attrClass.ConstructedFrom;
-            var metadataName = constructedFrom.MetadataName;
-
-            if (!metadataName.StartsWith(NextUnitAttributeNames.MetadataNames.ClassDataSourceAttributePrefix, StringComparison.Ordinal) ||
-                constructedFrom.ContainingNamespace.ToDisplayString() != NextUnitAttributeNames.Namespace)
+            var sourceTypes = ClassDataSourceAttributeMatcher.GetClassDataSourceTypes(attribute);
+            if (sourceTypes.IsEmpty)
             {
                 continue;
             }
@@ -123,7 +114,7 @@ internal static class DataSourceAttributeReader
                 }
             }
 
-            foreach (var typeArg in attrClass.TypeArguments)
+            foreach (var typeArg in sourceTypes)
             {
                 var typeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
                 builder.Add(new ClassDataSource(typeName, sharedType, key));
@@ -219,12 +210,15 @@ internal static class DataSourceAttributeReader
         int index,
         KnownDataSourceTypes knownDataSourceTypes)
     {
-        foreach (var attribute in parameter.GetAttributes())
+        var selected = ParameterDataSourceSelector.Select(parameter);
+        if (selected.Attribute is not { } attribute)
         {
-            if (AttributeHelper.IsAttribute(attribute, NextUnitAttributeNames.Values) &&
-                attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Kind == TypedConstantKind.Array)
-            {
+            return null;
+        }
+
+        switch (selected.Kind)
+        {
+            case ParameterDataSourceAttributeKind.Values:
                 return new ParameterDataSourceDescriptor(
                     parameterIndex: index,
                     parameterName: parameter.Name,
@@ -236,12 +230,9 @@ internal static class DataSourceAttributeReader
                     classTypeName: null,
                     sharedType: 0,
                     sharedKey: null);
-            }
 
-            if (AttributeHelper.IsAttribute(attribute, NextUnitAttributeNames.ValuesFromMember) &&
-                attribute.ConstructorArguments.Length > 0 &&
-                attribute.ConstructorArguments[0].Value is string memberName &&
-                !string.IsNullOrEmpty(memberName))
+            case ParameterDataSourceAttributeKind.ValuesFromMember
+                when attribute.ConstructorArguments[0].Value is string memberName:
             {
                 var memberTypeArg = attribute.NamedArguments
                     .Where(arg => arg.Key == "MemberType")
@@ -268,48 +259,41 @@ internal static class DataSourceAttributeReader
                     unreachableMemberTypeName: unreachableMemberTypeName);
             }
 
-            var attrClass = attribute.AttributeClass;
-            if (attrClass is { IsGenericType: true })
+            case ParameterDataSourceAttributeKind.ValuesFrom
+                when ClassDataSourceAttributeMatcher.GetValuesFromType(attribute) is { } typeArg:
             {
-                var constructedFrom = attrClass.ConstructedFrom;
-                var metadataName = constructedFrom.MetadataName;
+                var classTypeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
+                var sharedType = 0;
+                var key = (string?)null;
 
-                if (metadataName.StartsWith(NextUnitAttributeNames.MetadataNames.ValuesFromAttributePrefix, StringComparison.Ordinal) &&
-                    constructedFrom.ContainingNamespace.ToDisplayString() == NextUnitAttributeNames.Namespace)
+                foreach (var namedArg in attribute.NamedArguments)
                 {
-                    var typeArg = attrClass.TypeArguments[0];
-                    var classTypeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
-                    var sharedType = 0;
-                    var key = (string?)null;
-
-                    foreach (var namedArg in attribute.NamedArguments)
+                    if (namedArg.Key == "Shared" && namedArg.Value.Value is int sharedValue)
                     {
-                        if (namedArg.Key == "Shared" && namedArg.Value.Value is int sharedValue)
-                        {
-                            sharedType = sharedValue;
-                        }
-                        else if (namedArg.Key == "Key" && namedArg.Value.Value is string keyValue)
-                        {
-                            key = keyValue;
-                        }
+                        sharedType = sharedValue;
                     }
-
-                    return new ParameterDataSourceDescriptor(
-                        parameterIndex: index,
-                        parameterName: parameter.Name,
-                        kind: ParameterDataSourceKind.Class,
-                        inlineValues: EquatableArray<ConstantValue>.Empty,
-                        memberName: null,
-                        memberTypeName: null,
-                        memberKind: DataSourceMemberKind.Unknown,
-                        classTypeName: classTypeName,
-                        sharedType: sharedType,
-                        sharedKey: key);
+                    else if (namedArg.Key == "Key" && namedArg.Value.Value is string keyValue)
+                    {
+                        key = keyValue;
+                    }
                 }
-            }
-        }
 
-        return null;
+                return new ParameterDataSourceDescriptor(
+                    parameterIndex: index,
+                    parameterName: parameter.Name,
+                    kind: ParameterDataSourceKind.Class,
+                    inlineValues: EquatableArray<ConstantValue>.Empty,
+                    memberName: null,
+                    memberTypeName: null,
+                    memberKind: DataSourceMemberKind.Unknown,
+                    classTypeName: classTypeName,
+                    sharedType: sharedType,
+                    sharedKey: key);
+            }
+
+            default:
+                return null;
+        }
     }
 
     /// <summary>
