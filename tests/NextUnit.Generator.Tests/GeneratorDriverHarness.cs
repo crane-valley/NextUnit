@@ -13,10 +13,14 @@ namespace NextUnit.Generator.Tests;
 /// </remarks>
 internal static class GeneratorDriverHarness
 {
+    // extraReferences are added as MetadataReference instances rather than file paths so their
+    // MetadataReferenceProperties survive: a reference whose aliases exclude the global one is the
+    // only way to express a type that `extern alias` hides from the generated file.
     public static async Task<CSharpCompilation> CreateCompilationAsync(
         string source,
         OutputKind outputKind,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IEnumerable<MetadataReference>? extraReferences = null)
     {
         var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
 
@@ -28,7 +32,7 @@ internal static class GeneratorDriverHarness
                 MetadataReference.CreateFromFile(typeof(TestAttribute).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(TestApplication).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(Platform.NextUnitApplicationBuilderExtensions).Assembly.Location),
-            }),
+            }).AddRange(extraReferences ?? []),
             new CSharpCompilationOptions(outputKind, nullableContextOptions: NullableContextOptions.Enable));
     }
 

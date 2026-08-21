@@ -194,6 +194,7 @@ internal sealed record TestDataSource
     public TestDataSource(
         string memberName,
         string? memberTypeName,
+        string? declaringTypeName,
         DataSourceMemberKind memberKind,
         DataSourceShape shape,
         string? rowTypeName,
@@ -203,6 +204,7 @@ internal sealed record TestDataSource
     {
         MemberName = memberName;
         MemberTypeName = memberTypeName;
+        DeclaringTypeName = declaringTypeName;
         MemberKind = memberKind;
         Shape = shape;
         RowTypeName = rowTypeName;
@@ -213,6 +215,36 @@ internal sealed record TestDataSource
 
     public string MemberName { get; }
     public string? MemberTypeName { get; }
+
+    /// <summary>
+    /// Gets the type that declares the resolved member, which qualifies the emitted access, or
+    /// <c>null</c> when no member was bound -- or when the declaring type has a name the generated
+    /// file cannot bind, where the emitter keeps the type the attribute points at instead.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately a second type rather than a correction to <see cref="MemberTypeName"/>: that one
+    /// is emitted as the descriptor's <c>DataSourceType</c>, which the runtime reads into the row id
+    /// prefix. Moving it would rename every test case of an inherited source from
+    /// <c>Derived.Rows</c> to <c>Base.Rows</c>, where filters and the VSTest adapter's
+    /// id-to-descriptor mapping can both see it.
+    /// <para>
+    /// Qualifying by the declaring type is what stops another source generator from capturing the
+    /// call. Generators cannot see each other's output, so a same-named member added to the same
+    /// partial test class is invisible while this resolves and present once every generated source
+    /// compiles together. Naming the type resolution bound against leaves that member two ways to
+    /// go and no silent one: added to the declaring type it is a duplicate-member build error,
+    /// added to any nearer type it is not what the emitted access names.
+    /// </para>
+    /// <para>
+    /// It comes from the same <c>DataSourceMemberResolver</c> result the shape and the accessibility
+    /// verdict do. A second lookup at the emitter would be a second precedence rule, free to drift
+    /// from the one the analyzers validated. The name is always emittable when a member bound:
+    /// <c>GeneratedRegistryAccess.CanReachMember</c> tests the containing type as part of the
+    /// member, so a member out of reach is never bound in the first place.
+    /// </para>
+    /// </remarks>
+    public string? DeclaringTypeName { get; }
+
     public DataSourceMemberKind MemberKind { get; }
 
     /// <summary>
@@ -377,6 +409,7 @@ internal sealed record ParameterDataSourceDescriptor
         EquatableArray<ConstantValue> inlineValues,
         string? memberName,
         string? memberTypeName,
+        string? declaringTypeName,
         DataSourceMemberKind memberKind,
         string? classTypeName,
         int sharedType,
@@ -389,6 +422,7 @@ internal sealed record ParameterDataSourceDescriptor
         InlineValues = inlineValues;
         MemberName = memberName;
         MemberTypeName = memberTypeName;
+        DeclaringTypeName = declaringTypeName;
         MemberKind = memberKind;
         ClassTypeName = classTypeName;
         SharedType = sharedType;
@@ -434,6 +468,19 @@ internal sealed record ParameterDataSourceDescriptor
     /// Null if the test class should be used.
     /// </summary>
     public string? MemberTypeName { get; }
+
+    /// <summary>
+    /// Gets the type that declares the resolved member, which qualifies the emitted access, or
+    /// <c>null</c> when no member was bound -- or when the declaring type has a name the generated
+    /// file cannot bind, where the emitter keeps the type the attribute points at instead.
+    /// </summary>
+    /// <remarks>
+    /// The parameter-level counterpart of <see cref="TestDataSource.DeclaringTypeName"/>, kept
+    /// separate from <see cref="MemberTypeName"/> for the same reason: that one is emitted as the
+    /// descriptor's <c>MemberType</c>, which the runtime reflection fallback searches from.
+    /// </remarks>
+    public string? DeclaringTypeName { get; }
+
     public DataSourceMemberKind MemberKind { get; }
 
     /// <summary>

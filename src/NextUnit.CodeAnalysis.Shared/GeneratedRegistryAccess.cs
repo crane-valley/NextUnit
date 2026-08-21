@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace NextUnit.CodeAnalysis.Shared;
 
@@ -48,6 +49,70 @@ internal static class GeneratedRegistryAccess
         }
 
         return member.ContainingType is null || CanReachType(member.ContainingType, compilingAssembly);
+    }
+
+    /// <summary>
+    /// Reports whether <paramref name="typeExpression"/>, read as a type name in the generated
+    /// registry, binds to <paramref name="type"/>.
+    /// </summary>
+    /// <remarks>
+    /// Accessibility is only half of naming a type; the other half is whether the name reaches it
+    /// from where the registry is emitted. An assembly reached only through an <c>extern alias</c>
+    /// is absent from the global namespace, so the name binds nothing there -- <c>CS0400</c> in a
+    /// file the user did not write. Two references that both declare it make the name ambiguous
+    /// where the user's own source could have picked one with an alias. A namespace and a type can
+    /// collide on it. Source and metadata can share it, and there C# binds to source and only warns.
+    /// <para>
+    /// So the name is not judged by rules restated here -- it is handed to the binder that will read
+    /// it, and the symbol that comes back has to be the intended one. Enumerating the ways a name
+    /// can fail to bind was tried first and abandoned: three review rounds each found a rule the
+    /// previous one had not modelled, which is what reimplementing name resolution costs. Speculative
+    /// binding is position-independent for these names, because a <c>global::</c>-rooted name reads
+    /// through no <c>using</c> and no <c>extern alias</c> -- the very reason the registry cannot
+    /// write anything else.
+    /// </para>
+    /// <para>
+    /// Requiring the name to be declared by one assembly only was tried on top of this and removed.
+    /// It was there because binding discards diagnostics, and a name that source and metadata both
+    /// declare binds to source while warning with <c>CS0436</c>. But the registry's file header is a
+    /// bare <c>#pragma warning disable</c>, so no warning this name can add reaches the consumer's
+    /// build, <c>TreatWarningsAsErrors</c> included -- a suppressed diagnostic is never reported, so
+    /// there is nothing left to promote. The check bought nothing and cost the capture this
+    /// qualification exists to close: refusing a name falls back to the derived type, which is the
+    /// one member a concurrent generator can add. What no pragma suppresses is an error, and the
+    /// errors this name can take -- <c>CS0400</c>, <c>CS0433</c> -- already fail the comparison
+    /// above, because neither binds to the intended symbol.
+    /// </para>
+    /// <para>
+    /// Emitting an <c>extern alias</c> directive of its own was rejected as the alternative. A
+    /// reference can carry several aliases and the registry would have to pick one, the directive
+    /// would head every generated file for every consumer, and every emission site would have to
+    /// agree on the choice; the callers here have a qualifier that is known to bind and can fall
+    /// back to it.
+    /// </para>
+    /// </remarks>
+    public static bool NameBindsToType(string typeExpression, ITypeSymbol type, SemanticModel? semanticModel)
+    {
+        // Nothing to bind against. Returning true keeps the caller on its previous behavior rather
+        // than withholding a name on the strength of a missing semantic model.
+        if (semanticModel is null)
+        {
+            return true;
+        }
+
+        var name = SyntaxFactory.ParseTypeName(typeExpression);
+        if (name.ContainsDiagnostics)
+        {
+            return false;
+        }
+
+        // Position zero rather than a position near the member: the binder there differs only in the
+        // usings and aliases in scope, and this name reads through neither.
+        var bound = semanticModel
+            .GetSpeculativeSymbolInfo(0, name, SpeculativeBindingOption.BindAsTypeOrNamespace)
+            .Symbol;
+
+        return SymbolEqualityComparer.Default.Equals(bound, type);
     }
 
     /// <summary>
@@ -133,4 +198,5 @@ internal static class GeneratedRegistryAccess
                 return false;
         }
     }
+
 }
