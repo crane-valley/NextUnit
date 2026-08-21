@@ -783,6 +783,25 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   namespace-versus-type case, `InheritedFromASourceBaseShadowingAReference_KeepsTheDerivedQualifierAsync`
   the promotable-warning case, and `InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync`
   the duplicate-reference case that the rejected alias heuristic got backwards.
+- [ ] The declaring-type qualifier spells type arguments the consumer's own source may never spell,
+  and an `[Obsolete(error: true)]` one fails the generated file with `CS0619`. Raised by the Codex
+  review of PR #237 against the warning severity, and measured down to this one. The registry's file
+  header is a bare `#pragma warning disable`, so every warning the qualifier can add -- `CS0618`
+  among them -- is off before any code in the file, and a project promoting warnings to errors
+  promotes nothing, because a suppressed diagnostic is never reported to promote. Measured: a
+  `TreatWarningsAsErrors` build of a registry-shaped file spelling `Base<ObsoleteRow>.Rows` is clean,
+  and deleting only the pragma line turns it into `error CS0618` at that expression. `CS0619` is an
+  error, which no pragma suppresses, and it needs the base declared in a referenced assembly --
+  a consumer writing `Derived : Base<ObsoleteRow>` in their own source cannot compile that line
+  either, pragma or not.
+  Not folded into `NameBindsToType`, and deliberately not as an `[Obsolete]` rule: that predicate
+  exists because enumerating name-resolution rules cost a review round each, and an attribute check
+  is the same trade reopened in a new domain. Asking the compiler instead is what the shape wants and
+  what Roslyn will not do -- measured on 5.6.0, `TryGetSpeculativeSemanticModel` succeeds for the
+  qualifier and its `GetDiagnostics()` returns nothing for the very expression that reports `CS0618`
+  once bound in a real tree. The only route left is adding a syntax tree to the compilation and
+  binding it, once per data source, inside a generator -- the cost this whole path is written to
+  avoid.
 - [x] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths
