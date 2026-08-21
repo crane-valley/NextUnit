@@ -350,6 +350,37 @@ public class InheritedAttributeEmissionTests
         Assert.Contains("DisplayNameFormatterType = typeof(global::TestProject.UpperCaseFormatter)", registry);
     }
 
+    [Fact]
+    public async Task DirectlyAppliedRetryPolicyTheRegistryCannotName_IsStillEmittedAsync()
+    {
+        var (registry, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class OwnTests
+            {
+                private sealed class HiddenPolicy : IRetryPolicy
+                {
+                    public System.Threading.Tasks.ValueTask<bool> ShouldRetryAsync(RetryContext context) =>
+                        new System.Threading.Tasks.ValueTask<bool>(true);
+                }
+
+                [Test]
+                [Retry<HiddenPolicy>(2)]
+                public void Run() { }
+            }
+            """);
+
+        // NU0016 owns this case and can be suppressed. Dropping the policy here would turn a
+        // suppressed report into a silent switch to the default retry behavior, so the type is
+        // emitted and the build fails on the CS0122 NU0016 warned about.
+        Assert.Contains("HiddenPolicy", registry);
+        Assert.False(
+            diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"),
+            FormatIds(diagnostics));
+    }
+
     private static string FormatIds(IReadOnlyList<Diagnostic> diagnostics) =>
         $"reported: {string.Join(", ", diagnostics.Select(static diagnostic => diagnostic.Id))}";
 

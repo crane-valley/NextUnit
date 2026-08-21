@@ -45,13 +45,16 @@ internal static class LifecycleMethodFactory
     /// for an inherited hook on an open generic base is the constructed form.
     /// </param>
     /// <param name="knownTypes">The return type classifier for this compilation.</param>
-    /// <param name="compilingAssembly">The assembly the registry is emitted into.</param>
+    /// <param name="compilation">
+    /// The compilation the registry is emitted into, which decides both accessibility and whether
+    /// the declaring type can be named without an <c>extern alias</c>.
+    /// </param>
     /// <param name="isBefore">Whether to read <c>[Before]</c> rather than <c>[After]</c>.</param>
     public static LifecycleMethodDescriptor? TryCreate(
         IMethodSymbol methodSymbol,
         string invocationTypeName,
         KnownReturnTypes knownTypes,
-        IAssemblySymbol? compilingAssembly,
+        Compilation? compilation,
         bool isBefore)
     {
         var scopes = AttributeHelper.GetLifecycleScopes(
@@ -68,7 +71,7 @@ internal static class LifecycleMethodFactory
             invocationTypeName,
             methodSymbol.Name,
             GetOverrideRootId(methodSymbol),
-            GeneratedRegistryAccess.CanReachMember(methodSymbol, compilingAssembly),
+            IsReachableFrom(methodSymbol, compilation),
             isBefore ? scopes : EquatableArray<int>.Empty,
             isBefore ? EquatableArray<int>.Empty : scopes,
             methodSymbol.IsStatic,
@@ -90,7 +93,7 @@ internal static class LifecycleMethodFactory
     public static EquatableArray<LifecycleMethodDescriptor> CollectInherited(
         INamedTypeSymbol typeSymbol,
         KnownReturnTypes knownTypes,
-        IAssemblySymbol? compilingAssembly)
+        Compilation? compilation)
     {
         var levels = new List<ImmutableArray<LifecycleMethodDescriptor>>();
 
@@ -98,7 +101,7 @@ internal static class LifecycleMethodFactory
              baseType is not null && baseType.SpecialType != SpecialType.System_Object;
              baseType = baseType.BaseType)
         {
-            levels.Add(CollectDeclared(baseType, knownTypes, compilingAssembly));
+            levels.Add(CollectDeclared(baseType, knownTypes, compilation));
         }
 
         if (levels.Count == 0)
@@ -121,7 +124,7 @@ internal static class LifecycleMethodFactory
     private static ImmutableArray<LifecycleMethodDescriptor> CollectDeclared(
         INamedTypeSymbol type,
         KnownReturnTypes knownTypes,
-        IAssemblySymbol? compilingAssembly)
+        Compilation? compilation)
     {
         var invocationTypeName = AttributeHelper.GetFullyQualifiedTypeName(type);
         var builder = ImmutableArray.CreateBuilder<LifecycleMethodDescriptor>();
@@ -136,13 +139,13 @@ internal static class LifecycleMethodFactory
             // [Before] and [After] are read separately, and in that order, so a method carrying both
             // yields two descriptors exactly as the two syntax providers produce for a hook declared
             // on the test class itself.
-            var before = TryCreate(method, invocationTypeName, knownTypes, compilingAssembly, isBefore: true);
+            var before = TryCreate(method, invocationTypeName, knownTypes, compilation, isBefore: true);
             if (before is not null)
             {
                 builder.Add(before);
             }
 
-            var after = TryCreate(method, invocationTypeName, knownTypes, compilingAssembly, isBefore: false);
+            var after = TryCreate(method, invocationTypeName, knownTypes, compilation, isBefore: false);
             if (after is not null)
             {
                 builder.Add(after);
@@ -150,6 +153,43 @@ internal static class LifecycleMethodFactory
         }
 
         return builder.ToImmutable();
+    }
+
+    /// <summary>
+    /// Whether the generated registry can call the hook.
+    /// </summary>
+    /// <remarks>
+    /// Accessibility is the shared rule every emission site asks. The alias check is on top of it,
+    /// and only inherited hooks can fail it: a reference brought in solely under an
+    /// <c>extern alias</c> is not nameable through <c>global::</c>, so the emitted cast would not
+    /// compile even though the type is public. A derived test class can name such a base -- C# has
+    /// the alias in scope, the generated file does not -- so this is the one place where the type
+    /// being public is not enough.
+    /// </remarks>
+    private static bool IsReachableFrom(IMethodSymbol methodSymbol, Compilation? compilation)
+    {
+        if (compilation is null)
+        {
+            return true;
+        }
+
+        return GeneratedRegistryAccess.CanReachMember(methodSymbol, compilation.Assembly) &&
+            IsNameableThroughGlobalAlias(methodSymbol.ContainingType, compilation);
+    }
+
+    private static bool IsNameableThroughGlobalAlias(INamedTypeSymbol type, Compilation compilation)
+    {
+        var assembly = type.ContainingAssembly;
+        if (assembly is null || SymbolEqualityComparer.Default.Equals(assembly, compilation.Assembly))
+        {
+            return true;
+        }
+
+        var aliases = compilation.GetMetadataReference(assembly)?.Properties.Aliases ?? default;
+
+        // No aliases at all means the reference is in the global alias, which is the ordinary case.
+        return aliases.IsDefaultOrEmpty ||
+            aliases.Contains(MetadataReferenceProperties.GlobalAlias);
     }
 
     /// <summary>

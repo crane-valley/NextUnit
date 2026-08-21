@@ -644,6 +644,7 @@ internal static class AttributeHelper
         IAssemblySymbol? compilingAssembly)
     {
         var retry = default(RetryDeclaration);
+        var retryIsInherited = false;
         var isFlaky = false;
         string? flakyReason = null;
 
@@ -652,6 +653,10 @@ internal static class AttributeHelper
             if (!retry.Count.HasValue)
             {
                 retry = GetRetryFromSymbol(level);
+                if (retry.Count.HasValue)
+                {
+                    retryIsInherited = !IsDeclaredHere(level, methodSymbol, typeSymbol);
+                }
             }
 
             var (levelIsFlaky, levelReason) = GetFlakyFromSymbol(level);
@@ -659,10 +664,13 @@ internal static class AttributeHelper
             flakyReason ??= levelReason;
         }
 
-        // Dropped rather than emitted when the registry cannot name it: NEXTUNIT015 already fails the
-        // build, and emitting a constructor call for an unreachable policy on top of it would bury
-        // that report under a CS0122 in a file the user did not write.
-        var policyType = retry.PolicyType is not null &&
+        // Dropped only where it is also reported. NEXTUNIT015 covers the inherited case and is not
+        // configurable, so dropping there trades a CS0122 in a file the user did not write for a
+        // report that names the type. A directly applied policy is left alone on purpose: NU0016
+        // reports that one and can be suppressed, and dropping a suppressed policy would silently
+        // switch the test to the default retry behavior instead of the policy it asked for.
+        var policyType = retryIsInherited &&
+            retry.PolicyType is not null &&
             !GeneratedRegistryAccess.CanReachType(retry.PolicyType, compilingAssembly)
                 ? null
                 : retry.PolicyType;
@@ -714,15 +722,18 @@ internal static class AttributeHelper
                 continue;
             }
 
-            var isDeclaredHere =
-                SymbolEqualityComparer.Default.Equals(level, methodSymbol) ||
-                SymbolEqualityComparer.Default.Equals(level, typeSymbol);
-
-            return isDeclaredHere ? null : declaration.PolicyType;
+            return IsDeclaredHere(level, methodSymbol, typeSymbol) ? null : declaration.PolicyType;
         }
 
         return null;
     }
+
+    /// <summary>
+    /// Whether a level is the test method or its class rather than something they inherit from.
+    /// </summary>
+    private static bool IsDeclaredHere(ISymbol level, IMethodSymbol methodSymbol, INamedTypeSymbol typeSymbol) =>
+        SymbolEqualityComparer.Default.Equals(level, methodSymbol) ||
+        SymbolEqualityComparer.Default.Equals(level, typeSymbol);
 
     public static int? GetRepeatCount(IMethodSymbol methodSymbol)
     {

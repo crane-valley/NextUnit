@@ -95,21 +95,21 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             methodSymbol,
             KnownReturnTypes.Create(context.SemanticModel.Compilation),
             KnownDataSourceTypes.Create(context.SemanticModel.Compilation),
-            context.SemanticModel.Compilation.Assembly);
+            context.SemanticModel.Compilation);
     }
 
     private static TestMethodDescriptor? TransformMethod(
         IMethodSymbol methodSymbol,
         KnownReturnTypes knownTypes,
         KnownDataSourceTypes knownDataSourceTypes,
-        IAssemblySymbol? compilingAssembly)
+        Compilation compilation)
     {
         var typeSymbol = methodSymbol.ContainingType;
         var fullyQualifiedTypeName = AttributeHelper.GetFullyQualifiedTypeName(typeSymbol);
         var id = AttributeHelper.CreateTestId(methodSymbol);
         var customDisplayName = AttributeHelper.GetCustomDisplayName(methodSymbol);
         var displayName = customDisplayName ?? methodSymbol.Name;
-        var displayNameFormatterType = AttributeHelper.GetDisplayNameFormatterType(methodSymbol, typeSymbol, compilingAssembly);
+        var displayNameFormatterType = AttributeHelper.GetDisplayNameFormatterType(methodSymbol, typeSymbol, compilation.Assembly);
         var (notInParallel, constraintKeys) = AttributeHelper.GetNotInParallelInfo(methodSymbol, typeSymbol);
         var parallelGroup = AttributeHelper.GetParallelGroup(methodSymbol, typeSymbol);
         var parallelLimit = AttributeHelper.GetParallelLimit(methodSymbol, typeSymbol);
@@ -124,7 +124,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var tags = AttributeHelper.GetTags(methodSymbol, typeSymbol);
         var constructorMetadata = AttributeHelper.GetTestClassConstructorMetadata(typeSymbol);
         var timeoutMs = AttributeHelper.GetTimeout(methodSymbol, typeSymbol);
-        var (retryCount, retryDelayMs, retryPolicyTypeName, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol, compilingAssembly);
+        var (retryCount, retryDelayMs, retryPolicyTypeName, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol, compilation.Assembly);
         var repeatCount = AttributeHelper.GetRepeatCount(methodSymbol);
         var matrixParameters = DataSourceAttributeReader.GetMatrixParameters(methodSymbol);
         var matrixExclusions = DataSourceAttributeReader.GetMatrixExclusions(methodSymbol);
@@ -132,9 +132,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var priority = AttributeHelper.GetExecutionPriority(methodSymbol, typeSymbol);
         var (cultureName, uiCultureName) = AttributeHelper.GetCultureNames(methodSymbol, typeSymbol);
         var inheritedLifecycleMethods = LifecycleMethodFactory.CollectInherited(
-            typeSymbol, knownTypes, compilingAssembly);
+            typeSymbol, knownTypes, compilation);
         var unreachableInheritedTypeName = AttributeHelper.GetUnreachableEmittedTypeName(
-            methodSymbol, typeSymbol, compilingAssembly);
+            methodSymbol, typeSymbol, compilation.Assembly);
 
         return new TestMethodDescriptor(
             id,
@@ -203,7 +203,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             methodSymbol,
             AttributeHelper.GetFullyQualifiedTypeName(methodSymbol.ContainingType),
             KnownReturnTypes.Create(context.SemanticModel.Compilation),
-            context.SemanticModel.Compilation.Assembly,
+            context.SemanticModel.Compilation,
             isBefore);
     }
 

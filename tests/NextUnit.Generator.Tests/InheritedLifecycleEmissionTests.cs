@@ -457,6 +457,105 @@ public class InheritedLifecycleEmissionTests
     }
 
     [Fact]
+    public async Task InaccessibleBaseHookInAScopeTheRegistryDoesNotEmit_IsNotReportedAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class BaseTests
+            {
+                // Assembly scope is collected from static methods only, so this hook is emitted
+                // nowhere and has never failed a build.
+                [Before(LifecycleScope.Assembly)]
+                private void IgnoredSetup() { }
+            }
+
+            public class DerivedTests : BaseTests
+            {
+                [Test]
+                public void Run() { }
+            }
+            """);
+
+        // NEXTUNIT014 is an error and not configurable, so reporting a hook the registry would never
+        // have emitted would turn deriving from a class into a build failure for no gain.
+        Assert.False(
+            diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"),
+            FormatIds(diagnostics));
+    }
+
+    [Fact]
+    public async Task InaccessibleOverrideSupersededByItsBaseDeclaration_IsNotReportedAsync()
+    {
+        var (registry, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class BaseTests
+            {
+                [Before(LifecycleScope.Test)]
+                public virtual void Setup() { }
+            }
+
+            public class DerivedTests : BaseTests
+            {
+                [Before(LifecycleScope.Test)]
+                protected override void Setup() { }
+
+                [Test]
+                public void Run() { }
+            }
+            """);
+
+        // The base declaration wins the slot and dispatches virtually to the override, so nothing
+        // calls the derived declaration directly and its accessibility never matters.
+        Assert.False(
+            diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"),
+            FormatIds(diagnostics));
+        Assert.Contains("((global::TestProject.BaseTests)instance).Setup()", registry);
+    }
+
+    [Fact]
+    public async Task BaseClassReachableOnlyThroughAnExternAlias_ReportsNextUnit014Async()
+    {
+        var fixtureLibrary = await CompileLibraryAsync("Fixtures", """
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public class SharedFixture
+            {
+                [Before(LifecycleScope.Test)]
+                public void SharedSetup() { }
+            }
+            """,
+            alias: "fixtures");
+
+        var (registry, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            extern alias fixtures;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DerivedTests : fixtures::Fixtures.SharedFixture
+            {
+                [Test]
+                public void Run() { }
+            }
+            """,
+            fixtureLibrary);
+
+        // The type is public and C# names it fine here, but the emitted cast has to spell it
+        // global::Fixtures.SharedFixture, which resolves to nothing when the reference lives only
+        // under an alias. Reporting beats emitting a registry that does not compile.
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"), FormatIds(diagnostics));
+        Assert.False(registry.Contains("SharedSetup", StringComparison.Ordinal), "the unnameable hook must not be emitted");
+    }
+
+    [Fact]
     public async Task InheritedHooks_CompileAsync()
     {
         var (compilation, _) = await RunAsync("""
@@ -554,7 +653,10 @@ public class InheritedLifecycleEmissionTests
         return (output, driver.GetRunResult());
     }
 
-    private static async Task<MetadataReference> CompileLibraryAsync(string assemblyName, string source)
+    private static async Task<MetadataReference> CompileLibraryAsync(
+        string assemblyName,
+        string source,
+        string? alias = null)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var compilation = await GeneratorDriverHarness.CreateCompilationAsync(
@@ -570,6 +672,8 @@ public class InheritedLifecycleEmissionTests
             .Select(static diagnostic => diagnostic.ToString())
             .ToList());
 
-        return compilation.ToMetadataReference();
+        return alias is null
+            ? compilation.ToMetadataReference()
+            : compilation.ToMetadataReference(ImmutableArray.Create(alias));
     }
 }

@@ -10,9 +10,11 @@ namespace NextUnit.Generator.Validators;
 /// Reports the hooks and attribute types the generated registry would have to name and cannot.
 /// </summary>
 /// <remarks>
-/// Runs over what the registry actually emits, not over every declaration in the compilation: a
-/// hook on a class that holds no tests and that nothing derives from is never emitted, so it has
-/// never failed a build and does not start now.
+/// Runs over what the registry actually emits, not over every declaration in the compilation. A
+/// hook on a class that holds no tests and that nothing derives from is never emitted, and neither
+/// is one whose scope the emitter does not place per descriptor, or one a nearer declaration
+/// supersedes: none of those has ever failed a build and none starts now. The selection comes from
+/// <see cref="LifecycleSelection"/> so this cannot drift from what the emitter chose.
 /// </remarks>
 internal static class LifecycleMethodValidator
 {
@@ -41,17 +43,15 @@ internal static class LifecycleMethodValidator
 
         foreach (var test in tests)
         {
-            if (declaredByType.TryGetValue(test.FullyQualifiedTypeName, out var declared))
-            {
-                foreach (var method in declared)
-                {
-                    ReportUnreachableMethod(context, method, reported);
-                }
-            }
+            var declared = declaredByType.TryGetValue(test.FullyQualifiedTypeName, out var methods)
+                ? methods
+                : new List<LifecycleMethodDescriptor>();
+            var lifecycle = TestLifecycleMethods.Create(test.InheritedLifecycleMethods, declared);
 
-            for (var i = 0; i < test.InheritedLifecycleMethods.Length; i++)
+            foreach (var scope in LifecycleSelection.PerDescriptorScopes)
             {
-                ReportUnreachableMethod(context, test.InheritedLifecycleMethods[i], reported);
+                ReportUnreachableSelection(context, lifecycle, isBefore: true, scope, reported);
+                ReportUnreachableSelection(context, lifecycle, isBefore: false, scope, reported);
             }
 
             if (test.UnreachableInheritedTypeName is not null)
@@ -69,7 +69,8 @@ internal static class LifecycleMethodValidator
     /// Whether the hook is emitted into the registry static properties rather than per descriptor.
     /// </summary>
     /// <remarks>
-    /// Mirrors the selection the emitter makes, so a hook that is never emitted is never reported.
+    /// Mirrors the selection <c>GlobalLifecycleMethods.Collect</c> makes, including its instance
+    /// method exclusion, so a hook that is never emitted is never reported.
     /// </remarks>
     private static bool IsGlobalScope(LifecycleMethodDescriptor method) =>
         method.IsStatic &&
@@ -77,6 +78,19 @@ internal static class LifecycleMethodValidator
          method.AfterScopes.Contains(LifecycleScopeConstants.Assembly) ||
          method.BeforeScopes.Contains(LifecycleScopeConstants.Session) ||
          method.AfterScopes.Contains(LifecycleScopeConstants.Session));
+
+    private static void ReportUnreachableSelection(
+        SourceProductionContext context,
+        TestLifecycleMethods lifecycle,
+        bool isBefore,
+        int scope,
+        HashSet<string> reported)
+    {
+        foreach (var method in LifecycleSelection.Select(lifecycle, isBefore, scope))
+        {
+            ReportUnreachableMethod(context, method, reported);
+        }
+    }
 
     private static void ReportUnreachableMethod(
         SourceProductionContext context,
