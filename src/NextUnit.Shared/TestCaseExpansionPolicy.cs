@@ -34,21 +34,50 @@ internal static class TestCaseExpansionPolicy
     public const int DefaultMaxTestCasesPerMethod = 10_000;
 
     /// <summary>
-    /// Parses a configured cap, falling back to <see cref="DefaultMaxTestCasesPerMethod"/> for
-    /// anything unusable.
+    /// Resolves a configured cap, separating an override that is unset from one that is present but
+    /// unusable.
     /// </summary>
     /// <param name="value">The raw configured value, or <see langword="null"/> when unset.</param>
-    /// <returns>The cap to apply.</returns>
+    /// <param name="cap">
+    /// The cap to apply: the configured value when it is usable, and
+    /// <see cref="DefaultMaxTestCasesPerMethod"/> when the override is unset or unusable.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> when the override is unset or usable, and <see langword="false"/> when
+    /// it is present but unusable.
+    /// </returns>
     /// <remarks>
-    /// A malformed or non-positive value falls back instead of failing: the override exists to keep a
-    /// build or a run alive, so a typo in it must not be the thing that stops one, and a zero or
-    /// negative cap would reject every parameterized test.
+    /// Blank reads as unset rather than unusable, and that is not a stylistic choice: MSBuild writes
+    /// every <c>CompilerVisibleProperty</c> into the generated analyzer config whether or not the
+    /// project defines it, so the generator is handed
+    /// <c>build_property.NextUnitMaxTestCasesPerMethod =</c> with an empty value by every project
+    /// that never set it. Refusing blank would fail the build of every consumer that left the escape
+    /// hatch alone. Whitespace follows blank because the analyzer config parser trims a value before
+    /// the generator sees it, so the two are not distinguishable at this end anyway.
+    /// <para>
+    /// Anything else that is not a positive <see cref="int"/> is refused rather than ignored. Falling
+    /// back kept a build alive through a typo, but it did so on a security bound and only ever in the
+    /// loosening direction -- <c>100O</c> written for <c>1000</c> silently granted the 10000 default
+    /// -- and it left the caller no way to tell an unset override from a rejected one. Refusing here
+    /// and reporting at each call site is what makes the two distinguishable.
+    /// </para>
     /// </remarks>
-    public static int Parse(string? value)
+    public static bool TryResolve(string? value, out int cap)
     {
-        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0
-            ? parsed
-            : DefaultMaxTestCasesPerMethod;
+        cap = DefaultMaxTestCasesPerMethod;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0)
+        {
+            cap = parsed;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
