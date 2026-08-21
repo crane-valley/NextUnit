@@ -85,18 +85,33 @@ internal static class AttributeHelper
     /// <c>System.Object</c> ends the type walk. Interfaces are not walked: an attribute on an
     /// implemented interface has no single nearest declaration when two interfaces carry it.
     /// </para>
+    /// <para>
+    /// The walk also stops at an error type and refuses to revisit a level. Neither is reachable
+    /// from code the compiler accepted -- a circular base declaration is <c>CS0146</c> and Roslyn
+    /// hands back an error type rather than a cycle, and an override chain is strictly ascending --
+    /// but a generator runs against half-typed code on every keystroke, where the symbol graph is
+    /// whatever recovery produced. Trusting the invariant was the alternative, and it makes a
+    /// wrong guess cost an IDE hang rather than a wrong answer.
+    /// </para>
     /// </remarks>
     private static IEnumerable<ISymbol> InheritanceLevels(
         IMethodSymbol methodSymbol,
         INamedTypeSymbol typeSymbol)
     {
-        for (IMethodSymbol? method = methodSymbol; method is not null; method = method.OverriddenMethod)
+        var visited = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        for (IMethodSymbol? method = methodSymbol;
+             method is not null && visited.Add(method);
+             method = method.OverriddenMethod)
         {
             yield return method;
         }
 
         for (INamedTypeSymbol? type = typeSymbol;
-             type is not null && type.SpecialType != SpecialType.System_Object;
+             type is not null &&
+                 type.SpecialType != SpecialType.System_Object &&
+                 type.TypeKind != TypeKind.Error &&
+                 visited.Add(type);
              type = type.BaseType)
         {
             yield return type;

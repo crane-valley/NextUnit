@@ -89,6 +89,13 @@ internal static class LifecycleMethodFactory
     /// members of every base type. Interfaces are not walked -- a default interface method hook
     /// would have no single declaration order across the implemented interfaces, and C# does not
     /// give the registry a way to call one without naming the interface.
+    /// <para>
+    /// An error type ends it too, and no level is visited twice. A circular base declaration is
+    /// <c>CS0146</c> and Roslyn hands back an error type rather than a cycle, so neither guard fires
+    /// on code the compiler accepted; both are here because a generator runs against half-typed code
+    /// on every keystroke, where the graph is whatever error recovery produced, and the cost of
+    /// trusting the invariant is an IDE that stops responding.
+    /// </para>
     /// </remarks>
     public static EquatableArray<LifecycleMethodDescriptor> CollectInherited(
         INamedTypeSymbol typeSymbol,
@@ -97,8 +104,13 @@ internal static class LifecycleMethodFactory
     {
         var levels = new List<ImmutableArray<LifecycleMethodDescriptor>>();
 
+        var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
         for (var baseType = typeSymbol.BaseType;
-             baseType is not null && baseType.SpecialType != SpecialType.System_Object;
+             baseType is not null &&
+                 baseType.SpecialType != SpecialType.System_Object &&
+                 baseType.TypeKind != TypeKind.Error &&
+                 visited.Add(baseType);
              baseType = baseType.BaseType)
         {
             levels.Add(CollectDeclared(baseType, knownTypes, semanticModel));
@@ -196,11 +208,24 @@ internal static class LifecycleMethodFactory
     /// The base-most method in the chain, as its original definition, so a base declaration and an
     /// override of it -- in either order, annotated or not -- answer the same string, while a
     /// <c>new</c> method and an overload answer their own.
+    /// <para>
+    /// A string rather than the symbol itself, and formatted once per hook per test class rather
+    /// than compared symbolically. Keying on the symbol was the alternative and is not open: the key
+    /// travels on <see cref="LifecycleMethodDescriptor"/>, which is a value model the incremental
+    /// pipeline compares between compilations, and a symbol holds its whole compilation alive.
+    /// </para>
+    /// <para>
+    /// The chain is walked with a visited set for the reason the base walk has one: an override
+    /// chain is strictly ascending in any compilation the compiler accepted, and a generator does
+    /// not only see those.
+    /// </para>
     /// </remarks>
     private static string GetOverrideRootId(IMethodSymbol methodSymbol)
     {
         var root = methodSymbol;
-        while (root.OverriddenMethod is { } overridden)
+        var visited = new HashSet<ISymbol>(SymbolEqualityComparer.Default) { root };
+
+        while (root.OverriddenMethod is { } overridden && visited.Add(overridden))
         {
             root = overridden;
         }
