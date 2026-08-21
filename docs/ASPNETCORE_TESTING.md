@@ -41,7 +41,7 @@ public class WeatherApiTests : WebApplicationTest<Program>
 ### Key Points
 
 1. **Inherit from `WebApplicationTest<TEntryPoint>`** - `TEntryPoint` is typically your `Program` class
-2. **Inherit `[NotInParallel("WebApplicationFactory")]`** - Declared on the base class and inherited by your test classes
+2. **Add `[NotInParallel("WebApplicationFactory")]`** - On each test class, or once on a shared base class of your own
 3. **Use `Client` property** - Pre-configured `HttpClient` for making requests
 
 ## WebApplicationTest Base Class
@@ -203,20 +203,27 @@ public class AdvancedTests
 
 ### NotInParallel Attribute
 
-`[NotInParallel("WebApplicationFactory")]` is inherited from `WebApplicationTest<TEntryPoint>`, so a test
-class that derives from it is already serialized against the other classes sharing the factory.
-Declaring it again on the concrete class is harmless but no longer necessary:
+**Every test class sharing a factory needs `[NotInParallel("WebApplicationFactory")]`.**
+
+Since 3.0.0 the attribute is inherited, so you can declare it once on a shared base class of your own
+rather than on every concrete class:
 
 ```csharp
-// The constraint comes from the base class
-public class MyApiTests : WebApplicationTest<Program>
+[NotInParallel("WebApplicationFactory")]
+public abstract class ApiTestBase : WebApplicationTest<Program>
+{
+}
+
+// Inherits the constraint
+public class MyApiTests : ApiTestBase
 {
     // ...
 }
 ```
 
-There is no way to opt back into parallel execution from a derived class. A test class that must
-run in parallel with the rest should not derive from a base class that declares `[NotInParallel]`.
+`WebApplicationTest<TEntryPoint>` itself does not declare it, deliberately: an inherited
+`[NotInParallel]` cannot be opted back out of, so declaring it there would serialize every suite
+using the base class against every other, including the ones that do not share a factory.
 
 ### Lazy Initialization
 

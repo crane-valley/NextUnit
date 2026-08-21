@@ -381,6 +381,86 @@ public class InheritedAttributeEmissionTests
             FormatIds(diagnostics));
     }
 
+    [Fact]
+    public async Task InheritedRetryPolicyReachableOnlyThroughAnExternAlias_ReportsNextUnit015Async()
+    {
+        var fixtureLibrary = await CompileLibraryAsync("Fixtures", """
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public sealed class AliasedPolicy : IRetryPolicy
+            {
+                public System.Threading.Tasks.ValueTask<bool> ShouldRetryAsync(RetryContext context) =>
+                    new System.Threading.Tasks.ValueTask<bool>(true);
+            }
+            """,
+            alias: "fixtures");
+
+        var (registry, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            extern alias fixtures;
+            using NextUnit;
+
+            namespace TestProject;
+
+            [Retry<fixtures::Fixtures.AliasedPolicy>(2)]
+            public class BaseTests
+            {
+            }
+
+            public class DerivedTests : BaseTests
+            {
+                [Test]
+                public void Run() { }
+            }
+            """,
+            fixtureLibrary);
+
+        // The policy is public and the base class names it fine through its alias, but the registry
+        // has to write a global::-rooted name, which reaches nothing. Accessibility alone says the
+        // type is fine, so the emitted name is bound and compared instead.
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
+        Assert.False(registry.Contains("AliasedPolicy", StringComparison.Ordinal), "the unnameable policy must not be emitted");
+    }
+
+    [Fact]
+    public async Task InheritedFormatterReachableOnlyThroughAnExternAlias_ReportsNextUnit015Async()
+    {
+        var fixtureLibrary = await CompileLibraryAsync("Fixtures", """
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public sealed class AliasedFormatter : IDisplayNameFormatter
+            {
+                public string Format(DisplayNameContext context) => context.MethodName;
+            }
+            """,
+            alias: "fixtures");
+
+        var (registry, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            extern alias fixtures;
+            using NextUnit;
+
+            namespace TestProject;
+
+            [DisplayNameFormatter<fixtures::Fixtures.AliasedFormatter>]
+            public class BaseTests
+            {
+            }
+
+            public class DerivedTests : BaseTests
+            {
+                [Test]
+                public void Run() { }
+            }
+            """,
+            fixtureLibrary);
+
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
+        Assert.False(registry.Contains("AliasedFormatter", StringComparison.Ordinal), "the unnameable formatter must not be emitted");
+    }
+
     private static string FormatIds(IReadOnlyList<Diagnostic> diagnostics) =>
         $"reported: {string.Join(", ", diagnostics.Select(static diagnostic => diagnostic.Id))}";
 
@@ -399,7 +479,7 @@ public class InheritedAttributeEmissionTests
             source,
             OutputKind.DynamicallyLinkedLibrary,
             cancellationToken,
-            references);
+            extraReferences: references);
 
         var result = GeneratorDriverHarness.CreateDriver(trackIncrementalGeneratorSteps: false)
             .RunGenerators(compilation, cancellationToken)
@@ -413,14 +493,17 @@ public class InheritedAttributeEmissionTests
         return (registry, result.Diagnostics);
     }
 
-    private static async Task<MetadataReference> CompileLibraryAsync(string assemblyName, string source)
+    private static async Task<MetadataReference> CompileLibraryAsync(
+        string assemblyName,
+        string source,
+        string? alias = null)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var compilation = await GeneratorDriverHarness.CreateCompilationAsync(
             source,
             OutputKind.DynamicallyLinkedLibrary,
             cancellationToken,
-            additionalReferences: null,
+            extraReferences: null,
             assemblyName: assemblyName);
 
         Assert.Empty(compilation
@@ -429,6 +512,8 @@ public class InheritedAttributeEmissionTests
             .Select(static diagnostic => diagnostic.ToString())
             .ToList());
 
-        return compilation.ToMetadataReference();
+        return alias is null
+            ? compilation.ToMetadataReference()
+            : compilation.ToMetadataReference(ImmutableArray.Create(alias));
     }
 }

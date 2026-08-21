@@ -641,7 +641,7 @@ internal static class AttributeHelper
     public static (int? retryCount, int retryDelayMs, string? retryPolicyTypeName, bool isFlaky, string? flakyReason) GetRetryInfo(
         IMethodSymbol methodSymbol,
         INamedTypeSymbol typeSymbol,
-        IAssemblySymbol? compilingAssembly)
+        SemanticModel? semanticModel)
     {
         var retry = default(RetryDeclaration);
         var retryIsInherited = false;
@@ -669,13 +669,15 @@ internal static class AttributeHelper
         // report that names the type. A directly applied policy is left alone on purpose: NU0016
         // reports that one and can be suppressed, and dropping a suppressed policy would silently
         // switch the test to the default retry behavior instead of the policy it asked for.
-        var policyType = retryIsInherited &&
+        var policyTypeName = FormatPolicyType(retry.PolicyType);
+        if (retryIsInherited &&
             retry.PolicyType is not null &&
-            !GeneratedRegistryAccess.CanReachType(retry.PolicyType, compilingAssembly)
-                ? null
-                : retry.PolicyType;
+            !CanEmitType(retry.PolicyType, policyTypeName, semanticModel))
+        {
+            policyTypeName = null;
+        }
 
-        return (retry.Count, retry.DelayMs, FormatPolicyType(policyType), isFlaky, flakyReason);
+        return (retry.Count, retry.DelayMs, policyTypeName, isFlaky, flakyReason);
     }
 
     /// <summary>
@@ -693,22 +695,37 @@ internal static class AttributeHelper
     public static string? GetUnreachableEmittedTypeName(
         IMethodSymbol methodSymbol,
         INamedTypeSymbol typeSymbol,
-        IAssemblySymbol? compilingAssembly)
+        SemanticModel? semanticModel)
     {
         var formatterType = ResolveDisplayNameFormatterType(methodSymbol, typeSymbol);
-        if (formatterType is not null && !GeneratedRegistryAccess.CanReachType(formatterType, compilingAssembly))
+        if (formatterType is not null &&
+            !CanEmitType(formatterType, formatterType.ToDisplayString(FullyQualifiedTypeFormat), semanticModel))
         {
             return formatterType.ToDisplayString(FullyQualifiedTypeFormat);
         }
 
         var policyType = ResolveInheritedRetryPolicyType(methodSymbol, typeSymbol);
-        if (policyType is not null && !GeneratedRegistryAccess.CanReachType(policyType, compilingAssembly))
+        if (policyType is not null &&
+            !CanEmitType(policyType, FormatPolicyType(policyType), semanticModel))
         {
             return policyType.ToDisplayString(FullyQualifiedTypeFormat);
         }
 
         return null;
     }
+
+    /// <summary>
+    /// Whether the registry can both reach a type and write the name it would emit for it.
+    /// </summary>
+    /// <remarks>
+    /// Two questions, because a public type can still be unwritable: a reference brought in solely
+    /// under an <c>extern alias</c>, or a generic argument that is, is invisible to the
+    /// <c>global::</c>-rooted name the registry has to emit. Binding the name the emitter will
+    /// actually write answers aliases, type arguments, and duplicate qualified names at once.
+    /// </remarks>
+    private static bool CanEmitType(ITypeSymbol type, string? typeExpression, SemanticModel? semanticModel) =>
+        GeneratedRegistryAccess.CanReachType(type, semanticModel?.Compilation.Assembly) &&
+        (typeExpression is null || GeneratedRegistryAccess.NameBindsToType(typeExpression, type, semanticModel));
 
     private static ITypeSymbol? ResolveInheritedRetryPolicyType(
         IMethodSymbol methodSymbol,
@@ -970,13 +987,16 @@ internal static class AttributeHelper
     public static string? GetDisplayNameFormatterType(
         IMethodSymbol methodSymbol,
         INamedTypeSymbol typeSymbol,
-        IAssemblySymbol? compilingAssembly)
+        SemanticModel? semanticModel)
     {
         var formatterType = ResolveDisplayNameFormatterType(methodSymbol, typeSymbol);
+        if (formatterType is null)
+        {
+            return null;
+        }
 
-        return formatterType is null || !GeneratedRegistryAccess.CanReachType(formatterType, compilingAssembly)
-            ? null
-            : formatterType.ToDisplayString(FullyQualifiedTypeFormat);
+        var typeName = formatterType.ToDisplayString(FullyQualifiedTypeFormat);
+        return CanEmitType(formatterType, typeName, semanticModel) ? typeName : null;
     }
 
     private static ITypeSymbol? ResolveDisplayNameFormatterType(

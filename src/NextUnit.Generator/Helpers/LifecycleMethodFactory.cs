@@ -45,16 +45,16 @@ internal static class LifecycleMethodFactory
     /// for an inherited hook on an open generic base is the constructed form.
     /// </param>
     /// <param name="knownTypes">The return type classifier for this compilation.</param>
-    /// <param name="compilation">
-    /// The compilation the registry is emitted into, which decides both accessibility and whether
-    /// the declaring type can be named without an <c>extern alias</c>.
+    /// <param name="semanticModel">
+    /// The binder the emitted name is checked against, which decides both accessibility and whether
+    /// the name the registry has to write reaches the declaring type at all.
     /// </param>
     /// <param name="isBefore">Whether to read <c>[Before]</c> rather than <c>[After]</c>.</param>
     public static LifecycleMethodDescriptor? TryCreate(
         IMethodSymbol methodSymbol,
         string invocationTypeName,
         KnownReturnTypes knownTypes,
-        Compilation? compilation,
+        SemanticModel? semanticModel,
         bool isBefore)
     {
         var scopes = AttributeHelper.GetLifecycleScopes(
@@ -71,7 +71,7 @@ internal static class LifecycleMethodFactory
             invocationTypeName,
             methodSymbol.Name,
             GetOverrideRootId(methodSymbol),
-            IsReachableFrom(methodSymbol, compilation),
+            IsReachableFrom(methodSymbol, invocationTypeName, semanticModel),
             isBefore ? scopes : EquatableArray<int>.Empty,
             isBefore ? EquatableArray<int>.Empty : scopes,
             methodSymbol.IsStatic,
@@ -93,7 +93,7 @@ internal static class LifecycleMethodFactory
     public static EquatableArray<LifecycleMethodDescriptor> CollectInherited(
         INamedTypeSymbol typeSymbol,
         KnownReturnTypes knownTypes,
-        Compilation? compilation)
+        SemanticModel? semanticModel)
     {
         var levels = new List<ImmutableArray<LifecycleMethodDescriptor>>();
 
@@ -101,7 +101,7 @@ internal static class LifecycleMethodFactory
              baseType is not null && baseType.SpecialType != SpecialType.System_Object;
              baseType = baseType.BaseType)
         {
-            levels.Add(CollectDeclared(baseType, knownTypes, compilation));
+            levels.Add(CollectDeclared(baseType, knownTypes, semanticModel));
         }
 
         if (levels.Count == 0)
@@ -124,7 +124,7 @@ internal static class LifecycleMethodFactory
     private static ImmutableArray<LifecycleMethodDescriptor> CollectDeclared(
         INamedTypeSymbol type,
         KnownReturnTypes knownTypes,
-        Compilation? compilation)
+        SemanticModel? semanticModel)
     {
         var invocationTypeName = AttributeHelper.GetFullyQualifiedTypeName(type);
         var builder = ImmutableArray.CreateBuilder<LifecycleMethodDescriptor>();
@@ -139,13 +139,13 @@ internal static class LifecycleMethodFactory
             // [Before] and [After] are read separately, and in that order, so a method carrying both
             // yields two descriptors exactly as the two syntax providers produce for a hook declared
             // on the test class itself.
-            var before = TryCreate(method, invocationTypeName, knownTypes, compilation, isBefore: true);
+            var before = TryCreate(method, invocationTypeName, knownTypes, semanticModel, isBefore: true);
             if (before is not null)
             {
                 builder.Add(before);
             }
 
-            var after = TryCreate(method, invocationTypeName, knownTypes, compilation, isBefore: false);
+            var after = TryCreate(method, invocationTypeName, knownTypes, semanticModel, isBefore: false);
             if (after is not null)
             {
                 builder.Add(after);
@@ -159,38 +159,21 @@ internal static class LifecycleMethodFactory
     /// Whether the generated registry can call the hook.
     /// </summary>
     /// <remarks>
-    /// Accessibility is the shared rule every emission site asks. The alias check is on top of it,
-    /// and only inherited hooks can fail it: a reference brought in solely under an
-    /// <c>extern alias</c> is not nameable through <c>global::</c>, so the emitted cast would not
-    /// compile even though the type is public. A derived test class can name such a base -- C# has
-    /// the alias in scope, the generated file does not -- so this is the one place where the type
-    /// being public is not enough.
+    /// Accessibility is the shared rule every emission site asks, and it is not the whole question
+    /// here. The registry has to write the declaring type as a <c>global::</c>-rooted name in a cast,
+    /// and a public type can still fail that: a reference brought in solely under an
+    /// <c>extern alias</c> is invisible to that name, and so is a type argument of the constructed
+    /// base. A derived test class can name such a base -- C# has the alias in scope, the generated
+    /// file does not -- so the name the registry would emit is bound and compared against the type
+    /// it is meant to reach, which answers aliases, type arguments, and duplicate qualified names
+    /// with one question instead of three rules.
     /// </remarks>
-    private static bool IsReachableFrom(IMethodSymbol methodSymbol, Compilation? compilation)
-    {
-        if (compilation is null)
-        {
-            return true;
-        }
-
-        return GeneratedRegistryAccess.CanReachMember(methodSymbol, compilation.Assembly) &&
-            IsNameableThroughGlobalAlias(methodSymbol.ContainingType, compilation);
-    }
-
-    private static bool IsNameableThroughGlobalAlias(INamedTypeSymbol type, Compilation compilation)
-    {
-        var assembly = type.ContainingAssembly;
-        if (assembly is null || SymbolEqualityComparer.Default.Equals(assembly, compilation.Assembly))
-        {
-            return true;
-        }
-
-        var aliases = compilation.GetMetadataReference(assembly)?.Properties.Aliases ?? default;
-
-        // No aliases at all means the reference is in the global alias, which is the ordinary case.
-        return aliases.IsDefaultOrEmpty ||
-            aliases.Contains(MetadataReferenceProperties.GlobalAlias);
-    }
+    private static bool IsReachableFrom(
+        IMethodSymbol methodSymbol,
+        string invocationTypeName,
+        SemanticModel? semanticModel) =>
+        GeneratedRegistryAccess.CanReachMember(methodSymbol, semanticModel?.Compilation.Assembly) &&
+        GeneratedRegistryAccess.NameBindsToType(invocationTypeName, methodSymbol.ContainingType, semanticModel);
 
     /// <summary>
     /// Identifies the C# override chain a declaration belongs to.

@@ -15,9 +15,11 @@ namespace NextUnit.AspNetCore;
 /// lazily initialized on first access.
 /// </para>
 /// <para>
-/// <strong>Important:</strong> Derived test classes should add <c>[NotInParallel("WebApplicationFactory")]</c>
-/// to prevent concurrent execution issues. The NextUnit source generator does not traverse base classes
-/// for attributes, so the attribute must be applied to the concrete test class.
+/// <strong>Important:</strong> A test class deriving from this one needs
+/// <c>[NotInParallel("WebApplicationFactory")]</c> so that classes sharing a factory do not run
+/// concurrently. This class does not declare it, because the constraint is inherited and a class that
+/// declares it takes every derived class with it, with no way to opt back out. Declare it once on your
+/// own shared base class instead, or on each concrete test class.
 /// </para>
 /// <example>
 /// <code>

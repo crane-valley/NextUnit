@@ -65,34 +65,59 @@ internal readonly struct KnownDataSourceTypes
         INamedTypeSymbol? valueTask,
         INamedTypeSymbol? genericValueTask,
         INamedTypeSymbol? asyncEnumerable,
-        IAssemblySymbol? compilingAssembly)
+        Compilation? compilation,
+        SemanticModel? semanticModel)
     {
         _task = task;
         _genericTask = genericTask;
         _valueTask = valueTask;
         _genericValueTask = genericValueTask;
         _asyncEnumerable = asyncEnumerable;
-        CompilingAssembly = compilingAssembly;
+        Compilation = compilation;
+        SemanticModel = semanticModel;
     }
 
     /// <summary>
-    /// Gets the assembly being compiled, which is where the generated registry lands.
+    /// Gets the compilation the data source member is resolved against.
     /// </summary>
     /// <remarks>
     /// Carried here rather than passed alongside because every caller that resolves a data source
     /// member already threads this value through, and because it is resolved once per compilation
     /// for the same reason the type symbols are.
     /// </remarks>
-    public IAssemblySymbol? CompilingAssembly { get; }
+    public Compilation? Compilation { get; }
+
+    /// <summary>
+    /// Gets the semantic model the generator is already holding, or <c>null</c> outside it.
+    /// </summary>
+    /// <remarks>
+    /// Deciding whether the generated file can name a type binds the emitted text speculatively, and
+    /// a semantic model caches what it binds, so the one the transform already has is reused rather
+    /// than a fresh one asked of the compilation per data source member. The analyzers create this
+    /// from a compilation alone and never ask the question, which is why it is optional.
+    /// </remarks>
+    public SemanticModel? SemanticModel { get; }
+
+    /// <summary>
+    /// Gets the assembly being compiled, which is where the generated registry lands.
+    /// </summary>
+    public IAssemblySymbol? CompilingAssembly => Compilation?.Assembly;
 
     public static KnownDataSourceTypes Create(Compilation compilation) =>
+        Create(compilation, semanticModel: null);
+
+    public static KnownDataSourceTypes Create(SemanticModel semanticModel) =>
+        Create(semanticModel.Compilation, semanticModel);
+
+    private static KnownDataSourceTypes Create(Compilation compilation, SemanticModel? semanticModel) =>
         new(
             compilation.GetTypeByMetadataName(WellKnownTypeNames.Task),
             compilation.GetTypeByMetadataName(WellKnownTypeNames.GenericTask),
             compilation.GetTypeByMetadataName(WellKnownTypeNames.ValueTask),
             compilation.GetTypeByMetadataName(WellKnownTypeNames.GenericValueTask),
             compilation.GetTypeByMetadataName(WellKnownTypeNames.AsyncEnumerable),
-            compilation.Assembly);
+            compilation,
+            semanticModel);
 
     /// <summary>
     /// Reports whether the type implements <c>IAsyncEnumerable&lt;T&gt;</c>.

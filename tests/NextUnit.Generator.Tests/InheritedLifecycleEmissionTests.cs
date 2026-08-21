@@ -645,7 +645,7 @@ public class InheritedLifecycleEmissionTests
             source,
             OutputKind.DynamicallyLinkedLibrary,
             cancellationToken,
-            references);
+            extraReferences: references);
 
         var driver = GeneratorDriverHarness.CreateDriver(trackIncrementalGeneratorSteps: false)
             .RunGeneratorsAndUpdateCompilation(compilation, out var output, out _, cancellationToken);
@@ -663,7 +663,7 @@ public class InheritedLifecycleEmissionTests
             source,
             OutputKind.DynamicallyLinkedLibrary,
             cancellationToken,
-            additionalReferences: null,
+            extraReferences: null,
             assemblyName: assemblyName);
 
         Assert.Empty(compilation

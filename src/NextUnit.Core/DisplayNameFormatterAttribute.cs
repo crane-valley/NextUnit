@@ -9,8 +9,6 @@ namespace NextUnit;
 /// The formatter type must implement <see cref="IDisplayNameFormatter"/> and have a parameterless constructor.
 /// When applied to a class, all test methods in the class will use the formatter unless overridden
 /// by a method-level <see cref="DisplayNameAttribute"/> or <see cref="DisplayNameFormatterAttribute"/>.
-/// A derived test class does not pick the formatter up from its base, because the generator reads
-/// only directly applied attributes.
 /// <para>
 /// Inherited. A declaration on a base test class applies to every class derived from it, and the
 /// nearest declaration wins: the method, then the method it overrides, then the class, then its
@@ -79,8 +77,6 @@ public sealed class DisplayNameFormatterAttribute : Attribute
 /// and compile-time type checking.
 /// When applied to a class, all test methods in the class will use the formatter unless overridden
 /// by a method-level <see cref="DisplayNameAttribute"/> or <see cref="DisplayNameFormatterAttribute{TFormatter}"/>.
-/// A derived test class does not pick the formatter up from its base, because the generator reads
-/// only directly applied attributes.
 /// <para>
 /// Inherited. A declaration on a base test class applies to every class derived from it, and the
 /// nearest declaration wins: the method, then the method it overrides, then the class, then its
