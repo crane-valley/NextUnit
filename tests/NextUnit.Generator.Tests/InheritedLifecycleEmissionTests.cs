@@ -556,6 +556,39 @@ public class InheritedLifecycleEmissionTests
     }
 
     [Fact]
+    public async Task ExplicitInterfaceHookOnABaseClass_ReportsNextUnit014Async()
+    {
+        var (registry, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public interface IFixture
+            {
+                void Setup();
+            }
+
+            public class BaseTests : IFixture
+            {
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup() { }
+            }
+
+            public class DerivedTests : BaseTests
+            {
+                [Test]
+                public void Run() { }
+            }
+            """);
+
+        // The registry cannot call an explicit implementation without naming the interface, and it
+        // reports Private accessibility, so the existing reachability check turns it into a report.
+        // Skipping it during collection instead would drop an attributed hook without a word.
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"), FormatIds(diagnostics));
+        Assert.False(registry.Contains(".Setup()", StringComparison.Ordinal), "the uncallable hook must not be emitted");
+    }
+
+    [Fact]
     public async Task InheritedHooks_CompileAsync()
     {
         var (compilation, _) = await RunAsync("""

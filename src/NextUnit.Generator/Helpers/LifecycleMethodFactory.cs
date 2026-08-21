@@ -131,7 +131,14 @@ internal static class LifecycleMethodFactory
 
         foreach (var member in type.GetMembers())
         {
-            if (member is not IMethodSymbol { MethodKind: MethodKind.Ordinary } method)
+            // Explicit interface implementations are collected too, even though the registry can
+            // never call one: they report Private accessibility, so the reachability check turns
+            // them into NEXTUNIT014. Skipping them here would drop an attributed hook without a
+            // word, which is the failure this walk exists to remove.
+            if (member is not IMethodSymbol
+                {
+                    MethodKind: MethodKind.Ordinary or MethodKind.ExplicitInterfaceImplementation
+                } method)
             {
                 continue;
             }

@@ -352,7 +352,9 @@ public sealed class TimeoutAttribute : Attribute
 /// Inherited. A declaration on a base test class applies to every class derived from it, and the
 /// nearest declaration wins: the method, then the method it overrides, then the class, then its
 /// base classes. The whole declaration comes from one level, so a class that restates the count
-/// does not pick up a base class policy.
+/// does not pick up a base class policy. The plain and generic forms are one setting to the
+/// generator, and the nearest level declaring either one wins -- which is more than
+/// <c>Inherited</c> can say on its own, because reflection sees two unrelated attribute types.
 /// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true)]
@@ -422,7 +424,9 @@ public sealed class RetryAttribute : Attribute
 /// Inherited. A declaration on a base test class applies to every class derived from it, and the
 /// nearest declaration wins: the method, then the method it overrides, then the class, then its
 /// base classes. The whole declaration comes from one level, so a class that restates the count
-/// does not pick up a base class policy.
+/// does not pick up a base class policy. The plain and generic forms are one setting to the
+/// generator, and the nearest level declaring either one wins -- which is more than
+/// <c>Inherited</c> can say on its own, because reflection sees two unrelated attribute types.
 /// </para>
 /// </remarks>
 /// <example>

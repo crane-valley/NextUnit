@@ -12,7 +12,9 @@ namespace NextUnit;
 /// <para>
 /// Inherited. A declaration on a base test class applies to every class derived from it, and the
 /// nearest declaration wins: the method, then the method it overrides, then the class, then its
-/// base classes.
+/// base classes. The generic and non-generic forms are one setting to the generator, and the
+/// nearest level declaring either one wins -- which is more than <c>Inherited</c> can say on its
+/// own, because reflection sees two unrelated attribute types.
 /// </para>
 /// </remarks>
 /// <example>
@@ -80,7 +82,9 @@ public sealed class DisplayNameFormatterAttribute : Attribute
 /// <para>
 /// Inherited. A declaration on a base test class applies to every class derived from it, and the
 /// nearest declaration wins: the method, then the method it overrides, then the class, then its
-/// base classes.
+/// base classes. The generic and non-generic forms are one setting to the generator, and the
+/// nearest level declaring either one wins -- which is more than <c>Inherited</c> can say on its
+/// own, because reflection sees two unrelated attribute types.
 /// </para>
 /// </remarks>
 /// <example>

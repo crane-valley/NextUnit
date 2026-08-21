@@ -83,6 +83,43 @@ public class AttributeInheritanceMetadataTests
             $"These attributes declare no [AttributeUsage]: {string.Join(", ", offenders)}");
     }
 
+    [Test]
+    public void AnInheritedAttribute_IsVisibleOnADerivedClassThroughReflection()
+    {
+        // The flip is a claim about CLR metadata, not only about the generator, so it is asserted
+        // where a third-party tool would read it.
+        Assert.NotEmpty(typeof(DerivedConfiguration).GetCustomAttributes(typeof(TimeoutAttribute), inherit: true));
+        Assert.Empty(typeof(DerivedConfiguration).GetCustomAttributes(typeof(TimeoutAttribute), inherit: false));
+    }
+
+    [Test]
+    public void AnUninheritedAttribute_IsNotVisibleOnAnOverrideThroughReflection()
+    {
+        var run = typeof(DerivedConfiguration).GetMethod(nameof(BaseConfiguration.Run))!;
+
+        // [Timeout] configures how the test runs and is inherited; [Skip] decides whether an
+        // override runs at all and is not, so an override has to state its own.
+        Assert.NotEmpty(run.GetCustomAttributes(typeof(TimeoutAttribute), inherit: true));
+        Assert.Empty(run.GetCustomAttributes(typeof(SkipAttribute), inherit: true));
+    }
+
+    [Timeout(30_000)]
+    private class BaseConfiguration
+    {
+        [Timeout(15_000)]
+        [Skip("base only")]
+        public virtual void Run()
+        {
+        }
+    }
+
+    private sealed class DerivedConfiguration : BaseConfiguration
+    {
+        public override void Run()
+        {
+        }
+    }
+
     private static List<Type> PublicAttributeTypes() =>
         typeof(TestAttribute).Assembly.GetExportedTypes()
             .Where(static type => !type.IsAbstract && typeof(Attribute).IsAssignableFrom(type))
