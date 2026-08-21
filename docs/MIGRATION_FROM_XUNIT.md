@@ -781,9 +781,10 @@ a `[Before]` or `[After]` on a base test class runs for every derived class, bas
 carried over from an xUnit base fixture is reported as `NEXTUNIT015` rather than silently skipped.
 See [Inheritance from a base test class](GETTING_STARTED.md#inheritance-from-a-base-test-class).
 
-`[After]` is still not the place to release resources: a failing `[Before]` or a failing test skips
-every `[After]` hook. Keep using `IDisposable`/`IAsyncDisposable`, which the engine runs after every
-attempt whatever happened -- the same habit xUnit already gives you.
+`[After]` hooks do run after a failure, for every class the setup reached, derived first. Keep using
+`IDisposable`/`IAsyncDisposable` all the same, which the engine runs after every attempt whatever
+happened -- the same habit xUnit already gives you, and the one guarantee a failing `[After]` hook
+cannot take away.
 
 ### Async Lifecycle
 

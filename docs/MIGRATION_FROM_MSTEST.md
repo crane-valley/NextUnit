@@ -253,10 +253,12 @@ because the generated registry calls it from outside your class; a `protected` o
 [Inheritance from a base test class](GETTING_STARTED.md#inheritance-from-a-base-test-class) for the
 override, hiding, and scope rules.
 
-One difference from MSTest to plan for: MSTest runs `[TestCleanup]` even after `[TestInitialize]`
-fails, and NextUnit does not -- a failing `[Before]`, or a failing test, skips every `[After]` hook.
-Release resources with `IDisposable` or `IAsyncDisposable` on the test class, which the engine
-disposes after every attempt whatever happened.
+Like MSTest, NextUnit runs `[After]` after a failing `[Before]` or a failing test -- but only for the
+classes whose setup it reached, so a base class's `[After]` runs while a derived class the setup never
+got to is left alone. One difference to plan for: a `[Timeout]` does not bound an `[After]` hook,
+because teardown is passed the run's cancellation token rather than the timeout's. Releasing resources
+with `IDisposable` or `IAsyncDisposable` on the test class is still the stronger guarantee, since the
+engine disposes after every attempt whatever happened.
 
 ## Data sources
 

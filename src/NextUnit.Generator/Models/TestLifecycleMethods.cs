@@ -12,15 +12,28 @@ internal sealed class TestLifecycleMethods
 {
     private TestLifecycleMethods(
         List<LifecycleMethodDescriptor> baseToDerived,
-        List<LifecycleMethodDescriptor> derivedToBase)
+        List<LifecycleMethodDescriptor> derivedToBase,
+        List<string> levelOrder)
     {
         BaseToDerived = baseToDerived;
         DerivedToBase = derivedToBase;
+        LevelOrder = levelOrder;
     }
 
     public List<LifecycleMethodDescriptor> BaseToDerived { get; }
 
     public List<LifecycleMethodDescriptor> DerivedToBase { get; }
+
+    /// <summary>
+    /// The invocation type name of each level, base-most first.
+    /// </summary>
+    /// <remarks>
+    /// Published from the split that already defines what a level is, so the emitter can group hooks
+    /// into levels without re-deriving the grouping and drifting from the order above. It is only the
+    /// ORDER: which levels a given scope actually has is decided by that scope's own selection, since
+    /// a level may declare hooks of one scope and none of another.
+    /// </remarks>
+    public List<string> LevelOrder { get; }
 
     public static TestLifecycleMethods Create(
         EquatableArray<LifecycleMethodDescriptor> inherited,
@@ -30,9 +43,16 @@ internal sealed class TestLifecycleMethods
         levels.Add(declared);
 
         var baseToDerived = new List<LifecycleMethodDescriptor>();
+        var levelOrder = new List<string>();
         foreach (var level in levels)
         {
+            if (level.Count == 0)
+            {
+                continue;
+            }
+
             baseToDerived.AddRange(level);
+            levelOrder.Add(level[0].InvocationTypeName);
         }
 
         var derivedToBase = new List<LifecycleMethodDescriptor>();
@@ -41,7 +61,7 @@ internal sealed class TestLifecycleMethods
             derivedToBase.AddRange(levels[i]);
         }
 
-        return new TestLifecycleMethods(baseToDerived, derivedToBase);
+        return new TestLifecycleMethods(baseToDerived, derivedToBase, levelOrder);
     }
 
     /// <summary>

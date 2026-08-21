@@ -287,10 +287,10 @@ silently skipped. Configuration attributes such as `[Timeout]` and `[Category]` 
 same rule. See
 [Inheritance from a base test class](GETTING_STARTED.md#inheritance-from-a-base-test-class).
 
-Two differences from NUnit to plan for. NUnit tears down only the levels whose setup it entered;
-NextUnit skips every `[After]` hook once a `[Before]` or the test itself fails, so resource release
-belongs in `IDisposable`/`IAsyncDisposable` on the test class, which runs after every attempt
-whatever happened. And where NUnit leaves the order of several `[SetUp]` methods at one level
+One difference from NUnit to plan for. NextUnit tears down only the classes whose setup it reached,
+which is NUnit's rule, but a `[Timeout]` does not bound an `[After]` hook: teardown is passed the
+run's cancellation token rather than the timeout's, so a hook that can hang needs its own deadline.
+And where NUnit leaves the order of several `[SetUp]` methods at one level
 unspecified, NextUnit runs them in declaration order -- except across the parts of a `partial` class,
 where the order is not part of the contract either.
 

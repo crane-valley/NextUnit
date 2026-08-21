@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 
 namespace NextUnit.Generator.Tests;
@@ -618,6 +619,150 @@ public class InheritedLifecycleEmissionTests
             .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .Select(static diagnostic => diagnostic.ToString())
             .ToList());
+    }
+
+    [Fact]
+    public async Task HooksOfSeveralClasses_EmitOneLevelPerClassAsync()
+    {
+        var registry = await GenerateAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class BaseTests
+            {
+                [Before(LifecycleScope.Test)]
+                public void BaseBefore() { }
+
+                [After(LifecycleScope.Test)]
+                public void BaseAfter() { }
+            }
+
+            public class MidTests : BaseTests
+            {
+                [Before(LifecycleScope.Test)]
+                public void MidFirst() { }
+
+                [Before(LifecycleScope.Test)]
+                public void MidSecond() { }
+            }
+
+            public class DerivedTests : MidTests
+            {
+                [Before(LifecycleScope.Test)]
+                public void DerivedBefore() { }
+
+                [After(LifecycleScope.Test)]
+                public void DerivedAfter() { }
+
+                [Test]
+                public void Run() { }
+            }
+            """);
+
+        // Base to derived, and the counts say how far into the flat hook arrays each class reaches.
+        // Mid declares two before-hooks and no after-hook, which is what makes the boundaries carry
+        // information the flat arrays cannot: teardown has to know Mid was entered even so.
+        Assert.Equal(["1/1", "2/0", "1/1"], EmittedLevels(registry, "TestLevels"));
+    }
+
+    [Fact]
+    public async Task HooksOfOneClass_EmitNoLevelsAsync()
+    {
+        var registry = await GenerateAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class PlainTests
+            {
+                [Before(LifecycleScope.Test)]
+                public void Setup() { }
+
+                [After(LifecycleScope.Test)]
+                public void Cleanup() { }
+
+                [Test]
+                public void Run() { }
+            }
+            """);
+
+        // One level is what an empty list already means, so emitting it would add text to every
+        // non-inheriting test in exchange for nothing.
+        Assert.False(registry.Contains("LifecycleLevel", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ClassContributingOnlyAnotherScopesHooks_IsNotALevelOfThisScopeAsync()
+    {
+        var registry = await GenerateAsync("""
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class BaseTests
+            {
+                [Before(LifecycleScope.Class)]
+                public void BaseSetupClass() { }
+            }
+
+            public class MidTests : BaseTests
+            {
+                [Before(LifecycleScope.Test)]
+                public void MidBefore() { }
+
+                [After(LifecycleScope.Test)]
+                public void MidAfter() { }
+            }
+
+            public class DerivedTests : MidTests
+            {
+                [Before(LifecycleScope.Test)]
+                public void DerivedBefore() { }
+
+                [After(LifecycleScope.Test)]
+                public void DerivedAfter() { }
+
+                [Test]
+                public void Run() { }
+            }
+            """);
+
+        // A level of a scope is a class that contributes a hook TO THAT SCOPE. Base holds only a class
+        // hook, so the test scope has two levels, not three -- an empty leading level would make the
+        // runtime think it entered a level before it ran anything.
+        Assert.Equal(["1/1", "1/1"], EmittedLevels(registry, "TestLevels"));
+
+        // And the class scope has one level, so it emits nothing at all.
+        Assert.Empty(EmittedLevels(registry, "ClassLevels"));
+    }
+
+    /// <summary>
+    /// The emitted levels of one property as "before/after" count pairs, in emission order.
+    /// </summary>
+    private static IReadOnlyList<string> EmittedLevels(string registry, string propertyName)
+    {
+        var marker = propertyName + " = ";
+        var start = registry.IndexOf(marker, StringComparison.Ordinal);
+        if (start < 0)
+        {
+            return [];
+        }
+
+        // Cut at the next lifecycle property so a count pair of the other scope cannot be picked up.
+        var rest = registry.Substring(start + marker.Length);
+        var end = rest.IndexOf("Methods = ", StringComparison.Ordinal);
+        var nextLevels = rest.IndexOf("Levels = ", StringComparison.Ordinal);
+        if (nextLevels >= 0 && (end < 0 || nextLevels < end))
+        {
+            end = nextLevels;
+        }
+
+        var block = end < 0 ? rest : rest.Substring(0, end);
+
+        return Regex.Matches(block, @"BeforeCount = (-?\d+), AfterCount = (-?\d+)")
+            .Select(static match => $"{match.Groups[1].Value}/{match.Groups[2].Value}")
+            .ToList();
     }
 
     private static void AssertOrder(string registry, string propertyName, params string[] methodNames)

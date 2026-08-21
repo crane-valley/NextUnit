@@ -147,6 +147,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking.** `[After]` hooks now run after a failure, and teardown unwinds only the classes whose
+  setup was reached. A failing `[Before]` hook, or a failing test, used to skip every `[After]` hook:
+  the hooks, the test body, and the teardown all sat in one `try` with no `finally`, so two
+  `[Before(LifecycleScope.Test)]` hooks in a single class already lost both `[After]` hooks when the
+  second one threw. Class scope had the mirror defect from the other side -- `AfterClass` hooks ran
+  for every class whose context existed, including ones whose `BeforeClass` had never run.
+  A class counts as reached the moment the engine starts its part of the setup, not when that part
+  finishes, which is NUnit's rule and the only one that releases what a half-finished `[Before]`
+  already acquired. Teardown then runs derived to base across the reached classes; the ones the setup
+  never got to are left alone.
+  Three consequences worth knowing. A `[Timeout]` does not bound an `[After]` hook: teardown is
+  passed the run's cancellation token rather than the timeout-linked one, because the timeout has
+  already fired by the time a timed-out test unwinds and the guarantee would be vacuous exactly where
+  cleanup matters most -- so `TestContext.Current.CancellationToken`, which describes the attempt,
+  reads as cancelled inside an `[After]` whose own token does not. A failing `[After]` hook fails the
+  test, with the test's own exception first in an `AggregateException`, and is never retried, matching
+  how a failing disposer has always been treated. And a teardown hook that ends the run leaves no
+  result behind: the attempt propagates the cancellation rather than publishing a pass whose cleanup
+  never finished.
+  Descriptors carry the class boundaries as the new `LifecycleInfo.TestLevels` and
+  `LifecycleInfo.ClassLevels`, emitted only for a test class that actually inherits hooks. A
+  descriptor without them is one level holding every hook, which is both what a non-inheriting test
+  is and what a hand-written descriptor from 2.x means, so the compatibility default is the fixed
+  behavior rather than the old one.
+
 - Refuse a test case expansion cap override that is set but unusable, instead of falling back to the
   default. `<NextUnitMaxTestCasesPerMethod>` and `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` used to discard
   anything that was not a positive 32-bit integer and apply the 10000 default without a word, so
@@ -196,10 +221,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `protected` hook on a base class used to compile because the hook was dropped; it is now reported
   as `NEXTUNIT015` and fails the build. This is the most likely upgrade break, because a `protected`
   setup on a shared base class is the ordinary shape in an xUnit or NUnit suite.
-  `[After]` is still not a resource-release mechanism: a failing `[Before]` or a failing test skips
-  every `[After]` hook, inherited ones included. `IDisposable`/`IAsyncDisposable` on the test class
-  runs after every attempt whatever happened, and a base class's `Dispose` runs for a derived
-  instance by C# itself. Making teardown unwind only the levels it entered is tracked in `PLANS.md`.
+  Teardown unwinds the classes the setup reached, which is what makes an inherited `[After]` hook
+  worth having; see the separate entry below. `IDisposable`/`IAsyncDisposable` on the test class is
+  still the stronger guarantee, because the engine disposes after every attempt whatever happened and
+  a base class's `Dispose` runs for a derived instance by C# itself.
 
 - **Breaking.** Every NextUnit attribute's `AttributeUsage.Inherited` now matches what the generator
   does, which is the same principle that put `Inherited = false` on all of them in 2.0.x: the

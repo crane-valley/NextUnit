@@ -539,10 +539,23 @@ Rules worth knowing before you rely on it:
   base class read from a referenced assembly, the order among that class's own hooks is whatever the
   compiler reports and is not part of the contract. Declare one hook per scope per class if order
   matters.
-- **`[After]` is not a resource-release mechanism.** A failing `[Before]` or a failing test skips
-  every `[After]` hook, inherited ones included. Implement `IDisposable` or `IAsyncDisposable` on the
-  test class instead: the engine disposes the instance after every attempt whatever happened, and a
-  base class's `Dispose` runs for a derived instance without any framework involvement.
+- **`[After]` hooks run after a failure, but only for the classes that were reached.** A class counts
+  as reached as soon as the engine starts its part of the setup, so a `[Before]` that throws halfway
+  still runs that class's `[After]` hooks -- what it had already acquired still has to be released.
+  Classes further down the chain were never reached, so their `[After]` hooks do not run. If a
+  `[Before]` on a base class throws, the derived class's `[After]` hooks are skipped and the base
+  class's are not.
+- **A `[Timeout]` does not bound an `[After]` hook.** Teardown is passed the run's cancellation token
+  rather than the timeout's, because a timed-out test is exactly when cleanup matters and the timeout
+  has already fired by then. `TestContext.Current.CancellationToken` still describes the attempt, so
+  inside an `[After]` running after a timeout it reads as cancelled while the token the hook is
+  handed does not. A hook that can hang needs its own deadline.
+- **A failing `[After]` fails the test and is never retried.** Its exception is reported alongside the
+  test's own, the test's first, and `[Retry]` does not re-run a test whose teardown threw -- the body
+  did not fail, so there is nothing to re-run. `IDisposable` or `IAsyncDisposable` on the test class
+  is still the stronger guarantee: the engine disposes the instance after every attempt whatever
+  happened, including after a teardown hook threw, and a base class's `Dispose` runs for a derived
+  instance without any framework involvement.
 
 Attributes follow the same nearest-declaration-wins rule, resolved through the method, then the
 method it overrides, then the class, then its base classes, then the assembly where the attribute
