@@ -41,7 +41,7 @@ public class WeatherApiTests : WebApplicationTest<Program>
 ### Key Points
 
 1. **Inherit from `WebApplicationTest<TEntryPoint>`** - `TEntryPoint` is typically your `Program` class
-2. **Add `[NotInParallel("WebApplicationFactory")]`** - Required on each test class (not inherited from base)
+2. **Add `[NotInParallel("WebApplicationFactory")]`** - On each test class, or once on a shared base class of your own
 3. **Use `Client` property** - Pre-configured `HttpClient` for making requests
 
 ## WebApplicationTest Base Class
@@ -203,18 +203,27 @@ public class AdvancedTests
 
 ### NotInParallel Attribute
 
-**The `[NotInParallel("WebApplicationFactory")]` attribute must be applied to each concrete test class.**
+**Every test class sharing a factory needs `[NotInParallel("WebApplicationFactory")]`.**
 
-NextUnit's source generator does not traverse base classes for attributes, so the attribute on `WebApplicationTest<TEntryPoint>` is not inherited. Always add it to your test classes:
+Since 3.0.0 the attribute is inherited, so you can declare it once on a shared base class of your own
+rather than on every concrete class:
 
 ```csharp
-// Required - attribute must be on the concrete class
 [NotInParallel("WebApplicationFactory")]
-public class MyApiTests : WebApplicationTest<Program>
+public abstract class ApiTestBase : WebApplicationTest<Program>
+{
+}
+
+// Inherits the constraint
+public class MyApiTests : ApiTestBase
 {
     // ...
 }
 ```
+
+`WebApplicationTest<TEntryPoint>` itself does not declare it, deliberately: an inherited
+`[NotInParallel]` cannot be opted back out of, so declaring it there would serialize every suite
+using the base class against every other, including the ones that do not share a factory.
 
 ### Lazy Initialization
 

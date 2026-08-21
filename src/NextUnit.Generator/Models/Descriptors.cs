@@ -48,7 +48,9 @@ internal sealed record TestMethodDescriptor
         EquatableArray<ParameterDataSourceDescriptor> combinedParameterSources,
         int priority,
         string? cultureName,
-        string? uiCultureName)
+        string? uiCultureName,
+        EquatableArray<LifecycleMethodDescriptor> inheritedLifecycleMethods,
+        string? unreachableInheritedTypeName)
     {
         Id = id;
         DisplayName = displayName;
@@ -91,6 +93,8 @@ internal sealed record TestMethodDescriptor
         Priority = priority;
         CultureName = cultureName;
         UICultureName = uiCultureName;
+        InheritedLifecycleMethods = inheritedLifecycleMethods;
+        UnreachableInheritedTypeName = unreachableInheritedTypeName;
     }
 
     public string Id { get; }
@@ -134,6 +138,31 @@ internal sealed record TestMethodDescriptor
     public int Priority { get; }
     public string? CultureName { get; }
     public string? UICultureName { get; }
+
+    /// <summary>
+    /// Gets the lifecycle hooks the test class inherits from its base classes, base-most first.
+    /// </summary>
+    /// <remarks>
+    /// Carried per test rather than joined against the <c>[Before]</c>/<c>[After]</c> providers in
+    /// the emitter, because those providers are syntax based and see only this compilation. A base
+    /// class in a referenced assembly -- a shared fixture package -- would otherwise keep failing in
+    /// exactly the silent way this inheritance exists to remove. Walking the base chain here reads
+    /// metadata symbols too, and it is also the only place the constructed base type is known, which
+    /// <see cref="LifecycleMethodDescriptor.InvocationTypeName"/> needs.
+    /// </remarks>
+    public EquatableArray<LifecycleMethodDescriptor> InheritedLifecycleMethods { get; }
+
+    /// <summary>
+    /// Gets an inherited <c>[Retry&lt;TPolicy&gt;]</c> or <c>[DisplayNameFormatter]</c> type the
+    /// generated registry cannot name, or <c>null</c> when nothing was dropped.
+    /// </summary>
+    /// <remarks>
+    /// Kept as a string so it reaches the reported message without being emitted as a
+    /// <c>typeof</c> or a <c>new</c>. A directly applied declaration is left to <c>NU0016</c> and
+    /// <c>NU0022</c>, which see it in the compilation that wrote it; only an inherited one can carry
+    /// a type that was reachable where it was declared and is not reachable here.
+    /// </remarks>
+    public string? UnreachableInheritedTypeName { get; }
 }
 
 /// <summary>
@@ -143,7 +172,10 @@ internal sealed record LifecycleMethodDescriptor
 {
     public LifecycleMethodDescriptor(
         string fullyQualifiedTypeName,
+        string invocationTypeName,
         string methodName,
+        string overrideRootId,
+        bool isReachable,
         EquatableArray<int> beforeScopes,
         EquatableArray<int> afterScopes,
         bool isStatic,
@@ -151,7 +183,10 @@ internal sealed record LifecycleMethodDescriptor
         bool acceptsCancellationToken)
     {
         FullyQualifiedTypeName = fullyQualifiedTypeName;
+        InvocationTypeName = invocationTypeName;
         MethodName = methodName;
+        OverrideRootId = overrideRootId;
+        IsReachable = isReachable;
         BeforeScopes = beforeScopes;
         AfterScopes = afterScopes;
         IsStatic = isStatic;
@@ -159,8 +194,41 @@ internal sealed record LifecycleMethodDescriptor
         AcceptsCancellationToken = acceptsCancellationToken;
     }
 
+    /// <summary>
+    /// Gets the type that declares the hook.
+    /// </summary>
     public string FullyQualifiedTypeName { get; }
+
+    /// <summary>
+    /// Gets the type the emitted delegate casts the instance to before calling the hook.
+    /// </summary>
+    /// <remarks>
+    /// The declaring type, not the test class: a derived class that hides an annotated base hook
+    /// with an unannotated <c>new</c> method would otherwise capture the call, and the hook the user
+    /// annotated would never run. For a base declared as an open generic it is the constructed form
+    /// the test class derives from -- <c>Base&lt;int&gt;</c> rather than <c>Base&lt;T&gt;</c> --
+    /// because only the constructed form is valid in a cast.
+    /// </remarks>
+    public string InvocationTypeName { get; }
+
     public string MethodName { get; }
+
+    /// <summary>
+    /// Gets the identity of the C# override chain this declaration belongs to.
+    /// </summary>
+    /// <remarks>
+    /// The signature of the base-most method in the chain, so a base declaration and a derived
+    /// override of it collapse to one hook while a <c>new</c> method, which is a different method,
+    /// stays its own hook. Matching by method name was rejected: it collapses hiding and overloads
+    /// that C# keeps apart, and it separates nothing that C# joins.
+    /// </remarks>
+    public string OverrideRootId { get; }
+
+    /// <summary>
+    /// Gets whether the generated registry can call the hook.
+    /// </summary>
+    public bool IsReachable { get; }
+
     public EquatableArray<int> BeforeScopes { get; }
     public EquatableArray<int> AfterScopes { get; }
     public bool IsStatic { get; }
@@ -170,7 +238,22 @@ internal sealed record LifecycleMethodDescriptor
 
 internal enum TestClassConstructorKind
 {
+    /// <summary>
+    /// No constructor the generator can call, but the runtime reflection fallback still can -- a
+    /// class whose only constructor is private, for instance.
+    /// </summary>
     None,
+
+    /// <summary>
+    /// Nothing can construct the class, so a hook needing an instance cannot be honored.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="None"/> because the two want opposite treatment: a private
+    /// constructor is handed to the reflection fallback on purpose, while an abstract class has no
+    /// instance to fall back to and only produces an <c>Activator</c> message about a type the user
+    /// never asked it to build.
+    /// </remarks>
+    Uninstantiable,
     Parameterless,
     Context,
     Output,

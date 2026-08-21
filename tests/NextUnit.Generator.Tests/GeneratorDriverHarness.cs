@@ -20,12 +20,13 @@ internal static class GeneratorDriverHarness
         string source,
         OutputKind outputKind,
         CancellationToken cancellationToken,
-        IEnumerable<MetadataReference>? extraReferences = null)
+        IEnumerable<MetadataReference>? extraReferences = null,
+        string assemblyName = "TestProject")
     {
         var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
 
         return CSharpCompilation.Create(
-            "TestProject",
+            assemblyName,
             new[] { CSharpSyntaxTree.ParseText(source, path: "Test0.cs", cancellationToken: cancellationToken) },
             references.AddRange(new MetadataReference[]
             {

@@ -773,6 +773,18 @@ public class MyTests
 }
 ```
 
+A constructor and `Dispose` are inherited by C# itself, and NextUnit's hooks now behave the same way:
+a `[Before]` or `[After]` on a base test class runs for every derived class, base first for
+`[Before]` and derived first for `[After]`. Configuration attributes such as `[Timeout]` and
+`[Category]` are inherited on the same nearest-declaration-wins rule. The hook has to be `public` or
+`internal`, because the generated registry calls it from outside your class, so a `protected` setup
+carried over from an xUnit base fixture is reported as `NEXTUNIT015` rather than silently skipped.
+See [Inheritance from a base test class](GETTING_STARTED.md#inheritance-from-a-base-test-class).
+
+`[After]` is still not the place to release resources: a failing `[Before]` or a failing test skips
+every `[After]` hook. Keep using `IDisposable`/`IAsyncDisposable`, which the engine runs after every
+attempt whatever happened -- the same habit xUnit already gives you.
+
 ### Async Lifecycle
 
 **xUnit**:

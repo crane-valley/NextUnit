@@ -96,20 +96,22 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         return TransformMethod(
             methodSymbol,
             KnownReturnTypes.Create(context.SemanticModel.Compilation),
-            KnownDataSourceTypes.Create(context.SemanticModel));
+            KnownDataSourceTypes.Create(context.SemanticModel),
+            context.SemanticModel);
     }
 
     private static TestMethodDescriptor? TransformMethod(
         IMethodSymbol methodSymbol,
         KnownReturnTypes knownTypes,
-        KnownDataSourceTypes knownDataSourceTypes)
+        KnownDataSourceTypes knownDataSourceTypes,
+        SemanticModel semanticModel)
     {
         var typeSymbol = methodSymbol.ContainingType;
         var fullyQualifiedTypeName = AttributeHelper.GetFullyQualifiedTypeName(typeSymbol);
         var id = AttributeHelper.CreateTestId(methodSymbol);
         var customDisplayName = AttributeHelper.GetCustomDisplayName(methodSymbol);
         var displayName = customDisplayName ?? methodSymbol.Name;
-        var displayNameFormatterType = AttributeHelper.GetDisplayNameFormatterType(methodSymbol, typeSymbol);
+        var displayNameFormatterType = AttributeHelper.GetDisplayNameFormatterType(methodSymbol, typeSymbol, semanticModel);
         var (notInParallel, constraintKeys) = AttributeHelper.GetNotInParallelInfo(methodSymbol, typeSymbol);
         var parallelGroup = AttributeHelper.GetParallelGroup(methodSymbol, typeSymbol);
         var parallelLimit = AttributeHelper.GetParallelLimit(methodSymbol, typeSymbol);
@@ -124,13 +126,17 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var tags = AttributeHelper.GetTags(methodSymbol, typeSymbol);
         var constructorMetadata = AttributeHelper.GetTestClassConstructorMetadata(typeSymbol);
         var timeoutMs = AttributeHelper.GetTimeout(methodSymbol, typeSymbol);
-        var (retryCount, retryDelayMs, retryPolicyTypeName, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol);
+        var (retryCount, retryDelayMs, retryPolicyTypeName, isFlaky, flakyReason) = AttributeHelper.GetRetryInfo(methodSymbol, typeSymbol, semanticModel);
         var repeatCount = AttributeHelper.GetRepeatCount(methodSymbol);
         var matrixParameters = DataSourceAttributeReader.GetMatrixParameters(methodSymbol);
         var matrixExclusions = DataSourceAttributeReader.GetMatrixExclusions(methodSymbol);
         var combinedParameterSources = DataSourceAttributeReader.GetCombinedParameterSources(methodSymbol, knownDataSourceTypes);
         var priority = AttributeHelper.GetExecutionPriority(methodSymbol, typeSymbol);
         var (cultureName, uiCultureName) = AttributeHelper.GetCultureNames(methodSymbol, typeSymbol);
+        var inheritedLifecycleMethods = LifecycleMethodFactory.CollectInherited(
+            typeSymbol, knownTypes, semanticModel);
+        var unreachableInheritedTypeName = AttributeHelper.GetUnreachableEmittedTypeName(
+            methodSymbol, typeSymbol, semanticModel);
 
         return new TestMethodDescriptor(
             id,
@@ -173,7 +179,9 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             combinedParameterSources,
             priority,
             cultureName,
-            uiCultureName);
+            uiCultureName,
+            inheritedLifecycleMethods,
+            unreachableInheritedTypeName);
     }
 
     /// <summary>
@@ -193,23 +201,12 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
             return null;
         }
 
-        var scopes = AttributeHelper.GetLifecycleScopes(
+        return LifecycleMethodFactory.TryCreate(
             methodSymbol,
-            isBefore ? NextUnitAttributeNames.Before : NextUnitAttributeNames.After);
-
-        if (scopes.IsDefaultOrEmpty)
-        {
-            return null;
-        }
-
-        return new LifecycleMethodDescriptor(
             AttributeHelper.GetFullyQualifiedTypeName(methodSymbol.ContainingType),
-            methodSymbol.Name,
-            isBefore ? scopes : EquatableArray<int>.Empty,
-            isBefore ? EquatableArray<int>.Empty : scopes,
-            methodSymbol.IsStatic,
-            GetMethodReturnKind(methodSymbol, KnownReturnTypes.Create(context.SemanticModel.Compilation)),
-            HasTrailingCancellationToken(AttributeHelper.GetParameters(methodSymbol)));
+            KnownReturnTypes.Create(context.SemanticModel.Compilation),
+            context.SemanticModel,
+            isBefore);
     }
 
     private static MethodReturnKind GetMethodReturnKind(
@@ -259,6 +256,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         // Runs against every discovered test, before the expansion filter drops any of them, so a
         // method that is dropped for being oversized still counts as a resolved [DependsOn] target.
         TestMethodValidator.ValidateAll(context, allTests);
+        LifecycleMethodValidator.ValidateAll(context, allTests, beforeLifecycle, afterLifecycle);
 
         var emittableTests = TestCaseExpansionValidator.RemoveOverLimitTests(
             context, allTests, maxTestCasesPerMethod.Cap);

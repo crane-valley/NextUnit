@@ -130,6 +130,25 @@ internal static class CodeBuilder
             test.MethodName);
     }
 
+    /// <summary>
+    /// Builds the factory the runtime calls to obtain the test class instance.
+    /// </summary>
+    /// <remarks>
+    /// An abstract class gets a factory that fails with the reason instead of no factory at all.
+    /// Emitting nothing hands the case to the reflection fallback, which reports whatever
+    /// <c>Activator.CreateInstance</c> says about a type the user never asked it to build; naming the
+    /// class and the ways out is the same trade <see cref="BuildUnreachableDataSourceProvider"/>
+    /// makes. A static test whose class inherits an instance <c>[Before]</c> or <c>[After]</c> hook
+    /// reaches it: the hook needs an instance the static test never required.
+    /// <para>
+    /// A class with no public constructor is treated the same way, and the reflection fallback is
+    /// not an answer for it: <c>Type.GetConstructors()</c> returns public constructors only, and the
+    /// last resort there is <c>Activator.CreateInstance(Type)</c>, which is public-only as well. The
+    /// two agree exactly -- no public constructor means neither path can build the class -- so the
+    /// only thing emitting nothing bought was a <c>MissingMethodException</c> naming no test and no
+    /// remedy.
+    /// </para>
+    /// </remarks>
     public static string BuildTestClassFactory(
         string typeName,
         TestClassConstructorKind constructorKind,
@@ -138,6 +157,23 @@ internal static class CodeBuilder
         if (!requiresInstance)
         {
             return "static (output, context) => null!";
+        }
+
+        if (constructorKind == TestClassConstructorKind.Uninstantiable)
+        {
+            return BuildUnconstructableTestClassFactory(
+                $"Test class '{typeName}' is abstract and cannot be instantiated, but a test in it needs " +
+                "an instance -- either the test itself, or a test-scoped or class-scoped instance " +
+                "lifecycle hook it declares or inherits. Make the hook static, or move the test to a " +
+                "concrete class.");
+        }
+
+        if (constructorKind == TestClassConstructorKind.None)
+        {
+            return BuildUnconstructableTestClassFactory(
+                $"Test class '{typeName}' has no public constructor that NextUnit can call, but a test in it " +
+                "needs an instance -- either the test itself, or a test-scoped or class-scoped instance " +
+                "lifecycle hook it declares or inherits. Make the hook static, or add a public constructor.");
         }
 
         return constructorKind switch
@@ -150,6 +186,20 @@ internal static class CodeBuilder
             _ => "null"
         };
     }
+
+    /// <summary>
+    /// Builds a factory that fails with the reason the class cannot be constructed.
+    /// </summary>
+    /// <remarks>
+    /// A factory that throws rather than no factory at all, so the failure names the test class and
+    /// the way out instead of arriving as whatever the reflection fallback says about a type the
+    /// user never asked it to build. The same trade
+    /// <see cref="BuildUnreachableDataSourceProvider"/> makes.
+    /// </remarks>
+    private static string BuildUnconstructableTestClassFactory(string message) =>
+        "static (output, context) => throw new global::System.InvalidOperationException(" +
+        AttributeHelper.ToLiteral(message) +
+        ")";
 
     public static string BuildDataSourceProvider(
         string typeName,

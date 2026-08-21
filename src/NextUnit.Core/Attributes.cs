@@ -97,8 +97,13 @@ public sealed class AfterAttribute : Attribute
 /// limit-declaring test that shares its <see cref="ParallelGroupAttribute"/>: such a batch runs at
 /// the smallest limit declared within it, which its undeclared members inherit even when that
 /// exceeds the processor count.
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes, then the assembly.
+/// </para>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
 public sealed class ParallelLimitAttribute : Attribute
 {
     /// <summary>
@@ -143,8 +148,14 @@ public sealed class ParallelLimitAttribute : Attribute
 /// public void TestDatabaseAndFileOperation() { }
 /// </code>
 /// </example>
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes. A derived class cannot opt back into parallel execution; move the attribute down
+/// to the classes that want it.
+/// </para>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
 public sealed class NotInParallelAttribute : Attribute
 {
     /// <summary>
@@ -211,8 +222,13 @@ public sealed class NotInParallelAttribute : Attribute
 /// }
 /// </code>
 /// </example>
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes.
+/// </para>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
 public sealed class ParallelGroupAttribute : Attribute
 {
     /// <summary>
@@ -297,8 +313,13 @@ public sealed class DependsOnAttribute : Attribute
 /// When applied to a test method, the timeout applies to that specific test.
 /// When applied to a class, the timeout applies to all tests in that class (unless overridden by method-level timeout).
 /// When applied to an assembly, the timeout applies to all tests in that assembly (unless overridden by class or method-level timeout).
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes, then the assembly.
+/// </para>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
 public sealed class TimeoutAttribute : Attribute
 {
     /// <summary>
@@ -327,8 +348,16 @@ public sealed class TimeoutAttribute : Attribute
 /// <remarks>
 /// When a test fails, it will be retried up to the specified number of times.
 /// The test passes if any retry succeeds. This is useful for handling intermittent failures.
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes. The whole declaration comes from one level, so a class that restates the count
+/// does not pick up a base class policy. The plain and generic forms are one setting to the
+/// generator, and the nearest level declaring either one wins -- which is more than
+/// <c>Inherited</c> can say on its own, because reflection sees two unrelated attribute types.
+/// </para>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true)]
 public sealed class RetryAttribute : Attribute
 {
     /// <summary>
@@ -391,6 +420,14 @@ public sealed class RetryAttribute : Attribute
 /// Identical to <see cref="RetryAttribute"/> apart from the policy: the attempt budget, the delay,
 /// and the method-over-class precedence all behave the same way. Applying both this attribute and
 /// the non-generic <see cref="RetryAttribute"/> to one method or class is reported as <c>NU0015</c>.
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes. The whole declaration comes from one level, so a class that restates the count
+/// does not pick up a base class policy. The plain and generic forms are one setting to the
+/// generator, and the nearest level declaring either one wins -- which is more than
+/// <c>Inherited</c> can say on its own, because reflection sees two unrelated attribute types.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -401,7 +438,7 @@ public sealed class RetryAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true)]
 public sealed class RetryAttribute<TPolicy> : Attribute
     where TPolicy : IRetryPolicy, new()
 {
@@ -469,8 +506,13 @@ public sealed class RetryAttribute<TPolicy> : Attribute
 /// </list>
 /// Consider using <see cref="RetryAttribute"/> in combination with this attribute
 /// to automatically retry flaky tests.
+/// <para>
+/// Inherited as a marking rather than a setting: a test is flaky when its method, a method it
+/// overrides, its class, or any base class says so, and the reason is the nearest one that gives a
+/// reason. Nothing un-marks an inherited flaky test.
+/// </para>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true)]
 public sealed class FlakyAttribute : Attribute
 {
     /// <summary>
@@ -549,6 +591,11 @@ public sealed class RepeatAttribute : Attribute
 /// This attribute does not override <see cref="DependsOnAttribute"/> dependencies.
 /// Tests will still wait for their dependencies regardless of priority.
 /// </para>
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -572,7 +619,7 @@ public sealed class RepeatAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true)]
 public sealed class ExecutionPriorityAttribute : Attribute
 {
     /// <summary>

@@ -491,6 +491,79 @@ public class DatabaseTests
 }
 ```
 
+## Inheritance from a base test class
+
+Hooks and configuration attributes declared on a base test class apply to every class derived from
+it. This is what xUnit, NUnit, and MSTest all do, and what NextUnit did not do before 3.0.0.
+
+`[Before]` hooks run base class first and then derived; `[After]` hooks unwind in the opposite
+order, derived class first and then base. Only the class levels reverse -- several hooks declared in
+one class keep their declaration order in both directions.
+
+```csharp
+public class DatabaseFixture
+{
+    [Before(LifecycleScope.Test)]
+    public void OpenConnection() { }
+
+    [After(LifecycleScope.Test)]
+    public void CloseConnection() { }
+}
+
+public class OrderTests : DatabaseFixture
+{
+    [Before(LifecycleScope.Test)]
+    public void SeedOrders() { }
+
+    // OpenConnection, SeedOrders, the test, then CloseConnection.
+    [Test]
+    public void Reads() { }
+}
+```
+
+Rules worth knowing before you rely on it:
+
+- **A hook must be `public` or `internal`.** The generated registry calls it from outside your class,
+  so a `protected` or `private` hook is reported as `NEXTUNIT015` rather than silently skipped.
+- **Overriding a hook replaces it.** The hook runs once, from the base class's position, and the body
+  that runs is the most derived override. Overriding it with an empty body is the supported way to
+  opt one derived class out of an inherited hook.
+- **Hiding a hook with `new` does not replace it.** A `new` method is a different method, so an
+  annotated one is a second hook and both run.
+- **`LifecycleScope.Class` hooks run once per derived class**, not once for the whole hierarchy.
+- **`LifecycleScope.Assembly` and `LifecycleScope.Session` hooks are not inherited.** They already run
+  once for the whole run, and running them once per derived class would be a different thing. A base
+  class in a *referenced* assembly contributes its Test and Class hooks, but its assembly and session
+  hooks belong to the assembly that declared them.
+- **Order within one class is declaration order.** Across the parts of a `partial` class, or for a
+  base class read from a referenced assembly, the order among that class's own hooks is whatever the
+  compiler reports and is not part of the contract. Declare one hook per scope per class if order
+  matters.
+- **`[After]` is not a resource-release mechanism.** A failing `[Before]` or a failing test skips
+  every `[After]` hook, inherited ones included. Implement `IDisposable` or `IAsyncDisposable` on the
+  test class instead: the engine disposes the instance after every attempt whatever happened, and a
+  base class's `Dispose` runs for a derived instance without any framework involvement.
+
+Attributes follow the same nearest-declaration-wins rule, resolved through the method, then the
+method it overrides, then the class, then its base classes, then the assembly where the attribute
+allows one:
+
+| Inherited | Not inherited |
+| --- | --- |
+| `[Timeout]`, `[Retry]`, `[Retry<TPolicy>]`, `[Flaky]` | `[Test]` |
+| `[ExecutionPriority]`, `[ParallelLimit]`, `[ParallelGroup]`, `[NotInParallel]` | `[Arguments]`, `[TestData]`, `[ClassDataSource<T>]` |
+| `[Culture]`, `[UICulture]`, `[InvariantCulture]` | `[Matrix]`, `[MatrixExclusion]`, `[Values]`, `[ValuesFrom<T>]`, `[ValuesFromMember]` |
+| `[Category]`, `[Tag]` (accumulated across every level) | `[Repeat]`, `[DependsOn]`, `[Skip]`, `[DisplayName]` |
+| `[Explicit]`, `[DisplayNameFormatter]`, `[DisplayNameFormatter<T>]` | `[Before]`, `[After]` (see the hook rules above) |
+
+The line is that configuration is inherited and the test set is not: an attribute that decides
+whether a method is a test, what data it runs with, or how many cases it expands to stays where it
+was written. `[Category]` and `[Tag]` accumulate rather than resolve, duplicates included, and
+nothing removes an inherited one -- move the attribute down to the classes that want it.
+
+`[Test]` itself is not inherited, so an override that does not carry `[Test]` is not discovered as a
+separate test; the test belongs to the class that declares the attribute.
+
 ## Parallel Execution
 
 NextUnit runs tests in parallel by default for maximum performance:

@@ -15,27 +15,21 @@ internal static class LifecycleEmitter
     /// </summary>
     /// <remarks>
     /// Only the Test and Class scopes are emitted per descriptor. Assembly and Session scoped
-    /// methods are collected once into the registry's static properties, so the corresponding
-    /// arrays here are always empty.
+    /// methods are collected once into the registry static properties, so the corresponding arrays
+    /// here are always empty -- and that is also why those two scopes are not inherited: they run
+    /// once for the whole run, and running them once per derived class instead is not the same
+    /// thing.
     /// </remarks>
-    public static void EmitLifecycleInfo(
-        CodeWriter writer,
-        string typeName,
-        List<LifecycleMethodDescriptor> lifecycleMethods)
+    public static void EmitLifecycleInfo(CodeWriter writer, TestLifecycleMethods lifecycleMethods)
     {
-        var beforeTest = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Test)).ToList();
-        var afterTest = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Test)).ToList();
-        var beforeClass = lifecycleMethods.Where(m => m.BeforeScopes.Contains(LifecycleScopeConstants.Class)).ToList();
-        var afterClass = lifecycleMethods.Where(m => m.AfterScopes.Contains(LifecycleScopeConstants.Class)).ToList();
-
         writer.WriteLine("new global::NextUnit.Internal.LifecycleInfo");
         writer.WriteLine("{");
         writer.Indent();
 
-        EmitMethodArrayProperty(writer, "BeforeTestMethods", typeName, beforeTest);
-        EmitMethodArrayProperty(writer, "AfterTestMethods", typeName, afterTest);
-        EmitMethodArrayProperty(writer, "BeforeClassMethods", typeName, beforeClass);
-        EmitMethodArrayProperty(writer, "AfterClassMethods", typeName, afterClass);
+        EmitMethodArrayProperty(writer, "BeforeTestMethods", lifecycleMethods, isBefore: true, LifecycleScopeConstants.Test);
+        EmitMethodArrayProperty(writer, "AfterTestMethods", lifecycleMethods, isBefore: false, LifecycleScopeConstants.Test);
+        EmitMethodArrayProperty(writer, "BeforeClassMethods", lifecycleMethods, isBefore: true, LifecycleScopeConstants.Class);
+        EmitMethodArrayProperty(writer, "AfterClassMethods", lifecycleMethods, isBefore: false, LifecycleScopeConstants.Class);
 
         writer.WriteLine("BeforeAssemblyMethods = EmptyLifecycleMethods,");
         writer.WriteLine("AfterAssemblyMethods = EmptyLifecycleMethods,");
@@ -49,18 +43,22 @@ internal static class LifecycleEmitter
     private static void EmitMethodArrayProperty(
         CodeWriter writer,
         string propertyName,
-        string typeName,
-        List<LifecycleMethodDescriptor> methods)
+        TestLifecycleMethods lifecycleMethods,
+        bool isBefore,
+        int scope)
     {
+        // An unreachable hook is dropped rather than emitted, because NEXTUNIT015 already fails the
+        // build and the emitted call would bury that report under a CS0122.
+        var methods = LifecycleSelection.Select(lifecycleMethods, isBefore, scope)
+            .Where(static method => method.IsReachable)
+            .ToList();
+
         writer.Write($"{propertyName} = ");
-        EmitMethodArray(writer, typeName, methods);
+        EmitMethodArray(writer, methods);
         writer.WriteLine(",");
     }
 
-    private static void EmitMethodArray(
-        CodeWriter writer,
-        string typeName,
-        List<LifecycleMethodDescriptor> methods)
+    private static void EmitMethodArray(CodeWriter writer, List<LifecycleMethodDescriptor> methods)
     {
         if (methods.Count == 0)
         {
@@ -75,7 +73,7 @@ internal static class LifecycleEmitter
         foreach (var method in methods)
         {
             writer.WriteLine(
-                $"{CodeBuilder.BuildLifecycleMethodDelegate(typeName, method.MethodName, method.IsStatic, method.ReturnKind, method.AcceptsCancellationToken)},");
+                $"{CodeBuilder.BuildLifecycleMethodDelegate(method.InvocationTypeName, method.MethodName, method.IsStatic, method.ReturnKind, method.AcceptsCancellationToken)},");
         }
 
         writer.Unindent();

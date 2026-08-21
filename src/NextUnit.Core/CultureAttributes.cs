@@ -26,6 +26,11 @@ namespace NextUnit;
 /// Display names are built during discovery rather than execution, so a declared culture does not
 /// change them.
 /// </para>
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes, then the assembly, resolved per axis.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -37,7 +42,7 @@ namespace NextUnit;
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
 public sealed class CultureAttribute : Attribute
 {
     /// <summary>
@@ -72,6 +77,11 @@ public sealed class CultureAttribute : Attribute
 /// Scoping, precedence, retry, and restoration behave exactly as described on
 /// <see cref="CultureAttribute"/>; only the axis differs. The UI culture selects localized resources,
 /// which is what framework and library messages are looked up with.
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes, then the assembly, resolved per axis.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -82,7 +92,7 @@ public sealed class CultureAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
 public sealed class UICultureAttribute : Attribute
 {
     /// <summary>
@@ -119,6 +129,12 @@ public sealed class UICultureAttribute : Attribute
 /// own axis. <c>[InvariantCulture]</c> with <c>[UICulture("ja-JP")]</c> therefore means invariant
 /// formatting with Japanese resources rather than a conflict.
 /// </para>
+/// <para>
+/// Inherited. A declaration on a base test class applies to every class derived from it, and the
+/// nearest declaration wins: the method, then the method it overrides, then the class, then its
+/// base classes, then the assembly, and it only supplies the axes its own level leaves
+/// unspecified.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -133,7 +149,7 @@ public sealed class UICultureAttribute : Attribute
 /// }
 /// </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Method, Inherited = true)]
 public sealed class InvariantCultureAttribute : Attribute
 {
 }

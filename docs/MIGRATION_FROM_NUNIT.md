@@ -279,11 +279,20 @@ you opt in and NextUnit runs them in parallel unless you opt out. Add `[NotInPar
 when the shared object cannot take concurrent use; see
 [Parallelism and ordering](#parallelism-and-ordering).
 
-Hooks are also not inherited. The generator attaches lifecycle methods to the exact type that
-declares them, so a `[SetUp]` on an abstract base class that you convert in place stops running for
-the derived classes that hold the tests -- silently, because the tests still run, just without their
-setup. Declare `[Before]` and `[After]` on each concrete test class, or have a base-class method do
-the work and call it from a hook on each derived class.
+Hooks are inherited, as they are in NUnit. A `[Before]` on an abstract base class runs for the
+derived classes that hold the tests, base class first, and `[After]` unwinds derived class first.
+The hook has to be `public` or `internal`, because the generated registry calls it from outside your
+class; a `protected` one -- common in NUnit base fixtures -- is reported as `NEXTUNIT015` rather than
+silently skipped. Configuration attributes such as `[Timeout]` and `[Category]` are inherited on the
+same rule. See
+[Inheritance from a base test class](GETTING_STARTED.md#inheritance-from-a-base-test-class).
+
+Two differences from NUnit to plan for. NUnit tears down only the levels whose setup it entered;
+NextUnit skips every `[After]` hook once a `[Before]` or the test itself fails, so resource release
+belongs in `IDisposable`/`IAsyncDisposable` on the test class, which runs after every attempt
+whatever happened. And where NUnit leaves the order of several `[SetUp]` methods at one level
+unspecified, NextUnit runs them in declaration order -- except across the parts of a `partial` class,
+where the order is not part of the contract either.
 
 ## Data sources
 

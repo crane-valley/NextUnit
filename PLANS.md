@@ -142,15 +142,68 @@ so the metadata advertised a behavior that nothing implemented.
   only the culture family would leave one family honest while the rest keep advertising something
   untrue. Nothing in NextUnit reads `Inherited`, at build time or at run time, so no generated code
   changes; what changes is that third-party tooling and readers are no longer misled.
-- [ ] Implement inheritance for lifecycle hooks, and for attributes, in the next major version.
-  `RegistryEmitter.LifecycleMethodsFor` looks the hooks up by the test's exact
-  `FullyQualifiedTypeName`, so a `[Before]` or `[After]` declared on a base test class never runs for
-  the derived classes holding the tests. The failure is silent -- the tests still run, without their
-  setup -- and both xUnit and MSTest run inherited hooks, so it is a standing migration hazard as
-  well as a surprise. Surfaced by the Codex review of the migration guides (2026-08-04); the guides
-  tell readers to declare hooks on each concrete class meanwhile. Deferred rather than dropped
-  because turning it on changes what runs: hooks that silently never ran would start running, and
-  tests that quietly skipped a base class's setup would begin executing it.
+- [x] Implement inheritance for lifecycle hooks, and for attributes, in the next major version.
+  Done for 3.0.0. Hooks declared on a base test class now run for the derived classes holding the
+  tests: `[Before]` base to derived, `[After]` derived to base, with only the class levels reversed
+  so the order of several hooks inside one class is unchanged. A hook is identified by its C#
+  override chain rather than by name, so an override collapses into the base declaration and runs
+  once from the base slot with the most derived body, while a `new` method -- a different method --
+  is a second hook. The emitted delegate casts to the declaring type rather than to the test class,
+  which is what stops an unannotated `new` method capturing the call meant for the base hook.
+  Base hooks are collected by walking the base chain at the `[Test]` transform rather than by joining
+  against the `[Before]`/`[After]` syntax providers, because those providers see only this
+  compilation and a shared fixture assembly would otherwise stay silently dead -- the very failure
+  being fixed. `LifecycleScope.Assembly` and `LifecycleScope.Session` are deliberately not inherited:
+  they run once for the whole run already.
+  Attributes resolve through the method, the method it overrides, the class, its base classes, and
+  then the assembly, nearest declaration first; `[Category]` and `[Tag]` accumulate across every
+  level with duplicates kept. `[Test]` and everything that defines the test set stay uninherited, so
+  discovery is unchanged. Every attribute's `Inherited` metadata was flipped to match, keeping the
+  2.0.x principle that the metadata must describe what the generator does.
+  A hook the registry cannot call is reported as `NEXTUNIT015` and an attribute type it cannot name
+  as `NEXTUNIT016`, both errors and both not configurable, because a suppressible report plus a
+  dropped declaration would put the silent failure back.
+
+### Priority 1 -- Teardown does not unwind, and runs nothing after a failure
+
+Surfaced by the Codex review of the inherited-hooks change (2026-08-20) and confirmed to pre-date it.
+`TestExecutionEngine.RunAttemptBodyAsync` runs the test-scoped `[After]` hooks inside the same `try`
+as the `[Before]` hooks and the test body, so a failing `[Before]` -- or a failing test -- skips every
+`[After]` hook. `EnsureClassSetupAsync` records no notion of which class-setup levels it entered, and
+`CleanupClassInstancesAsync` then runs every `AfterClass` hook of a created context. NUnit unwinds
+only the levels it entered, derived to base; MSTest runs cleanup even after a failed initialize.
+
+Two `[Before(LifecycleScope.Test)]` hooks in a single class already lose every `[After]` hook when
+the second throws, so this is a defect of the execution model rather than of inheritance. What
+inheritance changes is reach: a base class setup that now runs is a base class teardown that now
+matters. Resource release has a working answer meanwhile -- `ExecuteSingleAttemptAsync` disposes the
+test instance in a `finally` on every attempt, and a base class's `Dispose` runs for a derived
+instance by C# itself -- which is why this was not bundled into the 3.0.0 inheritance change.
+
+- [ ] Carry lifecycle level boundaries into the emitted `LifecycleInfo` and the runtime descriptor,
+  track the levels whose `[Before]` hooks completed, and unwind only those, derived to base, after a
+  `[Before]` or test failure as well as after a pass.
+- [ ] Apply the same entered-level rule to class scope, so a class whose setup failed partway does
+  not run the teardown of a level it never entered.
+- [ ] Decide and test the exception precedence when a teardown hook throws during unwind, whether
+  teardown observes the timeout token, and how the rule interacts with `[Retry]`, `[Timeout]`,
+  `[Skip]`, and run cancellation.
+
+### Priority 3 -- An explicit interface hook on a base class in a referenced assembly is invisible
+
+Surfaced by the Codex review of the inherited-hooks change (2026-08-22). A `[Before]` declared as
+`void IFixture.Setup()` reports `Private` accessibility, so when the base class is in this
+compilation the base-chain walk collects it and `NEXTUNIT015` reports that the registry cannot call
+it. When the base class comes from a referenced assembly it never reaches the walk at all: a
+compilation imports metadata with `MetadataImportOptions.Public`, so the member is not in
+`GetMembers()`, and the import options are a compilation-level setting a generator does not own.
+
+Nothing regresses -- the hook has never run in any version -- but it is the one inherited hook shape
+that still disappears without a word.
+
+- [ ] Decide whether to reject an explicit interface hook at its own declaration site, where the
+  declaring assembly can see it, so a consumer never inherits one that cannot be reported; or to
+  call such a hook through its interface, which would make the shape work rather than diagnose it.
 
 ### Priority 2 — Display names are formatted with whichever culture happens to be ambient
 

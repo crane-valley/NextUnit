@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `NEXTUNIT015` reports a lifecycle hook the generated registry cannot call, and `NEXTUNIT016` an
+  attribute type it cannot name. Both are errors and both are not configurable, because each one also
+  drops the declaration from the registry: reporting and then emitting anyway would replace the
+  report with a `CS0122` inside generated code, and letting the severity be suppressed would turn a
+  failed build into a green one whose setup silently does not run -- exactly the failure inherited
+  hooks exist to remove. `NEXTUNIT015` covers every hook the registry emits, whether declared on the
+  test class, inherited from a base class, or collected as an assembly or session hook. `NEXTUNIT016`
+  covers a `[DisplayNameFormatter]` or `[DisplayNameFormatter<T>]` wherever it is declared, since no
+  analyzer checked formatter accessibility at all, and a `[Retry<TPolicy>]` only when it is
+  inherited, since `NU0016` already reports a directly applied one -- and only an inherited
+  declaration can name a type that was reachable in the assembly that wrote it and is not reachable
+  here.
+
 - `NU0022` reports a `[ClassDataSource<T>]` or `[ValuesFrom<T>]` source type the generated registry
   cannot name. Both attributes are emitted as `typeof(T)` and `new T()`, so an unreachable `T` used to
   fail the build with `CS0122` inside generated code, in a file you did not write and with nothing
@@ -155,6 +168,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that only the test host reads, and each fails at its own read site. This can fail a build or a run
   that was previously green while silently using the default.
 
+- **Breaking.** Lifecycle hooks and configuration attributes declared on a base test class now apply
+  to the classes derived from it. Before this, `RegistryEmitter.LifecycleMethodsFor` looked hooks up
+  by the test's exact type name and `AttributeHelper` read `ISymbol.GetAttributes()` only, so a
+  `[Before]`, `[After]`, `[Timeout]`, `[Retry]`, `[Category]`, `[ExecutionPriority]`, or `[Culture]`
+  on a base class did nothing at all -- silently, because the tests still ran, just without their
+  setup. xUnit, NUnit, and MSTest all inherit them, so the old behavior was a standing migration
+  hazard as well as a surprise.
+  What changes for an existing suite: a test that quietly skipped a base class's setup now runs it,
+  and a base class's `[Timeout]` or `[Retry]` now applies. `[Before]` hooks run base class first and
+  then derived; `[After]` hooks unwind derived first and then base, with the order of several hooks
+  declared in one class unchanged. Attributes resolve nearest declaration first -- the method, the
+  method it overrides, the class, its base classes, then the assembly -- while `[Category]` and
+  `[Tag]` accumulate across every level, duplicates included.
+  To opt one derived class out of an inherited hook, override it with a body that does nothing; the
+  hook runs once, from the base class's position, and the body that runs is the most derived
+  override. To opt everything out, move the hook down to the classes that want it. There is no
+  opt-out for an inherited `[Category]`, `[Tag]`, `[Explicit]`, `[Flaky]`, or `[NotInParallel]`, so a
+  class that must not carry one cannot derive from a class that declares it.
+  Not everything is inherited: `[Test]` is not, so discovery is unchanged and an override that does
+  not itself carry `[Test]` is still not a separate test. Neither are the attributes that decide what
+  the test set is -- `[Arguments]`, `[TestData]`, `[ClassDataSource<T>]`, `[Matrix]`,
+  `[MatrixExclusion]`, `[Values]`, `[ValuesFrom<T>]`, `[ValuesFromMember]`, `[Repeat]`, `[DependsOn]`,
+  `[Skip]`, and `[DisplayName]`. `LifecycleScope.Assembly` and `LifecycleScope.Session` hooks are not
+  inherited either: they already run once for the whole run.
+  A hook must be reachable from the generated registry, which means `public` or `internal`. A
+  `protected` hook on a base class used to compile because the hook was dropped; it is now reported
+  as `NEXTUNIT015` and fails the build. This is the most likely upgrade break, because a `protected`
+  setup on a shared base class is the ordinary shape in an xUnit or NUnit suite.
+  `[After]` is still not a resource-release mechanism: a failing `[Before]` or a failing test skips
+  every `[After]` hook, inherited ones included. `IDisposable`/`IAsyncDisposable` on the test class
+  runs after every attempt whatever happened, and a base class's `Dispose` runs for a derived
+  instance by C# itself. Making teardown unwind only the levels it entered is tracked in `PLANS.md`.
+
+- **Breaking.** Every NextUnit attribute's `AttributeUsage.Inherited` now matches what the generator
+  does, which is the same principle that put `Inherited = false` on all of them in 2.0.x: the
+  metadata must not advertise a behavior nothing implements. Sixteen attributes flip to
+  `Inherited = true` -- `[Timeout]`, `[Retry]`, `[Retry<TPolicy>]`, `[Flaky]`, `[ExecutionPriority]`,
+  `[ParallelLimit]`, `[ParallelGroup]`, `[NotInParallel]`, `[Culture]`, `[UICulture]`,
+  `[InvariantCulture]`, `[Explicit]`, `[Category]`, `[Tag]`, `[DisplayNameFormatter]`, and
+  `[DisplayNameFormatter<T>]`. The rest stay `false`, including `[Before]` and `[After]`: hooks on a
+  base class do run for derived classes, but that is a rule about declarations rather than CLR
+  attribute inheritance, and with `AllowMultiple = true` plus per-scope re-declaration
+  `Inherited = true` would advertise a merge the generator does not perform. Nothing in NextUnit
+  reads `Inherited`, so no generated code changes; what changes is what third-party tooling and
+  readers are told.
+  This supersedes an entry earlier in this same unreleased cycle that set `Inherited = false` on
+  every attribute. That decision was right while the generator read directly applied attributes
+  only; the generator now walks the chains, so the honest metadata moved with it. Neither version
+  shipped, so there is nothing for a released suite to have depended on.
+
 - Format display-name arguments with the invariant culture at both ends. `[Arguments]` constants are
   formatted when the generator bakes the name into the registry, and `[TestData]`,
   `[ClassDataSource<T>]`, and combined-source rows are formatted on whichever machine runs them.
@@ -164,15 +227,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   human-readable name therefore changes, and a name-based filter written against the old text stops
   matching. Test IDs are unaffected: an ID is structural -- `Type.Method` plus an `[index]` suffix --
   and is never derived from a formatted argument.
-- Declare `Inherited = false` on every NextUnit attribute, which is what the generator has always
-  implemented: it reads directly applied attributes only and never walks base types or overridden
-  methods, so a `[Timeout]`, `[Retry]`, `[Category]`, or `[Culture]` on a base test class has never
-  reached the classes derived from it. `[Category]`, `[Tag]`, and both `[DisplayNameFormatter]` forms
-  declared `Inherited = true` outright, and most of the remaining attributes left `Inherited`
-  unspecified, which defaults to `true`. Nothing in NextUnit reads the flag, so no behavior and no
-  generated code changes; the metadata stops promising an inheritance that never happened. Whether
-  NextUnit should inherit attributes and lifecycle hooks is a separate question, deferred to the next
-  major version.
 
 ### Security
 

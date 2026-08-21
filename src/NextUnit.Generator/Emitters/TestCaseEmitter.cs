@@ -22,7 +22,7 @@ internal static class TestCaseEmitter
     public static void EmitTestCase(
         CodeWriter writer,
         TestMethodDescriptor test,
-        List<LifecycleMethodDescriptor> lifecycleMethods,
+        TestLifecycleMethods lifecycleMethods,
         EquatableArray<ConstantValue>? arguments,
         int argumentSetIndex,
         int? repeatIndex = null)
@@ -78,7 +78,7 @@ internal static class TestCaseEmitter
     public static void EmitMatrixTestCase(
         CodeWriter writer,
         TestMethodDescriptor test,
-        List<LifecycleMethodDescriptor> lifecycleMethods,
+        TestLifecycleMethods lifecycleMethods,
         EquatableArray<ConstantValue> combination,
         int matrixIndex,
         int? repeatIndex = null)
@@ -115,7 +115,7 @@ internal static class TestCaseEmitter
     public static void EmitTestDataDescriptor(
         CodeWriter writer,
         TestMethodDescriptor test,
-        List<LifecycleMethodDescriptor> lifecycleMethods,
+        TestLifecycleMethods lifecycleMethods,
         TestDataSource dataSource)
     {
         var dataSourceType = dataSource.MemberTypeName ?? test.FullyQualifiedTypeName;
@@ -176,7 +176,7 @@ internal static class TestCaseEmitter
     public static void EmitClassDataSourceDescriptor(
         CodeWriter writer,
         TestMethodDescriptor test,
-        List<LifecycleMethodDescriptor> lifecycleMethods,
+        TestLifecycleMethods lifecycleMethods,
         EquatableArray<ClassDataSource> classDataSources)
     {
         var typesList = string.Join(", ", classDataSources.Select(s => $"typeof({s.TypeName})"));
@@ -209,7 +209,7 @@ internal static class TestCaseEmitter
     public static void EmitCombinedDataSourceDescriptor(
         CodeWriter writer,
         TestMethodDescriptor test,
-        List<LifecycleMethodDescriptor> lifecycleMethods)
+        TestLifecycleMethods lifecycleMethods)
     {
         BeginDescriptor(writer, "CombinedDataSourceDescriptor");
         EmitRuntimeDescriptorHeader(writer, test, lifecycleMethods);
@@ -243,7 +243,7 @@ internal static class TestCaseEmitter
     private static void EmitRuntimeDescriptorHeader(
         CodeWriter writer,
         TestMethodDescriptor test,
-        List<LifecycleMethodDescriptor> lifecycleMethods)
+        TestLifecycleMethods lifecycleMethods)
     {
         writer.WriteLine($"BaseId = {AttributeHelper.ToLiteral(test.Id)},");
         writer.WriteLine($"DisplayName = {AttributeHelper.ToLiteral(test.DisplayName)},");
@@ -254,7 +254,7 @@ internal static class TestCaseEmitter
     private static void EmitTestClassBlock(
         CodeWriter writer,
         TestMethodDescriptor test,
-        List<LifecycleMethodDescriptor> lifecycleMethods)
+        TestLifecycleMethods lifecycleMethods)
     {
         writer.WriteLine($"TestClass = typeof({test.FullyQualifiedTypeName}),");
         writer.WriteLine($"MethodName = {AttributeHelper.ToLiteral(test.MethodName)},");
@@ -264,10 +264,10 @@ internal static class TestCaseEmitter
     private static void EmitLifecycleAndParallelBlock(
         CodeWriter writer,
         TestMethodDescriptor test,
-        List<LifecycleMethodDescriptor> lifecycleMethods)
+        TestLifecycleMethods lifecycleMethods)
     {
         writer.Write("Lifecycle = ");
-        LifecycleEmitter.EmitLifecycleInfo(writer, test.FullyQualifiedTypeName, lifecycleMethods);
+        LifecycleEmitter.EmitLifecycleInfo(writer, lifecycleMethods);
         writer.WriteLine(",");
 
         writer.WriteLine("Parallel = new global::NextUnit.Internal.ParallelInfo");
@@ -391,10 +391,10 @@ internal static class TestCaseEmitter
 
     private static string BuildTestClassFactory(
         TestMethodDescriptor test,
-        List<LifecycleMethodDescriptor> lifecycleMethods)
+        TestLifecycleMethods lifecycleMethods)
     {
         var requiresInstance = !test.IsStatic ||
-            lifecycleMethods.Any(static lifecycle =>
+            lifecycleMethods.BaseToDerived.Any(static lifecycle =>
                 !lifecycle.IsStatic &&
                 (lifecycle.BeforeScopes.Contains(LifecycleScopeConstants.Test) ||
                  lifecycle.AfterScopes.Contains(LifecycleScopeConstants.Test) ||
