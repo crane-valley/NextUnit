@@ -1082,8 +1082,12 @@ internal sealed class TestExecutionEngine
         CancellationToken cancellationToken)
     {
         var lifecycle = testCase.Lifecycle;
+        var levels = EffectiveLevels(
+            lifecycle.TestLevels, lifecycle.BeforeTestMethods.Count, lifecycle.AfterTestMethods.Count);
         var enteredLevels = 0;
         AttemptResult result;
+        OperationCanceledException? bodyCancellation = null;
+        ExceptionDispatchInfo? bodyCritical = null;
         (List<Exception>? Failures, OperationCanceledException? Cancellation) unwound = default;
 
         try
@@ -1096,10 +1100,10 @@ internal sealed class TestExecutionEngine
                 // that makes a second [Before] failing in one class still run that class's [After].
                 var before = lifecycle.BeforeTestMethods;
                 var index = 0;
-                for (var level = 0; level < LevelCount(lifecycle.TestLevels); level++)
+                for (var level = 0; level < LevelCount(levels); level++)
                 {
                     enteredLevels = level + 1;
-                    var end = LevelEnd(lifecycle.TestLevels, level, index, before.Count, isBefore: true);
+                    var end = LevelEnd(levels, level, index, before.Count, isBefore: true);
                     for (; index < end; index++)
                     {
                         await before[index](instance, effectiveToken).ConfigureAwait(false);
@@ -1131,7 +1135,12 @@ internal sealed class TestExecutionEngine
                 // With [Timeout] the body observes the linked (timeout + run) token, so the OCE can carry
                 // the linked token rather than the run token. Normalize it to the run token so downstream
                 // classification recognizes genuine run cancellation instead of wrapping it as a failure.
-                throw new OperationCanceledException(ex.Message, ex, cancellationToken);
+                //
+                // Carried back rather than thrown from here, so the caller still reports whatever the
+                // unwind below fails with before it propagates the cancellation. Throwing here would
+                // leave those teardown failures with nowhere to go.
+                bodyCancellation = new OperationCanceledException(ex.Message, ex, cancellationToken);
+                result = AttemptResult.Reported;
             }
             catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true)
             {
@@ -1143,15 +1152,17 @@ internal sealed class TestExecutionEngine
                 // Runtime skip - do not retry skips
                 result = AttemptResult.Skipped(ex);
             }
-            catch (OutOfMemoryException)
+            catch (OutOfMemoryException ex)
             {
-                // Rethrow to preserve fail-fast behavior for critical exception types.
-                throw;
+                // Captured rather than rethrown so the unwind below still runs and cannot replace it;
+                // fail-fast behavior for critical exception types is preserved by rethrowing it after.
+                bodyCritical = ExceptionDispatchInfo.Capture(ex);
+                result = AttemptResult.Reported;
             }
-            catch (StackOverflowException)
+            catch (StackOverflowException ex)
             {
-                // Rethrow to preserve fail-fast behavior for critical exception types.
-                throw;
+                bodyCritical = ExceptionDispatchInfo.Capture(ex);
+                result = AttemptResult.Reported;
             }
             catch (Exception ex)
             {
@@ -1160,18 +1171,28 @@ internal sealed class TestExecutionEngine
         }
         finally
         {
-            // In a finally so that the entered levels unwind however the body ended. When the body is
-            // propagating run cancellation or a critical exception, that exception wins and what the
-            // unwind collected is dropped here, exactly as the disposal finally already drops its own.
-            unwound = await UnwindLevelsAsync(
-                lifecycle.AfterTestMethods,
-                lifecycle.TestLevels,
-                instance,
-                enteredLevels,
-                cancellationToken).ConfigureAwait(false);
+            // In a finally so that the entered levels unwind however the body ended.
+            try
+            {
+                unwound = await UnwindLevelsAsync(
+                    lifecycle.AfterTestMethods,
+                    levels,
+                    instance,
+                    enteredLevels,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (bodyCritical is not null)
+            {
+                // Only a critical exception escapes the unwind, and a critical body exception must
+                // propagate alone and unmasked, so this one is logged rather than allowed to replace it.
+                Diagnostics.SafeWriteError(
+                    $"[NextUnit] A teardown hook failed while '{testCase.Id.Value}' was already failing critically", ex);
+            }
         }
 
-        return (result, unwound.Failures, unwound.Cancellation);
+        bodyCritical?.Throw();
+
+        return (result, unwound.Failures, bodyCancellation ?? unwound.Cancellation);
     }
 
     /// <summary>
@@ -1200,9 +1221,7 @@ internal sealed class TestExecutionEngine
         OperationCanceledException? cancellation = null;
 
         // The entered levels are the last ones in a list stored derived to base, so the unwind is that
-        // list's suffix. Measured backwards from the end by the entered levels' own counts: a count
-        // belonging to a level that was never entered then cannot move the cut, so a malformed
-        // descriptor can only widen the suffix and run extra teardown, never skip an entered level's.
+        // list's suffix.
         for (var index = UnwindStart(afterMethods.Count, levels, enteredLevels); index < afterMethods.Count; index++)
         {
             try
@@ -1238,21 +1257,54 @@ internal sealed class TestExecutionEngine
     }
 
     /// <summary>
-    /// The number of base-chain levels a scope's hooks divide into.
+    /// The levels to walk, or an empty list meaning one level holding every hook of the scope.
     /// </summary>
     /// <remarks>
-    /// An empty level list is one level holding everything, which is what a test class with no
-    /// annotated base class is and what a descriptor written against the pre-3.0.0 shape means.
+    /// One level is what a test class with no annotated base class is, and what a descriptor written
+    /// against the pre-3.0.0 shape means, so an empty list is the compatibility default rather than a
+    /// missing value.
+    /// <para>
+    /// A list that is not an exact partition of both hook lists is discarded down to that same default
+    /// instead of being walked. A descriptor is data the engine has to survive rather than reject, and
+    /// the two ways to survive a nonsensical partition are to run some hook twice or to skip one: an
+    /// invalid list running every <c>[After]</c> hook cannot leave a resource unreleased, which is the
+    /// failure this whole change exists to prevent. Generated descriptors always partition exactly.
+    /// </para>
     /// </remarks>
+    private static IReadOnlyList<LifecycleLevel> EffectiveLevels(
+        IReadOnlyList<LifecycleLevel> levels,
+        int beforeCount,
+        int afterCount)
+    {
+        if (levels.Count == 0)
+        {
+            return levels;
+        }
+
+        long before = 0;
+        long after = 0;
+        foreach (var level in levels)
+        {
+            if (level.BeforeCount < 0 || level.AfterCount < 0)
+            {
+                return Array.Empty<LifecycleLevel>();
+            }
+
+            before += level.BeforeCount;
+            after += level.AfterCount;
+        }
+
+        return before == beforeCount && after == afterCount ? levels : Array.Empty<LifecycleLevel>();
+    }
+
+    /// <summary>
+    /// The number of base-chain levels a scope's hooks divide into.
+    /// </summary>
     private static int LevelCount(IReadOnlyList<LifecycleLevel> levels) => levels.Count == 0 ? 1 : levels.Count;
 
     /// <summary>
     /// Where one level's run of hooks ends, given where it starts.
     /// </summary>
-    /// <remarks>
-    /// Accumulated in <see cref="long"/> and clamped to the hook list, so a count a hand-built
-    /// descriptor made negative or enormous cannot index outside it.
-    /// </remarks>
     private static int LevelEnd(
         IReadOnlyList<LifecycleLevel> levels,
         int level,
@@ -1266,12 +1318,16 @@ internal sealed class TestExecutionEngine
         }
 
         var count = isBefore ? levels[level].BeforeCount : levels[level].AfterCount;
-        return count <= 0 ? start : (int)Math.Min((long)start + count, methodCount);
+        return (int)Math.Min((long)start + count, methodCount);
     }
 
     /// <summary>
     /// Where the unwind of <paramref name="enteredLevels"/> levels starts in a derived-to-base list.
     /// </summary>
+    /// <remarks>
+    /// Measured backwards from the end by the entered levels' own counts, so a count belonging to a
+    /// level that was never entered cannot move the cut.
+    /// </remarks>
     private static int UnwindStart(int methodCount, IReadOnlyList<LifecycleLevel> levels, int enteredLevels)
     {
         if (enteredLevels <= 0)
@@ -1287,11 +1343,7 @@ internal sealed class TestExecutionEngine
         long entered = 0;
         for (var level = 0; level < enteredLevels && level < levels.Count; level++)
         {
-            var count = levels[level].AfterCount;
-            if (count > 0)
-            {
-                entered += count;
-            }
+            entered += levels[level].AfterCount;
         }
 
         return (int)Math.Max(0, methodCount - entered);
@@ -1488,15 +1540,25 @@ internal sealed class TestExecutionEngine
             {
                 try
                 {
-                    var levels = testCase.Lifecycle.ClassLevels;
                     var before = testCase.Lifecycle.BeforeClassMethods;
+                    var levels = EffectiveLevels(
+                        testCase.Lifecycle.ClassLevels, before.Count, testCase.Lifecycle.AfterClassMethods.Count);
                     var index = 0;
                     for (var level = 0; level < LevelCount(levels); level++)
                     {
                         // Published before the level's hooks run, and volatile like SetupExecuted, so a
                         // setup failure that propagates out of this method still leaves cleanup able to
                         // see which levels it has to unwind.
-                        Volatile.Write(ref context.EnteredLevels, level + 1);
+                        //
+                        // A high-water mark, because a setup that failed leaves SetupExecuted false and
+                        // another test of the same class can therefore start the setup over. A level the
+                        // earlier attempt entered still has to unwind whether or not the later one
+                        // reached it, so the count only ever rises. Read-then-write is safe: this runs
+                        // under SetupLock, so only one setup is in flight at a time.
+                        if (level + 1 > Volatile.Read(ref context.EnteredLevels))
+                        {
+                            Volatile.Write(ref context.EnteredLevels, level + 1);
+                        }
 
                         var end = LevelEnd(levels, level, index, before.Count, isBefore: true);
                         for (; index < end; index++)
@@ -1545,7 +1607,10 @@ internal sealed class TestExecutionEngine
             // hook observing cancellation (or failing) does not skip the remaining AfterClass hooks.
             var (unwindFailures, unwindCancellation) = await UnwindLevelsAsync(
                 context.Lifecycle.AfterClassMethods,
-                context.Lifecycle.ClassLevels,
+                EffectiveLevels(
+                    context.Lifecycle.ClassLevels,
+                    context.Lifecycle.BeforeClassMethods.Count,
+                    context.Lifecycle.AfterClassMethods.Count),
                 context.Instance,
                 Volatile.Read(ref context.EnteredLevels),
                 cancellationToken).ConfigureAwait(false);

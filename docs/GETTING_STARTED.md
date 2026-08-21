@@ -550,9 +550,10 @@ Rules worth knowing before you rely on it:
   has already fired by then. `TestContext.Current.CancellationToken` still describes the attempt, so
   inside an `[After]` running after a timeout it reads as cancelled while the token the hook is
   handed does not. A hook that can hang needs its own deadline.
-- **A failing `[After]` fails the test and is never retried.** Its exception is reported alongside the
-  test's own, the test's first, and `[Retry]` does not re-run a test whose teardown threw -- the body
-  did not fail, so there is nothing to re-run. `IDisposable` or `IAsyncDisposable` on the test class
+- **A failing `[After]` fails the test and ends its attempts.** Its exception is reported alongside the
+  test's own, the test's first, and a cleanup failure makes the attempt terminal, so `[Retry]` does not
+  run again after one -- exactly as it has always behaved when a disposer throws.
+  `IDisposable` or `IAsyncDisposable` on the test class
   is still the stronger guarantee: the engine disposes the instance after every attempt whatever
   happened, including after a teardown hook threw, and a base class's `Dispose` runs for a derived
   instance without any framework involvement.

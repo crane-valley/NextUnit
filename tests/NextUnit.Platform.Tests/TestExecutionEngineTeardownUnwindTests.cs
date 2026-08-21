@@ -320,6 +320,35 @@ public sealed class TestExecutionEngineTeardownUnwindTests
     }
 
     [Test]
+    public async Task TeardownFailureAfterACancelledBody_IsStillReportedAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("unwind.cancelled.body.and.failed")
+            .Serial()
+            .WithLifecycle(new LifecycleInfo
+            {
+                AfterTestMethods = [static (_, _) => throw new InvalidOperationException("teardown boom")]
+            })
+            .WithMethod((_, token) =>
+            {
+                cts.Cancel();
+                token.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            })
+            .Build();
+
+        var sink = new RecordingSink();
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
+
+        // The cancellation is carried back rather than thrown out of the body, so the teardown failure
+        // it left behind is reported before the run ends instead of vanishing with the attempt.
+        var error = Assert.Single(sink.Errors);
+        Assert.Contains("teardown boom", error.Exception.Message);
+    }
+
+    [Test]
     public async Task DescriptorWithoutLevels_UnwindsEveryHookAsync()
     {
         var calls = new HookRecorder();
@@ -370,7 +399,7 @@ public sealed class TestExecutionEngineTeardownUnwindTests
     }
 
     [Test]
-    public async Task MalformedLevelCounts_StillUnwindTheEnteredLevelsAsync()
+    public async Task LevelsThatDoNotPartitionTheHooks_UnwindEverythingAsync()
     {
         var calls = new HookRecorder();
         var test = TestCaseDescriptorBuilder
@@ -390,13 +419,14 @@ public sealed class TestExecutionEngineTeardownUnwindTests
         var sink = new RecordingSink();
         await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
 
-        // The unwind is measured backwards from the end by the ENTERED levels' counts, so a count on a
-        // level that was never entered cannot move the cut and cannot skip an entered level's teardown.
-        // Here the base level was entered with a negative count, which contributes nothing, so nothing
-        // below it runs -- and no index ever leaves the array.
-        Assert.Equal(["Base.Before"], calls.Names);
+        // Counts that are negative, or that do not add up to the hook lists, are not a partition of
+        // anything, so the descriptor falls back to one level holding everything. Of the two ways to
+        // survive a nonsensical partition -- run a hook twice or skip one -- only the first cannot
+        // leave a resource unreleased, which is the failure this whole rule exists to prevent.
+        Assert.Equal(["Base.Before", "Derived.After", "Base.After"], calls.Names);
         Assert.Single(sink.Errors);
     }
+
 
     [Test]
     public async Task ClassSetupFailingPartway_UnwindsOnlyTheEnteredLevelsAsync()
