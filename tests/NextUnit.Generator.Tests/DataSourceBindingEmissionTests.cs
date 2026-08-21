@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace NextUnit.Generator.Tests;
 
@@ -329,12 +330,17 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
-    /// A source declared on a base test class is emitted as direct access through the derived type,
-    /// which is how the user names it and how C# resolves it. Compiling the output is the half that
-    /// matters: the emitted name has to bind to the inherited member.
+    /// A source declared on a base test class is emitted as direct access through the base type,
+    /// which is the type resolution bound against. Compiling the output is the half that matters:
+    /// the emitted name has to bind the inherited member.
     /// </summary>
+    /// <remarks>
+    /// The descriptor's <c>DataSourceType</c> stays on the derived type it did before, because the
+    /// runtime reads it into the row id prefix. Qualifying the call correctly is not allowed to
+    /// rename a single test case.
+    /// </remarks>
     [Fact]
-    public async Task InheritedMember_EmitsDirectAccessAsync()
+    public async Task InheritedMember_EmitsAccessQualifiedByTheDeclaringTypeAsync()
     {
         var source = """
             using NextUnit;
@@ -359,16 +365,18 @@ public class DataSourceBindingEmissionTests
 
         var registry = await GenerateRegistryAsync(source);
 
-        Assert.Contains("DataSourceProvider = static () => (object?)global::TestProject.DataTests.Rows", registry);
+        Assert.Contains("DataSourceProvider = static () => (object?)global::TestProject.DataTestsBase.Rows", registry);
+        Assert.Contains("DataSourceType = typeof(global::TestProject.DataTests),", registry);
 
         await AssertGeneratedOutputCompilesAsync(source);
     }
 
     /// <summary>
-    /// The parameter-level sources reach inherited members through the same walk.
+    /// The parameter-level sources reach inherited members through the same walk, and name the
+    /// declaring type for the same reason.
     /// </summary>
     [Fact]
-    public async Task InheritedParameterMember_EmitsDirectAccessAsync()
+    public async Task InheritedParameterMember_EmitsAccessQualifiedByTheDeclaringTypeAsync()
     {
         var source = """
             using NextUnit;
@@ -392,9 +400,89 @@ public class DataSourceBindingEmissionTests
 
         var registry = await GenerateRegistryAsync(source);
 
-        Assert.Contains("global::TestProject.DataTests.Values", registry);
+        Assert.Contains("MemberProvider = static () => (object?)global::TestProject.DataTestsBase.Values", registry);
+        Assert.Contains("MemberType = typeof(global::TestProject.DataTests),", registry);
 
         await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A second source generator adding the same member name to the same partial test class must
+    /// not capture the emitted call.
+    /// </summary>
+    /// <remarks>
+    /// Generators cannot see each other's output, so the added member is absent from the
+    /// compilation this generator resolves against and present in the one that finally compiles.
+    /// The second source here stands in for that output, added after the generator has run. An
+    /// access qualified by the type the attribute sits on would bind it silently: the analyzer reads
+    /// the same pre-merge compilation, so nothing would report that the rows enumerated are not the
+    /// rows validated.
+    /// </remarks>
+    [Fact]
+    public async Task InheritedMember_IsNotCapturedByAConcurrentGeneratorAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public partial class DataTests : DataTestsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("DataSourceProvider = static () => (object?)global::TestProject.DataTestsBase.Rows", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, ConcurrentlyGeneratedRows);
+    }
+
+    /// <summary>
+    /// The parameter-level path is a separate emitter branch reading a separate descriptor field, so
+    /// it needs its own pin against the same capture.
+    /// </summary>
+    [Fact]
+    public async Task InheritedParameterMember_IsNotCapturedByAConcurrentGeneratorAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTestsBase
+            {
+                public static IEnumerable<int> Values => new[] { 1, 2, 3 };
+            }
+
+            public partial class DataTests : DataTestsBase
+            {
+                [Test]
+                public void Consumes([ValuesFromMember("Values")] int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("MemberProvider = static () => (object?)global::TestProject.DataTestsBase.Values", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Values", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, ConcurrentlyGeneratedValues);
     }
 
     /// <summary>
@@ -649,20 +737,365 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
+    /// An unreachable <c>MemberType</c> whose member is declared on a reachable base still emits an
+    /// asynchronous access, and it now names that base rather than the test class.
+    /// </summary>
+    /// <remarks>
+    /// The withheld <c>MemberType</c> leaves the descriptor naming the test class, which the
+    /// asynchronous access used to be qualified by -- a member that is not declared there, so the
+    /// consumer's build failed on generated code with <c>CS0117</c>, or bound a same-named member of
+    /// the test class if one existed. Naming the declaring type is what the rest of this change
+    /// does, and it happens to be the fix here too.
+    /// <para>
+    /// The synchronous sibling still throws the <c>NU0020</c> message, because the reflection
+    /// fallback behind it would read the test class. The two disagreeing is pre-existing and only
+    /// reachable by suppressing <c>NU0020</c>, which fails the build first; it is not settled here.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task UnreachableMemberTypeOverReachableBase_QualifiesTheAsyncAccessByTheDeclaringTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+            using System.Threading;
+
+            namespace TestProject;
+
+            public class PublicRowsBase
+            {
+                public static async IAsyncEnumerable<object[]> Rows()
+                {
+                    await System.Threading.Tasks.Task.Yield();
+                    yield return new object[] { 1 };
+                }
+            }
+
+            public class DataTests
+            {
+                private class PrivateFixtures : PublicRowsBase
+                {
+                }
+
+                [Test]
+                [TestData("Rows", MemberType = typeof(PrivateFixtures))]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains(
+            "FromAsyncEnumerableAsync(global::TestProject.PublicRowsBase.Rows()",
+            registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows()", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A base declared in a reference reachable only through <c>extern alias</c> cannot qualify the
+    /// emitted access. The generated file carries no alias directive, so the base's name binds
+    /// nothing there -- or binds a homonym that happens to sit in the global namespace.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromAnAliasOnlyBase_KeepsTheDerivedQualifierAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references = [Reference(await CompileFixtureAssemblyAsync("AliasedFixtures"), "Aliased")];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::TestProject.DataTests.Rows", registry);
+        Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// The parameter-level twin: <c>[ValuesFromMember]</c> takes the same qualifier.
+    /// </summary>
+    [Fact]
+    public async Task ParameterMemberInheritedFromAnAliasOnlyBase_KeepsTheDerivedQualifierAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                public void Consumes([ValuesFromMember("Values")] int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references = [Reference(await CompileFixtureAssemblyAsync("AliasedFixtures"), "Aliased")];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// A declaring type the global namespace does hold, but not alone: a second reference declares
+    /// the same fully qualified name. The user's source dodges that with the alias and the generated
+    /// file cannot, so the emitted access stays on the derived type rather than taking a CS0433.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromAnAmbiguouslyNamedBase_KeepsTheDerivedQualifierAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references =
+        [
+            Reference(await CompileFixtureAssemblyAsync("AliasedFixtures"), "global", "Aliased"),
+            Reference(await CompileFixtureAssemblyAsync("HomonymFixtures")),
+        ];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::TestProject.DataTests.Rows", registry);
+        Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// One assembly referenced twice, once globally and once under an alias. The base is in the
+    /// global namespace and stays the qualifier, which reading the aliases off the reference the
+    /// compilation hands back for the assembly would have got backwards: that reference is the
+    /// alias-only one, while the type it declares is globally bindable all the same.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var image = await CompileFixtureAssemblyAsync("AliasedFixtures");
+        MetadataReference[] references = [Reference(image), Reference(image, "Aliased")];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::Fixtures.RowsBase.Rows", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// A base declared in source that a referenced assembly also declares under the same fully
+    /// qualified name. C# binds that to the source declaration and warns with <c>CS0436</c>, and the
+    /// warning does not travel: the registry's file header is a bare <c>#pragma warning disable</c>,
+    /// so the generated file carries none of it even under <c>TreatWarningsAsErrors</c>. So the
+    /// qualification holds -- and it has to, because this is a test class deriving from a base of its
+    /// own, which is where a concurrent generator has something to capture.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromASourceBaseShadowingAReference_QualifiesByTheDeclaringTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace Fixtures
+            {
+                public class RowsBase
+                {
+                    public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+                }
+            }
+
+            namespace TestProject
+            {
+                public partial class DataTests : global::Fixtures.RowsBase
+                {
+                    [Test]
+                    [TestData("Rows")]
+                    public void Consumes(int value)
+                    {
+                    }
+                }
+            }
+            """;
+
+        MetadataReference[] references = [Reference(await CompileFixtureAssemblyAsync("HomonymFixtures"))];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::Fixtures.RowsBase.Rows", registry);
+        Xunit.Assert.DoesNotContain("DataTests.Rows", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, ConcurrentlyGeneratedShadowedRows, references);
+    }
+
+    /// <summary>
+    /// The concurrent generator's member for the shadowed-base case, whose test class declares no
+    /// namespace-level partial of its own.
+    /// </summary>
+    private const string ConcurrentlyGeneratedShadowedRows = """
+        using System.Collections.Generic;
+
+        namespace TestProject;
+
+        public partial class DataTests
+        {
+            public static new IEnumerable<object[]> Rows => new[] { new object[] { 99 } };
+        }
+        """;
+
+    /// <summary>
+    /// The base sits in an alias-hidden namespace whose name a globally referenced <em>type</em> also
+    /// carries. The emitted name would compile and read the wrong member: <c>global::Fixtures</c> is
+    /// that type, and its nested <c>RowsBase.Rows</c> is not the source anything validated.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromABaseWhoseNamespaceNameIsATypeElsewhere_KeepsTheDerivedQualifierAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Aliased::Fixtures.RowsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references =
+        [
+            Reference(await CompileFixtureAssemblyAsync("AliasedFixtures"), "Aliased"),
+            Reference(await CompileShadowingTypeAssemblyAsync()),
+        ];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::TestProject.DataTests.Rows", registry);
+        Xunit.Assert.DoesNotContain("global::Fixtures.RowsBase", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// Stands in for a second source generator that adds <c>Rows</c> to the same partial test class.
+    /// </summary>
+    private const string ConcurrentlyGeneratedRows = """
+        using System.Collections.Generic;
+
+        namespace TestProject;
+
+        public partial class DataTests
+        {
+            public static new IEnumerable<object[]> Rows => new[] { new object[] { 99 } };
+        }
+        """;
+
+    /// <summary>
+    /// The parameter-level counterpart of <see cref="ConcurrentlyGeneratedRows"/>.
+    /// </summary>
+    private const string ConcurrentlyGeneratedValues = """
+        using System.Collections.Generic;
+
+        namespace TestProject;
+
+        public partial class DataTests
+        {
+            public static new IEnumerable<int> Values => new[] { 99 };
+        }
+        """;
+
+    /// <summary>
     /// Compiles the user's source together with everything the generator emitted for it. Asserting
     /// on the registry text alone would not catch a type reference emitted somewhere the assertions
     /// do not look, and CS0122 inside generated code is exactly the failure being prevented.
     /// </summary>
-    private static async Task AssertGeneratedOutputCompilesAsync(string source)
+    /// <param name="source">The user's source, which is what the generator runs against.</param>
+    /// <param name="concurrentlyGeneratedSource">
+    /// Another generator's output, added only to the final compilation. Passing it here rather than
+    /// to the generator is the whole point: it reproduces a member this generator could not see and
+    /// the compiler can.
+    /// </param>
+    /// <param name="extraReferences">
+    /// References the shared set does not carry, given to the generator and to the final
+    /// compilation alike so both see the same assemblies the user's project would.
+    /// </param>
+    private static async Task AssertGeneratedOutputCompilesAsync(
+        string source,
+        string? concurrentlyGeneratedSource = null,
+        IEnumerable<MetadataReference>? extraReferences = null)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var compilation = await GeneratorDriverHarness.CreateCompilationAsync(
             source,
             OutputKind.DynamicallyLinkedLibrary,
-            cancellationToken);
+            cancellationToken,
+            extraReferences);
 
         GeneratorDriverHarness.CreateDriver(trackIncrementalGeneratorSteps: false)
             .RunGeneratorsAndUpdateCompilation(compilation, out var updated, out _, cancellationToken);
+
+        if (concurrentlyGeneratedSource is not null)
+        {
+            updated = updated.AddSyntaxTrees(CSharpSyntaxTree.ParseText(
+                concurrentlyGeneratedSource,
+                path: "Concurrent.g.cs",
+                cancellationToken: cancellationToken));
+        }
 
         var errors = updated.GetDiagnostics(cancellationToken)
             .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
@@ -672,13 +1105,16 @@ public class DataSourceBindingEmissionTests
         Assert.Empty(errors);
     }
 
-    private static async Task<string> GenerateRegistryAsync(string source)
+    private static async Task<string> GenerateRegistryAsync(
+        string source,
+        IEnumerable<MetadataReference>? extraReferences = null)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var compilation = await GeneratorDriverHarness.CreateCompilationAsync(
             source,
             OutputKind.DynamicallyLinkedLibrary,
-            cancellationToken);
+            cancellationToken,
+            extraReferences);
         var driver = GeneratorDriverHarness.CreateDriver(trackIncrementalGeneratorSteps: false)
             .RunGenerators(compilation, cancellationToken);
 
@@ -687,4 +1123,85 @@ public class DataSourceBindingEmissionTests
             .SourceText
             .ToString();
     }
+
+    /// <summary>
+    /// Compiles a second assembly declaring <c>Fixtures.RowsBase</c> and hands back its image, for
+    /// the caller to reference under whichever aliases the case under test needs.
+    /// </summary>
+    /// <remarks>
+    /// The image rather than a reference, because two of these cases need the same assembly, or the
+    /// same fully qualified name, referenced twice with different <c>MetadataReferenceProperties</c>.
+    /// </remarks>
+    private static async Task<ImmutableArray<byte>> CompileFixtureAssemblyAsync(string assemblyName)
+    {
+        const string source = """
+            namespace Fixtures
+            {
+                public class RowsBase
+                {
+                    public static System.Collections.Generic.IEnumerable<object[]> Rows =>
+                        new[] { new object[] { 1 } };
+
+                    public static System.Collections.Generic.IEnumerable<int> Values =>
+                        new[] { 1 };
+                }
+            }
+            """;
+
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
+        var compilation = CSharpCompilation.Create(
+            assemblyName,
+            [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var stream = new MemoryStream();
+        var emitResult = compilation.Emit(stream, cancellationToken: cancellationToken);
+        Xunit.Assert.True(
+            emitResult.Success,
+            string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        return ImmutableArray.Create(stream.ToArray());
+    }
+
+    /// <summary>
+    /// Compiles an assembly whose global-scope <em>type</em> <c>Fixtures</c> carries the name the
+    /// aliased assembly uses for a namespace, with a nested <c>RowsBase.Rows</c> for the emitted
+    /// name to bind to if the qualifier is written anyway.
+    /// </summary>
+    private static async Task<ImmutableArray<byte>> CompileShadowingTypeAssemblyAsync()
+    {
+        const string source = """
+            public class Fixtures
+            {
+                public class RowsBase
+                {
+                    public static System.Collections.Generic.IEnumerable<object[]> Rows =>
+                        new[] { new object[] { 99 } };
+                }
+            }
+            """;
+
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
+        var compilation = CSharpCompilation.Create(
+            "ShadowingType",
+            [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var stream = new MemoryStream();
+        var emitResult = compilation.Emit(stream, cancellationToken: cancellationToken);
+        Xunit.Assert.True(
+            emitResult.Success,
+            string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        return ImmutableArray.Create(stream.ToArray());
+    }
+
+    private static MetadataReference Reference(ImmutableArray<byte> image, params string[] aliases) =>
+        MetadataReference.CreateFromImage(
+            image,
+            new MetadataReferenceProperties(aliases: ImmutableArray.Create(aliases)));
 }
