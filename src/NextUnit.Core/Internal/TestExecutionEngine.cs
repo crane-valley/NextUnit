@@ -990,10 +990,14 @@ internal sealed class TestExecutionEngine
         var instance = TestInstanceActivator.Create(testCase, testOutput, currentContext);
 
         AttemptResult result;
-        Exception? disposalFailure = null;
+        List<Exception>? cleanupFailures = null;
+        OperationCanceledException? teardownCancellation = null;
         try
         {
-            result = await RunAttemptBodyAsync(testCase, instance, effectiveToken, timeoutCts, cancellationToken).ConfigureAwait(false);
+            var body = await RunAttemptBodyAsync(testCase, instance, effectiveToken, timeoutCts, cancellationToken).ConfigureAwait(false);
+            result = body.Result;
+            cleanupFailures = body.Failures;
+            teardownCancellation = body.Cancellation;
         }
         finally
         {
@@ -1007,20 +1011,29 @@ internal sealed class TestExecutionEngine
                 // rather than run cancellation. The captured failure is consumed only on the normal path
                 // below: when the body is already propagating run cancellation or a critical exception,
                 // that exception wins and the disposal failure is intentionally dropped.
-                disposalFailure = ex;
+                (cleanupFailures ??= new List<Exception>()).Add(ex);
             }
         }
 
-        if (disposalFailure is null)
+        if (cleanupFailures is null or { Count: 0 })
         {
+            // A teardown hook that ended the run must not leave a passed, timed-out, or skipped result
+            // behind: the run is being abandoned, so nothing about this test was established.
+            if (teardownCancellation is not null)
+            {
+                throw teardownCancellation;
+            }
+
             await ReportAttemptOutcomeAsync(testCase, sink, result, testOutput, currentContext, budget).ConfigureAwait(false);
             return result;
         }
 
-        // The instance belongs to this test, so its disposal failure is reported on the test's own node
-        // instead of a synthetic one (unlike class-scope disposal, whose instance is shared). Reporting
-        // happens after disposal so a passing test is not first reported as passed and then failed.
-        var reportedFailure = CombineWithDisposalFailure(result, disposalFailure);
+        // The instance and its test-scoped hooks belong to this test, so a cleanup failure is reported
+        // on the test's own node instead of a synthetic one (unlike class-scope cleanup, whose instance
+        // is shared). Reporting happens after disposal so a passing test is not first reported as
+        // passed and then failed, and before the cancellation rethrow below so a teardown failure that
+        // coexists with a cancelled run still reaches the sink.
+        var reportedFailure = CombineWithCleanupFailures(result, cleanupFailures);
         AppendAttemptSummary(testOutput, budget);
         try
         {
@@ -1033,16 +1046,21 @@ internal sealed class TestExecutionEngine
         }
         catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
         {
-            Diagnostics.SafeWriteError($"[NextUnit] Failed to report test instance disposal failure for '{testCase.Id.Value}'", ex);
+            Diagnostics.SafeWriteError($"[NextUnit] Failed to report test cleanup failure for '{testCase.Id.Value}'", ex);
 
-            // Preserve BOTH the disposal failure and the sink failure, as the class and assembly cleanup
+            // Preserve BOTH the cleanup failure and the sink failure, as the class and assembly cleanup
             // paths do: propagating the sink failure alone would erase the cleanup error it was carrying.
             throw new AggregateException(
-                $"Failed to report test instance disposal failure for '{testCase.Id.Value}'.", reportedFailure, ex);
+                $"Failed to report test cleanup failure for '{testCase.Id.Value}'.", reportedFailure, ex);
         }
 
-        // Terminal: a disposer that throws is not fixed by retrying, and a later passing attempt would
-        // silently discard the failure already reported here.
+        if (teardownCancellation is not null)
+        {
+            throw teardownCancellation;
+        }
+
+        // Terminal: an `[After]` hook or a disposer that throws is not fixed by retrying, and a later
+        // passing attempt would silently discard the failure already reported here.
         return AttemptResult.Reported;
     }
 
@@ -1052,79 +1070,280 @@ internal sealed class TestExecutionEngine
     /// <remarks>
     /// Reporting is deferred to the caller so that it happens after instance disposal, which lets a
     /// disposal failure change the reported outcome instead of arriving after the result was published.
+    /// The teardown failures and the run cancellation observed while unwinding travel back with the
+    /// result for the same reason: the caller owns the sink, so it can report the failure first and
+    /// propagate the cancellation afterwards without losing either.
     /// </remarks>
-    private static async Task<AttemptResult> RunAttemptBodyAsync(
+    private static async Task<(AttemptResult Result, List<Exception>? Failures, OperationCanceledException? Cancellation)> RunAttemptBodyAsync(
         TestCaseDescriptor testCase,
         object instance,
         CancellationToken effectiveToken,
         CancellationTokenSource? timeoutCts,
         CancellationToken cancellationToken)
     {
+        var lifecycle = testCase.Lifecycle;
+        var levels = EffectiveLevels(
+            lifecycle.TestLevels, lifecycle.BeforeTestMethods.Count, lifecycle.AfterTestMethods.Count);
+        var enteredLevels = 0;
+        AttemptResult result;
+        OperationCanceledException? bodyCancellation = null;
+        ExceptionDispatchInfo? bodyCritical = null;
+        (List<Exception>? Failures, OperationCanceledException? Cancellation) unwound = default;
+
         try
         {
-            // Execute before lifecycle methods (test-scoped)
-            foreach (var beforeMethod in testCase.Lifecycle.BeforeTestMethods)
+            try
             {
-                await beforeMethod(instance, effectiveToken).ConfigureAwait(false);
-            }
+                // A level is entered when the walk reaches it, before its hooks run: a [Before] that
+                // threw halfway may already hold what its [After] releases, and a level that declares
+                // only [After] hooks has no first [Before] to start. This is NUnit's rule, and the one
+                // that makes a second [Before] failing in one class still run that class's [After].
+                var before = lifecycle.BeforeTestMethods;
+                var index = 0;
+                for (var level = 0; level < LevelCount(levels); level++)
+                {
+                    enteredLevels = level + 1;
+                    var end = LevelEnd(levels, level, index, before.Count, isBefore: true);
+                    for (; index < end; index++)
+                    {
+                        await before[index](instance, effectiveToken).ConfigureAwait(false);
+                    }
+                }
 
-            // Execute the test method
-            // TestMethod is guaranteed non-null because CheckSkipConditionsAsync validates it before execution
-            if (testCase.TestMethodWithArguments is not null)
+                // Execute the test method
+                // TestMethod is guaranteed non-null because CheckSkipConditionsAsync validates it before execution
+                if (testCase.TestMethodWithArguments is not null)
+                {
+                    await testCase.TestMethodWithArguments(
+                        instance,
+                        testCase.Arguments ?? Array.Empty<object?>(),
+                        effectiveToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
+                }
+
+                result = AttemptResult.Passed;
+            }
+            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
             {
-                await testCase.TestMethodWithArguments(
+                // The outer run token fired (Ctrl+C / host shutdown): propagate cancellation per
+                // Microsoft.Testing.Platform guidance instead of misclassifying it as an error and
+                // re-executing the in-flight test under [Retry].
+                //
+                // With [Timeout] the body observes the linked (timeout + run) token, so the OCE can carry
+                // the linked token rather than the run token. Normalize it to the run token so downstream
+                // classification recognizes genuine run cancellation instead of wrapping it as a failure.
+                //
+                // Carried back rather than thrown from here, so the caller still reports whatever the
+                // unwind below fails with before it propagates the cancellation. Throwing here would
+                // leave those teardown failures with nowhere to go.
+                bodyCancellation = new OperationCanceledException(ex.Message, ex, cancellationToken);
+                result = AttemptResult.Reported;
+            }
+            catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true)
+            {
+                // Timeout occurred - do not retry timeouts
+                result = AttemptResult.TimedOut(new TestTimeoutException(testCase.TimeoutMs!.Value));
+            }
+            catch (TestSkippedException ex)
+            {
+                // Runtime skip - do not retry skips
+                result = AttemptResult.Skipped(ex);
+            }
+            catch (Exception ex) when (ExceptionHelper.IsCriticalException(ex))
+            {
+                // Captured rather than rethrown so the unwind below still runs and cannot replace it;
+                // fail-fast behavior for critical exception types is preserved by rethrowing it after.
+                // Asked of ExceptionHelper rather than spelled out as two catch clauses, so the set
+                // cannot drift from the one every other guard in the engine uses.
+                bodyCritical = ExceptionDispatchInfo.Capture(ex);
+                result = AttemptResult.Reported;
+            }
+            catch (Exception ex)
+            {
+                result = AttemptResult.Retriable(ex);
+            }
+        }
+        finally
+        {
+            // In a finally so that the entered levels unwind however the body ended.
+            try
+            {
+                unwound = await UnwindLevelsAsync(
+                    lifecycle.AfterTestMethods,
+                    levels,
                     instance,
-                    testCase.Arguments ?? Array.Empty<object?>(),
-                    effectiveToken).ConfigureAwait(false);
+                    enteredLevels,
+                    cancellationToken).ConfigureAwait(false);
             }
-            else
+            catch (Exception ex) when (bodyCritical is not null)
             {
-                await testCase.TestMethod!(instance, effectiveToken).ConfigureAwait(false);
+                // Only a critical exception escapes the unwind, and a critical body exception must
+                // propagate alone and unmasked, so this one is logged rather than allowed to replace it.
+                Diagnostics.SafeWriteError(
+                    $"[NextUnit] A teardown hook failed while '{testCase.Id.Value}' was already failing critically", ex);
+            }
+        }
+
+        bodyCritical?.Throw();
+
+        return (result, unwound.Failures, bodyCancellation ?? unwound.Cancellation);
+    }
+
+    /// <summary>
+    /// Runs the after-hooks of the levels that were entered, derived class to base class.
+    /// </summary>
+    /// <returns>
+    /// The failures the hooks threw and the run cancellation they observed, kept apart because a
+    /// cancelled run is not a teardown failure and the two must be surfaced by different means.
+    /// </returns>
+    /// <remarks>
+    /// The hooks are passed the RUN token, never a <c>[Timeout]</c>-linked one. Passing the linked
+    /// token was rejected: by the time a timed-out attempt unwinds, the timeout source has already
+    /// fired, so every hook honoring it would throw at once and <c>[After]</c> would run nowhere near
+    /// the failure that needs cleaning up most. The cost is that <c>[Timeout]</c> does not bound
+    /// teardown, which is also true of class and assembly teardown.
+    /// </remarks>
+    private static async Task<(List<Exception>? Failures, OperationCanceledException? Cancellation)> UnwindLevelsAsync(
+        IReadOnlyList<LifecycleMethodDelegate> afterMethods,
+        IReadOnlyList<LifecycleLevel> levels,
+        object instance,
+        int enteredLevels,
+        CancellationToken cancellationToken)
+    {
+        var cancelledBefore = cancellationToken.IsCancellationRequested;
+        List<Exception>? failures = null;
+        OperationCanceledException? cancellation = null;
+
+        // The entered levels are the last ones in a list stored derived to base, so the unwind is that
+        // list's suffix.
+        for (var index = UnwindStart(afterMethods.Count, levels, enteredLevels); index < afterMethods.Count; index++)
+        {
+            try
+            {
+                await afterMethods[index](instance, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException ex) when (IsRunCancellation(ex, cancellationToken))
+            {
+                // A cancelled run aborting teardown is not a teardown failure, but the cancellation must
+                // still surface: remember it, finish the remaining hooks, then let the caller rethrow.
+                cancellation ??= ex;
+            }
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            {
+                // A non-run-cancellation exception (including an OCE carrying a different token) is a
+                // teardown failure, not run cancellation. Caught per hook so one failing hook does not
+                // skip the rest of its level or the base levels below it.
+                (failures ??= new List<Exception>()).Add(ex);
+            }
+        }
+
+        // A hook that cancels the run and then returns normally throws nothing, so nothing was recorded
+        // above and the attempt would be published as if the run were still live. Synthesize the
+        // cancellation, as RunAsync does for the same shape at the end of a run. Gated on the token
+        // having been live when the unwind began, so a test that ignores an already-cancelled token and
+        // completes is still reported exactly as it is today.
+        if (cancellation is null && !cancelledBefore && cancellationToken.IsCancellationRequested)
+        {
+            cancellation = new OperationCanceledException(cancellationToken);
+        }
+
+        return (failures, cancellation);
+    }
+
+    /// <summary>
+    /// The levels to walk, or an empty list meaning one level holding every hook of the scope.
+    /// </summary>
+    /// <remarks>
+    /// One level is what a test class with no annotated base class is, and what a descriptor written
+    /// against the pre-3.0.0 shape means, so an empty list is the compatibility default rather than a
+    /// missing value.
+    /// <para>
+    /// A list that is not an exact partition of both hook lists is discarded down to that same default
+    /// instead of being walked. A descriptor is data the engine has to survive rather than reject, and
+    /// the two ways to survive a nonsensical partition are to run some hook twice or to skip one: an
+    /// invalid list running every <c>[After]</c> hook cannot leave a resource unreleased, which is the
+    /// failure this whole change exists to prevent. Generated descriptors always partition exactly.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<LifecycleLevel> EffectiveLevels(
+        IReadOnlyList<LifecycleLevel> levels,
+        int beforeCount,
+        int afterCount)
+    {
+        if (levels.Count == 0)
+        {
+            return levels;
+        }
+
+        long before = 0;
+        long after = 0;
+        foreach (var level in levels)
+        {
+            if (level.BeforeCount < 0 || level.AfterCount < 0)
+            {
+                return Array.Empty<LifecycleLevel>();
             }
 
-            // Execute after lifecycle methods (test-scoped)
-            foreach (var afterMethod in testCase.Lifecycle.AfterTestMethods)
-            {
-                await afterMethod(instance, effectiveToken).ConfigureAwait(false);
-            }
+            before += level.BeforeCount;
+            after += level.AfterCount;
+        }
 
-            return AttemptResult.Passed;
-        }
-        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        return before == beforeCount && after == afterCount ? levels : Array.Empty<LifecycleLevel>();
+    }
+
+    /// <summary>
+    /// The number of base-chain levels a scope's hooks divide into.
+    /// </summary>
+    private static int LevelCount(IReadOnlyList<LifecycleLevel> levels) => levels.Count == 0 ? 1 : levels.Count;
+
+    /// <summary>
+    /// Where one level's run of hooks ends, given where it starts.
+    /// </summary>
+    private static int LevelEnd(
+        IReadOnlyList<LifecycleLevel> levels,
+        int level,
+        int start,
+        int methodCount,
+        bool isBefore)
+    {
+        if (levels.Count == 0)
         {
-            // The outer run token fired (Ctrl+C / host shutdown): propagate cancellation per
-            // Microsoft.Testing.Platform guidance instead of misclassifying it as an error and
-            // re-executing the in-flight test under [Retry].
-            //
-            // With [Timeout] the body observes the linked (timeout + run) token, so the OCE can carry
-            // the linked token rather than the run token. Normalize it to the run token so downstream
-            // classification recognizes genuine run cancellation instead of wrapping it as a failure.
-            throw new OperationCanceledException(ex.Message, ex, cancellationToken);
+            return methodCount;
         }
-        catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true)
+
+        var count = isBefore ? levels[level].BeforeCount : levels[level].AfterCount;
+        return (int)Math.Min((long)start + count, methodCount);
+    }
+
+    /// <summary>
+    /// Where the unwind of <paramref name="enteredLevels"/> levels starts in a derived-to-base list.
+    /// </summary>
+    /// <remarks>
+    /// Measured backwards from the end by the entered levels' own counts, so a count belonging to a
+    /// level that was never entered cannot move the cut.
+    /// </remarks>
+    private static int UnwindStart(int methodCount, IReadOnlyList<LifecycleLevel> levels, int enteredLevels)
+    {
+        if (enteredLevels <= 0)
         {
-            // Timeout occurred - do not retry timeouts
-            return AttemptResult.TimedOut(new TestTimeoutException(testCase.TimeoutMs!.Value));
+            return methodCount;
         }
-        catch (TestSkippedException ex)
+
+        if (levels.Count == 0)
         {
-            // Runtime skip - do not retry skips
-            return AttemptResult.Skipped(ex);
+            return 0;
         }
-        catch (OutOfMemoryException)
+
+        long entered = 0;
+        for (var level = 0; level < enteredLevels && level < levels.Count; level++)
         {
-            // Rethrow to preserve fail-fast behavior for critical exception types.
-            throw;
+            entered += levels[level].AfterCount;
         }
-        catch (StackOverflowException)
-        {
-            // Rethrow to preserve fail-fast behavior for critical exception types.
-            throw;
-        }
-        catch (Exception ex)
-        {
-            return AttemptResult.Retriable(ex);
-        }
+
+        return (int)Math.Max(0, methodCount - entered);
     }
 
     /// <summary>
@@ -1163,27 +1382,33 @@ internal sealed class TestExecutionEngine
     }
 
     /// <summary>
-    /// Builds the exception reported when disposing a per-test instance failed.
+    /// Builds the exception reported when a test-scoped teardown hook or the instance disposal failed.
     /// </summary>
     /// <remarks>
-    /// The attempt's own exception stays first so the disposal failure never masks the original
-    /// failure, mirroring how coexisting cleanup failures are combined for the whole run.
+    /// The attempt's own exception stays first so a cleanup failure never masks the original failure,
+    /// mirroring how coexisting cleanup failures are combined for the whole run. A runtime skip is
+    /// promoted to a reported failure rather than staying a skip, because a test whose cleanup failed
+    /// is not merely skipped and its skip reason is the only thing the skip report would carry.
     /// </remarks>
-    private static Exception CombineWithDisposalFailure(AttemptResult result, Exception disposalFailure)
+    private static Exception CombineWithCleanupFailures(AttemptResult result, List<Exception> cleanupFailures)
     {
         if (result.Exception is null)
         {
-            return disposalFailure;
+            return cleanupFailures.Count == 1
+                ? cleanupFailures[0]
+                : new AggregateException("Cleaning up after the test failed.", cleanupFailures);
         }
 
         var message = result.Outcome switch
         {
-            AttemptOutcome.Skipped => "The test was skipped at runtime and disposing the test instance failed.",
-            AttemptOutcome.TimedOut => "The test timed out and disposing the test instance failed.",
-            _ => "The test failed and disposing the test instance failed."
+            AttemptOutcome.Skipped => "The test was skipped at runtime and cleaning up after it failed.",
+            AttemptOutcome.TimedOut => "The test timed out and cleaning up after it failed.",
+            _ => "The test failed and cleaning up after it failed."
         };
 
-        return new AggregateException(message, result.Exception, disposalFailure);
+        var inner = new List<Exception>(cleanupFailures.Count + 1) { result.Exception };
+        inner.AddRange(cleanupFailures);
+        return new AggregateException(message, inner);
     }
 
     /// <summary>
@@ -1312,9 +1537,31 @@ internal sealed class TestExecutionEngine
             {
                 try
                 {
-                    foreach (var beforeClassMethod in testCase.Lifecycle.BeforeClassMethods)
+                    var before = testCase.Lifecycle.BeforeClassMethods;
+                    var levels = EffectiveLevels(
+                        testCase.Lifecycle.ClassLevels, before.Count, testCase.Lifecycle.AfterClassMethods.Count);
+                    var index = 0;
+                    for (var level = 0; level < LevelCount(levels); level++)
                     {
-                        await beforeClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
+                        // Published before the level's hooks run, and volatile like SetupExecuted, so a
+                        // setup failure that propagates out of this method still leaves cleanup able to
+                        // see which levels it has to unwind.
+                        //
+                        // A high-water mark, because a setup that failed leaves SetupExecuted false and
+                        // another test of the same class can therefore start the setup over. A level the
+                        // earlier attempt entered still has to unwind whether or not the later one
+                        // reached it, so the count only ever rises. Read-then-write is safe: this runs
+                        // under SetupLock, so only one setup is in flight at a time.
+                        if (level + 1 > Volatile.Read(ref context.EnteredLevels))
+                        {
+                            Volatile.Write(ref context.EnteredLevels, level + 1);
+                        }
+
+                        var end = LevelEnd(levels, level, index, before.Count, isBefore: true);
+                        for (; index < end; index++)
+                        {
+                            await before[index](context.Instance, cancellationToken).ConfigureAwait(false);
+                        }
                     }
                 }
                 catch (TestSkippedException ex)
@@ -1351,28 +1598,22 @@ internal sealed class TestExecutionEngine
         {
             var context = kvp.Value;
 
-            // Catch per hook so that a hook observing cancellation (or failing) does not skip the
-            // remaining AfterClass hooks of this class.
-            var teardownErrors = new List<Exception>();
-            foreach (var afterClassMethod in context.Lifecycle.AfterClassMethods)
-            {
-                try
-                {
-                    await afterClassMethod(context.Instance, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException ex) when (IsRunCancellation(ex, cancellationToken))
-                {
-                    // A cancelled run aborting teardown is not a teardown failure, but the cancellation
-                    // must still surface: remember it, finish remaining cleanup, then let the caller rethrow.
-                    cancellation ??= ex;
-                }
-                catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
-                {
-                    // A non-run-cancellation exception (including an OCE carrying a different token) is a
-                    // teardown failure, not run cancellation.
-                    teardownErrors.Add(ex);
-                }
-            }
+            // Only the levels whose class setup was entered unwind: a class whose base setup failed
+            // never ran the derived one, so the derived teardown has nothing to tear down and would be
+            // running against a half-built fixture. Catches per hook live in the shared unwind, so a
+            // hook observing cancellation (or failing) does not skip the remaining AfterClass hooks.
+            var (unwindFailures, unwindCancellation) = await UnwindLevelsAsync(
+                context.Lifecycle.AfterClassMethods,
+                EffectiveLevels(
+                    context.Lifecycle.ClassLevels,
+                    context.Lifecycle.BeforeClassMethods.Count,
+                    context.Lifecycle.AfterClassMethods.Count),
+                context.Instance,
+                Volatile.Read(ref context.EnteredLevels),
+                cancellationToken).ConfigureAwait(false);
+
+            cancellation ??= unwindCancellation;
+            var teardownErrors = unwindFailures ?? new List<Exception>();
 
             if (teardownErrors.Count > 0)
             {
@@ -1468,6 +1709,9 @@ internal sealed class TestExecutionEngine
         public bool SetupExecuted;
         public string? SkipReason { get; set; }
         public SemaphoreSlim SetupLock { get; init; } = null!;
+
+        /// <summary>How many base-chain levels of the class setup were entered, for the unwind.</summary>
+        public int EnteredLevels;
     }
 
     /// <summary>

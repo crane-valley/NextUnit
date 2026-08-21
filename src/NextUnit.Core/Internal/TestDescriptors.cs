@@ -96,6 +96,32 @@ public delegate IRetryPolicy RetryPolicyFactoryDelegate();
 public delegate Task LifecycleMethodDelegate(object instance, CancellationToken cancellationToken);
 
 /// <summary>
+/// How many of a scope's hooks belong to one class in the test class's base chain.
+/// </summary>
+/// <remarks>
+/// A level is what teardown unwinds: the engine runs the <c>[After]</c> hooks of the levels it
+/// entered, derived to base, and leaves the rest alone.
+/// <para>
+/// Counts rather than start indices, so a gap between two levels, an overlap, or a start that
+/// disagrees with the level before it cannot be expressed at all. The alternative -- a start and a
+/// count per level, validated on use -- can describe a partition that silently skips a hook, and a
+/// descriptor is data the engine must survive rather than reject.
+/// </para>
+/// </remarks>
+public sealed class LifecycleLevel
+{
+    /// <summary>
+    /// Gets or initializes how many of the scope's before-hooks this level declares.
+    /// </summary>
+    public int BeforeCount { get; init; }
+
+    /// <summary>
+    /// Gets or initializes how many of the scope's after-hooks this level declares.
+    /// </summary>
+    public int AfterCount { get; init; }
+}
+
+/// <summary>
 /// Contains information about lifecycle hooks (setup and teardown methods) for a test.
 /// </summary>
 public sealed class LifecycleInfo
@@ -139,6 +165,31 @@ public sealed class LifecycleInfo
     /// Gets or initializes the delegates to execute after all tests in a session.
     /// </summary>
     public IReadOnlyList<LifecycleMethodDelegate> AfterSessionMethods { get; init; } = Array.Empty<LifecycleMethodDelegate>();
+
+    /// <summary>
+    /// Gets or initializes how the test-scoped hooks divide into base-chain levels, base class first.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="LifecycleLevel.BeforeCount"/> consumes <see cref="BeforeTestMethods"/> in this
+    /// order; <see cref="LifecycleLevel.AfterCount"/> consumes <see cref="AfterTestMethods"/> in the
+    /// opposite order, because that list is stored derived to base.
+    /// <para>
+    /// Empty means one level holding every hook of the scope, which is what a test class with no
+    /// annotated base class is, and what a descriptor written against the pre-3.0.0 shape means.
+    /// Entering that one level unwinds all of its <c>[After]</c> hooks, so the compatibility default
+    /// is the fixed behavior rather than the old one.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<LifecycleLevel> TestLevels { get; init; } = Array.Empty<LifecycleLevel>();
+
+    /// <summary>
+    /// Gets or initializes how the class-scoped hooks divide into base-chain levels, base class first.
+    /// </summary>
+    /// <remarks>
+    /// Read exactly as <see cref="TestLevels"/> is, against <see cref="BeforeClassMethods"/> and
+    /// <see cref="AfterClassMethods"/>.
+    /// </remarks>
+    public IReadOnlyList<LifecycleLevel> ClassLevels { get; init; } = Array.Empty<LifecycleLevel>();
 }
 
 /// <summary>

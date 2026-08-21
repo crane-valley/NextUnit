@@ -606,14 +606,12 @@ public sealed class TestExecutionEngineRetryTests
         var sink = new RecordingSink();
         await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
 
-        // Every attempt is a full test execution: a new instance, its own setup, and its own disposal.
+        // Every attempt is a full test execution: a new instance, its own setup, its own teardown, and
+        // its own disposal. The [After] hooks run per attempt even though every attempt failed.
         Assert.Equal(3, AttemptScopedInstance.Created);
         Assert.Equal(3, AttemptScopedInstance.Disposed);
         Assert.Equal(3, beforeCalls);
-
-        // The failing attempt never reaches its [After] hooks, which is why disposal is the cleanup
-        // that must run per attempt.
-        Assert.Equal(0, afterCalls);
+        Assert.Equal(3, afterCalls);
     }
 
     private static AggregateException AsAggregate(Exception exception)

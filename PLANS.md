@@ -180,14 +180,42 @@ matters. Resource release has a working answer meanwhile -- `ExecuteSingleAttemp
 test instance in a `finally` on every attempt, and a base class's `Dispose` runs for a derived
 instance by C# itself -- which is why this was not bundled into the 3.0.0 inheritance change.
 
-- [ ] Carry lifecycle level boundaries into the emitted `LifecycleInfo` and the runtime descriptor,
-  track the levels whose `[Before]` hooks completed, and unwind only those, derived to base, after a
-  `[Before]` or test failure as well as after a pass.
-- [ ] Apply the same entered-level rule to class scope, so a class whose setup failed partway does
-  not run the teardown of a level it never entered.
-- [ ] Decide and test the exception precedence when a teardown hook throws during unwind, whether
+- [x] Carry lifecycle level boundaries into the emitted `LifecycleInfo` and the runtime descriptor,
+  track the levels the setup entered, and unwind only those, derived to base, after a `[Before]` or
+  test failure as well as after a pass. Done for 3.0.0. A level is entered when the walk reaches it,
+  before its `[Before]` hooks run -- not when they complete, which is what this bullet first said. A
+  `[Before]` that threw halfway may already hold what its `[After]` releases, and "completed" would
+  have left the defect this section opens with, two `[Before]` hooks in one class, unfixed. It is also
+  NUnit's rule: `SetUpTearDownItem._setUpWasRun` is set before the level's setups run. Reaching the
+  level, rather than starting its first `[Before]`, is what also enters a class that declares only
+  `[After]` hooks.
+  The boundaries are `LifecycleInfo.TestLevels` and `ClassLevels`, a count of before-hooks and
+  after-hooks per class rather than start indices, so a gap between two levels or an overlap is not
+  expressible instead of being validated on use. Emitted only above one level: an empty list already
+  means one level holding everything, so every non-inheriting test keeps its generated output byte for
+  byte, and a descriptor written against the 2.x shape gets the fixed behavior rather than the old one.
+- [x] Apply the same entered-level rule to class scope, so a class whose setup failed partway does
+  not run the teardown of a level it never entered. Done for 3.0.0. `EnsureClassSetupAsync` publishes
+  the count before each level's hooks run, so a setup failure that propagates still leaves cleanup
+  able to see what to unwind, and both scopes share one unwind.
+- [x] Decide and test the exception precedence when a teardown hook throws during unwind, whether
   teardown observes the timeout token, and how the rule interacts with `[Retry]`, `[Timeout]`,
-  `[Skip]`, and run cancellation.
+  `[Skip]`, and run cancellation. Decided for 3.0.0. A teardown failure is a cleanup failure and joins
+  the path a failing disposer already took: combined with the attempt's own exception, that one first,
+  reported once, and terminal -- so `[Retry]` never re-runs a test whose teardown threw, and a runtime
+  skip whose teardown failed is reported as an error rather than as a skip. Teardown is passed the run
+  token, never the `[Timeout]`-linked one, because the timeout has already fired by the time a
+  timed-out attempt unwinds; the cost is that `[Timeout]` does not bound an `[After]` hook, and that
+  `TestContext.Current.CancellationToken` reads as cancelled inside one. Run cancellation observed
+  during the unwind is classified as `CleanupClassInstancesAsync` classifies it, the remaining hooks
+  still run, and the attempt propagates the cancellation instead of publishing an outcome -- after
+  reporting any coexisting teardown failure, so neither is lost. A discovery-time `[Skip]` is
+  unaffected: the skip check short-circuits before any hook runs.
+- [ ] Decide whether a failed class setup should stop aborting the whole run. It still propagates out
+  of `EnsureClassSetupAsync` and ends the run from `RunAsync`, which means one broken fixture costs
+  every other class in the assembly, and no node names the class that broke. Deliberately left out of
+  the unwind change: it needs a per-class failure node, a decision about what the class's own tests
+  are reported as, and a rule for `SetupExecuted`, none of which the unwind decides.
 
 ### Priority 3 -- An explicit interface hook on a base class in a referenced assembly is invisible
 
