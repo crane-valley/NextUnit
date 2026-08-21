@@ -105,7 +105,7 @@ internal static class GeneratorDiagnosticDescriptors
     /// run -- the failure inherited hooks exist to remove.
     /// </remarks>
     public static readonly DiagnosticDescriptor LifecycleMethodNotAccessible = Create(
-        "NEXTUNIT014",
+        "NEXTUNIT015",
         "Lifecycle method is not accessible to generated code",
         "Lifecycle method '{0}.{1}' is not accessible from the generated test registry; make it public, or internal in the test assembly.",
         DiagnosticSeverity.Error,
@@ -121,7 +121,7 @@ internal static class GeneratorDiagnosticDescriptors
     /// reason as <see cref="LifecycleMethodNotAccessible"/>.
     /// </remarks>
     public static readonly DiagnosticDescriptor InheritedTypeNotAccessible = Create(
-        "NEXTUNIT015",
+        "NEXTUNIT016",
         "Attribute type is not accessible to generated code",
         "Test '{0}' uses type '{1}', which is not accessible from the generated test registry; make it public, or internal in the test assembly.",
         DiagnosticSeverity.Error,

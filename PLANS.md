@@ -160,8 +160,8 @@ so the metadata advertised a behavior that nothing implemented.
   level with duplicates kept. `[Test]` and everything that defines the test set stay uninherited, so
   discovery is unchanged. Every attribute's `Inherited` metadata was flipped to match, keeping the
   2.0.x principle that the metadata must describe what the generator does.
-  A hook the registry cannot call is reported as `NEXTUNIT014` and an attribute type it cannot name
-  as `NEXTUNIT015`, both errors and both not configurable, because a suppressible report plus a
+  A hook the registry cannot call is reported as `NEXTUNIT015` and an attribute type it cannot name
+  as `NEXTUNIT016`, both errors and both not configurable, because a suppressible report plus a
   dropped declaration would put the silent failure back.
 
 ### Priority 1 -- Teardown does not unwind, and runs nothing after a failure

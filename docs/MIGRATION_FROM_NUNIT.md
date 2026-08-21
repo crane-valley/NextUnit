@@ -282,7 +282,7 @@ when the shared object cannot take concurrent use; see
 Hooks are inherited, as they are in NUnit. A `[Before]` on an abstract base class runs for the
 derived classes that hold the tests, base class first, and `[After]` unwinds derived class first.
 The hook has to be `public` or `internal`, because the generated registry calls it from outside your
-class; a `protected` one -- common in NUnit base fixtures -- is reported as `NEXTUNIT014` rather than
+class; a `protected` one -- common in NUnit base fixtures -- is reported as `NEXTUNIT015` rather than
 silently skipped. Configuration attributes such as `[Timeout]` and `[Category]` are inherited on the
 same rule. See
 [Inheritance from a base test class](GETTING_STARTED.md#inheritance-from-a-base-test-class).

@@ -249,7 +249,7 @@ Hooks on a shared base class convert in place. Like MSTest's inherited `[TestIni
 `[Before]` or `[After]` declared on a base test class runs for every class derived from it, base
 first for `[Before]` and derived first for `[After]`. The hook has to be `public` or `internal`,
 because the generated registry calls it from outside your class; a `protected` one is reported as
-`NEXTUNIT014`. Configuration attributes such as `[Timeout]` and `[Category]` are inherited too. See
+`NEXTUNIT015`. Configuration attributes such as `[Timeout]` and `[Category]` are inherited too. See
 [Inheritance from a base test class](GETTING_STARTED.md#inheritance-from-a-base-test-class) for the
 override, hiding, and scope rules.
 

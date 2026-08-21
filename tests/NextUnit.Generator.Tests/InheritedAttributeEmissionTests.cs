@@ -264,7 +264,7 @@ public class InheritedAttributeEmissionTests
 
         // NU0016 sees a directly applied policy in the compilation that wrote it; only an inherited
         // one can be reachable there and unreachable here.
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT016"), FormatIds(diagnostics));
         Assert.False(registry.Contains("HiddenPolicy", StringComparison.Ordinal), "the unreachable policy must not be emitted");
     }
 
@@ -291,7 +291,7 @@ public class InheritedAttributeEmissionTests
 
         // No analyzer covers formatter accessibility, so the non-generic form is checked wherever it
         // is declared rather than only when inherited.
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT016"), FormatIds(diagnostics));
         Assert.False(registry.Contains("HiddenFormatter", StringComparison.Ordinal), "the unreachable formatter must not be emitted");
     }
 
@@ -319,7 +319,7 @@ public class InheritedAttributeEmissionTests
             }
             """);
 
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT016"), FormatIds(diagnostics));
     }
 
     [Fact]
@@ -377,7 +377,7 @@ public class InheritedAttributeEmissionTests
         // emitted and the build fails on the CS0122 NU0016 warned about.
         Assert.Contains("HiddenPolicy", registry);
         Assert.False(
-            diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"),
+            diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT016"),
             FormatIds(diagnostics));
     }
 
@@ -419,7 +419,7 @@ public class InheritedAttributeEmissionTests
         // The policy is public and the base class names it fine through its alias, but the registry
         // has to write a global::-rooted name, which reaches nothing. Accessibility alone says the
         // type is fine, so the emitted name is bound and compared instead.
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT016"), FormatIds(diagnostics));
         Assert.False(registry.Contains("AliasedPolicy", StringComparison.Ordinal), "the unnameable policy must not be emitted");
     }
 
@@ -457,7 +457,7 @@ public class InheritedAttributeEmissionTests
             """,
             fixtureLibrary);
 
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT016"), FormatIds(diagnostics));
         Assert.False(registry.Contains("AliasedFormatter", StringComparison.Ordinal), "the unnameable formatter must not be emitted");
     }
 

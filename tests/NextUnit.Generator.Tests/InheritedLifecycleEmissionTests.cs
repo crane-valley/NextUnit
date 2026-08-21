@@ -395,7 +395,7 @@ public class InheritedLifecycleEmissionTests
             }
             """);
 
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
         Assert.False(registry.Contains("ProtectedSetup", StringComparison.Ordinal), "ProtectedSetup" + " must not be emitted");
     }
 
@@ -419,7 +419,7 @@ public class InheritedLifecycleEmissionTests
 
         // The same rule covers the hook a class declares for itself, where the report replaces a
         // CS0122 raised inside generated code.
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
         Assert.False(registry.Contains("PrivateSetup", StringComparison.Ordinal), "PrivateSetup" + " must not be emitted");
     }
 
@@ -453,7 +453,7 @@ public class InheritedLifecycleEmissionTests
             fixtureLibrary);
 
         // Internal is in reach only inside its own assembly, or through InternalsVisibleTo.
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
     }
 
     [Fact]
@@ -479,10 +479,10 @@ public class InheritedLifecycleEmissionTests
             }
             """);
 
-        // NEXTUNIT014 is an error and not configurable, so reporting a hook the registry would never
+        // NEXTUNIT015 is an error and not configurable, so reporting a hook the registry would never
         // have emitted would turn deriving from a class into a build failure for no gain.
         Assert.False(
-            diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"),
+            diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"),
             FormatIds(diagnostics));
     }
 
@@ -513,7 +513,7 @@ public class InheritedLifecycleEmissionTests
         // The base declaration wins the slot and dispatches virtually to the override, so nothing
         // calls the derived declaration directly and its accessibility never matters.
         Assert.False(
-            diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"),
+            diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"),
             FormatIds(diagnostics));
         Assert.Contains("((global::TestProject.BaseTests)instance).Setup()", registry);
     }
@@ -551,7 +551,7 @@ public class InheritedLifecycleEmissionTests
         // The type is public and C# names it fine here, but the emitted cast has to spell it
         // global::Fixtures.SharedFixture, which resolves to nothing when the reference lives only
         // under an alias. Reporting beats emitting a registry that does not compile.
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
         Assert.False(registry.Contains("SharedSetup", StringComparison.Ordinal), "the unnameable hook must not be emitted");
     }
 
@@ -584,7 +584,7 @@ public class InheritedLifecycleEmissionTests
         // The registry cannot call an explicit implementation without naming the interface, and it
         // reports Private accessibility, so the existing reachability check turns it into a report.
         // Skipping it during collection instead would drop an attributed hook without a word.
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT014"), FormatIds(diagnostics));
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
         Assert.False(registry.Contains(".Setup()", StringComparison.Ordinal), "the uncallable hook must not be emitted");
     }
 

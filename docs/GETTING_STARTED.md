@@ -524,7 +524,7 @@ public class OrderTests : DatabaseFixture
 Rules worth knowing before you rely on it:
 
 - **A hook must be `public` or `internal`.** The generated registry calls it from outside your class,
-  so a `protected` or `private` hook is reported as `NEXTUNIT014` rather than silently skipped.
+  so a `protected` or `private` hook is reported as `NEXTUNIT015` rather than silently skipped.
 - **Overriding a hook replaces it.** The hook runs once, from the base class's position, and the body
   that runs is the most derived override. Overriding it with an empty body is the supported way to
   opt one derived class out of an inherited hook.

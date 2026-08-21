@@ -197,7 +197,7 @@ internal static class RegistryEmitter
     {
         writer.Write($"public static global::NextUnit.Internal.LifecycleMethodDelegate[] {propertyName} {{ get; }} = ");
 
-        // An unreachable hook is dropped rather than emitted: NEXTUNIT014 already fails the build,
+        // An unreachable hook is dropped rather than emitted: NEXTUNIT015 already fails the build,
         // and emitting the call would add a CS0122 in a file the user did not write.
         methods = methods.Where(method => method.IsReachable).ToList();
 

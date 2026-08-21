@@ -47,7 +47,7 @@ internal static class LifecycleEmitter
         bool isBefore,
         int scope)
     {
-        // An unreachable hook is dropped rather than emitted, because NEXTUNIT014 already fails the
+        // An unreachable hook is dropped rather than emitted, because NEXTUNIT015 already fails the
         // build and the emitted call would bury that report under a CS0122.
         var methods = LifecycleSelection.Select(lifecycleMethods, isBefore, scope)
             .Where(static method => method.IsReachable)

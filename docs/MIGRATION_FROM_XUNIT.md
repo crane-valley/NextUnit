@@ -778,7 +778,7 @@ a `[Before]` or `[After]` on a base test class runs for every derived class, bas
 `[Before]` and derived first for `[After]`. Configuration attributes such as `[Timeout]` and
 `[Category]` are inherited on the same nearest-declaration-wins rule. The hook has to be `public` or
 `internal`, because the generated registry calls it from outside your class, so a `protected` setup
-carried over from an xUnit base fixture is reported as `NEXTUNIT014` rather than silently skipped.
+carried over from an xUnit base fixture is reported as `NEXTUNIT015` rather than silently skipped.
 See [Inheritance from a base test class](GETTING_STARTED.md#inheritance-from-a-base-test-class).
 
 `[After]` is still not the place to release resources: a failing `[Before]` or a failing test skips

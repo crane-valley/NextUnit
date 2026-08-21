@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `NEXTUNIT014` reports a lifecycle hook the generated registry cannot call, and `NEXTUNIT015` an
+- `NEXTUNIT015` reports a lifecycle hook the generated registry cannot call, and `NEXTUNIT016` an
   attribute type it cannot name. Both are errors and both are not configurable, because each one also
   drops the declaration from the registry: reporting and then emitting anyway would replace the
   report with a `CS0122` inside generated code, and letting the severity be suppressed would turn a
   failed build into a green one whose setup silently does not run -- exactly the failure inherited
-  hooks exist to remove. `NEXTUNIT014` covers every hook the registry emits, whether declared on the
-  test class, inherited from a base class, or collected as an assembly or session hook. `NEXTUNIT015`
+  hooks exist to remove. `NEXTUNIT015` covers every hook the registry emits, whether declared on the
+  test class, inherited from a base class, or collected as an assembly or session hook. `NEXTUNIT016`
   covers a `[DisplayNameFormatter]` or `[DisplayNameFormatter<T>]` wherever it is declared, since no
   analyzer checked formatter accessibility at all, and a `[Retry<TPolicy>]` only when it is
   inherited, since `NU0016` already reports a directly applied one -- and only an inherited
@@ -173,7 +173,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inherited either: they already run once for the whole run.
   A hook must be reachable from the generated registry, which means `public` or `internal`. A
   `protected` hook on a base class used to compile because the hook was dropped; it is now reported
-  as `NEXTUNIT014` and fails the build. This is the most likely upgrade break, because a `protected`
+  as `NEXTUNIT015` and fails the build. This is the most likely upgrade break, because a `protected`
   setup on a shared base class is the ordinary shape in an xUnit or NUnit suite.
   `[After]` is still not a resource-release mechanism: a failing `[Before]` or a failing test skips
   every `[After]` hook, inherited ones included. `IDisposable`/`IAsyncDisposable` on the test class

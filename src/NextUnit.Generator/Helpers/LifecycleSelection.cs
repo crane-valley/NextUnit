@@ -33,7 +33,7 @@ internal static class LifecycleSelection
     /// <para>
     /// Reachability is deliberately not filtered here. A hook the registry cannot call still wins
     /// its slot, because the alternative is to silently promote the base declaration it supersedes;
-    /// the caller drops it and <c>NEXTUNIT014</c> reports it instead.
+    /// the caller drops it and <c>NEXTUNIT015</c> reports it instead.
     /// </para>
     /// </remarks>
     public static List<LifecycleMethodDescriptor> Select(

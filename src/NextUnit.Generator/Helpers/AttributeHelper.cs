@@ -664,7 +664,7 @@ internal static class AttributeHelper
             flakyReason ??= levelReason;
         }
 
-        // Dropped only where it is also reported. NEXTUNIT015 covers the inherited case and is not
+        // Dropped only where it is also reported. NEXTUNIT016 covers the inherited case and is not
         // configurable, so dropping there trades a CS0122 in a file the user did not write for a
         // report that names the type. A directly applied policy is left alone on purpose: NU0016
         // reports that one and can be suppressed, and dropping a suppressed policy would silently
@@ -981,7 +981,7 @@ internal static class AttributeHelper
     /// </summary>
     /// <remarks>
     /// A formatter the registry cannot name is dropped rather than emitted, for the reason
-    /// <see cref="GetRetryInfo"/> drops an unreachable policy: <c>NEXTUNIT015</c> already fails the
+    /// <see cref="GetRetryInfo"/> drops an unreachable policy: <c>NEXTUNIT016</c> already fails the
     /// build, and the emitted <c>typeof</c> would bury it under a <c>CS0122</c>.
     /// </remarks>
     public static string? GetDisplayNameFormatterType(
