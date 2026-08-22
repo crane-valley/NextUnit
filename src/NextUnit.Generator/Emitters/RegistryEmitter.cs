@@ -74,7 +74,7 @@ internal static class RegistryEmitter
         EmitGlobalLifecycleProperty(writer, "GlobalBeforeSessionMethods", globalLifecycle.BeforeSession);
         EmitGlobalLifecycleProperty(writer, "GlobalAfterSessionMethods", globalLifecycle.AfterSession);
 
-        EmitDynamicDependencies(writer, tests);
+        EmitDynamicDependencies(writer, partition);
         EmitModuleInitializer(writer);
         EmitRegistryProvider(writer);
 
@@ -222,19 +222,41 @@ internal static class RegistryEmitter
         writer.WriteLine();
     }
 
-    // Every type the registry reaches only through reflection needs a root, or trimming and AOT
-    // publishing drop it.
-    private static void EmitDynamicDependencies(CodeWriter writer, IReadOnlyList<TestMethodDescriptor> tests)
+    /// <summary>
+    /// Roots every type the registry reaches only through reflection, or trimming and AOT publishing
+    /// drop it.
+    /// </summary>
+    /// <remarks>
+    /// The data source roots are read out of the partition rather than off the raw descriptors,
+    /// because the partition is what decides which sources are emitted at all. A method-level
+    /// <c>[ClassDataSource&lt;T&gt;]</c> or <c>[TestData]</c> on a method that also carries a
+    /// parameter-level source lands in <c>CombinedDataSourceTests</c>, so no descriptor and no
+    /// <c>new T()</c> factory is written for it and no row ever comes from it; rooting it anyway held
+    /// every member of a dead type against the trimmer. Dropping the root is also what lets
+    /// <c>NU0022</c> stop reporting a shadowed source: that root was the last thing naming <c>T</c>,
+    /// and the <c>CS0122</c> it produced on a private or protected nested source is the error the
+    /// rule exists to replace. The two moves are one change -- gating the rule while the root stayed
+    /// was tried in PR #234 and reverted, because it left the consumer with the bare compiler error.
+    /// The test class and the display name formatter are rooted for every test in every bucket, since
+    /// both are emitted whichever descriptor the test becomes.
+    /// </remarks>
+    private static void EmitDynamicDependencies(CodeWriter writer, TestPartition partition)
     {
-        var reflectionRootTypes = tests
+        var expandedSourceTypes = partition.TestDataTests
+            .SelectMany(test => test.TestDataSources.Select(source => source.MemberTypeName))
+            .Concat(partition.ClassDataSourceTests
+                .SelectMany(test => test.ClassDataSources.Select(source => source.TypeName)))
+            .Concat(partition.CombinedDataSourceTests
+                .SelectMany(test => test.CombinedParameterSources
+                    .SelectMany(source => new[] { source.MemberTypeName, source.ClassTypeName })));
+
+        var reflectionRootTypes = partition.AllTests
             .SelectMany(test => new[]
             {
                 test.FullyQualifiedTypeName,
                 test.DisplayNameFormatterType
-            }
-            .Concat(test.TestDataSources.Select(source => source.MemberTypeName))
-            .Concat(test.ClassDataSources.Select(source => source.TypeName))
-            .Concat(test.CombinedParameterSources.SelectMany(source => new[] { source.MemberTypeName, source.ClassTypeName })))
+            })
+            .Concat(expandedSourceTypes)
             .Where(typeName => !string.IsNullOrWhiteSpace(typeName))
             .Distinct(StringComparer.Ordinal)
             .OrderBy(typeName => typeName, StringComparer.Ordinal);
@@ -310,6 +332,13 @@ internal static class RegistryEmitter
         public List<TestMethodDescriptor> TestDataTests { get; } = new();
         public List<TestMethodDescriptor> ClassDataSourceTests { get; } = new();
         public List<TestMethodDescriptor> CombinedDataSourceTests { get; } = new();
+
+        public IEnumerable<TestMethodDescriptor> AllTests =>
+            RegularTests
+                .Concat(MatrixTests)
+                .Concat(TestDataTests)
+                .Concat(ClassDataSourceTests)
+                .Concat(CombinedDataSourceTests);
 
         public static TestPartition Create(IReadOnlyList<TestMethodDescriptor> tests)
         {

@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The generated registry no longer emits a `[DynamicDependency]` trimming root for a method-level
+  data source that a parameter-level one shadows. A test that carries `[ClassDataSource<T>]` or
+  `[TestData]` alongside a parameter's `[Values]`, `[ValuesFromMember]`, or `[ValuesFrom<T>]` expands
+  only the parameter sources -- `NEXTUNIT010` warns about exactly this -- and the registry writes no
+  descriptor and no `new T()` factory for the method-level source, so the root held every member of a
+  type no row came from. The roots are now taken from the same partition that decides which
+  descriptors are written. `NU0022` follows the root and no longer reports a shadowed
+  `[ClassDataSource<T>]`: with nothing naming the type, the `CS0122` that rule exists to replace can
+  no longer occur, so a private or protected nested source in that position now compiles. A source
+  that is not shadowed is rooted and reported exactly as before, as is a parameter's own
+  `[ValuesFrom<T>]`. `NEXTUNIT009` is deliberately unchanged: `SharedType.Keyed` without a `Key` stays
+  an error whichever bucket the test lands in, because it judges the declaration rather than the
+  emitted code.
 - A failing `[Before(LifecycleScope.Class)]` hook now fails only its own class instead of ending the
   whole run. Every test of that class is reported as failed, once each, carrying the setup exception
   as it was thrown; every other class in the assembly still runs, and the run still ends failed.

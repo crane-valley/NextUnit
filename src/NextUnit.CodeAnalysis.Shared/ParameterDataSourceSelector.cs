@@ -45,6 +45,34 @@ internal static class ParameterDataSourceSelector
         return (ParameterDataSourceAttributeKind.None, null);
     }
 
+    /// <summary>
+    /// Reports whether any parameter of the method supplies a data source, which is what shadows the
+    /// method's own <c>[ClassDataSource&lt;T&gt;]</c> and <c>[TestData]</c>.
+    /// </summary>
+    /// <remarks>
+    /// This is the condition that makes <c>TestMethodDescriptor.CombinedParameterSources</c>
+    /// non-empty: <c>DataSourceAttributeReader.TryGetParameterDataSource</c> builds that array by
+    /// running <see cref="Select"/> over these same parameters and keeps a descriptor for every kind
+    /// it classifies. A non-empty array is in turn what sends the test to the registry's combined
+    /// bucket ahead of its method-level sources, so this answers exactly what the emitter answers
+    /// from the descriptor. Exposed here rather than re-derived, because a rule that reads only
+    /// symbols and an emitter that reads only descriptors disagreeing about "is this shadowed" would
+    /// either suppress <c>NU0022</c> on a type the registry still names -- the PR #234 revert -- or
+    /// report one it no longer names.
+    /// </remarks>
+    public static bool AnyParameterHasDataSource(IMethodSymbol method)
+    {
+        foreach (var parameter in method.Parameters)
+        {
+            if (Select(parameter).Kind != ParameterDataSourceAttributeKind.None)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static ParameterDataSourceAttributeKind Classify(AttributeData attribute)
     {
         if (IsNonGenericNextUnitAttribute(attribute, NextUnitAttributeNames.SimpleNames.Values) &&

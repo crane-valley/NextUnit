@@ -704,16 +704,19 @@ public class Tests
     }
 
     /// <summary>
-    /// A parameter-level source shadows the method-level one for row expansion -- the generator
-    /// buckets the test by its combined parameter sources and warns as NEXTUNIT010 that only those
-    /// are processed -- but the class source is still reported here, because the registry roots
-    /// every declared class data source for trimming whether or not it expands rows. That
-    /// <c>DynamicDependency(..., typeof(T))</c> is itself what fails the consumer's build with
-    /// <c>CS0122</c>, so gating the rule on the expansion precedence would drop the name and leave
-    /// behind the bare compiler error the rule exists to replace.
+    /// A parameter-level source shadows the method-level one: the generator buckets the test by its
+    /// combined parameter sources, warns as NEXTUNIT010 that only those are processed, and emits
+    /// neither a descriptor, nor a <c>new T()</c> factory, nor a trimming root for the class source.
+    /// Nothing names the type, so the <c>CS0122</c> this rule replaces never arrives and reporting
+    /// would reject a test that compiles.
     /// </summary>
+    /// <remarks>
+    /// Pinned as the paired half of <c>RegistryEmitter.EmitDynamicDependencies</c> computing its
+    /// roots from the partition. PR #234 gated this rule while that root was still emitted and had
+    /// to revert; if the root ever returns, this test has to flip back to expecting the diagnostic.
+    /// </remarks>
     [Fact]
-    public async Task ClassDataSourceShadowedByParameterValues_ReportsDiagnosticAsync()
+    public async Task ClassDataSourceShadowedByParameterValues_NoDiagnosticAsync()
     {
         var source = @"
 using NextUnit;
@@ -724,8 +727,33 @@ public class Tests
     {" + RowSourceBody + @"    }
 
     [Test]
-    [{|#0:ClassDataSource<Rows>|}]
+    [ClassDataSource<Rows>]
     public void TestMethod([Values(1, 2)] int value)
+    {
+    }
+}";
+
+        await CSharpAnalyzerVerifier<ClassDataSourceAccessibilityAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// The gate is method-wide but covers only the method-level sources. A parameter's own
+    /// <c>[ValuesFrom&lt;T&gt;]</c> is what the registry expands, so it keeps being reported even
+    /// though a sibling parameter's <c>[Values]</c> puts the method in the combined bucket.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromBesideAnotherParametersValues_ReportsDiagnosticAsync()
+    {
+        var source = @"
+using NextUnit;
+
+public class Tests
+{
+    private sealed class Rows : System.Collections.Generic.IEnumerable<int>
+    {" + ValueSourceBody + @"    }
+
+    [Test]
+    public void TestMethod([Values(1, 2)] int first, [{|#0:ValuesFrom<Rows>|}] int second)
     {
     }
 }";

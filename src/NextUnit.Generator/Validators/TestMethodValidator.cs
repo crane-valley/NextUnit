@@ -135,7 +135,12 @@ internal static class TestMethodValidator
             Report(context, GeneratorDiagnosticDescriptors.ClassDataSourceWithOtherSources, test.Id);
         }
 
-        // Keyed sharing requires Key
+        // Keyed sharing requires Key. Not gated on the partition the way NU0022 now is: that rule
+        // judges emitted code -- it fires only when the registry names the type, and a shadowed
+        // source is named nowhere -- while this one judges the declaration, and SharedType.Keyed
+        // without a Key is meaningless however the partition buckets the test. Gating it would also
+        // move the error to the moment the user deletes the parameter-level source, which is when
+        // they are trying to make the class source work, not when they wrote the mistake.
         foreach (var _ in test.ClassDataSources.Where(s => s.SharedType == SharedTypeConstants.Keyed && string.IsNullOrEmpty(s.Key)))
         {
             Report(context, GeneratorDiagnosticDescriptors.MissingKeyForKeyedClassDataSource, test.Id);
