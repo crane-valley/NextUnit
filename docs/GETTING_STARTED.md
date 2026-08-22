@@ -153,10 +153,13 @@ types themselves, so the row type a source is checked against does not change be
 selection governs what `NU0009` validates, and since 4.0.0 it governs what the run reads as well: the
 generated provider names the selected row type, so a source with several arms yields the rows that
 were checked rather than the rows of whichever arm the non-generic `IEnumerable` happened to reach.
-Synchronous members, task-wrapped members, and `[ClassDataSource<T>]` are all bound this way. The
-name is withheld, leaving the older read in place, only where the generated file cannot spell the row
-type -- one reached through an `extern alias`, or retired with `[Obsolete(..., error: true)]` -- so a
-source that offers one row type is still the simplest thing to write.
+Synchronous members, task-wrapped members, and `[ClassDataSource<T>]` are all bound this way, and for
+those three the name is withheld, leaving the older read in place, where the generated file cannot
+spell the row type -- one reached through an `extern alias`, or retired with
+`[Obsolete(..., error: true)]`. A multi-arm `IAsyncEnumerable<T>` source has no such fallback,
+because the adapter call has nothing else to infer the row type from: the name is always emitted, and
+an unwritable one fails the build rather than reading the unchecked arm. A source that offers one row
+type avoids the question entirely and is still the simplest thing to write.
 
 ### Data source member accessibility
 

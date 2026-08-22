@@ -153,7 +153,10 @@ Since 3.0.0, `Test` and `Class` hooks and the configuration attributes declared 
 apply to the classes derived from it: `[Before]` runs base first, `[After]` unwinds derived first, and
 `[After]` runs after a failing `[Before]` or a failing test for the classes the setup reached.
 `Assembly` and `Session` hooks are not inherited; they belong to the assembly that declared them.
-Override a hook with an empty body to opt one derived class out. See
+To opt one derived class out of an inherited hook, override a `virtual` or `abstract` hook with an
+empty body; a non-virtual hook has no per-class opt-out, so make it `virtual` in the base class or
+move it down to the classes that want it. Hiding it with `new` adds a second hook instead of
+replacing the inherited one. See
 [Inheritance from a base test class](docs/GETTING_STARTED.md#inheritance-from-a-base-test-class).
 
 ## Parallel Execution
