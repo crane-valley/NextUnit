@@ -1380,13 +1380,16 @@ perform the job's checks by hand, which is what 3.0.0 required.
   the verification tool and smoke projects come from the checked-out ref. Residual risk recorded in
   the pull request: the `release.yml` caller path is exercised only by the next release, with
   actionlint's caller/callee input check and the verbatim-move diff as the pre-merge evidence for it.
-- [ ] Align the `release.yml` `smoke` job's floor for `NextUnit.PackageSmoke` with the run surface it
+- [x] Align the `release.yml` `smoke` job's floor for `NextUnit.PackageSmoke` with the run surface it
   actually compiles. That job passes `-p:UseLocalNextUnitPackage=true`, so all eight tests are built,
   but it asserts `--minimum-expected-tests 2`, while `dotnet.yml` asserts 8 for the same project
   against the same locally packed package. A regression that silently dropped six of the eight would
   clear the release's own gate. Deliberately out of scope of the `verify-published.yml` surface fix:
   `release.yml` is the publishing path, and a change to its gate belongs in a review of that path
-  rather than riding along with a callee fix.
+  rather than riding along with a callee fix. The floor was raised to 8, and the guardrail comment at
+  that call names the three sites that assert the same number -- `dotnet.yml`'s Package Integration
+  JIT and AOT floors, `verify-published.yml`'s FULL mode, and the manual FULL equivalent in
+  `docs/RELEASE_PROCESS.md` -- so a later test addition has to move all four together.
 
 The first dispatch of the finished re-run path found a defect in it, and the fix changed what a
 dispatched run means, so both belong in this record.
