@@ -128,6 +128,42 @@ jobs:
         echo "=== NextUnit.Core Dependencies ==="
         dotnet list src/NextUnit.Core/NextUnit.Core.csproj package
 
+  # Job 5: Release guard for MAJOR bumps and back-to-back releases
+  major-bump-guard:
+    name: Major Bump Guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    # actions/checkout fetches with --no-tags unless fetch-tags is set, and the guard measures
+    # the cadence from the newest release tag. Fetching explicitly rather than relying on the
+    # action's fetch-tags input: an input the action version silently ignores would leave the
+    # guard with no tag, and it fails closed, which would block every release PR.
+    - name: Fetch release tags
+      run: git fetch --tags --force origin
+
+    - name: Check version bump and release cadence
+      env:
+        # The PR body is untrusted input: it reaches the script only through this variable,
+        # never through workflow interpolation into the shell source.
+        PR_BODY: ${{ github.event.pull_request.body }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        if git diff --quiet "$BASE_SHA" HEAD -- Directory.Build.props; then
+          echo "Directory.Build.props unchanged; guard not applicable."
+          exit 0
+        fi
+        BASE_PROPS="$(mktemp)"
+        git show "$BASE_SHA:Directory.Build.props" > "$BASE_PROPS"
+        bash .github/scripts/major-bump-guard.sh "$BASE_PROPS" Directory.Build.props
+
   # Summary
   pr-summary:
     name: PR Summary
