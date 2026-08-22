@@ -825,8 +825,9 @@ worked, tests that passed for the right reason, ids that resolved. Cut a major r
 these hold, and only then:
 
 1. **A public API is removed, or a shipped signature changes.** A `*REMOVED*` line in any
-   `PublicAPI.Unshipped.txt`, a changed signature on an already shipped member, or a new required
-   member on a shipped public interface with no default implementation.
+   `PublicAPI.Unshipped.txt`, a changed signature on an already shipped member, a new required
+   member on a shipped public interface with no default implementation, or a new abstract member on
+   a shipped public abstract class, which every existing subclass must now implement.
 2. **A test that was green on the previous release now fails, or reaches a different verdict.** A
    changed assertion outcome, or a hook that stops running, under a suite that was already doing
    what its author intended.
@@ -835,6 +836,10 @@ these hold, and only then:
    now selects something else.
 4. **A new Error-severity diagnostic matches code that both built AND ran correctly before.** A rule
    that can only fire on code which already failed at run time is not this trigger.
+5. **A test that was running correctly stops being discovered or run.** A suite that quietly loses
+   test cases still reports green while covering less than it did, so a shrinking run set is a break
+   even though nothing turns red. Cases that start appearing are the MINOR case below; cases that
+   stop appearing are this trigger.
 
 Everything else stays below major. MINOR covers additive public API; an Error diagnostic that can
 only match code which already failed at run time, or which only a feature introduced in the same
@@ -861,7 +866,9 @@ flips no verdict for a suite that was already correct.
    Ids that move because a declaration the framework used to ignore now takes effect are MINOR, and
    go in the callout with the audit command for them.
 4. Ask what a suite that was green and correct on the previous version runs afterward, and what it
-   decides. A different verdict on the same test is trigger 2.
+   decides. A different verdict on the same test is trigger 2; a test that no longer shows up in the
+   run at all is trigger 5, and comparing discovered case counts across the two versions is how you
+   see it.
 5. If any trigger fired, cut a major, record which one in the CHANGELOG's "Upgrading from X" callout
    for that version, and state `MAJOR-JUSTIFICATION: <which trigger>` in the release PR body. That
    callout is where the release PR states which trigger applied and what the reader has to fix, so a
@@ -889,10 +896,12 @@ Version numbering says what a release is called. Cadence says whether to cut one
 release only when one of these holds:
 
 - At least 30 days have passed since the previous release.
-- A fix unblocks users: a security issue, data loss, or a green-to-red regression in a shipped
-  version. Ship it as a PATCH or MINOR of the shipped line, not as a MAJOR.
+- A fix unblocks users: a security issue, data loss, or a wrong result in a shipped version. Wrong
+  results include both directions -- a green-to-red regression, and a false green such as a failing
+  assertion that now passes or tests that silently stop executing. Ship the fix as a PATCH or MINOR
+  of the shipped line, not as a MAJOR.
 
-Anything else waits. Breaking changes in particular wait in `PLANS.md` under "Deferred to the next
+Anything else waits. Breaking changes in particular wait in `PLANS.md` under "Queued for the next
 major version" and ship together, so that one major carries the whole batch instead of one major
 carrying each change as it lands. Expect at most one MAJOR every six months or so, unless the owner
 decides otherwise for a specific release.
@@ -904,17 +913,22 @@ The release PR body records the judgment in two tokens:
 - `MAJOR-JUSTIFICATION: <which trigger>` -- required on every MAJOR bump, naming the trigger from
   "Behavioral Breaks That Require a MAJOR" that fired.
 
-Both tokens are enforced by the major-bump guard in PR validation.
+Both tokens are checked by the major-bump guard in PR validation once the `ci/major-bump-guard` PR
+lands; until then they are a convention the release PR author and its reviewers uphold.
 
 This rule exists because of what preceded it. 2.0.0 shipped on 2026-08-12, and 3.0.0 and 4.0.0 both
 on 2026-08-22: three major releases in ten days, the last two on the same day. Read against the
-triggers as they now stand, the two changes that drove the 4.0.0 number are MINOR. `NEXTUNIT017`
-reports a hook shape that has never run in any version, so no code that built and ran correctly can
-trip it, and honoring `[Repeat]` on a data source test fixed a count that was being silently dropped
-rather than breaking a suite that was already correct. 4.0.0 would have been a minor release,
-batched into a later one instead of cut on the day its work landed. The numbers stand: 2.0.0, 3.0.0,
-and 4.0.0 are tagged and released, nothing is renamed, and the sections above still describe what
-each of them broke. What changes is the rule applied from here on.
+triggers as they now stand, 4.0.0 keeps its number on exactly one change: a run whose filter selects
+no tests stopped running its `[After(LifecycleScope.Session)]` hooks, and those hooks did run on
+3.0.0 for a suite that was doing nothing wrong. Its other headline changes are MINOR here.
+`NEXTUNIT017` reports a hook shape that has never run in any version, so no code that built and ran
+correctly can trip it, and honoring `[Repeat]` on a data source test fixed a count that was being
+silently dropped rather than breaking a suite that was already correct. So the classification was
+defensible on a single item; what actually went wrong was cadence. Three majors in ten days made
+every one of those changes a separate upgrade for consumers, when the cadence rule above would have
+held them for one batched release. The numbers stand: 2.0.0, 3.0.0, and 4.0.0 are tagged and
+released, nothing is renamed, and the sections above still describe what each of them broke. What
+changes is the rule applied from here on.
 
 ## Package Configuration Notes
 

@@ -21,9 +21,10 @@ After PR merge, create GitHub Release → auto-publishes to NuGet
 Cadence guardrail (`docs/RELEASE_PROCESS.md`, "Release cadence"):
 
 - Releases follow that cadence rule, not "the work is done, so ship it".
-- Never open a release PR within 30 days of the previous tag, or with a MAJOR bump, without the two
-  PR-body tokens that section requires. A MAJOR additionally needs explicit owner approval in the
-  session.
+- Never open a release PR within 30 days of the previous tag without `RELEASE-CADENCE-EXCEPTION:
+  <reason>` in the PR body. An urgent PATCH or MINOR needs that token alone.
+- Never open a release PR that bumps MAJOR without `MAJOR-JUSTIFICATION: <which trigger>` in the PR
+  body and explicit owner approval in the session. Inside 30 days it needs both tokens.
 - When a review bot's finding conflicts with the written policy, re-read the policy's own exceptions
   before changing anything, then fix the policy or the PR. Never escalate the version to satisfy the
   finding.

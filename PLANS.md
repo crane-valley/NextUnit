@@ -27,7 +27,7 @@ Microsoft.Testing.Platform, Native AOT, classic assertions, and a one-package in
 - Keep benchmark numbers in `docs/PERFORMANCE.md` and generated benchmark artifacts, not here.
 - Batch releases under the cadence rule in [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md)
   ("Release cadence"): completed work waits for the next scheduled release, and breaking changes
-  accumulate under "Deferred to the next major version" below and ship together.
+  accumulate under "Queued for the next major version" below and ship together.
 
 ## Active roadmap
 
@@ -1533,6 +1533,13 @@ does not. What this costs is recorded in `docs/RELEASE_PROCESS.md`: a green disp
 carries the consumer half of the
 Step 3 keep evidence on its own, and the manual FULL equivalent from the release tag supplies it.
 Residual risk: the FULL path is exercised only by the next release, since no dispatch can reach it.
+
+## Queued for the next major version
+
+Breaking changes accepted but not yet shipped. Add one here instead of cutting a major for it, and
+ship the batch under the cadence rule in [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
+
+- (empty)
 
 ## Deferred to the next major version
 
