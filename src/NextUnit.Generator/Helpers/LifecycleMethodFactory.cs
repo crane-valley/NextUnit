@@ -72,6 +72,7 @@ internal static class LifecycleMethodFactory
             methodSymbol.Name,
             GetOverrideRootId(methodSymbol),
             IsReachableFrom(methodSymbol, invocationTypeName, semanticModel),
+            methodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation,
             isBefore ? scopes : EquatableArray<int>.Empty,
             isBefore ? EquatableArray<int>.Empty : scopes,
             methodSymbol.IsStatic,
@@ -144,16 +145,17 @@ internal static class LifecycleMethodFactory
         foreach (var member in type.GetMembers())
         {
             // Explicit interface implementations are collected too, even though the registry can
-            // never call one: they report Private accessibility, so the reachability check turns
-            // them into NEXTUNIT015. Skipping them here would drop an attributed hook without a
-            // word, which is the failure this walk exists to remove.
+            // never call one. Skipping them here would drop an attributed hook without a word,
+            // which is the failure this walk exists to remove; collecting them lets NEXTUNIT017
+            // name the declaration a derived class inherits.
             //
-            // One case stays out of reach, and no filter here changes it: a compilation imports
-            // metadata with MetadataImportOptions.Public by default, so an explicit implementation
-            // on a base class in a *referenced* assembly is not in GetMembers() at all and cannot
-            // be reported. Raising the import options is a compilation-level setting a generator
-            // does not own. The hook has never run in any version, so nothing regresses; it is
-            // recorded in PLANS.md rather than worked around here.
+            // The walk is not what keeps that rule honest, though, and no filter here could be: a
+            // compilation imports metadata with MetadataImportOptions.Public by default, so an
+            // explicit implementation on a base class in a *referenced* assembly is not in
+            // GetMembers() at all, and raising the import options is a compilation-level setting a
+            // generator does not own. NEXTUNIT017 therefore also fires in the assembly that
+            // declares the hook, where it is still in source, so the shape cannot reach a consumer
+            // that has no way to see it.
             if (member is not IMethodSymbol
                 {
                     MethodKind: MethodKind.Ordinary or MethodKind.ExplicitInterfaceImplementation

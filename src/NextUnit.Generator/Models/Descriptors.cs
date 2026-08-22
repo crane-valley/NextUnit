@@ -176,6 +176,7 @@ internal sealed record LifecycleMethodDescriptor
         string methodName,
         string overrideRootId,
         bool isReachable,
+        bool isExplicitInterfaceImplementation,
         EquatableArray<int> beforeScopes,
         EquatableArray<int> afterScopes,
         bool isStatic,
@@ -187,6 +188,7 @@ internal sealed record LifecycleMethodDescriptor
         MethodName = methodName;
         OverrideRootId = overrideRootId;
         IsReachable = isReachable;
+        IsExplicitInterfaceImplementation = isExplicitInterfaceImplementation;
         BeforeScopes = beforeScopes;
         AfterScopes = afterScopes;
         IsStatic = isStatic;
@@ -228,6 +230,18 @@ internal sealed record LifecycleMethodDescriptor
     /// Gets whether the generated registry can call the hook.
     /// </summary>
     public bool IsReachable { get; }
+
+    /// <summary>
+    /// Gets whether the hook is declared as an explicit interface implementation.
+    /// </summary>
+    /// <remarks>
+    /// Carried separately from <see cref="IsReachable"/>, which it always implies, because the two
+    /// answer different questions. Reachability is a property of this compilation and can differ in
+    /// the next one; an explicit implementation is uncallable from the registry of every assembly
+    /// there will ever be, which is what lets <c>NEXTUNIT017</c> report it at its declaration
+    /// instead of waiting for a test to inherit it.
+    /// </remarks>
+    public bool IsExplicitInterfaceImplementation { get; }
 
     public EquatableArray<int> BeforeScopes { get; }
     public EquatableArray<int> AfterScopes { get; }

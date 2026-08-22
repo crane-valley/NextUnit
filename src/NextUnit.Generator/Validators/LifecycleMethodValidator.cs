@@ -15,6 +15,11 @@ namespace NextUnit.Generator.Validators;
 /// is one whose scope the emitter does not place per descriptor, or one a nearer declaration
 /// supersedes: none of those has ever failed a build and none starts now. The selection comes from
 /// <see cref="LifecycleSelection"/> so this cannot drift from what the emitter chose.
+/// <para>
+/// <c>NEXTUNIT017</c> is the deliberate exception, and it is one because the shape it reports is
+/// uncallable in every compilation rather than in this one: see
+/// <see cref="ReportExplicitInterfaceMethod"/>.
+/// </para>
 /// </remarks>
 internal static class LifecycleMethodValidator
 {
@@ -32,6 +37,13 @@ internal static class LifecycleMethodValidator
         // One declaration reaches every test of its class and every test of every derived class, so
         // it is reported once rather than once per test case.
         var reported = new HashSet<string>(StringComparer.Ordinal);
+
+        // First, so the shared set leaves the accessibility rule silent about a declaration this one
+        // has already reported with the remedy that actually applies to it.
+        foreach (var method in beforeLifecycle.Concat(afterLifecycle))
+        {
+            ReportExplicitInterfaceMethod(context, method, reported);
+        }
 
         foreach (var method in beforeLifecycle.Concat(afterLifecycle))
         {
@@ -78,6 +90,58 @@ internal static class LifecycleMethodValidator
          method.AfterScopes.Contains(LifecycleScopeConstants.Assembly) ||
          method.BeforeScopes.Contains(LifecycleScopeConstants.Session) ||
          method.AfterScopes.Contains(LifecycleScopeConstants.Session));
+
+    /// <summary>
+    /// Reports a hook declared as an explicit interface implementation, at its declaration.
+    /// </summary>
+    /// <remarks>
+    /// The one rule here that does not wait for a use site, because the declaring assembly is the
+    /// only compilation that can see the declaration at all: metadata is imported with
+    /// <c>MetadataImportOptions.Public</c>, so a consumer deriving from such a base class never
+    /// receives the member and cannot report anything. Waiting for a test would therefore let the
+    /// shape ship silently in a shared fixture package, which is the failure this closes.
+    /// <para>
+    /// Gated on the scopes the registry emits, exactly as the rest of this validator is. A hook
+    /// declaring only <c>Assembly</c> or <c>Session</c> on an instance method is dropped for being
+    /// an instance method, so reporting the declaration form there would name a remedy that leaves
+    /// the hook just as dead.
+    /// </para>
+    /// </remarks>
+    private static void ReportExplicitInterfaceMethod(
+        SourceProductionContext context,
+        LifecycleMethodDescriptor method,
+        HashSet<string> reported)
+    {
+        if (!method.IsExplicitInterfaceImplementation ||
+            !IsEmittedScope(method) ||
+            !reported.Add($"{method.FullyQualifiedTypeName}.{method.MethodName}"))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(
+            GeneratorDiagnosticDescriptors.LifecycleMethodIsExplicitInterfaceImplementation,
+            Location.None,
+            method.FullyQualifiedTypeName,
+            method.MethodName));
+    }
+
+    /// <summary>
+    /// Whether the registry emits the hook for someone -- per test descriptor, or once into the
+    /// registry's static properties.
+    /// </summary>
+    private static bool IsEmittedScope(LifecycleMethodDescriptor method)
+    {
+        foreach (var scope in LifecycleSelection.PerDescriptorScopes)
+        {
+            if (method.BeforeScopes.Contains(scope) || method.AfterScopes.Contains(scope))
+            {
+                return true;
+            }
+        }
+
+        return IsGlobalScope(method);
+    }
 
     private static void ReportUnreachableSelection(
         SourceProductionContext context,
