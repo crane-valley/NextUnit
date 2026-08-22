@@ -143,6 +143,18 @@ public sealed class SessionLifecycleRunnerTests
             () => runner.RunSetupOnceAsync(cts.Token));
     }
 
+    /// <summary>
+    /// Enters session setup the way <see cref="NextUnitFramework"/> does for a run that selected at
+    /// least one test, which is what teardown pairs its hooks against.
+    /// </summary>
+    /// <remarks>
+    /// Every teardown test that expects its <c>[After(Session)]</c> hooks to run has to open the
+    /// session first: without it the runner is in the empty-selection state, where the hooks are
+    /// skipped on purpose.
+    /// </remarks>
+    private static Task OpenSessionAsync(SessionLifecycleRunner runner) =>
+        runner.RunSetupOnceAsync(CancellationToken.None);
+
     [Test]
     public async Task RunTeardownAsync_RunsHooksInReverseOrderAsync()
     {
@@ -154,6 +166,7 @@ public sealed class SessionLifecycleRunnerTests
                 (_, _) => { calls.Add("first"); return Task.CompletedTask; },
                 (_, _) => { calls.Add("second"); return Task.CompletedTask; }
             ]);
+        await OpenSessionAsync(runner);
 
         var error = await runner.RunTeardownAsync(CancellationToken.None);
 
@@ -172,6 +185,7 @@ public sealed class SessionLifecycleRunnerTests
                 (_, _) => { calls.Add("first"); return Task.CompletedTask; },
                 (_, _) => throw new InvalidOperationException("teardown boom")
             ]);
+        await OpenSessionAsync(runner);
 
         var error = await runner.RunTeardownAsync(CancellationToken.None);
 
@@ -191,6 +205,7 @@ public sealed class SessionLifecycleRunnerTests
                 (_, _) => throw new InvalidOperationException("first boom"),
                 (_, _) => throw new InvalidOperationException("second boom")
             ]);
+        await OpenSessionAsync(runner);
 
         var error = await runner.RunTeardownAsync(CancellationToken.None);
 
@@ -205,6 +220,7 @@ public sealed class SessionLifecycleRunnerTests
     {
         var runner = new SessionLifecycleRunner();
         runner.AddMethods(null, [(_, _) => throw new OperationCanceledException("hook gave up")]);
+        await OpenSessionAsync(runner);
 
         using var cts = new CancellationTokenSource();
         var error = await runner.RunTeardownAsync(cts.Token);
@@ -230,6 +246,7 @@ public sealed class SessionLifecycleRunnerTests
                     return Task.CompletedTask;
                 }
             ]);
+        await OpenSessionAsync(runner);
 
         // Cancellation must not stop the remaining hooks from releasing their resources, but it must
         // not be dropped either: a cancelled close reporting as a clean session is the bug the engine's
@@ -254,6 +271,7 @@ public sealed class SessionLifecycleRunnerTests
                     return Task.CompletedTask;
                 }
             ]);
+        await OpenSessionAsync(runner);
 
         var error = await runner.RunTeardownAsync(cts.Token);
 
@@ -278,6 +296,7 @@ public sealed class SessionLifecycleRunnerTests
                 (_, _) => { calls.Add("first"); return Task.CompletedTask; },
                 (_, _) => { calls.Add("second"); return Task.CompletedTask; }
             ]);
+        await OpenSessionAsync(runner);
 
         var error = await runner.RunTeardownAsync(CancellationToken.None);
 
@@ -297,6 +316,7 @@ public sealed class SessionLifecycleRunnerTests
             return ValueTask.CompletedTask;
         });
         runner.AddMethods(null, [(_, _) => throw new InvalidOperationException("teardown boom")]);
+        await OpenSessionAsync(runner);
 
         var error = await runner.RunTeardownAsync(CancellationToken.None);
 
@@ -324,6 +344,7 @@ public sealed class SessionLifecycleRunnerTests
         var runner = new SessionLifecycleRunner(
             () => throw new InvalidOperationException("dispose boom"));
         runner.AddMethods(null, [(_, _) => throw new InvalidOperationException("teardown boom")]);
+        await OpenSessionAsync(runner);
 
         var error = await runner.RunTeardownAsync(CancellationToken.None);
 
@@ -367,6 +388,7 @@ public sealed class SessionLifecycleRunnerTests
                 (_, _) => { laterHookRan = true; return Task.CompletedTask; },
                 (_, _) => throw new OperationCanceledException("cancelled", new OutOfMemoryException(), cts.Token)
             ]);
+        await OpenSessionAsync(runner);
 
         // Cancellation is classified before anything else, so an OCE carrying a critical exception
         // would be held as run cancellation and the failure inside it never looked at. Reverse order
@@ -410,6 +432,137 @@ public sealed class SessionLifecycleRunnerTests
 
         Assert.NotNull(error);
         Assert.Contains("does not represent run cancellation", error!);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_SkipsHooksWhenTheRunSelectedNoTestAsync()
+    {
+        var disposed = false;
+        var runner = new SessionLifecycleRunner(() =>
+        {
+            disposed = true;
+            return ValueTask.CompletedTask;
+        });
+        var teardownCalls = 0;
+        runner.AddMethods(null, [(_, _) => { teardownCalls++; return Task.CompletedTask; }]);
+
+        // Deliberately not opened: this is the state CreateTestSessionAsync leaves behind when the
+        // filter matches nothing, and it used to run [After(Session)] against a session that no
+        // [Before(Session)] had ever set up.
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        Assert.Null(error);
+        Assert.Equal(0, teardownCalls);
+
+        // The pairing covers the hooks, not the shared instances: expansion runs before the row-level
+        // filter, so a run that ends up selecting nothing can still have constructed one.
+        Assert.True(disposed);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_SkipsHooksWhenSetupWasCancelledBeforeItStartedAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+        var setupCalls = 0;
+        var teardownCalls = 0;
+        runner.AddMethods(
+            [(_, _) => { setupCalls++; return Task.CompletedTask; }],
+            [(_, _) => { teardownCalls++; return Task.CompletedTask; }]);
+
+        // The gate's WaitAsync throws on an already-cancelled token, so RunSetupOnceAsync is called
+        // but no hook of it ever starts. Marking the session entered on the way in rather than inside
+        // the gated operation would run [After(Session)] against a session holding nothing.
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => runner.RunSetupOnceAsync(cts.Token));
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        Assert.Equal(0, setupCalls);
+        Assert.Null(error);
+        Assert.Equal(0, teardownCalls);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_RunsHooksForASessionThatDeclaresNoSetupHookAsync()
+    {
+        var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+        var teardownCalls = 0;
+        runner.AddMethods(null, [(_, _) => { teardownCalls++; return Task.CompletedTask; }]);
+        await OpenSessionAsync(runner);
+
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        // Entering the session is reaching the setup phase, not running a hook in it: a session that
+        // declares only [After(Session)] hooks has no first [Before(Session)] to start, and its
+        // teardown still has to run.
+        Assert.Null(error);
+        Assert.Equal(1, teardownCalls);
+    }
+
+    [Test]
+    public async Task RunTeardownAsync_RunsEveryHookAfterSetupThrewPartwayAsync()
+    {
+        var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+        var setupCalls = new List<string>();
+        var teardownCalls = new List<string>();
+        runner.AddMethods(
+            [
+                (_, _) => { setupCalls.Add("first"); return Task.CompletedTask; },
+                (_, _) => throw new InvalidOperationException("session setup boom"),
+                (_, _) => { setupCalls.Add("third"); return Task.CompletedTask; }
+            ],
+            [
+                (_, _) => { teardownCalls.Add("first"); return Task.CompletedTask; },
+                (_, _) => { teardownCalls.Add("second"); return Task.CompletedTask; },
+                (_, _) => { teardownCalls.Add("third"); return Task.CompletedTask; }
+            ]);
+
+        Assert.NotNull(await runner.RunSetupOnceAsync(CancellationToken.None));
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        // Setup stopped at the second hook, and the whole session is still one level, so every
+        // [After(Session)] hook unwinds in reverse declaration order. Cutting the after-list to a
+        // shorter prefix would need a pairing the registry does not emit, and would risk skipping an
+        // [After(Session)] whose [Before(Session)] did run.
+        Assert.Equal("first", string.Join(",", setupCalls));
+        Assert.Null(error);
+        Assert.Equal("third,second,first", string.Join(",", teardownCalls));
+    }
+
+    // Console.Error is process-global, so this must not overlap anything else reading it.
+    [Test]
+    [NotInParallel]
+    public async Task RunTeardownAsync_SaysOnceThatItSkippedTheHooksAsync()
+    {
+        var withHooks = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+        withHooks.AddMethods(null, [(_, _) => Task.CompletedTask, (_, _) => Task.CompletedTask]);
+        var withoutHooks = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+
+        var captured = new StringWriter();
+        var original = Console.Error;
+        Console.SetError(captured);
+        try
+        {
+            await withHooks.RunTeardownAsync(CancellationToken.None);
+            await withoutHooks.RunTeardownAsync(CancellationToken.None);
+        }
+        finally
+        {
+            Console.SetError(original);
+        }
+
+        // Silence is the outcome this must not have: a suite whose [After(Session)] hooks stopped
+        // running would otherwise look exactly like one whose hooks succeeded. Exactly one line, so a
+        // session that declares no [After(Session)] hook contributes nothing to say.
+        var lines = captured.ToString()
+            .Split('\n')
+            .Where(static line => line.Contains("[After(LifecycleScope.Session)]"))
+            .ToList();
+
+        Assert.Equal(1, lines.Count);
+        Assert.Contains("Skipped 2", lines[0]);
     }
 
     // Constructing the framework reads filter environment variables; see FilterEnvironmentConstraint.
@@ -492,6 +645,7 @@ public sealed class SessionLifecycleRunnerTests
         });
         var teardownCalls = 0;
         runner.AddMethods(null, [(_, _) => { teardownCalls++; return Task.CompletedTask; }]);
+        await OpenSessionAsync(runner);
 
         await runner.RunTeardownAsync(CancellationToken.None);
 
@@ -506,6 +660,7 @@ public sealed class SessionLifecycleRunnerTests
     {
         var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
         runner.AddMethods(null, [(_, _) => throw new InvalidOperationException("teardown boom")]);
+        await OpenSessionAsync(runner);
 
         // A hook that failed still ran, so the session is over either way and the claim is not released.
         Assert.NotNull(await runner.RunTeardownAsync(CancellationToken.None));

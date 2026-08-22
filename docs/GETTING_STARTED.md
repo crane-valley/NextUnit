@@ -491,6 +491,25 @@ public class DatabaseTests
 }
 ```
 
+### When a run selects no tests
+
+`LifecycleScope.Session` and `LifecycleScope.Assembly` hooks wrap the tests a run selected, so a run
+whose filter selects none of them runs neither half: no `[Before(LifecycleScope.Session)]`, and no
+`[After(LifecycleScope.Session)]`. NextUnit writes one line to standard error naming how many
+`[After(LifecycleScope.Session)]` hooks it skipped, so an empty selection never reads as a session
+that tore down cleanly. Assembly-level fixtures in xUnit, NUnit, and MSTest are tied to the selected
+tests the same way.
+
+Session-shared data source instances are released either way. Data sources are expanded before the
+row-level filter runs, so a run that ends up selecting nothing can still have constructed one, and
+nothing else would dispose it.
+
+Once the session is open, `[After(LifecycleScope.Session)]` runs whatever happens next -- including
+when a `[Before(LifecycleScope.Session)]` hook throws partway through, because a hook that failed
+halfway may already hold what its teardown releases. Session hooks are not inherited, so the scope
+has no levels to unwind selectively: every `[After(LifecycleScope.Session)]` hook runs, in reverse
+declaration order.
+
 ### When a class setup fails
 
 A `[Before(LifecycleScope.Class)]` hook that throws fails that class and only that class. Every test

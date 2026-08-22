@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A run whose filter selects no tests no longer runs the `[After(LifecycleScope.Session)]` hooks.
+  Session setup is never reached when nothing is selected, so teardown used to tear down a session
+  that no `[Before(LifecycleScope.Session)]` hook had set up. The two phases are now paired: teardown
+  runs only when setup was entered. This is a behavior change -- a suite that relied on
+  `[After(LifecycleScope.Session)]` running on an empty selection no longer gets it -- so NextUnit
+  writes one line to standard error naming how many hooks it skipped rather than skipping them
+  silently. Session-shared data source instances are still released on every close, because expansion
+  runs before the row-level filter and can construct one for a run that selects nothing. Once setup is
+  entered, nothing changes: a `[Before(LifecycleScope.Session)]` hook that throws partway still runs
+  every `[After(LifecycleScope.Session)]` hook in reverse declaration order, since session hooks are
+  not inherited and the scope has no levels to unwind selectively.
+
 ### Changed
 
 - A failing `[Before(LifecycleScope.Class)]` hook now fails only its own class instead of ending the
