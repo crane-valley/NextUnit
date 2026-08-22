@@ -429,7 +429,9 @@ workflow and by nothing else:
   is the one outside the `#if NEXTUNIT_LOCAL_PACKAGE` guard. The floors are 1 and 1.
 
 A caller arriving on any other event type fails the run in its first step, so a new entry point is a
-deliberate edit rather than a silent downgrade. Deciding the mode by comparing the version against
+deliberate edit rather than a silent downgrade. FULL is bound tighter still: the call has to come
+from this repository's `release.yml`, and the version verified has to be the tag being published.
+Deciding the mode by comparing the version against
 the repository's own, or by diffing the smoke sources against the tag, was rejected: those answer a
 question about content, and the question here is which commit the checkout came from.
 
@@ -451,14 +453,16 @@ run actually exercised.
 
 A dispatch cannot produce FULL evidence, because nothing in a dispatched run establishes that the
 checked-out smoke sources belong to the published package. Produce it by hand from the release tag
-instead. `NUGET_PACKAGES` has to be an empty directory: NuGet serves a package from the global
-packages folder without consulting any source, so a warm cache can hide what was actually published.
+instead. `NUGET_PACKAGES` has to be an empty directory, recreated even when a previous attempt for
+this version already ran: NuGet serves a package from the global packages folder without consulting
+any source, so anything left there can hide what was actually published.
 
 ```bash
 version=X.Y.Z
 git worktree add /tmp/nextunit-v$version "v$version"
 cd /tmp/nextunit-v$version
 export NUGET_PACKAGES=/tmp/nextunit-v$version-packages
+rm -rf "$NUGET_PACKAGES"
 mkdir -p "$NUGET_PACKAGES"
 
 dotnet restore tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
@@ -595,9 +599,10 @@ a dispatch cannot produce all of it.
    ```
 
 2. Perform the [manual FULL equivalent](#the-manual-full-equivalent) for the same version. A
-   dispatched run is REDUCED: its consumer smoke executes one test, which is not evidence that a
-   consumer can run against the published package. This step is unnecessary only when the
-   release-driven `verify-published` run already went green for this version, since that run is FULL.
+   dispatched run is REDUCED: its one executed test is real evidence that the minimal consumer path
+   works against the published package, and it is not evidence about the rest of the surface, which
+   is what this step supplies. It is unnecessary only when the release-driven `verify-published` run
+   already went green for this version, since that run is FULL.
 
 Performing the whole set by hand stays the fallback for when the dispatch cannot run at all. Either
 way the evidence must exist before the keep decision is final, and

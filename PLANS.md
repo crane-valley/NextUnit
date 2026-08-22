@@ -1352,14 +1352,18 @@ derives `SMOKE_MODE` from `github.event_name`: `release` gives FULL, which passe
 `NextUnitPackageSmokeFullSurface` property and demands 8 executed tests; `workflow_dispatch` gives
 REDUCED, which passes nothing and demands 1; any other event type fails the run in its first step, so
 a caller with a new event type has to be added deliberately. FULL is additionally bound to the
-release being published, because `release` is not private to `release.yml`: the version verified must
-equal `github.event.release.tag_name` without its leading `v`. The mode, the validated version, the
-caller event, and both floors are written to the step summary and the log before any network call, so
+release being published, because `release` is not private to `release.yml`: the calling workflow must
+be this repository's `release.yml`, read from `github.workflow_ref`, which in a called workflow names
+the caller while `job_workflow_ref` names the callee; and the version verified must equal
+`github.event.release.tag_name` without its leading `v`. The version allowlist that used to run only
+on dispatch now runs on every entry point, so the announced version is validated on both. The mode,
+the validated version, the caller event, and both floors reach the step summary and the log first, so
 the record of which surface was exercised survives a run that dies in polling or in the verifier.
 FULL is the in-repo JIT run surface only; discovery and the Native AOT publish of the smoke projects
 stay in pull request CI against the locally packed package, and `dotnet.yml` gained an evaluation-only
-gate asserting that the new property defines the symbol and that nothing else does. What this costs is
-recorded in `docs/RELEASE_PROCESS.md`: a green dispatch no longer carries the consumer half of the
+gate asserting that the new property defines the symbol and that a restore passing no surface switch
+does not. What this costs is recorded in `docs/RELEASE_PROCESS.md`: a green dispatch no longer
+carries the consumer half of the
 Step 3 keep evidence on its own, and the manual FULL equivalent from the release tag supplies it.
 Residual risk: the FULL path is exercised only by the next release, since no dispatch can reach it.
 

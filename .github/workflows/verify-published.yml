@@ -101,13 +101,16 @@ jobs:
               ;;
           esac
 
-      # A dispatched version arrives from a human, so it is checked against the
-      # same allowlist release.yml applies to the release tag, before any network
-      # call. Every accepted string is byte-identical to its NuGet-normalized
-      # form, which is what makes it safe to reuse verbatim in flat-container
-      # URLs and download paths below.
-      - name: Validate the dispatched version
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+      # The version reaches flat-container URLs, download paths, and the summary block
+      # below, so it is checked against the same allowlist release.yml applies to the
+      # release tag, before any network call. This runs on every entry point rather than
+      # only on dispatch: a dispatched version arrives from a human, and a called one
+      # arrives from a caller this workflow does not control. It rejects nothing the
+      # release path produces, because release.yml validates the same string against the
+      # same allowlist and only calls here when that job succeeded. Every accepted string
+      # is byte-identical to its NuGet-normalized form, which is what makes it safe to
+      # reuse verbatim.
+      - name: Validate the version to verify
         shell: bash
         run: |
           set -euo pipefail
@@ -144,19 +147,31 @@ jobs:
           fi
 
       # FULL is granted on the event type, and `release` is not private to release.yml:
-      # a second caller triggered by the same event would inherit it. Requiring the
-      # verified version to be the tag being published closes that, because what FULL
-      # actually claims is that this checkout is the released commit. release.yml passes
-      # the tag with its leading `v` stripped, and that is the only accepted relationship.
-      # Neither value is echoed on mismatch: this step exists for the case where one of
-      # them came from a caller this workflow does not know.
-      - name: Require the FULL-mode version to name the release being published
+      # a second caller triggered by the same event would inherit it. What FULL claims is
+      # that this checkout is the commit the published package was built from, so it is
+      # bound to the two facts that carry that claim. The caller must be release.yml,
+      # which is the only workflow that builds and publishes: in a called workflow
+      # `github.workflow_ref` names the CALLER's workflow file, while `job_workflow_ref`
+      # names this one, which is the same distinction nuget.org's trusted-publishing
+      # policy pins release.yml by. And the version verified must be the tag being
+      # published, with the leading `v` stripped, as release.yml passes it. Neither value
+      # is echoed on mismatch: this step exists for the case where one of them came from
+      # a caller this workflow does not know.
+      - name: Require FULL mode to come from the release being published
         if: ${{ env.SMOKE_MODE == 'FULL' }}
         shell: bash
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
+          case "$GITHUB_WORKFLOW_REF" in
+            "$GITHUB_REPOSITORY/.github/workflows/release.yml@"*)
+              ;;
+            *)
+              echo "::error::FULL mode is reserved for $GITHUB_REPOSITORY/.github/workflows/release.yml, and this run was not called by it"
+              exit 1
+              ;;
+          esac
           if [ -z "$RELEASE_TAG" ] || [ "$PACKAGE_VERSION" != "${RELEASE_TAG#v}" ]; then
             echo "::error::FULL mode requires the verified version to be the published release's tag without its leading v, and the caller's version input does not match github.event.release.tag_name"
             exit 1
