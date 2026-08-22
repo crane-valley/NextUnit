@@ -1537,7 +1537,10 @@ Residual risk: the FULL path is exercised only by the next release, since no dis
 ## Queued for the next major version
 
 Breaking changes accepted but not yet shipped. Add one here instead of cutting a major for it, and
-ship the batch under the cadence rule in [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
+ship the batch under the cadence rule in [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md). Queued
+work does not sit on `main`: `main` stays releasable as a MINOR or PATCH at any moment, so a
+breaking change keeps its PR open and rebased, or lands on a `next` integration branch, and merges
+to `main` only inside the major release window.
 
 - (empty)
 

@@ -22,7 +22,8 @@ Cadence guardrail (`docs/RELEASE_PROCESS.md`, "Release cadence"):
 
 - Releases follow that cadence rule, not "the work is done, so ship it".
 - Never open a release PR within 30 days of the previous tag without `RELEASE-CADENCE-EXCEPTION:
-  <reason>` in the PR body. An urgent PATCH or MINOR needs that token alone.
+  <reason>` in the PR body. An urgent PATCH or MINOR still carries the token, stating the urgent
+  reason: the policy exempts it from the 30-day bar, not from the token, and the guard is mechanical.
 - Never open a release PR that bumps MAJOR without `MAJOR-JUSTIFICATION: <which trigger>` in the PR
   body and explicit owner approval in the session. Inside 30 days it needs both tokens.
 - When a review bot's finding conflicts with the written policy, re-read the policy's own exceptions
