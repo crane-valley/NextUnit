@@ -564,6 +564,12 @@ Rules worth knowing before you rely on it:
 
 - **A hook must be `public` or `internal`.** The generated registry calls it from outside your class,
   so a `protected` or `private` hook is reported as `NEXTUNIT015` rather than silently skipped.
+- **A hook cannot be an explicit interface implementation.** The registry calls a hook through its
+  declaring type, and `void IFixture.Setup()` is reachable only through the interface, so it is
+  reported as `NEXTUNIT017`. Implement the member implicitly instead -- a `public void Setup()` that
+  satisfies the interface. Unlike the rule above, this one is reported where the hook is declared
+  even if nothing in that project derives from the class, because a project that references the
+  assembly cannot see the member at all and so could never report it.
 - **Overriding a hook replaces it.** The hook runs once, from the base class's position, and the body
   that runs is the most derived override. Overriding it with an empty body is the supported way to
   opt one derived class out of an inherited hook.

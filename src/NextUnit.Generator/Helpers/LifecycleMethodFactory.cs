@@ -26,13 +26,23 @@ internal static class LifecycleMethodFactory
     /// called <c>Setup</c> would answer the same key, and a <c>new</c> method would be collapsed
     /// into the base hook it hides. The containing type and the parameter types are what make the
     /// key identify one method.
+    /// <para>
+    /// Every option here separates two declarations C# separates, and none joins two it separates.
+    /// The explicit interface qualifier is included because <c>void IFirst.Setup()</c> and
+    /// <c>void ISecond.Setup()</c> are two methods of one class that print the same name without
+    /// it, and the parameter ref kinds because <c>Setup(int)</c> and <c>Setup(in int)</c> are an
+    /// overload pair whose types alone are equal.
+    /// </para>
     /// </remarks>
     private static readonly SymbolDisplayFormat _overrideRootFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
-            memberOptions: SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeParameters,
-            parameterOptions: SymbolDisplayParameterOptions.IncludeType,
+            memberOptions: SymbolDisplayMemberOptions.IncludeContainingType |
+                SymbolDisplayMemberOptions.IncludeParameters |
+                SymbolDisplayMemberOptions.IncludeExplicitInterface,
+            parameterOptions: SymbolDisplayParameterOptions.IncludeType |
+                SymbolDisplayParameterOptions.IncludeParamsRefOut,
             miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
 
     /// <summary>
@@ -72,6 +82,7 @@ internal static class LifecycleMethodFactory
             methodSymbol.Name,
             GetOverrideRootId(methodSymbol),
             IsReachableFrom(methodSymbol, invocationTypeName, semanticModel),
+            methodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation,
             isBefore ? scopes : EquatableArray<int>.Empty,
             isBefore ? EquatableArray<int>.Empty : scopes,
             methodSymbol.IsStatic,
@@ -144,16 +155,17 @@ internal static class LifecycleMethodFactory
         foreach (var member in type.GetMembers())
         {
             // Explicit interface implementations are collected too, even though the registry can
-            // never call one: they report Private accessibility, so the reachability check turns
-            // them into NEXTUNIT015. Skipping them here would drop an attributed hook without a
-            // word, which is the failure this walk exists to remove.
+            // never call one. Skipping them here would drop an attributed hook without a word,
+            // which is the failure this walk exists to remove; collecting them lets NEXTUNIT017
+            // name the declaration a derived class inherits.
             //
-            // One case stays out of reach, and no filter here changes it: a compilation imports
-            // metadata with MetadataImportOptions.Public by default, so an explicit implementation
-            // on a base class in a *referenced* assembly is not in GetMembers() at all and cannot
-            // be reported. Raising the import options is a compilation-level setting a generator
-            // does not own. The hook has never run in any version, so nothing regresses; it is
-            // recorded in PLANS.md rather than worked around here.
+            // The walk is not what keeps that rule honest, though, and no filter here could be: a
+            // compilation imports metadata with MetadataImportOptions.Public by default, so an
+            // explicit implementation on a base class in a *referenced* assembly is not in
+            // GetMembers() at all, and raising the import options is a compilation-level setting a
+            // generator does not own. NEXTUNIT017 therefore also fires in the assembly that
+            // declares the hook, where it is still in source, so the shape cannot reach a consumer
+            // that has no way to see it.
             if (member is not IMethodSymbol
                 {
                     MethodKind: MethodKind.Ordinary or MethodKind.ExplicitInterfaceImplementation

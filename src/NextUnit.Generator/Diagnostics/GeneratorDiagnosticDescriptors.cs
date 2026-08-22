@@ -150,6 +150,50 @@ internal static class GeneratorDiagnosticDescriptors
         DiagnosticSeverity.Error,
         WellKnownDiagnosticTags.NotConfigurable);
 
+    /// <summary>
+    /// Reported for a <c>[Before]</c> or <c>[After]</c> hook declared as an explicit interface
+    /// implementation.
+    /// </summary>
+    /// <remarks>
+    /// Its own rule rather than <see cref="LifecycleMethodNotAccessible"/>, which it replaces for
+    /// this shape, because that message names an edit C# rejects: an explicit implementation takes
+    /// no accessibility modifier at all (<c>CS0106</c>), so "make it public" cannot be applied. The
+    /// remedy is the declaration form -- an ordinary method implementing the member implicitly.
+    /// <para>
+    /// It names <c>public</c> only, where <see cref="LifecycleMethodNotAccessible"/> offers
+    /// <c>internal</c> as well: an implicit implementation of an interface member must be
+    /// <c>public</c> (<c>CS0737</c>), so the alternative this rule's remedy leaves is to stop
+    /// implementing the interface, which is a different edit than the one it is naming.
+    /// </para>
+    /// <para>
+    /// Reported at the declaration, whether or not anything derives from it, which is the one place
+    /// the lifecycle rules do not wait for a use site. A consumer cannot report it: a compilation
+    /// imports metadata with <c>MetadataImportOptions.Public</c>, so an explicit implementation on a
+    /// base class in a referenced assembly is not among that type's members at all. The declaring
+    /// assembly is the last compilation in which the hook is visible, so it is the last place the
+    /// silence can be broken.
+    /// </para>
+    /// <para>
+    /// Calling the hook through a cast to its interface was the rejected alternative. It leaves the
+    /// referenced-assembly case exactly as silent, since the member is still not imported; an
+    /// interface cast dispatches on the runtime type's interface map, so a derived class that
+    /// re-implements the interface captures the call the base declaration was annotated for --
+    /// the capture the cast to the declaring type exists to prevent; and a static explicit
+    /// implementation cannot be called through an interface without a generic constraint the
+    /// registry has no type parameter to put it on.
+    /// </para>
+    /// <para>
+    /// Not configurable and the hook is dropped, for the reason
+    /// <see cref="LifecycleMethodNotAccessible"/> is both.
+    /// </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor LifecycleMethodIsExplicitInterfaceImplementation = Create(
+        "NEXTUNIT017",
+        "Lifecycle method is an explicit interface implementation",
+        "Lifecycle method '{1}' on '{0}' is an explicit interface implementation, which the generated test registry cannot call. Declare it as an ordinary public method so it implements the interface member implicitly.",
+        DiagnosticSeverity.Error,
+        WellKnownDiagnosticTags.NotConfigurable);
+
     private static DiagnosticDescriptor Error(string id, string title, string messageFormat) =>
         Create(id, title, messageFormat, DiagnosticSeverity.Error);
 

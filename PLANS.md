@@ -245,9 +245,32 @@ compilation imports metadata with `MetadataImportOptions.Public`, so the member 
 Nothing regresses -- the hook has never run in any version -- but it is the one inherited hook shape
 that still disappears without a word.
 
-- [ ] Decide whether to reject an explicit interface hook at its own declaration site, where the
+- [x] Decide whether to reject an explicit interface hook at its own declaration site, where the
   declaring assembly can see it, so a consumer never inherits one that cannot be reported; or to
   call such a hook through its interface, which would make the shape work rather than diagnose it.
+  Decided in favor of rejecting it at the declaration. `NEXTUNIT017` reports a `[Before]` or
+  `[After]` declared as an explicit interface implementation in the compilation that declares it,
+  whether or not anything there derives from the class -- the one lifecycle rule that does not wait
+  for a use site, because the declaring assembly is the last compilation in which the member exists
+  as a symbol at all. That is what closes the section: the shape can no longer reach a consumer that
+  has no way to see it, and the `MetadataImportOptions.Public` limitation stops mattering rather than
+  being worked around, since the assembly carrying such a hook does not build.
+  Its own rule rather than `NEXTUNIT015`, whose message names an edit C# rejects here: an explicit
+  implementation takes no accessibility modifier (`CS0106`), so "make it public" cannot be applied,
+  and the reporting contract differs too -- `NEXTUNIT015` is documented as covering what the registry
+  emits. It replaces `NEXTUNIT015` for this shape rather than joining it, so one declaration is
+  reported once, with the remedy that works. Both are errors and neither is configurable, so no
+  suppression changes meaning; the report is gated on the scopes the registry emits, so an explicit
+  implementation carrying only `[Before(LifecycleScope.Assembly)]` on an instance method stays
+  unreported, because there the declaration form is not what kills the hook.
+  Calling the hook through a cast to its interface is the rejected alternative, and it is rejected on
+  three counts: it leaves the referenced-assembly case exactly as silent, since the member is still
+  not imported and there is nothing to emit a call to; an interface cast dispatches on the runtime
+  type's interface map, so a derived class re-implementing the interface would capture the call the
+  base declaration was annotated for -- the capture the cast to the declaring type exists to prevent;
+  and a static explicit implementation cannot be called through an interface without a generic
+  constraint the registry has no type parameter to put it on, so the shape would have needed a
+  diagnostic anyway.
 
 ### Priority 2 — Display names are formatted with whichever culture happens to be ambient
 
