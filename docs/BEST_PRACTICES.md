@@ -261,12 +261,15 @@ public class DatabaseTests
 }
 ```
 
-An `Assembly` or `Session` hook has to be `static`, because it runs once for the whole run and has no
-test instance to run against. An instance method carrying one of those scopes is dropped from the
-generated registry and never runs, and nothing reports it, so check the modifier when a global setup
-appears not to have happened. `Test` and `Class` hooks may be instance methods, as shown above, and
-both scopes are inherited from a base test class; `Assembly` and `Session` hooks are not inherited,
-since they already run once for the whole run.
+An `Assembly` or `Session` hook has to be `static`, because it runs once around a whole set of tests
+and has no test instance to run against. An instance method carrying one of those scopes is dropped
+from the generated registry and never runs, and nothing reports it, so check the modifier when a
+global setup appears not to have happened. The two scopes differ in reach: an `Assembly` hook runs
+once for the tests of its own test assembly, so a run covering several assemblies runs each
+assembly's hooks, while a `Session` hook wraps the run. Use `Session` scope for setup that must
+happen exactly once across assemblies. `Test` and `Class` hooks may be instance methods, as shown
+above, and both scopes are inherited from a base test class; `Assembly` and `Session` hooks are not
+inherited, and stay with the assembly that declared them.
 
 ## Parallel Execution
 

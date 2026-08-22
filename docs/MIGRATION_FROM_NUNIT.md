@@ -801,7 +801,9 @@ cases, each with its own id and result -- at build time, or at discovery when th
 data source whose length is not known until then -- and the scheduler may run them in parallel with
 everything else. Since 4.0.0 the count multiplies a `[Values]` combination, a `[TestData]` member,
 and a `[ClassDataSource<T>]` alike, so `[Repeat(5)]` beside a four-row source is twenty test cases,
-and every one of them carries a `#n` id suffix rather than the bare row id. A repeated test that
+and every one of them carries a `#n` id suffix rather than the bare row id. A `[TestData]` source
+with `DeferredEnumeration = true` is the exception: discovery reports one unsuffixed placeholder
+whatever the count is, and the rows and their repetitions appear during execution. A repeated test that
 mutates shared state can therefore overlap with itself, and a failing repetition no longer stops the
 ones after it. Add `[NotInParallel]` when the overlap is the problem, and write an ordinary loop
 inside one test when you need stop-on-first-failure.

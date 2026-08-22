@@ -99,7 +99,7 @@ Microsoft.Testing.Platform in the repository's `global.json`:
 - **Typed data rows** - Per-row display names, categories, tags, and skip reasons
 - **Explicit tests** - `[Explicit]` to exclude from default runs
 - **Roslyn analyzers** - Compile-time validation of test code
-- **Multi-scope lifecycle** - Test, Class, Assembly, and Session scopes, inherited from base test classes
+- **Multi-scope lifecycle** - Test, Class, Assembly, Session scopes; Test and Class hooks are inherited
 - **Parallel control** - `[ParallelLimit]`, `[NotInParallel("key")]`, `[ParallelGroup("name")]`
 - **Execution priority** - `[ExecutionPriority(N)]` for controlling test order
 - **Test dependencies** - `[DependsOn]` with `ProceedOnFailure` option
