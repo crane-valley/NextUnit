@@ -216,6 +216,36 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Verify the package smoke surface switch
+      shell: bash
+      run: |
+        set -euo pipefail
+        project=tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj
+        # verify-published.yml opts into the guarded tests with this property alone, and its
+        # failure mode is silent: a project that compiles one test still passes a floor of
+        # one, which is how a consumer smoke can report green for a surface it never ran.
+        # -getProperty with no target only evaluates the project, so this needs no restore,
+        # no packed package, and no network.
+        with_switch=$(dotnet msbuild "$project" -getProperty:DefineConstants -p:NextUnitPackageSmokeFullSurface=true)
+        without_switch=$(dotnet msbuild "$project" -getProperty:DefineConstants)
+        # DefineConstants is semicolon-delimited, and a substring test would also accept a
+        # symbol that merely starts with this name.
+        defines_surface_symbol() {
+          printf '%s' "$1" | tr ';' '\n' | grep -qx NEXTUNIT_LOCAL_PACKAGE
+        }
+        if ! defines_surface_symbol "$with_switch"; then
+          echo "Error: -p:NextUnitPackageSmokeFullSurface=true did not define NEXTUNIT_LOCAL_PACKAGE."
+          echo "DefineConstants was: $with_switch"
+          exit 1
+        fi
+        if defines_surface_symbol "$without_switch"; then
+          echo "Error: NEXTUNIT_LOCAL_PACKAGE is defined with no surface switch, so a restore without one"
+          echo "-- including GitHub's automatic dependency submission -- would compile the guarded tests."
+          echo "DefineConstants was: $without_switch"
+          exit 1
+        fi
+        echo "NextUnitPackageSmokeFullSurface gates NEXTUNIT_LOCAL_PACKAGE in both directions."
+
     - name: Pack local packages
       run: |
         dotnet pack src/NextUnit.Core/NextUnit.Core.csproj --configuration Release --output artifacts/packages

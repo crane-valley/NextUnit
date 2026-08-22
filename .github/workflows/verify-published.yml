@@ -72,15 +72,45 @@ jobs:
       # `release`; a caller triggered by workflow_dispatch would need a different
       # discriminator here.
       PUBLISH_RESULT: ${{ github.event_name == 'workflow_dispatch' && 'success' || inputs.publish_result }}
+      # How much of the consumer surface the smoke step runs, decided by the caller
+      # event and by nothing else. The event is the only signal that says whether the
+      # smoke sources checked out here belong to the package being verified: a
+      # release-driven call runs at the released commit, while a dispatch runs the
+      # default branch's tip against whatever version an operator names. Comparing
+      # version strings or diffing paths was rejected -- both answer a question about
+      # content, and the question here is which commit the checkout came from.
+      # Closed world: an event type this workflow has not been reviewed against becomes
+      # UNKNOWN, and the first step below then fails the run.
+      SMOKE_MODE: ${{ github.event_name == 'release' && 'FULL' || github.event_name == 'workflow_dispatch' && 'REDUCED' || 'UNKNOWN' }}
 
     steps:
-      # A dispatched version arrives from a human, so it is checked against the
-      # same allowlist release.yml applies to the release tag, before any network
-      # call. Every accepted string is byte-identical to its NuGet-normalized
-      # form, which is what makes it safe to reuse verbatim in flat-container
-      # URLs and download paths below.
-      - name: Validate the dispatched version
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+      # First, before any input is echoed, any network call, and any build: a caller
+      # arriving on a new event type must stop the run rather than silently take the
+      # smaller surface, so adding one is a deliberate edit to the block above.
+      - name: Classify caller event
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$SMOKE_MODE" in
+            FULL | REDUCED)
+              echo "Consumer smoke mode for this run: $SMOKE_MODE."
+              ;;
+            *)
+              echo "::error::verify-published has no consumer smoke mode for caller event '$GITHUB_EVENT_NAME'"
+              exit 1
+              ;;
+          esac
+
+      # The version reaches flat-container URLs, download paths, and the summary block
+      # below, so it is checked against the same allowlist release.yml applies to the
+      # release tag, before any network call. This runs on every entry point rather than
+      # only on dispatch: a dispatched version arrives from a human, and a called one
+      # arrives from a caller this workflow does not control. It rejects nothing the
+      # release path produces, because release.yml validates the same string against the
+      # same allowlist and only calls here when that job succeeded. Every accepted string
+      # is byte-identical to its NuGet-normalized form, which is what makes it safe to
+      # reuse verbatim.
+      - name: Validate the version to verify
         shell: bash
         run: |
           set -euo pipefail
@@ -115,6 +145,83 @@ jobs:
             echo "::error::verify-published must be dispatched from $EXPECTED_REF, but this run is on $GITHUB_REF"
             exit 1
           fi
+
+      # FULL is granted on the event type, and `release` is not private to release.yml:
+      # a second caller triggered by the same event would inherit it. What FULL claims is
+      # that this checkout is the commit the published package was built from, so it is
+      # bound to the two facts that carry that claim. The caller must be this
+      # repository's release.yml, the only workflow that builds and publishes: in a
+      # called workflow `github.workflow_ref` names the CALLER's workflow file, while
+      # `job_workflow_ref` names this one, which is the same distinction nuget.org's
+      # trusted-publishing policy pins release.yml by. And the version verified must be the tag being
+      # published, with the leading `v` stripped, as release.yml passes it. Neither value
+      # is echoed on mismatch: this step exists for the case where one of them came from
+      # a caller this workflow does not know.
+      - name: Require FULL mode to come from the release being published
+        if: ${{ env.SMOKE_MODE == 'FULL' }}
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # The owner and repository are literal rather than "$GITHUB_REPOSITORY/...":
+          # this workflow is callable from another repository, and there both that
+          # variable and the workflow ref would name the caller, whose sources are what
+          # actions/checkout would then check out. A fork that wants FULL has to change
+          # this constant, which is the deliberate edit the closed world above asks for.
+          case "$GITHUB_WORKFLOW_REF" in
+            'crane-valley/NextUnit/.github/workflows/release.yml@'*)
+              ;;
+            *)
+              echo "::error::FULL mode is reserved for crane-valley/NextUnit/.github/workflows/release.yml, and this run was not called by it"
+              exit 1
+              ;;
+          esac
+          if [ -z "$RELEASE_TAG" ] || [ "$PACKAGE_VERSION" != "${RELEASE_TAG#v}" ]; then
+            echo "::error::FULL mode requires the verified version to be the published release's tag without its leading v, and the caller's version input does not match github.event.release.tag_name"
+            exit 1
+          fi
+
+      # Announced before the first network call because the mode decides how much
+      # consumer evidence a green run is worth, and polling, the signature checks, or
+      # the verifier can all end the run before the smoke step is reached; the reader of
+      # a red run still has to know which surface it was going to exercise. Placed after
+      # the guards above so every value printed here has already been validated. The
+      # floors below are enforced in "Verify published packages from a clean cache" --
+      # change the two together, since this block is the record of what ran.
+      - name: Announce consumer smoke mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$SMOKE_MODE" in
+            FULL)
+              mode_note='the in-repo JIT run surface, 8 tests'
+              mode_basis='Called by release.yml at the released commit, so the smoke sources checked out here are the ones the published package was built from.'
+              package_smoke_floor=8
+              ;;
+            REDUCED)
+              mode_note='the minimal consumer path, 1 test'
+              mode_basis='Dispatched against an already-published version, so only the test that compiles without the in-repo surface is run.'
+              package_smoke_floor=1
+              ;;
+            *)
+              echo "::error::consumer smoke mode is '$SMOKE_MODE' after classification"
+              exit 1
+              ;;
+          esac
+          {
+            echo "## Consumer smoke mode for $PACKAGE_VERSION"
+            echo
+            echo "- Mode: \`$SMOKE_MODE\` -- $mode_note."
+            echo "- Caller event: \`$GITHUB_EVENT_NAME\`."
+            echo "- Minimum expected tests: NextUnit.PackageSmoke $package_smoke_floor, NextUnit.AspNetCore.PackageSmoke 1."
+            echo
+            echo "$mode_basis"
+            echo
+            echo "Test discovery and Native AOT publishing of the smoke projects are outside this"
+            echo "workflow in either mode; pull request CI covers them against the locally packed"
+            echo "package."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -308,17 +415,39 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$NUGET_PACKAGES"
+          # Most of NextUnit.PackageSmoke sits behind NEXTUNIT_LOCAL_PACKAGE, so the switch
+          # and the floor move together: without the switch the project compiles one test,
+          # and a floor that one test can clear is a floor that proves nothing about the
+          # rest. Keep these numbers in step with "Announce consumer smoke mode" above.
+          case "$SMOKE_MODE" in
+            FULL)
+              # Asserted, not inferred: this call runs at the released commit, so the
+              # guarded tests here are the ones the published package was built to satisfy.
+              surface_args=(-p:NextUnitPackageSmokeFullSurface=true)
+              package_smoke_floor=8
+              ;;
+            REDUCED)
+              surface_args=()
+              package_smoke_floor=1
+              ;;
+            *)
+              echo "::error::consumer smoke mode is '$SMOKE_MODE'; no surface is defined for it"
+              exit 1
+              ;;
+          esac
           # The smoke projects default to a previously published version, so the
           # override is what makes this a test of THIS release.
           dotnet restore tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
             --source "$NUGET_SOURCE" \
             --no-http-cache \
-            -p:NextUnitPackageSmokeVersion="$PACKAGE_VERSION"
+            -p:NextUnitPackageSmokeVersion="$PACKAGE_VERSION" \
+            "${surface_args[@]}"
           dotnet run --project tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
             --configuration Release \
             --no-restore \
             -p:NextUnitPackageSmokeVersion="$PACKAGE_VERSION" \
-            -- --minimum-expected-tests 2
+            "${surface_args[@]}" \
+            -- --minimum-expected-tests "$package_smoke_floor"
           dotnet restore tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj \
             --source "$NUGET_SOURCE" \
             --no-http-cache \

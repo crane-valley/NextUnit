@@ -5,7 +5,17 @@
     <IsAotCompatible>true</IsAotCompatible>
     <PublishAot Condition="'$(PublishAotPackageSmoke)' == 'true'">true</PublishAot>
     <SelfContained Condition="'$(PublishAotPackageSmoke)' == 'true'">true</SelfContained>
-    <DefineConstants Condition="'$(UseLocalNextUnitPackage)' == 'true'">$(DefineConstants);NEXTUNIT_LOCAL_PACKAGE</DefineConstants>
+    <!-- NEXTUNIT_LOCAL_PACKAGE means "the referenced package carries the in-repo test surface",
+         not "the package came from a local feed". UseLocalNextUnitPackage implies it because that
+         switch pins the reference to $(NextUnitVersion), the version this working tree describes.
+         NextUnitPackageSmokeFullSurface is the other way to assert it, for a caller that pins the
+         version itself: verify-published consumes a published version from nuget.org while running
+         at the commit that released it. Both are off by default, so a restore with neither compiles
+         only the unguarded test; that default is what keeps GitHub's automatic dependency
+         submission, which restores at the fallback version below, off the guarded surface. Deciding
+         this by comparing version strings was rejected: a version says nothing about which source
+         tree is checked out beside it. -->
+    <DefineConstants Condition="'$(UseLocalNextUnitPackage)' == 'true' Or '$(NextUnitPackageSmokeFullSurface)' == 'true'">$(DefineConstants);NEXTUNIT_LOCAL_PACKAGE</DefineConstants>
     <!-- The default must stay a version already published to nuget.org: GitHub's
          automatic dependency submission restores this project without the local
          package feed, so referencing the in-repo $(NextUnitVersion) unconditionally

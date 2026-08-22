@@ -401,15 +401,95 @@ What a dispatched run does and does not settle:
   automatic `GITHUB_TOKEN` is scoped to `contents: read`, and it has no `id-token` permission, so it
   writes nothing to GitHub or to nuget.org and leaves only a job log and a run summary. Dispatching
   it is always safe.
-- A green run is the evidence
+- A green run settles the signature, nuspec, and template checks for the version it names, and the
+  minimal consumer path. It does not settle the consumer surface: a dispatch runs in REDUCED mode,
+  described below, so
   [Step 3](#step-3-before-keeping-a-release-from-a-red-run-get-the-verification-evidence) of the
-  Partial Publish Runbook asks for, so a keep decision can rest on it rather than on the manual
-  equivalent.
+  Partial Publish Runbook asks for one more thing.
 - A red run is an input to a human investigation and nothing more. The runbook's rule is unchanged:
   no automated signal authorizes unlisting or any other destructive action.
 - It assumes the version is already published. Unlike the release-driven call, a dispatched run
   treats a package that is still unlisted after the polling budget as a hard failure, so dispatching
   is not a way to wait for a publish to land.
+
+##### The two consumer smoke modes
+
+The clean-cache consumer smoke runs one of two surfaces, chosen by the event that called the
+workflow and by nothing else:
+
+- **FULL**, on the release-driven call. That call runs at the released commit, so the smoke sources
+  checked out beside the published package are the ones it was built from. The step passes
+  `-p:NextUnitPackageSmokeFullSurface=true`, which defines `NEXTUNIT_LOCAL_PACKAGE` and compiles the
+  whole project, and it requires 8 executed tests from `NextUnit.PackageSmoke` and 1 from
+  `NextUnit.AspNetCore.PackageSmoke`. FULL means the in-repo JIT run surface and no more: test
+  discovery and the Native AOT publish of the smoke projects are outside this workflow in both
+  modes, and pull request CI covers them against the locally packed package.
+- **REDUCED**, on a manual dispatch. That run uses the default branch's tip against whatever version
+  an operator named, and the two need not describe the same code, so the only test known to compile
+  is the one outside the `#if NEXTUNIT_LOCAL_PACKAGE` guard. The floors are 1 and 1.
+
+A caller arriving on any other event type fails the run in its first step, so a new entry point is a
+deliberate edit rather than a silent downgrade. FULL is bound tighter still: the call has to come
+from this repository's `release.yml`, and the version verified has to be the tag being published.
+Deciding the mode by comparing the version against
+the repository's own, or by diffing the smoke sources against the tag, was rejected: those answer a
+question about content, and the question here is which commit the checkout came from.
+
+Every run announces its mode to the job summary and the log before the first network call:
+
+```text
+## Consumer smoke mode for 3.0.0
+
+- Mode: `REDUCED` -- the minimal consumer path, 1 test.
+- Caller event: `workflow_dispatch`.
+- Minimum expected tests: NextUnit.PackageSmoke 1, NextUnit.AspNetCore.PackageSmoke 1.
+```
+
+Read that block first. It is written before polling, so it exists even on a run that dies in
+polling, in the signature checks, or in the verifier, and it is the record of which surface a green
+run actually exercised.
+
+##### The manual FULL equivalent
+
+A dispatch cannot produce FULL evidence, because nothing in a dispatched run establishes that the
+checked-out smoke sources belong to the published package. Produce it by hand from the release tag
+instead. `NUGET_PACKAGES` has to be an empty directory, recreated even when a previous attempt for
+this version already ran: NuGet serves a package from the global packages folder without consulting
+any source, so anything left there can hide what was actually published.
+
+```bash
+version=X.Y.Z
+git worktree add /tmp/nextunit-v$version "v$version"
+cd /tmp/nextunit-v$version
+export NUGET_PACKAGES=/tmp/nextunit-v$version-packages
+rm -rf "$NUGET_PACKAGES"
+mkdir -p "$NUGET_PACKAGES"
+
+dotnet restore tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+  --source https://api.nuget.org/v3/index.json --no-http-cache \
+  -p:UseLocalNextUnitPackage=true
+dotnet run --project tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
+  --configuration Release --no-restore \
+  -p:UseLocalNextUnitPackage=true -- --minimum-expected-tests 8
+
+dotnet restore tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj \
+  --source https://api.nuget.org/v3/index.json --no-http-cache \
+  -p:UseLocalNextUnitPackage=true
+dotnet run --project tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj \
+  --configuration Release --no-restore \
+  -p:UseLocalNextUnitPackage=true -- --minimum-expected-tests 1
+
+cat "$NUGET_PACKAGES/nextunit/$version/.nupkg.metadata"
+cd -
+git worktree remove /tmp/nextunit-v$version
+```
+
+`-p:UseLocalNextUnitPackage=true` is what makes this the full surface. At the release tag it pins the
+reference to that tag's `$(NextUnitVersion)`, which is the version being verified, and it defines
+`NEXTUNIT_LOCAL_PACKAGE`. There is no local feed in this shell, so with nuget.org as the only source
+the package is the published one; the `.nupkg.metadata` printed at the end proves it, and its
+`source` must read `https://api.nuget.org/v3/index.json`. Both runs must report the floors above as
+executed, not merely pass.
 
 #### One-time release setup (required before the first release)
 
@@ -507,15 +587,25 @@ and cutting a new release, because a re-run reuses the same `GITHUB_SHA`.
 ### Step 3: Before keeping a release from a red run, get the verification evidence
 
 Keeping a release that came out of a failed or cancelled run is conditional on the same evidence a
-green run produces: the `verify-published` job's signature, nuspec, and clean-cache consumer checks
-having completed. Get that evidence by dispatching the verification again:
+green release-driven run produces: the `verify-published` signature, nuspec, template, and
+clean-cache consumer checks having completed for that version. Producing it takes two steps, because
+a dispatch cannot produce all of it.
 
-```bash
-gh workflow run verify-published.yml --ref main -f version=X.Y.Z
-```
+1. Dispatch the verification. This is the automated part, and it covers the signature, nuspec, and
+   template checks:
 
-Performing the checks by hand is the fallback for when the dispatch cannot run at all. Either way the
-evidence must exist before the keep decision is final, and
+   ```bash
+   gh workflow run verify-published.yml --ref main -f version=X.Y.Z
+   ```
+
+2. Perform the [manual FULL equivalent](#the-manual-full-equivalent) for the same version. A
+   dispatched run is REDUCED: its one executed test is real evidence that the minimal consumer path
+   works against the published package, and it is not evidence about the rest of the surface, which
+   is what this step supplies. It is unnecessary only when the release-driven `verify-published` run
+   already went green for this version, since that run is FULL.
+
+Performing the whole set by hand stays the fallback for when the dispatch cannot run at all. Either
+way the evidence must exist before the keep decision is final, and
 [Re-running the verification](#re-running-the-verification) states what a dispatched run may and may
 not conclude.
 
@@ -548,14 +638,31 @@ smoke and the template smoke ran at all, so Step 3's evidence was produced by ha
   seven passed. The old step body, run against the same packages, still stops at the first one with
   the message above. Recorded in the pull request that replaced those greps with
   `tools/NextUnit.ReleaseVerify`.
-- Clean-cache consumer smoke. Performed in #249, which restored both PackageSmoke projects at 3.0.0
-  from an empty `NUGET_PACKAGES` against nuget.org and ran each to 1/1 passing tests.
+- Clean-cache consumer smoke. First performed in #249, which restored both PackageSmoke projects at
+  3.0.0 from an empty `NUGET_PACKAGES` against nuget.org and ran each to 1/1 passing tests. That is
+  the REDUCED surface: the check passed no surface switch, so `NextUnit.PackageSmoke` compiled one
+  of its eight tests. The [manual FULL equivalent](#the-manual-full-equivalent) was then run from a
+  scratch worktree of `v3.0.0` (`a17689b`) with a fresh empty packages folder and nuget.org as the
+  only source: `NextUnit.PackageSmoke` executed 8 of 8 passing and `NextUnit.AspNetCore.PackageSmoke`
+  1 of 1, and the resolved `NextUnit` 3.0.0 in that folder recorded
+  `"source": "https://api.nuget.org/v3/index.json"`. That run is the consumer evidence the keep
+  decision rests on.
 - Template smoke. `NextUnit.Templates` 3.0.0 was installed from nuget.org into a scratch
   `DOTNET_CLI_HOME`, `dotnet new nextunit` created a project from it, and that project restored,
   built, and ran its example test. Recorded in the same pull request.
 
 Outcome: the release is complete and sound. Nothing was unlisted or deprecated, because the defect
 was in how the release verified itself and not in anything published.
+
+3.0.0 is also where the re-run path was first exercised, once it existed:
+[run 32552727121](https://github.com/crane-valley/NextUnit/actions/runs/32552727121) dispatched
+`verify-published.yml` for this version. Signature and nuspec verification passed for all seven
+packages, and the run then went red in the clean-cache consumer smoke, where `NextUnit.PackageSmoke`
+executed 1 test against a floor of 2. The cause was the workflow's own: it passed no surface switch,
+so all but one test stayed behind `#if NEXTUNIT_LOCAL_PACKAGE`, and the floor of 2 was the first
+thing to notice. That is a second defect in the verification rather than in 3.0.0 -- the manual FULL
+equivalent above ran the same published package to 8 of 8 -- and
+[the two consumer smoke modes](#the-two-consumer-smoke-modes) are the fix.
 
 ## Post-Release
 
