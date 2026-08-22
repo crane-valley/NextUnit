@@ -25,6 +25,9 @@ Microsoft.Testing.Platform, Native AOT, classic assertions, and a one-package in
   framework-owned integrations. Add an integration package only after concrete demand proves that
   lifecycle hooks, artifacts, and ordinary package composition are insufficient.
 - Keep benchmark numbers in `docs/PERFORMANCE.md` and generated benchmark artifacts, not here.
+- Batch releases under the cadence rule in [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md)
+  ("Release cadence"): completed work waits for the next scheduled release, and breaking changes
+  accumulate under "Deferred to the next major version" below and ship together.
 
 ## Active roadmap
 
