@@ -963,7 +963,11 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   domain enumerated, and it is read over the whole spelled name, nesting chain and type arguments
   alike, since one expression writes them all. Only the positional error flag is read, because
   `ObsoleteAttribute.IsError` has no setter and so has no named form; that is also what Roslyn's own
-  decoder reads. Scoped to that flag and no further:
+  decoder reads. The attribute is matched by containing type as well as namespace, because a nested
+  type reports the namespace of its outermost container and a `System.Outer.ObsoleteAttribute`
+  retires nothing -- raised as P2 by the pre-push Codex review and pinned by
+  `InheritedFromABaseClosedOverANestedObsoleteHomonym_QualifiesByTheDeclaringTypeAsync`.
+  Scoped to that flag and no further:
   `InheritedFromABaseClosedOverAnErrorObsoleteType_KeepsTheDerivedQualifierAsync` pins the fallback
   and `InheritedFromABaseClosedOverAWarningObsoleteType_QualifiesByTheDeclaringTypeAsync` pins the
   warning severity staying qualified, against the file header's blanket `#pragma warning disable`.

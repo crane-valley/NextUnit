@@ -176,9 +176,13 @@ internal static class GeneratedRegistryAccess
     {
         foreach (var attribute in symbol.GetAttributes())
         {
+            // The containing type has to be null as well as the namespace right: a nested type
+            // reports the namespace of its outermost container, so a `System.Outer.ObsoleteAttribute`
+            // answers to the same namespace as the real one and retires nothing.
             if (attribute.AttributeClass is
                 {
                     Name: "ObsoleteAttribute",
+                    ContainingType: null,
                     ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true },
                 } &&
                 attribute.ConstructorArguments.Length > 1 &&

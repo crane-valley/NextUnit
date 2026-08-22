@@ -1224,7 +1224,7 @@ public class DataSourceBindingEmissionTests
             }
             """;
 
-        var references = await CompileRetiredFixtureReferencesAsync(asError: true);
+        var references = await CompileRetiredFixtureReferencesAsync(ErrorObsoleteAttribute);
 
         var registry = await GenerateRegistryAsync(source, references);
 
@@ -1257,7 +1257,42 @@ public class DataSourceBindingEmissionTests
             }
             """;
 
-        var references = await CompileRetiredFixtureReferencesAsync(asError: false);
+        var references = await CompileRetiredFixtureReferencesAsync(WarningObsoleteAttribute);
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("global::Fixtures.RowsBase<global::Fixtures.Retired>.Rows", registry);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// A type argument carrying an attribute that only looks like the real one: an
+    /// <c>ObsoleteAttribute</c> nested in a type in namespace <c>System</c>. It retires nothing, so
+    /// the qualification has to hold -- giving it up would hand the capture back to a concurrent
+    /// generator for a name that compiles.
+    /// </summary>
+    [Fact]
+    public async Task InheritedFromABaseClosedOverANestedObsoleteHomonym_QualifiesByTheDeclaringTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests : Fixtures.ClosedRowsBase
+            {
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var references = await CompileRetiredFixtureReferencesAsync(
+            NestedObsoleteHomonymAttribute,
+            NestedObsoleteHomonymDeclaration);
 
         var registry = await GenerateRegistryAsync(source, references);
 
@@ -1490,6 +1525,32 @@ public class DataSourceBindingEmissionTests
         return ImmutableArray.Create(stream.ToArray());
     }
 
+    private const string ErrorObsoleteAttribute = """[System.Obsolete("Retired.", true)]""";
+
+    private const string WarningObsoleteAttribute = """[System.Obsolete("Retired.")]""";
+
+    private const string NestedObsoleteHomonymAttribute = """[System.Outer.Obsolete("Retired.", true)]""";
+
+    /// <summary>
+    /// An <c>ObsoleteAttribute</c> nested in a type in namespace <c>System</c>. A nested type reports
+    /// the namespace of its outermost container, so this one answers to the same namespace as the
+    /// real attribute and only the containing type tells the two apart.
+    /// </summary>
+    private const string NestedObsoleteHomonymDeclaration = """
+        namespace System
+        {
+            public class Outer
+            {
+                public class ObsoleteAttribute : System.Attribute
+                {
+                    public ObsoleteAttribute(string message, bool error)
+                    {
+                    }
+                }
+            }
+        }
+        """;
+
     /// <summary>
     /// Compiles the two references an obsolete type argument needs: a fixtures assembly declaring
     /// the retired type, and a second whose non-generic <c>ClosedRowsBase</c> closes
@@ -1503,7 +1564,9 @@ public class DataSourceBindingEmissionTests
     /// bug rather than an artifact of the test: the closed base has to arrive as metadata, since a
     /// consumer able to write that name would take the <c>CS0619</c> in their own source.
     /// </remarks>
-    private static async Task<MetadataReference[]> CompileRetiredFixtureReferencesAsync(bool asError)
+    private static async Task<MetadataReference[]> CompileRetiredFixtureReferencesAsync(
+        string attribute,
+        string extraDeclarations = "")
     {
         const string retiredWithoutAttribute = """
             namespace Fixtures
@@ -1530,9 +1593,11 @@ public class DataSourceBindingEmissionTests
             """;
 
         var retiredSource = $$"""
+            {{extraDeclarations}}
+
             namespace Fixtures
             {
-                [System.Obsolete("Retired.", {{(asError ? "true" : "false")}})]
+                {{attribute}}
                 public class Retired
                 {
                 }
