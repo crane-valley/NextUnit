@@ -78,6 +78,25 @@ public delegate object? DataSourceProviderDelegate();
 public delegate IAsyncEnumerable<object?> AsyncDataSourceProviderDelegate(CancellationToken cancellationToken);
 
 /// <summary>
+/// Reads a source-generated class data source instance through one named element interface.
+/// </summary>
+/// <param name="source">The instance the shared instance store handed out.</param>
+/// <returns>
+/// The rows of <paramref name="source"/> as untyped values, or <see langword="null"/> for an
+/// instance that offered no rows to read.
+/// </returns>
+/// <remarks>
+/// A reader rather than a typed factory, because the instance is owned by the shared instance
+/// store: the store creates it, hands it to every expansion that asks, and disposes it at the end
+/// of the session. Only the read is wrapped here.
+/// <para>
+/// Null is what a non-enumerable instance has always meant -- the expander skipped it and the
+/// source contributed no rows -- so a reader that finds nothing to read reports it the same way.
+/// </para>
+/// </remarks>
+public delegate IEnumerable<object?>? DataSourceRowReaderDelegate(object source);
+
+/// <summary>
 /// Creates the <see cref="IRetryPolicy"/> configured by <see cref="RetryAttribute{TPolicy}"/>.
 /// </summary>
 /// <remarks>
@@ -1034,6 +1053,19 @@ public sealed class ClassDataSourceDescriptor
     /// Gets or initializes generated factories aligned with <see cref="DataSourceTypes"/>.
     /// </summary>
     public DataSourceProviderDelegate?[] DataSourceFactories { get; init; } = [];
+
+    /// <summary>
+    /// Gets or initializes generated row readers aligned with <see cref="DataSourceTypes"/>.
+    /// </summary>
+    /// <remarks>
+    /// A reader pins which <see cref="IEnumerable{T}"/> arm of a data source class is enumerated,
+    /// which the expander cannot do on its own: it holds the instance as <see cref="object"/> and
+    /// reads it back as a non-generic <see cref="System.Collections.IEnumerable"/>, where a cast
+    /// selects no implementation. The generator emits one only for a source offering more than one
+    /// row type, and leaves the entry null for every other, so a source that never had an arm to
+    /// choose is read exactly as it was.
+    /// </remarks>
+    public DataSourceRowReaderDelegate?[] DataSourceRowReaders { get; init; } = [];
 
     /// <summary>
     /// Gets or initializes the sharing scope for data source instances.
