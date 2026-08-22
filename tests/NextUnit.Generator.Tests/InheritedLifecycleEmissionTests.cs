@@ -646,6 +646,63 @@ public class InheritedLifecycleEmissionTests
     }
 
     [Fact]
+    public async Task ExplicitInterfaceHookOverloads_AreEachReportedAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using System.Threading;
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public interface IFixture
+            {
+                void Setup();
+                void Setup(CancellationToken token);
+            }
+
+            public class SharedFixture : IFixture
+            {
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup() { }
+
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup(CancellationToken token) { }
+            }
+            """);
+
+        // Roslyn answers IFixture.Setup for both declarations, so a report keyed on the method name
+        // would silence the second one -- the silence these rules exist to remove. Keying on the
+        // override chain tells the overloads apart exactly as C# does.
+        Assert.Equal(2, diagnostics.Count(static diagnostic => diagnostic.Id == "NEXTUNIT017"));
+    }
+
+    [Fact]
+    public async Task ExplicitInterfaceHookCarryingBothDirections_IsReportedOnceAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public interface IFixture
+            {
+                void Setup();
+            }
+
+            public class SharedFixture : IFixture
+            {
+                [Before(LifecycleScope.Test)]
+                [After(LifecycleScope.Test)]
+                void IFixture.Setup() { }
+            }
+            """);
+
+        // One declaration, read by both syntax providers. What the user has to fix is one method,
+        // so telling them twice would be noise.
+        Assert.Equal(1, diagnostics.Count(static diagnostic => diagnostic.Id == "NEXTUNIT017"));
+    }
+
+    [Fact]
     public async Task StaticExplicitInterfaceHookInAGlobalScope_IsReportedAsync()
     {
         var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""

@@ -160,6 +160,12 @@ internal static class GeneratorDiagnosticDescriptors
     /// no accessibility modifier at all (<c>CS0106</c>), so "make it public" cannot be applied. The
     /// remedy is the declaration form -- an ordinary method implementing the member implicitly.
     /// <para>
+    /// It names <c>public</c> only, where <see cref="LifecycleMethodNotAccessible"/> offers
+    /// <c>internal</c> as well: an implicit implementation of an interface member must be
+    /// <c>public</c> (<c>CS0737</c>), so the alternative this rule's remedy leaves is to stop
+    /// implementing the interface, which is a different edit than the one it is naming.
+    /// </para>
+    /// <para>
     /// Reported at the declaration, whether or not anything derives from it, which is the one place
     /// the lifecycle rules do not wait for a use site. A consumer cannot report it: a compilation
     /// imports metadata with <c>MetadataImportOptions.Public</c>, so an explicit implementation on a
@@ -184,7 +190,7 @@ internal static class GeneratorDiagnosticDescriptors
     public static readonly DiagnosticDescriptor LifecycleMethodIsExplicitInterfaceImplementation = Create(
         "NEXTUNIT017",
         "Lifecycle method is an explicit interface implementation",
-        "Lifecycle method '{1}' on '{0}' is an explicit interface implementation, which the generated test registry cannot call. Declare it as an ordinary method -- public, or internal in the test assembly -- so it implements the interface member implicitly.",
+        "Lifecycle method '{1}' on '{0}' is an explicit interface implementation, which the generated test registry cannot call. Declare it as an ordinary public method so it implements the interface member implicitly.",
         DiagnosticSeverity.Error,
         WellKnownDiagnosticTags.NotConfigurable);
 

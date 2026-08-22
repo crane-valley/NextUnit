@@ -35,7 +35,10 @@ internal static class LifecycleMethodValidator
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
         // One declaration reaches every test of its class and every test of every derived class, so
-        // it is reported once rather than once per test case.
+        // it is reported once rather than once per test case. Keyed on the override chain, which is
+        // how the rest of the generator identifies one hook: a method name collapses overloads that
+        // C# keeps apart, and silencing the report of a second `Setup(CancellationToken)` is exactly
+        // the silence these rules exist to remove.
         var reported = new HashSet<string>(StringComparer.Ordinal);
 
         // First, so the shared set leaves the accessibility rule silent about a declaration this one
@@ -114,7 +117,7 @@ internal static class LifecycleMethodValidator
     {
         if (!method.IsExplicitInterfaceImplementation ||
             !IsEmittedScope(method) ||
-            !reported.Add($"{method.FullyQualifiedTypeName}.{method.MethodName}"))
+            !reported.Add(method.OverrideRootId))
         {
             return;
         }
@@ -161,8 +164,7 @@ internal static class LifecycleMethodValidator
         LifecycleMethodDescriptor method,
         HashSet<string> reported)
     {
-        if (method.IsReachable ||
-            !reported.Add($"{method.FullyQualifiedTypeName}.{method.MethodName}"))
+        if (method.IsReachable || !reported.Add(method.OverrideRootId))
         {
             return;
         }

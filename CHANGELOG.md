@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NEXTUNIT017` reports a `[Before]` or `[After]` hook declared as an explicit interface
   implementation, such as `void IFixture.Setup()`. The generated registry calls a hook through its
   declaring type, and an explicit implementation is reachable only through the interface, so such a
-  hook has never run in any version. Declare it as an ordinary method -- `public`, or `internal` in
-  the test assembly -- implementing the interface member implicitly. The rule is an error and is not
+  hook has never run in any version. Declare it as an ordinary `public` method implementing the
+  interface member implicitly; unlike `NEXTUNIT015`, this remedy has no `internal` variant, because
+  an implicit implementation of an interface member must be `public`. The rule is an error and is not
   configurable, for the reason `NEXTUNIT015` is both, and it replaces `NEXTUNIT015` for this shape:
   the cause is the declaration form rather than an accessibility modifier, and C# rejects a modifier
   on an explicit implementation, so "make it public" named an edit that cannot be made.
