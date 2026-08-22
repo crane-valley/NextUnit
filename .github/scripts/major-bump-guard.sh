@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Blocks a MAJOR version bump, or a release cut sooner than MIN_INTERVAL_DAYS after the previous
 # tag, unless the pull request body carries an explicit justification token. Run locally with:
-#   PR_BODY="$(cat body.txt)" .github/scripts/major-bump-guard.sh base.props head.props
+#   PR_BODY="$(cat body.txt)" .github/scripts/major-bump-guard.sh base-tree/ head-tree/
+# where each argument is a directory holding a checkout that contains Directory.Build.props.
 # The tag lookup reads the git repository in the current working directory.
 set -euo pipefail
 
@@ -17,95 +18,35 @@ TAG_PATTERN='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 # shell integer comparison below, which returns status 2 and would silently skip the MAJOR check.
 VERSION_PATTERN='^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})(-(alpha|beta|rc|preview)(\.(0|[1-9][0-9]{0,8}))?)?$'
 
-# Read the version as XML rather than with a line-oriented regex. MSBuild accepts attributes and
-# line breaks inside a tag, so a second declaration written as
-#   <Version
-#     Condition="true">5.0.0</Version>
-# is invisible to any grep that works one line at a time, and it is the version that would ship.
-# Refusing more than one element, a conditional one, and any construct that pulls properties in
-# from elsewhere keeps the version this guard inspects self-contained in this file.
-#
-# The guard reads this one file, which is where this repository declares the version. Asking
-# MSBuild for the effective property with `dotnet msbuild -getProperty:Version` would cover every
-# other file too, and is rejected here: it needs a .NET toolchain in a job that exists to be cheap,
-# it evaluates pull-request-controlled project files, and it cannot run against the fixture files
-# this script is tested with. A version moved into another file therefore stays out of scope.
-VERSION_PARSER='
-import sys, xml.etree.ElementTree as ET
-
-def local(el):
-    return el.tag.rsplit("}", 1)[-1]
-
-try:
-    root = ET.parse(sys.argv[1]).getroot()
-except Exception as exc:
-    sys.stderr.write("is not well-formed XML: %s" % exc)
-    sys.exit(2)
-parents = {child: parent for parent in root.iter() for child in parent}
-
-def item_scoped(el):
-    # An item (child of ItemGroup) or item metadata (grandchild of ItemGroup). Neither declares a
-    # property nor imports anything, whatever it happens to be named.
-    parent = parents.get(el)
-    if parent is None:
-        return False
-    if local(parent) == "ItemGroup":
-        return True
-    grandparent = parents.get(parent)
-    return grandparent is not None and local(grandparent) == "ItemGroup"
-
-for el in root.iter():
-    if item_scoped(el):
-        continue
-    if local(el) in ("Import", "Sdk"):
-        sys.stderr.write("uses <%s>, which can redefine Version from a file this guard does not read" % local(el))
-        sys.exit(5)
-    if any(name.rsplit("}", 1)[-1] == "Sdk" for name in el.attrib):
-        sys.stderr.write("carries an Sdk attribute, which imports properties this guard does not read")
-        sys.exit(6)
-found = []
-for el in root.iter():
-    parent = parents.get(el)
-    # A property is a child of PropertyGroup and nothing else, so an element named Version
-    # anywhere else in the tree is not the package version and must not be counted as one.
-    if local(el) != "Version" or parent is None or local(parent) != "PropertyGroup":
-        continue
-    conditional = bool(el.attrib)
-    ancestor = parent
-    while ancestor is not None and not conditional:
-        conditional = "Condition" in ancestor.attrib
-        ancestor = parents.get(ancestor)
-    found.append(((el.text or "").strip(), conditional))
-if len(found) != 1:
-    sys.stderr.write("must declare exactly one <Version> property, found %d" % len(found))
-    sys.exit(3)
-value, conditional = found[0]
-if conditional:
-    sys.stderr.write("declares <Version> under a condition, so it is not the version every build resolves")
-    sys.exit(4)
-sys.stdout.write(value)
-'
-
 fail() {
   echo "::error::$*"
   exit 1
 }
 
-PY_BIN=
-for candidate in python3 python; do
-  if command -v "$candidate" >/dev/null 2>&1; then PY_BIN=$candidate; break; fi
-done
-[ -n "$PY_BIN" ] || fail "python3 is required to parse Directory.Build.props but was not found."
-
-# Sets VERSION_OUT rather than printing, so that fail() exits the script instead of a
-# command-substitution subshell that would swallow the ::error:: annotation.
+# Ask MSBuild what the version is instead of reading the XML.
+#
+# Earlier revisions parsed Directory.Build.props directly and were bypassed four separate times in
+# review: a second declaration carrying an attribute, the same one split across lines, an <Import>
+# or <Sdk> pulling the value in from elsewhere, and finally <version> in different letter case,
+# since MSBuild property names are case-insensitive. Each fix closed one construct and the next
+# review round found another, because reimplementing MSBuild's evaluation rules in a parser is an
+# open-ended job. The evaluator is authoritative and already installed in CI, so this asks it.
+#
+# Evaluating a pull request's own project files runs its MSBuild logic. That is not a new exposure
+# here: strict-build in this same workflow already runs dotnet build over the same tree.
 read_version() {
-  local file=$1 label=$2 value
-  [ -f "$file" ] || fail "$label Directory.Build.props not found: $file"
-  value=$(printf '%s' "$VERSION_PARSER" | "$PY_BIN" - "$file" 2>&1) \
-    || fail "$label Directory.Build.props $value"
+  local tree=$1 label=$2 props output value
+  props="$tree/Directory.Build.props"
+  [ -f "$props" ] || fail "$label Directory.Build.props not found: $props"
+  output=$(dotnet msbuild "$props" -getProperty:Version -nologo 2>&1) \
+    || fail "$label Directory.Build.props could not be evaluated by MSBuild: $(printf '%s' "$output" | tr '\n' ' ')"
+  value=$(printf '%s' "$output" | tr -d '\r' | grep -v '^[[:space:]]*$' | tail -n 1 || true)
+  value=${value#"${value%%[![:space:]]*}"}
+  value=${value%"${value##*[![:space:]]}"}
+  # Anything MSBuild did not resolve to a shippable version, an empty property included, stops
+  # here rather than being guessed at.
   printf '%s' "$value" | grep -qE "$VERSION_PATTERN" \
-    || fail "$label <Version> is outside this repository's version scheme: '$value'"
+    || fail "$label version does not match this repository's version scheme: '$value'"
   VERSION_OUT=$value
 }
 
@@ -122,15 +63,16 @@ has_token() {
   return 1
 }
 
-BASE_PROPS=${1:-}
-HEAD_PROPS=${2:-}
-if [ -z "$BASE_PROPS" ] || [ -z "$HEAD_PROPS" ]; then
-  fail "usage: major-bump-guard.sh <base-Directory.Build.props> <head-Directory.Build.props>"
+BASE_TREE=${1:-}
+HEAD_TREE=${2:-}
+if [ -z "$BASE_TREE" ] || [ -z "$HEAD_TREE" ]; then
+  fail "usage: major-bump-guard.sh <base-tree-directory> <head-tree-directory>"
 fi
+command -v dotnet >/dev/null 2>&1 || fail "the .NET SDK is required to evaluate the version but dotnet was not found."
 
-read_version "$BASE_PROPS" base
+read_version "$BASE_TREE" base
 base_version=$VERSION_OUT
-read_version "$HEAD_PROPS" head
+read_version "$HEAD_TREE" head
 head_version=$VERSION_OUT
 
 IFS=. read -r base_major base_minor base_patch <<<"${base_version%%-*}"

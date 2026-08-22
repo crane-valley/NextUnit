@@ -158,6 +158,11 @@ jobs:
     - name: Fetch release tags
       run: git fetch --tags --force origin
 
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
     - name: Check version bump and release cadence
       env:
         # The PR body is untrusted input: it reaches the script only through this variable,
@@ -166,17 +171,19 @@ jobs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
       # HEAD is the pull_request merge ref, so this compares the base against what merging would
       # actually put on the base branch; head.sha alone would miss a version the merge produces.
-      # Both sides are read as blobs so that the compared content is the committed content.
+      # Each side is extracted as a whole tree rather than a single file because MSBuild resolves
+      # the version by evaluation, and an import in the props file has to resolve against the
+      # commit it came from.
       run: |
         if git diff --quiet "$BASE_SHA" HEAD -- Directory.Build.props; then
           echo "Directory.Build.props unchanged; guard not applicable."
           exit 0
         fi
-        BASE_PROPS="$(mktemp)"
-        HEAD_PROPS="$(mktemp)"
-        git show "$BASE_SHA:Directory.Build.props" > "$BASE_PROPS"
-        git show HEAD:Directory.Build.props > "$HEAD_PROPS"
-        bash .github/scripts/major-bump-guard.sh "$BASE_PROPS" "$HEAD_PROPS"
+        WORK="$(mktemp -d)"
+        mkdir -p "$WORK/base" "$WORK/head"
+        git archive "$BASE_SHA" | tar -x -C "$WORK/base"
+        git archive HEAD | tar -x -C "$WORK/head"
+        bash .github/scripts/major-bump-guard.sh "$WORK/base" "$WORK/head"
 
   # Summary
   pr-summary:
