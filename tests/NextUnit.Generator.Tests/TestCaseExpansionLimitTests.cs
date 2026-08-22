@@ -537,6 +537,52 @@ public class TestCaseExpansionLimitTests
     }
 
     [Fact]
+    public async Task LargeInlineParameterValues_BesideAClassValuesSource_ReportNothingAsync()
+    {
+        // Same shape as the [ValuesFromMember] case but through [ValuesFrom<T>], the other
+        // runtime-resolved kind: the class is constructed and enumerated only at discovery and can
+        // yield nothing, so the oversized inline product (6 x 6 = 36 over a cap of 10) must not be
+        // charged at compile time.
+        var source = """
+            using System.Collections;
+            using System.Collections.Generic;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class Sizes : IEnumerable<int>
+            {
+                public IEnumerator<int> GetEnumerator() => ((IEnumerable<int>)new[] { 1, 2, 3 }).GetEnumerator();
+
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public class ValuesTests
+            {
+                [Test]
+                public void Combined(
+                    [Values(1, 2, 3, 4, 5, 6)] int a,
+                    [Values(1, 2, 3, 4, 5, 6)] int b,
+                    [ValuesFrom<Sizes>] int size)
+                {
+                }
+            }
+            """;
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "10");
+    }
+
+    [Fact]
+    public async Task InlineParameterValues_SaturatingTheProduct_ReportAsync()
+    {
+        // 2^63 overflows long, so the all-inline product must stay on MultiplyClamped and report the
+        // saturated bound rather than wrap to a value below the cap and wave the method through.
+        var source = ValuesSource(parameterCount: 63, valuesPerParameter: 2);
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: true);
+    }
+
+    [Fact]
     public async Task RuntimeResolvedSource_IsNotChargedForItsRuntimeExpansionAsync()
     {
         // [TestData] emits one descriptor and is expanded at discovery instead, so a configured cap
