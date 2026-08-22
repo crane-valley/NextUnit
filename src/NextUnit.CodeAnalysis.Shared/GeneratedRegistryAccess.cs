@@ -116,6 +116,106 @@ internal static class GeneratedRegistryAccess
     }
 
     /// <summary>
+    /// Reports whether the name the registry would write for <paramref name="type"/> spells a type
+    /// retired with <c>[Obsolete(..., error: true)]</c>.
+    /// </summary>
+    /// <remarks>
+    /// The one obsolete case a qualifier cannot be written through. The registry's file header is a
+    /// bare <c>#pragma warning disable</c>, so every warning a name can add -- <c>CS0618</c> among
+    /// them -- is off before any code in the file, <c>TreatWarningsAsErrors</c> included, because a
+    /// suppressed diagnostic is never reported and so is never promoted. <c>CS0619</c> is an error,
+    /// which no pragma suppresses.
+    /// <para>
+    /// Handing the question to the binder, as <see cref="NameBindsToType"/> does for name
+    /// resolution, was measured on Roslyn 5.6.0 and does not answer it: a speculative semantic model
+    /// returns no diagnostics for the very expression that reports <c>CS0619</c> once bound in a
+    /// real tree, and the only route left -- adding a syntax tree to the compilation once per data
+    /// source, inside a generator -- costs more than the capture it protects. So this one attribute
+    /// is read off the symbol instead.
+    /// </para>
+    /// <para>
+    /// The whole name is walked rather than the outermost type alone, because one expression spells
+    /// the nesting chain and every type argument under it, and any one of them retired as an error
+    /// fails the file. Only the positional flag is read: <c>ObsoleteAttribute.IsError</c> has no
+    /// setter, so no named-argument form of it exists, and positional is what Roslyn's own decoder
+    /// reads.
+    /// </para>
+    /// <para>
+    /// An unresolved type is deliberately not short-circuited. Answering <c>true</c> for
+    /// <c>TypeKind.Error</c> was proposed and declined: <c>true</c> is the value that gives the
+    /// qualifier up, so it would let a type the user has yet to write move which member the
+    /// generated file reads. <see cref="CanReachType"/> answers the permissive value for that same
+    /// kind, and for the same reason -- an error type already carries its own compiler error and
+    /// should withhold nothing on top of it. The permissive value here is <c>false</c>, which the
+    /// walk returns anyway, since an error type carries no <c>ObsoleteAttribute</c> to find; and
+    /// nothing cascades either way, because this reports no diagnostic and only picks a qualifier.
+    /// </para>
+    /// </remarks>
+    public static bool NameSpellsAnErrorObsoleteType(ITypeSymbol type)
+    {
+        if (type is IArrayTypeSymbol array)
+        {
+            return NameSpellsAnErrorObsoleteType(array.ElementType);
+        }
+
+        if (type is not INamedTypeSymbol namedType)
+        {
+            return false;
+        }
+
+        for (INamedTypeSymbol? current = namedType; current is not null; current = current.ContainingType)
+        {
+            if (IsObsoleteError(current))
+            {
+                return true;
+            }
+
+            foreach (var typeArgument in current.TypeArguments)
+            {
+                if (NameSpellsAnErrorObsoleteType(typeArgument))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsObsoleteError(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            // The containing type has to be null as well as the namespace right: a nested type
+            // reports the namespace of its outermost container, so a `System.Outer.ObsoleteAttribute`
+            // answers to the same namespace as the real one and retires nothing.
+            //
+            // The constructor signature is deliberately not part of the match, though Roslyn's
+            // `AttributeDescription` lists `()`, `(string)`, and `(string, bool)` and no others.
+            // Measured on 5.6.0: a source assembly declaring its own top-level
+            // `System.ObsoleteAttribute` taking `(int, bool)` crashes the compiler that declares it,
+            // in `SourceNamespaceSymbol.ForceComplete`, casting the first argument to string -- so
+            // the name is what Roslyn matched on there, not the signature. Requiring the signature
+            // would risk reading a homonym Roslyn does treat as obsolete as harmless, and this
+            // predicate is asymmetric: a false positive costs the qualifier, which is the fallback
+            // an unbindable name already takes, and a false negative costs the consumer a build.
+            if (attribute.AttributeClass is
+                {
+                    Name: "ObsoleteAttribute",
+                    ContainingType: null,
+                    ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true },
+                } &&
+                attribute.ConstructorArguments.Length > 1 &&
+                attribute.ConstructorArguments[1].Value is true)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Reports whether the generated registry can name <paramref name="type"/>.
     /// </summary>
     /// <remarks>

@@ -496,6 +496,12 @@ internal static class DataSourceAttributeReader
     /// it. That leaves the inherited-source capture this qualification closes open for such a base,
     /// which is where it was before: a name that does not compile closes nothing.
     /// </para>
+    /// <para>
+    /// A name that binds is given up on for one further reason: it spells the declaring type's own
+    /// type arguments, which the user's source may never spell, and an <c>[Obsolete(error: true)]</c>
+    /// one among them is a <c>CS0619</c> no pragma can suppress. The same fallback covers it, for the
+    /// same reason.
+    /// </para>
     /// </remarks>
     private static string? GetDeclaringTypeName(ISymbol? member, KnownDataSourceTypes knownDataSourceTypes)
     {
@@ -506,7 +512,8 @@ internal static class DataSourceAttributeReader
 
         var typeExpression = declaringType.ToDisplayString(AttributeHelper.TypeExpressionFormat);
 
-        return GeneratedRegistryAccess.NameBindsToType(typeExpression, declaringType, knownDataSourceTypes.SemanticModel)
+        return GeneratedRegistryAccess.NameBindsToType(typeExpression, declaringType, knownDataSourceTypes.SemanticModel) &&
+            !GeneratedRegistryAccess.NameSpellsAnErrorObsoleteType(declaringType)
             ? typeExpression
             : null;
     }
