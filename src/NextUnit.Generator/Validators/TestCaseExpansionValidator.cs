@@ -135,38 +135,50 @@ internal static class TestCaseExpansionValidator
     }
 
     /// <summary>
-    /// Projects the part of a combined data source expansion that is known at compile time.
+    /// Projects the compile-time test case count for a method built from combined parameter sources,
+    /// or a value the cap always admits when that count cannot be known until discovery.
     /// </summary>
     /// <remarks>
-    /// Only <c>[Values]</c> is knowable here: its constants are baked into the registry as an
-    /// <c>object?[]</c> literal, which the test host allocates while the registry initializes --
-    /// before discovery reaches the runtime cap. Bounding the product of the inline sources bounds
-    /// every one of those arrays.
+    /// The cap is enforced here only when the count is exact, which happens only when every combined
+    /// source is inline: a <c>[Values]</c> source bakes its constants into the registry as an
+    /// <c>object?[]</c> literal, so an all-inline method's product is fully known at compile time. The
+    /// true product is charged -- an empty <c>[Values()]</c> zeroes it, exactly as discovery counts
+    /// it -- so <c>NEXTUNIT013</c> fires only on a genuinely oversized all-inline product.
     /// <para>
-    /// The other kinds contribute an unknown, at-least-one factor, so the inline product is a floor
-    /// on the real expansion rather than the count. A floor over the limit means the expansion is
-    /// over it too, unless a source resolves to nothing at discovery -- which is why the runtime keeps
-    /// its own check rather than trusting this one.
-    /// </para>
-    /// <para>
-    /// An empty <c>[Values()]</c> counts as one rather than zero. Zeroing the product would be the
-    /// truthful test case count, and it is exactly what the emitter does not do: it writes every
-    /// inline array out regardless of an empty sibling, so a single empty parameter would otherwise
-    /// wave through an arbitrarily large literal beside it.
+    /// A runtime-resolved source (<c>[ValuesFromMember]</c>/<c>[ValuesFrom]</c>) is different: its
+    /// length is unknown until the host runs it, and it can resolve to nothing, which collapses the
+    /// product to zero. Charging its inline siblings as a floor -- the earlier behavior, which counted
+    /// an empty <c>[Values()]</c> as one -- rejected methods whose real expansion was zero. So a
+    /// combined list with any runtime source is not bounded here at all; discovery's
+    /// <c>EnsureWithinExpansionLimit</c> enforces the real product once the resolved lengths are known.
     /// </para>
     /// </remarks>
     private static long ProjectCombinedSourceCount(TestMethodDescriptor test)
     {
+        foreach (var source in test.CombinedParameterSources)
+        {
+            // A runtime-resolved source can resolve to zero rows, collapsing the whole product to
+            // zero, and its length is unknown until discovery. The product therefore cannot be
+            // bounded here without risking rejection of a method whose real expansion is nothing, so
+            // the cap is deferred entirely to discovery. Returning 1 -- at or below every configured
+            // cap, which the option parser floors at 1 -- makes RemoveOverLimitTests report nothing.
+            if (source.Kind != ParameterDataSourceKind.Inline)
+            {
+                return 1L;
+            }
+        }
+
+        // Every source is inline, so the exact product is known. The true length is charged, not
+        // Math.Max(length, 1): an empty [Values()] collapses the product to zero, matching what
+        // discovery counts, so an empty sibling can no longer smuggle NEXTUNIT013 onto a method whose
+        // real expansion is zero.
         var inlineCombinations = 1L;
 
         foreach (var source in test.CombinedParameterSources)
         {
-            if (source.Kind == ParameterDataSourceKind.Inline)
-            {
-                inlineCombinations = TestCaseExpansionPolicy.MultiplyClamped(
-                    inlineCombinations,
-                    Math.Max(source.InlineValues.Length, 1));
-            }
+            inlineCombinations = TestCaseExpansionPolicy.MultiplyClamped(
+                inlineCombinations,
+                source.InlineValues.Length);
         }
 
         return inlineCombinations;

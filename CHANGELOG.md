@@ -24,6 +24,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   class in a referenced assembly is not among that type's members at all. Reporting in the declaring
   assembly is what keeps the shape from shipping silently in a shared fixture package.
 
+### Changed
+
+- A failing `[Before(LifecycleScope.Class)]` hook now fails only its own class instead of ending the
+  whole run. Every test of that class is reported as failed, once each, carrying the setup exception
+  as it was thrown; every other class in the assembly still runs, and the run still ends failed.
+  This is a behavior change: a run that used to stop at the first broken fixture, with the exception
+  surfacing from the run rather than against any test, now reports that fixture's tests as failed and
+  keeps going, so a report reading per-test results shows more failed tests than before. The class's
+  `[After(LifecycleScope.Class)]` hooks still unwind only the levels the setup reached, the shared
+  instance is still disposed, and the setup is not retried. `Assert.Skip` from a class setup still
+  skips the class, and run cancellation still ends the whole run. A class whose shared instance
+  cannot be constructed at all still ends the run, since there is no fixture to attribute the failure
+  to.
+
 ### Fixed
 
 - A run whose filter selects no tests no longer runs the `[After(LifecycleScope.Session)]` hooks.
@@ -38,19 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every `[After(LifecycleScope.Session)]` hook in reverse declaration order, since session hooks are
   not inherited and the scope has no levels to unwind selectively.
 
-### Changed
-
-- A failing `[Before(LifecycleScope.Class)]` hook now fails only its own class instead of ending the
-  whole run. Every test of that class is reported as failed, once each, carrying the setup exception
-  as it was thrown; every other class in the assembly still runs, and the run still ends failed.
-  This is a behavior change: a run that used to stop at the first broken fixture, with the exception
-  surfacing from the run rather than against any test, now reports that fixture's tests as failed and
-  keeps going, so a report reading per-test results shows more failed tests than before. The class's
-  `[After(LifecycleScope.Class)]` hooks still unwind only the levels the setup reached, the shared
-  instance is still disposed, and the setup is not retried. `Assert.Skip` from a class setup still
-  skips the class, and run cancellation still ends the whole run. A class whose shared instance
-  cannot be constructed at all still ends the run, since there is no fixture to attribute the failure
-  to.
+- The `NEXTUNIT013` compile-time cap no longer rejects a combined data source whose real expansion is
+  zero. An empty `[Values()]` now collapses the projected product to zero, matching discovery, and a
+  combined list that includes a runtime-resolved `[ValuesFromMember]` or `[ValuesFrom]` -- whose size,
+  possibly zero, is known only once the member runs -- is left to the discovery-time cap rather than
+  charged an inline floor at compile time.
 
 ## [3.0.0] - 2026-08-22
 

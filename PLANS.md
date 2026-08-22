@@ -1109,18 +1109,27 @@ the bound.
   answer for keeping discovery cheap. Raised twice by the Codex review of PR #236; resolved by
   documentation, no code change.
 
-- [ ] The compile-time check on combined parameter sources charges the product of the inline
+- [x] The compile-time check on combined parameter sources charges the product of the inline
   `[Values]` lengths, which over-rejects a method whose real expansion is zero. A runtime-resolved
   `[ValuesFromMember]` or `[ValuesFrom]` contributes an unknown factor that the projection treats as
   at least one, but it can resolve to nothing, and `CombinedDataSourceExpander` deliberately keeps a
   zero product as zero test cases. Seven `[Values]` of four values beside an empty member source is
-  therefore `NEXTUNIT013` for a test that expands to nothing. The rejection is fail-closed and the
-  escape hatch is documented, which is why it ships. The sharper fix, from the Codex Cloud review of
-  PR #236: what the emitter actually writes at compile time is one array literal per inline
-  parameter, so the compile-time cost is the sum of the inline lengths, not their product. Bound the
-  sum here and leave the product entirely to the discovery-time cap, which already computes it with
-  the runtime lengths in hand. That needs the `NEXTUNIT013` message reworded, since it would no
-  longer be reporting a test case count.
+  therefore `NEXTUNIT013` for a test that expands to nothing. Implemented as an exact-when-all-inline
+  rule: `ProjectCombinedSourceCount` computes the inline product only when every combined source is
+  `[Values]`, and charges the real length so an empty `[Values()]` collapses the product to zero; a
+  list with any runtime-resolved source is not bounded at compile time and defers entirely to the
+  discovery-time cap, which computes the real product with the runtime lengths in hand.
+  This diverges from the sketch below -- "bound the sum of the inline lengths and reword the
+  `NEXTUNIT013` message" -- for two reasons. First, `GeneratorDiagnosticDescriptors` forbids rewording
+  a shipped message format, and under the exact-when-all-inline rule `NEXTUNIT013` only ever fires with
+  an exact all-inline product, so the existing count-based message stays truthful and needs no reword.
+  Second, the rule keeps the compile-time error for a genuinely oversized all-inline product (4^7 =
+  16384), preserving the fast build-time failure, while still removing both false-positive shapes: the
+  empty inline sibling and the runtime member that resolves to nothing. The earlier sketch, from the
+  Codex Cloud review of PR #236, observed that what the emitter writes at compile time is one array
+  literal per inline parameter, so the compile-time cost is the sum of the inline lengths, not their
+  product; bounding the sum was dropped because a single inline array is only as large as the values
+  the developer typed, not the multiplicative explosion the cap exists to stop.
 
 - [ ] The cap bounds emitted test cases, not the work of computing them, and `MatrixHelper` now runs
   twice for a matrix test that passes the peak check -- once in `TestCaseExpansionValidator` to count
