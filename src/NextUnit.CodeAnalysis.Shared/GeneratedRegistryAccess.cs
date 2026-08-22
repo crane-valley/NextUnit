@@ -140,6 +140,16 @@ internal static class GeneratedRegistryAccess
     /// setter, so no named-argument form of it exists, and positional is what Roslyn's own decoder
     /// reads.
     /// </para>
+    /// <para>
+    /// An unresolved type is deliberately not short-circuited. Answering <c>true</c> for
+    /// <c>TypeKind.Error</c> was proposed and declined: <c>true</c> is the value that gives the
+    /// qualifier up, so it would let a type the user has yet to write move which member the
+    /// generated file reads. <see cref="CanReachType"/> answers the permissive value for that same
+    /// kind, and for the same reason -- an error type already carries its own compiler error and
+    /// should withhold nothing on top of it. The permissive value here is <c>false</c>, which the
+    /// walk returns anyway, since an error type carries no <c>ObsoleteAttribute</c> to find; and
+    /// nothing cascades either way, because this reports no diagnostic and only picks a qualifier.
+    /// </para>
     /// </remarks>
     public static bool NameSpellsAnErrorObsoleteType(ITypeSymbol type)
     {
