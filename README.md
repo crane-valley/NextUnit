@@ -187,7 +187,8 @@ over tests that never ran.
 `[TestData(nameof(Rows))]`, or `[ClassDataSource<Rows>]` runs five test cases per combination or per
 row, each carrying the same `#n` id suffix a repeated `[Arguments]` case gets. For these three the
 product is formed at discovery rather than at build time, because a parameter source, a member, and
-a data source class all have a length that is known only once they run.
+a data source class all have a length that is known only once they run -- or during execution, for a
+`[TestData]` source that defers its enumeration.
 
 The cap covers the expansions NextUnit performs itself. It does not limit how many rows a
 `[TestData]` or `[ClassDataSource]` member returns, because that member is your code: bounding its
@@ -196,9 +197,9 @@ row count would not bound its running time, and a large row set is a supported c
 enumerating rows only during execution; `[ClassDataSource]` has no deferred mode and always
 materializes its rows at discovery. A `[Repeat]` count beside either is capped even though the rows
 are not: the count is written in your attribute rather than returned by your code, so discovery
-refuses a count larger than the cap and says so, without ever bounding the rows it multiplies. A
-deferred source keeps its single placeholder however large the count is, and the rows it expands into
-during execution carry the repeat suffix like any other row.
+refuses a count larger than the cap and says so, without ever bounding the rows it multiplies. Within
+the cap, a deferred source keeps its single placeholder whatever the count is, and the rows it expands
+into during execution carry the repeat suffix like any other row.
 
 Raise the cap for the project, which raises it in both places:
 
