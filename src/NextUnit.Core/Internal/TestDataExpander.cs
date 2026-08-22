@@ -19,6 +19,12 @@ namespace NextUnit.Internal;
 /// point -- discovery must stay O(1) per deferred source however it is reached, and only the
 /// execution engine is allowed to pay the enumeration cost.
 /// </para>
+/// <para>
+/// <c>[Repeat]</c> multiplies the rows here rather than in the generator, because this descriptor is
+/// emitted once per source and the row count appears only once the member runs. A deferred source
+/// keeps that property: the placeholder is one test case whatever the count is, and the rows it
+/// stands for are multiplied when execution materializes them.
+/// </para>
 /// </remarks>
 internal static class TestDataExpander
 {
@@ -35,6 +41,10 @@ internal static class TestDataExpander
     /// </summary>
     /// <param name="testDataDescriptors">The test data descriptors to expand.</param>
     /// <param name="cancellationToken">The token that cancels enumeration of an asynchronous source.</param>
+    /// <param name="registryMaxTestCasesPerMethod">
+    /// The cap carried by the registry these descriptors came from, or <see langword="null"/> when
+    /// the caller has no registry to read it from.
+    /// </param>
     /// <returns>A collection of expanded test case descriptors.</returns>
     /// <remarks>
     /// Blocks while draining an asynchronous source. Callers that already have an asynchronous
@@ -42,11 +52,12 @@ internal static class TestDataExpander
     /// </remarks>
     public static IEnumerable<TestCaseDescriptor> Expand(
         IEnumerable<TestDataDescriptor> testDataDescriptors,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? registryMaxTestCasesPerMethod = null)
     {
         foreach (var descriptor in testDataDescriptors)
         {
-            foreach (var testCase in ExpandSingle(descriptor, cancellationToken))
+            foreach (var testCase in ExpandSingle(descriptor, cancellationToken, registryMaxTestCasesPerMethod))
             {
                 yield return testCase;
             }
@@ -59,15 +70,25 @@ internal static class TestDataExpander
     /// </summary>
     /// <param name="testDataDescriptors">The test data descriptors to expand.</param>
     /// <param name="cancellationToken">The token that cancels enumeration of an asynchronous source.</param>
+    /// <param name="registryMaxTestCasesPerMethod">
+    /// The cap carried by the registry these descriptors came from, or <see langword="null"/> when
+    /// the caller has no registry to read it from.
+    /// </param>
     /// <returns>A task producing the expanded test case descriptors.</returns>
     public static async ValueTask<IReadOnlyList<TestCaseDescriptor>> ExpandAsync(
         IEnumerable<TestDataDescriptor> testDataDescriptors,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? registryMaxTestCasesPerMethod = null)
     {
         var testCases = new List<TestCaseDescriptor>();
 
         foreach (var descriptor in testDataDescriptors)
         {
+            TestCaseExpansionLimits.EnsureRepeatWithinLimit(
+                descriptor.MethodName,
+                descriptor.RepeatCount,
+                registryMaxTestCasesPerMethod);
+
             if (descriptor.DeferredEnumeration)
             {
                 testCases.Add(CreateDeferredPlaceholder(descriptor));
@@ -92,6 +113,12 @@ internal static class TestDataExpander
     /// The single place a deferred source is actually read. Called by
     /// <see cref="TestExecutionEngine"/> before it builds the dependency graph, with the run
     /// cancellation token rather than a discovery one.
+    /// <para>
+    /// The rows carry the descriptor's <c>[Repeat]</c> count, applied by the same projector the
+    /// eager paths use, so a repeated deferred row is addressable exactly like a repeated eager one.
+    /// No cap is taken: the count was already checked against it at discovery, where the placeholder
+    /// this expands was produced, and the engine has no registry to read a cap from anyway.
+    /// </para>
     /// </remarks>
     public static async ValueTask<IReadOnlyList<TestCaseDescriptor>> ExpandDeferredAsync(
         TestDataDescriptor descriptor,
@@ -111,7 +138,7 @@ internal static class TestDataExpander
             // source as raw rows and again as test cases would put two collections proportional to
             // the source in memory at once, on the one path that exists for sources large enough for
             // that to matter.
-            return await MaterializeAsync(asyncProvider, cancellationToken, projector.Project)
+            return await MaterializeAsync<TestCaseDescriptor>(asyncProvider, cancellationToken, projector.ProjectInto)
                 .ConfigureAwait(false);
         }
 
@@ -158,7 +185,7 @@ internal static class TestDataExpander
                 break;
             }
 
-            testCases.Add(projector.Project(enumerator.Current, index));
+            projector.ProjectInto(testCases, enumerator.Current, index);
             index++;
         }
 
@@ -181,11 +208,24 @@ internal static class TestDataExpander
     /// </summary>
     /// <param name="descriptor">The test data descriptor to expand.</param>
     /// <param name="cancellationToken">The token that cancels enumeration of an asynchronous source.</param>
+    /// <param name="registryMaxTestCasesPerMethod">
+    /// The cap carried by the registry this descriptor came from, or <see langword="null"/> when the
+    /// caller has no registry to read it from, in which case the built-in default applies.
+    /// </param>
     /// <returns>A collection of expanded test case descriptors.</returns>
     public static IEnumerable<TestCaseDescriptor> ExpandSingle(
         TestDataDescriptor descriptor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? registryMaxTestCasesPerMethod = null)
     {
+        // Checked before the deferred branch as well as before the member is read, so a deferred
+        // source is refused for a repeat count the cap would refuse anywhere else. The check needs no
+        // rows, which is what lets it run on the one path that must not read any.
+        TestCaseExpansionLimits.EnsureRepeatWithinLimit(
+            descriptor.MethodName,
+            descriptor.RepeatCount,
+            registryMaxTestCasesPerMethod);
+
         if (descriptor.DeferredEnumeration)
         {
             yield return CreateDeferredPlaceholder(descriptor);
@@ -226,10 +266,22 @@ internal static class TestDataExpander
     {
         var projector = new RowProjector(descriptor);
 
+        // One buffer reused across rows rather than a collection per row: [Repeat] makes a single row
+        // expand into several test cases, and this path stays lazy, so a caller that stops early
+        // still stops the source.
+        var rowTestCases = new List<TestCaseDescriptor>();
+
         var index = 0;
         foreach (var dataRow in data)
         {
-            yield return projector.Project(dataRow, index);
+            rowTestCases.Clear();
+            projector.ProjectInto(rowTestCases, dataRow, index);
+
+            foreach (var testCase in rowTestCases)
+            {
+                yield return testCase;
+            }
+
             index++;
         }
     }
@@ -248,18 +300,51 @@ internal static class TestDataExpander
         private readonly TestCaseSeed _seed;
         private readonly TestMethodWithArgumentsDelegate? _testMethod;
         private readonly string _idPrefix;
+        private readonly int? _repeatCount;
 
         public RowProjector(TestDataDescriptor descriptor)
         {
             _seed = new TestCaseSeed(descriptor);
             _testMethod = _seed.ResolveTestInvoker();
             _idPrefix = BuildRowIdPrefix(descriptor);
+            _repeatCount = descriptor.RepeatCount;
         }
 
-        public TestCaseDescriptor Project(object? dataRow, int index)
+        /// <summary>
+        /// Appends the test cases one raw data row expands into.
+        /// </summary>
+        /// <remarks>
+        /// Writes into the caller's list instead of returning the cases, because <c>[Repeat]</c>
+        /// makes one row expand into several and a per-row collection would allocate an object per
+        /// row on the deferred path -- the one path built for sources large enough for that to
+        /// matter.
+        /// </remarks>
+        public void ProjectInto(List<TestCaseDescriptor> testCases, object? dataRow, int index)
         {
             var row = TestDataRowResolver.Resolve(dataRow);
-            return _seed.CreateTestCase($"{_idPrefix}[{index}]", row.Arguments, index, _testMethod, row);
+            var rowId = $"{_idPrefix}[{index}]";
+
+            if (_repeatCount is not { } repeatCount)
+            {
+                testCases.Add(_seed.CreateTestCase(rowId, row.Arguments, index, _testMethod, row));
+                return;
+            }
+
+            for (var repeatIndex = 0; repeatIndex < repeatCount; repeatIndex++)
+            {
+                // The suffix is emitted whenever the attribute is present, [Repeat(1)] included,
+                // which is what TestCaseEmitter does for every compile-time expansion. Suppressing it
+                // for a count of one would make the id depend on the count rather than on the
+                // attribute, and raising [Repeat(1)] to [Repeat(2)] would then rename the first
+                // iteration's test case. A source with no [Repeat] keeps the bare row id above.
+                testCases.Add(_seed.CreateTestCase(
+                    $"{rowId}#{repeatIndex}",
+                    row.Arguments,
+                    index,
+                    _testMethod,
+                    row,
+                    repeatIndex));
+            }
         }
     }
 
@@ -279,7 +364,7 @@ internal static class TestDataExpander
         if (descriptor.AsyncDataSourceProvider is { } asyncProvider)
         {
             return Task
-                .Run(() => MaterializeAsync(asyncProvider, cancellationToken, KeepRow).AsTask())
+                .Run(() => MaterializeAsync<object?>(asyncProvider, cancellationToken, KeepRow).AsTask())
                 .GetAwaiter()
                 .GetResult();
         }
@@ -293,7 +378,7 @@ internal static class TestDataExpander
     {
         if (descriptor.AsyncDataSourceProvider is { } asyncProvider)
         {
-            return await MaterializeAsync(asyncProvider, cancellationToken, KeepRow).ConfigureAwait(false);
+            return await MaterializeAsync<object?>(asyncProvider, cancellationToken, KeepRow).ConfigureAwait(false);
         }
 
         return ResolveSyncRows(descriptor);
@@ -302,7 +387,7 @@ internal static class TestDataExpander
     /// <summary>
     /// The identity projection used by the discovery paths, which map the rows afterwards.
     /// </summary>
-    private static object? KeepRow(object? row, int index) => row;
+    private static void KeepRow(List<object?> rows, object? row, int index) => rows.Add(row);
 
     /// <summary>
     /// Drains an asynchronous row sequence into a list, projecting each row as it arrives.
@@ -323,13 +408,15 @@ internal static class TestDataExpander
     /// The projection exists so the deferred path can build test cases directly and keep exactly one
     /// collection proportional to the source. The discovery paths pass <see cref="KeepRow"/> and are
     /// unaffected; routing both through one method keeps the cancellation and disposal handling
-    /// above in a single place rather than duplicating it for the deferred case.
+    /// above in a single place rather than duplicating it for the deferred case. It appends to the
+    /// destination rather than returning one result per row because <c>[Repeat]</c> makes a single
+    /// row expand into several test cases.
     /// </para>
     /// </remarks>
     private static async ValueTask<List<TResult>> MaterializeAsync<TResult>(
         AsyncDataSourceProviderDelegate asyncProvider,
         CancellationToken cancellationToken,
-        Func<object?, int, TResult> project)
+        Action<List<TResult>, object?, int> project)
     {
         // Checked before the provider runs: invoking it starts the member's work, and a
         // task-wrapped member cannot be called back once started, so an already-cancelled request
@@ -385,7 +472,7 @@ internal static class TestDataExpander
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                rows.Add(project(enumerator.Current, index));
+                project(rows, enumerator.Current, index);
                 index++;
             }
 

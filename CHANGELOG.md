@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `[Repeat]` is no longer dropped from a `[TestData]` or `[ClassDataSource]` test. Both are emitted
+  as one descriptor per source rather than as one test case per iteration, and neither descriptor
+  carried a repeat count, so `[Repeat(5)]` beside `[TestData(nameof(Rows))]` ran one test case per
+  row instead of five and said nothing about it. The count now rides on the descriptor and each
+  expander multiplies its rows by it at discovery. This is a behavior change: a suite with this
+  combination now runs `n` times the test cases it ran before, and takes correspondingly longer.
+  Repeated rows follow the existing id convention, a `#n` suffix on the row id with a `(Repeat #n)`
+  display-name suffix and `RepeatIndex` on the test context; a source without `[Repeat]` keeps the
+  ids it already had. A deferred `[TestData]` source still reports exactly one placeholder whatever
+  the count is, and the rows it expands into during execution carry the suffix like any other row.
+  The repeat factor is charged against the discovery-time cap on its own, which is what stops a
+  `[TestData]` attribute from admitting a count that is refused on every other test; the rows it
+  multiplies stay uncapped, as they have always been.
 - Read a task-wrapped `[TestData]` source and a `[ClassDataSource]` through the row type `NU0009`
   validated, rather than through the non-generic `IEnumerable`. A source implementing
   `IEnumerable<T>` more than once dispatches that interface to whichever arm its type mapped it to,
@@ -105,7 +118,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `#pragma warning disable` cannot suppress, because `CS0619` is an error rather than a warning. The
   consumer's own source never spells such a row type -- it arrives through the source's interface
   list -- so their build passed while the generated file did not.
-
 - `[Repeat]` is no longer dropped from a test method that also carries parameter-level data sources.
   Such a method is emitted as a single combined descriptor rather than as one test case per
   iteration, and the descriptor carried no repeat count, so `[Repeat(5)]` beside `[Values(1, 2)]` ran

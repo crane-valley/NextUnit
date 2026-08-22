@@ -100,11 +100,50 @@ public sealed class NextUnitTestExecutorTests
         [
             "Tests.Static",
             "Tests.Deferred:TestProject.Tests.Rows",
-            "Tests.Repeat[0]#1",
+            "Tests.Repeat#1",
             "[0]"
         ]);
 
         Assert.Empty(groupIds);
+    }
+
+    /// <summary>
+    /// A repeated row id ends in its iteration suffix rather than in the row index, so the suffix
+    /// has to come off before the group is read. Without this, selecting a repeated deferred row
+    /// would match no placeholder and the run would do nothing at all.
+    /// </summary>
+    [Fact]
+    public void BuildSelectedRowGroupIds_DropsTheRepeatSuffixBeforeTheRowIndex()
+    {
+        var groupIds = NextUnitTestExecutor.BuildSelectedRowGroupIds(
+        [
+            "Tests.Deferred:TestProject.Tests.Rows[0]#0",
+            "Tests.Deferred:TestProject.Tests.Rows[12]#3"
+        ]);
+
+        Assert.Equal("Tests.Deferred:TestProject.Tests.Rows", Assert.Single(groupIds));
+    }
+
+    /// <summary>
+    /// The suffix is dropped only when it is a run of digits, so an id whose own text carries a
+    /// <c>#</c> is still read as itself.
+    /// </summary>
+    [Fact]
+    public void BuildSelectedRowGroupIds_KeepsANonNumericHashSuffix()
+    {
+        var groupIds = NextUnitTestExecutor.BuildSelectedRowGroupIds(
+            ["Tests.Deferred:TestProject.Tests.Rows[0]#a"]);
+
+        Assert.Empty(groupIds);
+    }
+
+    [Fact]
+    public void StandsForSelectedRow_PlaceholderOfASelectedRepeatedRow_IsRetained()
+    {
+        var placeholder = CreateDeferredPlaceholder();
+        var selected = NextUnitTestExecutor.BuildSelectedRowGroupIds([$"{placeholder.Id.Value}[3]#1"]);
+
+        Assert.True(NextUnitTestExecutor.StandsForSelectedRow(placeholder, selected));
     }
 
     [Fact]

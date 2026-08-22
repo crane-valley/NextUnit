@@ -490,7 +490,10 @@ internal sealed class NextUnitFramework :
         if (testDataDescriptors.Count > 0)
         {
             allTestCases.AddRange(
-                await TestDataExpander.ExpandAsync(testDataDescriptors, cancellationToken).ConfigureAwait(false));
+                await TestDataExpander.ExpandAsync(
+                    testDataDescriptors,
+                    cancellationToken,
+                    generatedRegistry.MaxTestCasesPerMethod).ConfigureAwait(false));
         }
 
         // A deferred source is filtered as one unit, by the test method's own name, categories, and
@@ -507,7 +510,7 @@ internal sealed class NextUnitFramework :
         AddFilteredExpansion(
             generatedRegistry.ClassDataSourceDescriptors,
             cd => _filterConfig.ShouldExpandDynamicTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit),
-            ClassDataSourceExpander.Expand,
+            descriptors => ClassDataSourceExpander.Expand(descriptors, generatedRegistry.MaxTestCasesPerMethod),
             allTestCases);
 
         AddFilteredExpansion(
@@ -526,7 +529,10 @@ internal sealed class NextUnitFramework :
         if (deferredDescriptors.Count > 0)
         {
             filteredTestCases.AddRange(
-                await TestDataExpander.ExpandAsync(deferredDescriptors, cancellationToken).ConfigureAwait(false));
+                await TestDataExpander.ExpandAsync(
+                    deferredDescriptors,
+                    cancellationToken,
+                    generatedRegistry.MaxTestCasesPerMethod).ConfigureAwait(false));
         }
 
         // Get global lifecycle methods from the registry and set on engine (one-time).

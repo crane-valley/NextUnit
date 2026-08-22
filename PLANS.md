@@ -1258,7 +1258,7 @@ the bound.
   so the id tracks the attribute rather than the count and raising `[Repeat(1)]` to `[Repeat(2)]`
   cannot rename the first iteration.
 
-- [ ] `[Repeat]` is dropped from `[TestData]` and `[ClassDataSource]` tests for the same reason it was
+- [x] `[Repeat]` is dropped from `[TestData]` and `[ClassDataSource]` tests for the same reason it was
   dropped from combined ones. `RegistryEmitter` reads `test.RepeatCount` only in `EmitRegularTestCases`
   and `EmitMatrixTestCases`, which emit one `TestCaseDescriptor` per iteration; the `TestDataTests` and
   `ClassDataSourceTests` buckets go through `TestCaseEmitter.EmitTestDataDescriptor` and
@@ -1275,6 +1275,30 @@ the bound.
   exists to catch. The deferred `[TestData]` placeholder is a second open question, since it stands for
   a row set whose size is unknown until execution and its id has no row index to suffix. Surfaced while
   fixing the combined case (2026-08-22).
+  Taken as the shape above. `TestDataDescriptor.RepeatCount` and `ClassDataSourceDescriptor.RepeatCount`
+  carry the count, emitted only when the attribute is present so no existing baseline moves, and each
+  expander multiplies its rows by it at discovery. Ids mirror the combined convention -- a `#n` suffix
+  on the row id, emitted whenever the attribute is present including `[Repeat(1)]`, with the
+  `(Repeat #n)` display suffix and `RepeatIndex` -- so a row that no `[Repeat]` participates in keeps
+  the id it had. The deferred placeholder is unchanged: it stands for the source rather than for an
+  iteration, so multiplying it would report a row count discovery is not allowed to know, and the
+  repeat is applied instead when execution materializes the rows, through the same projector the eager
+  paths use. That cost `RowProjector` its one-case-per-row shape -- it appends into the caller's list
+  now, so one row can produce several cases without a collection per row on the path built for large
+  sources -- and no `NEXTUNIT0xx` was needed. The adapter had to follow: a repeated row id ends in `#n`
+  rather than in `]`, so `BuildSelectedRowGroupIds` trims the iteration suffix before reading the row
+  index, or selecting a repeated deferred row in Test Explorer would match no placeholder and run
+  nothing. The cap question resolved to charging the repeat factor alone, at discovery, against the
+  registry baseline the run resolves. Nothing is charged at compile time: the rows have no
+  compile-time count for the factor to multiply, and `TestCaseExpansionValidator` still charges these
+  two buckets one descriptor each. Charging `rows x factor` at discovery was rejected -- it would bound
+  the row count as a side effect, which is the decision these two sources deliberately leave to the
+  user, and it would start rejecting a member returning more rows than the cap with no `[Repeat]`
+  anywhere near it. Charging nothing was rejected too, on the Codex review of the plan: the factor is
+  declared in an attribute and NextUnit is what multiplies by it, so leaving it uncharged would let a
+  `[TestData]` attribute admit a count refused on every other test. The check needs no rows, which is
+  what makes it reachable for a deferred source, and it runs whether or not the source turns out to
+  have any -- a declared count cannot collapse to nothing the way a resolved source can.
 
 - [x] The compile-time and discovery-time caps are configured independently, so raising one does not
   raise the other. `<NextUnitMaxTestCasesPerMethod>50000</NextUnitMaxTestCasesPerMethod>` lets the

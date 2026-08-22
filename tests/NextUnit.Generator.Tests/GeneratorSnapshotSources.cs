@@ -207,6 +207,56 @@ internal static class GeneratorSnapshotSources
         }
         """;
 
+    /// <summary>
+    /// The <c>[TestData]</c> and <c>[ClassDataSource]</c> tests above carrying <c>[Repeat]</c>, whose
+    /// baseline differs from theirs by exactly the emitted repeat count.
+    /// </summary>
+    /// <remarks>
+    /// Both kinds are in one fixture because the emitted difference is the same property in the same
+    /// place; a diff against <see cref="TestDataTest"/> and <see cref="ClassDataSourceTest"/> is the
+    /// whole of what <c>[Repeat]</c> adds. The repeat itself is applied at discovery, so no test case
+    /// multiplies in the generated file.
+    /// </remarks>
+    public const string MemberSourceRepeatTest = """
+        using System.Collections;
+        using System.Collections.Generic;
+        using NextUnit;
+
+        namespace TestProject;
+
+        public class AdditionData : IEnumerable<object[]>
+        {
+            public IEnumerator<object[]> GetEnumerator()
+            {
+                yield return new object[] { 1, 2 };
+            }
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public class MemberSourceRepeatTests
+        {
+            public static IEnumerable<object[]> Rows()
+            {
+                yield return new object[] { 1, 2 };
+            }
+
+            [Test]
+            [Repeat(3)]
+            [TestData(nameof(Rows))]
+            public void FromMember(int a, int b)
+            {
+            }
+
+            [Test]
+            [Repeat(2)]
+            [ClassDataSource<AdditionData>]
+            public void FromClass(int a, int b)
+            {
+            }
+        }
+        """;
+
     public const string CombinedDataSourceTest = """
         using System.Collections.Generic;
         using NextUnit;

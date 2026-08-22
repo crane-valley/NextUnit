@@ -42,6 +42,37 @@ internal static class RegistryDescriptorReader
         AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TDescriptor>>(registryType, propertyName);
 
     /// <summary>
+    /// Builds the test data expander for one registry, bound to that registry's cap.
+    /// </summary>
+    /// <remarks>
+    /// Paired with the cap here for the same reason as <see cref="CreateCombinedExpander"/>: the cap
+    /// and the descriptors must come from the same registry. What the cap bounds for this descriptor
+    /// kind is the <c>[Repeat]</c> count alone -- the rows are the user's own code and stay uncapped.
+    /// </remarks>
+    public static Func<IEnumerable<TestDataDescriptor>, IEnumerable<TestCaseDescriptor>> CreateTestDataExpander(
+        Type registryType,
+        CancellationToken cancellationToken)
+    {
+        var registryCap = ReadRegistryCap(registryType);
+
+        return descriptors => TestDataExpander.Expand(descriptors, cancellationToken, registryCap);
+    }
+
+    /// <summary>
+    /// Builds the class data source expander for one registry, bound to that registry's cap.
+    /// </summary>
+    /// <remarks>
+    /// Paired with the cap for the same reason as <see cref="CreateTestDataExpander"/>.
+    /// </remarks>
+    public static Func<IEnumerable<ClassDataSourceDescriptor>, IEnumerable<TestCaseDescriptor>> CreateClassDataSourceExpander(
+        Type registryType)
+    {
+        var registryCap = ReadRegistryCap(registryType);
+
+        return descriptors => ClassDataSourceExpander.Expand(descriptors, registryCap);
+    }
+
+    /// <summary>
     /// Builds the combined data source expander for one registry, bound to that registry's cap.
     /// </summary>
     /// <remarks>
@@ -60,11 +91,13 @@ internal static class RegistryDescriptorReader
     public static Func<IEnumerable<CombinedDataSourceDescriptor>, IEnumerable<TestCaseDescriptor>> CreateCombinedExpander(
         Type registryType)
     {
-        var registryCap = AssemblyLoader.GetStaticStructPropertyValue<int>(
-            registryType, MaxTestCasesPerMethodPropertyName);
+        var registryCap = ReadRegistryCap(registryType);
 
         return descriptors => CombinedDataSourceExpander.Expand(descriptors, registryCap);
     }
+
+    private static int? ReadRegistryCap(Type registryType) =>
+        AssemblyLoader.GetStaticStructPropertyValue<int>(registryType, MaxTestCasesPerMethodPropertyName);
 
     /// <summary>
     /// The registry property carrying the compile-time cap, read by name like every other member the

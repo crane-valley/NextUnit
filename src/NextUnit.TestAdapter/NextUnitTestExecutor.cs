@@ -195,7 +195,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             selectedDescriptorIds,
             descriptor => descriptor.BaseId,
             descriptor => descriptor.IsExplicit,
-            descriptors => TestDataExpander.Expand(descriptors, cancellationToken),
+            RegistryDescriptorReader.CreateTestDataExpander(registryType, cancellationToken),
             allTestCases);
 
         AddExpandedTests<ClassDataSourceDescriptor>(
@@ -204,7 +204,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             selectedDescriptorIds,
             descriptor => descriptor.BaseId,
             descriptor => descriptor.IsExplicit,
-            ClassDataSourceExpander.Expand,
+            RegistryDescriptorReader.CreateClassDataSourceExpander(registryType),
             allTestCases);
 
         AddExpandedTests<CombinedDataSourceDescriptor>(
@@ -296,13 +296,23 @@ public sealed class NextUnitTestExecutor : ITestExecutor
     /// A row id is its group's id followed by an <c>[index]</c> suffix, so dropping the suffix
     /// yields the id discovery published. Selected ids that do not end in such a suffix are not row
     /// ids and contribute nothing; they are already matched exactly by the caller.
+    /// <para>
+    /// A <c>[Repeat]</c> iteration suffix is dropped first, because a repeated row's id ends in
+    /// <c>#n</c> rather than in <c>]</c> and would otherwise not be recognized as a row id at all --
+    /// selecting a repeated deferred row would then run nothing, which is the silent no-op this
+    /// whole path exists to prevent. Trimming it off an ordinary compile-time repeated case
+    /// contributes a group id that no placeholder can carry, since a placeholder id always names its
+    /// data source member after a <c>':'</c>.
+    /// </para>
     /// </remarks>
     internal static HashSet<string> BuildSelectedRowGroupIds(IEnumerable<string> selectedTestIds)
     {
         var groupIds = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var testId in selectedTestIds)
+        foreach (var selectedId in selectedTestIds)
         {
+            var testId = TrimRepeatSuffix(selectedId);
+
             if (testId.Length == 0 || testId[^1] != ']')
             {
                 continue;
@@ -316,6 +326,32 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         }
 
         return groupIds;
+    }
+
+    /// <summary>
+    /// Drops the trailing <c>#n</c> a repeated test case id carries.
+    /// </summary>
+    /// <remarks>
+    /// Only a run of digits after the last <c>#</c> is dropped, and only when there is at least one,
+    /// so an id whose own text happens to contain a <c>#</c> is left alone.
+    /// </remarks>
+    private static string TrimRepeatSuffix(string testId)
+    {
+        var suffixStart = testId.LastIndexOf('#');
+        if (suffixStart <= 0 || suffixStart == testId.Length - 1)
+        {
+            return testId;
+        }
+
+        for (var index = suffixStart + 1; index < testId.Length; index++)
+        {
+            if (!char.IsAsciiDigit(testId[index]))
+            {
+                return testId;
+            }
+        }
+
+        return testId.Substring(0, suffixStart);
     }
 
     internal static HashSet<string> BuildSelectedDescriptorIds(IEnumerable<string> selectedTestIds)

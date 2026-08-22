@@ -63,6 +63,12 @@ internal static class CombinedDataSourceExpander
         // reflection off that assembly's own type, so in a run over two assemblies Current is
         // whichever module initializer happened to run last and one assembly's descriptors would be
         // bounded by the other assembly's cap.
+        // Checked before the product, which cannot see the difference: a zero count collapses the
+        // product to zero, and the limit check deliberately passes over a zero product because an
+        // empty resolved source has always meant no test cases. A count below one is not an empty
+        // source, and only a hand-written registry can carry one.
+        TestCaseExpansionLimits.EnsureRepeatIsPositive(descriptor.MethodName, descriptor.RepeatCount);
+
         var maxTestCasesPerMethod = TestCaseExpansionLimits.ResolveFromEnvironment(registryMaxTestCasesPerMethod);
 
         // Resolve values for each parameter
