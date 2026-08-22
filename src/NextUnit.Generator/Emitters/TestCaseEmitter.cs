@@ -124,8 +124,9 @@ internal static class TestCaseEmitter
         // resolved member qualifies the call. They are the same except for an inherited source, and
         // keeping them apart is deliberate: DataSourceType builds the row id prefix, so binding the
         // call correctly must not move a single test case id. The fallback covers an unbound member,
-        // which emits no access at all, and a declaring type whose name the generated file cannot
-        // bind, which is the one case the call gives up on qualifying.
+        // which emits no access at all, and the two cases the call gives up on qualifying: a
+        // declaring type whose name the generated file cannot bind, and one whose name spells a type
+        // retired as an error, which is a CS0619 the file's blanket pragma cannot suppress.
         var accessType = dataSource.DeclaringTypeName ?? dataSourceType;
 
         BeginDescriptor(writer, "TestDataDescriptor");
