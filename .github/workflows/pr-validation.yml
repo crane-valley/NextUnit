@@ -176,15 +176,22 @@ jobs:
       # MSBuild resolves the version by evaluation, so a change to a file that props imports moves
       # the version without touching the props file, and a path filter would skip exactly that.
       #
-      # The base goes into a linked worktree under its own temporary directory, not next to the
-      # head tree: sibling directories with predictable names let a head props file import the
-      # base one and read the old version back under the guard while shipping a different one.
-      # A worktree rather than git archive, because archive applies export-ignore from a
-      # .gitattributes the pull request controls, which could hide an imported file from the guard.
+      # The base is materialised through a linked worktree, copied out, and then unregistered
+      # before anything from the head tree is evaluated. Three reasons for that shape: a worktree
+      # rather than git archive, because archive applies export-ignore from a .gitattributes the
+      # pull request controls and could hide an imported file from the guard; a copy under its own
+      # temporary directory rather than a sibling of the head tree, because a predictable adjacent
+      # path lets a head project import the base one and read the old version back under the guard
+      # alone; and the unregistration, because git records the worktree's absolute path inside
+      # .git/worktrees, which MSBuild can read during evaluation and follow back to the base.
       run: |
-        BASE_TREE="$(mktemp -d)/base"
-        git worktree add --detach "$BASE_TREE" "$BASE_SHA"
-        bash .github/scripts/major-bump-guard.sh "$BASE_TREE" .
+        BASE_ROOT="$(mktemp -d)"
+        git worktree add --detach "$BASE_ROOT/linked" "$BASE_SHA"
+        cp -a "$BASE_ROOT/linked" "$BASE_ROOT/tree"
+        rm -f "$BASE_ROOT/tree/.git"
+        git worktree remove --force "$BASE_ROOT/linked"
+        git worktree prune
+        bash .github/scripts/major-bump-guard.sh "$BASE_ROOT/tree" .
 
   # Summary
   pr-summary:

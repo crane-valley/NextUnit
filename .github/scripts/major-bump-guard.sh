@@ -27,40 +27,67 @@ flatten() {
   printf '%s' "$1" | tr -d '\r' | tr '\n' ' '
 }
 
-# Ask MSBuild what the version is instead of reading the XML.
+# Ask MSBuild what the version is, from the projects that actually pack.
 #
-# Earlier revisions parsed Directory.Build.props directly and were bypassed four separate times in
-# review: a second declaration carrying an attribute, the same one split across lines, an <Import>
-# or <Sdk> pulling the value in from elsewhere, and finally <version> in different letter case,
-# since MSBuild property names are case-insensitive. Each fix closed one construct and the next
-# review round found another, because reimplementing MSBuild's evaluation rules in a parser is an
-# open-ended job. The evaluator is authoritative and already installed in CI, so this asks it.
+# Earlier revisions parsed Directory.Build.props directly and were bypassed four separate times
+# in review: a second declaration carrying an attribute, the same one split across lines, an
+# <Import> or <Sdk> pulling the value in from elsewhere, and finally <version> in different
+# letter case, since MSBuild property names are case-insensitive. Each fix closed one construct
+# and the next review round found another, because reimplementing MSBuild's evaluation rules in
+# a parser is an open-ended job. The evaluator is authoritative and already installed in CI.
 #
-# Configuration=Release because that is what release.yml packs with, and a property can be
-# conditioned on it: evaluating in the default empty configuration would read a version that the
-# release never publishes.
+# Evaluating Directory.Build.props on its own was not enough either: reserved properties such as
+# MSBuildProjectExtension differ between evaluating that file as the project and evaluating the
+# .csproj that imports it, so a property conditioned on one of them reads one version here and
+# ships another. This evaluates the same project files release.yml packs, in the same Release
+# configuration, and requires every one of them to agree. The list comes from release.yml so that
+# adding a package there cannot silently leave it unguarded.
 #
-# Evaluating a pull request's own project files runs its MSBuild logic. That is not a new exposure
-# here: strict-build in this same workflow already runs dotnet build over the same tree.
-read_version() {
-  local tree=$1 label=$2 props output body count value
-  props="$tree/Directory.Build.props"
-  [ -f "$props" ] || fail "$label Directory.Build.props not found: $props"
-  output=$(dotnet msbuild "$props" -getProperty:Version -p:Configuration=Release -nologo 2>&1) \
-    || fail "$label Directory.Build.props could not be evaluated by MSBuild: $(flatten "$output")"
+# Evaluating a pull request's own project files runs its MSBuild logic. That is not a new
+# exposure here: strict-build in this same workflow already runs dotnet build over the same tree.
+packed_projects() {
+  local tree=$1 workflow="$1/.github/workflows/release.yml"
+  [ -f "$workflow" ] || return 1
+  grep -oE 'src/[A-Za-z.]+/[A-Za-z.]+\.csproj' "$workflow" | sort -u
+}
+
+evaluate_one() {
+  local project=$1 label=$2 output body count value
+  output=$(dotnet msbuild "$project" -getProperty:Version -p:Configuration=Release -nologo 2>&1) \
+    || fail "$label $project could not be evaluated by MSBuild: $(flatten "$output")"
   # The whole of stdout has to be the version. Accepting just its last non-blank line would let
   # whatever MSBuild printed ahead of that line through unexamined.
   body=$(printf '%s' "$output" | tr -d '\r' | grep -v '^[[:space:]]*$' || true)
   count=$(printf '%s' "$body" | grep -c '' || true)
   [ -n "$body" ] && [ "$count" -eq 1 ] \
-    || fail "$label version evaluation did not produce a single value: $(flatten "$output")"
+    || fail "$label $project did not evaluate to a single value: $(flatten "$output")"
   value=${body#"${body%%[![:space:]]*}"}
-  value=${value%"${value##*[![:space:]]}"}
+  EVALUATED=${value%"${value##*[![:space:]]}"}
+}
+
+# Sets VERSION_OUT rather than printing, so that fail() exits the script instead of a
+# command-substitution subshell that would swallow the ::error:: annotation.
+read_version() {
+  local tree=$1 label=$2 projects project agreed=
+  projects=$(packed_projects "$tree") \
+    || fail "$label tree has no .github/workflows/release.yml to take the packed project list from."
+  [ -n "$projects" ] || fail "$label release.yml lists no packable project, so there is no version to check."
+  while IFS= read -r project; do
+    [ -n "$project" ] || continue
+    [ -f "$tree/$project" ] || fail "$label $project is packed by release.yml but missing from the tree."
+    evaluate_one "$tree/$project" "$label"
+    if [ -z "$agreed" ]; then
+      agreed=$EVALUATED
+    elif [ "$EVALUATED" != "$agreed" ]; then
+      # Packages that disagree would publish one tag over several different versions.
+      fail "$label packages do not agree on a version: $project evaluates to '$EVALUATED', an earlier one to '$agreed'."
+    fi
+  done <<<"$projects"
   # Anything MSBuild did not resolve to a shippable version, an empty property included, stops
   # here rather than being guessed at.
-  printf '%s' "$value" | grep -qE "$VERSION_PATTERN" \
-    || fail "$label version does not match this repository's version scheme: '$value'"
-  VERSION_OUT=$value
+  printf '%s' "$agreed" | grep -qE "$VERSION_PATTERN" \
+    || fail "$label version does not match this repository's version scheme: '$agreed'"
+  VERSION_OUT=$agreed
 }
 
 # The body is attacker-controlled text: it is only ever matched against an anchored literal
@@ -95,6 +122,11 @@ if [ "$base_version" = "$head_version" ]; then
   bump_kind='none'
 elif [ "$head_major" -gt "$base_major" ]; then
   bump_kind='major'
+elif [ "$head_major" -lt "$base_major" ]; then
+  # Dropping the MAJOR is as large a compatibility statement as raising it, and it is what an
+  # accidentally removed <Version> looks like once the SDK default of 1.0.0 takes over, so it
+  # needs the same justification rather than passing as an ordinary change.
+  bump_kind='major-decrease'
 elif [ "$head_major" -eq "$base_major" ] && [ "$head_minor" -gt "$base_minor" ]; then
   bump_kind='minor'
 elif [ "$head_major" -eq "$base_major" ] && [ "$head_minor" -eq "$base_minor" ] && [ "$head_patch" -gt "$base_patch" ]; then
@@ -163,8 +195,8 @@ if [ "$bump_kind" = 'none' ]; then
   exit 0
 fi
 
-if [ "$bump_kind" = 'major' ] && [ "$major_token_found" = no ]; then
-  fail "MAJOR bump $base_version -> $head_version requires a PR body line starting with '$MAJOR_TOKEN' followed by at least $MIN_TOKEN_CHARS non-space characters."
+if [ "$head_major" != "$base_major" ] && [ "$major_token_found" = no ]; then
+  fail "MAJOR change $base_version -> $head_version requires a PR body line starting with '$MAJOR_TOKEN' followed by at least $MIN_TOKEN_CHARS non-space characters."
 fi
 
 # Fail closed: without a tag there is no cadence baseline, and silently passing would let the
