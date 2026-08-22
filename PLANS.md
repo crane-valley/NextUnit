@@ -939,7 +939,7 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   the source-shadows-metadata case that stays base-qualified, and
   `InheritedFromABaseAlsoReferencedGlobally_QualifiesByTheDeclaringTypeAsync`
   the duplicate-reference case that the rejected alias heuristic got backwards.
-- [ ] The declaring-type qualifier spells type arguments the consumer's own source may never spell,
+- [x] The declaring-type qualifier spells type arguments the consumer's own source may never spell,
   and an `[Obsolete(error: true)]` one fails the generated file with `CS0619`. Raised by the Codex
   review of PR #237 against the warning severity, and measured down to this one. The registry's file
   header is a bare `#pragma warning disable`, so every warning the qualifier can add -- `CS0618`
@@ -950,14 +950,26 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   error, which no pragma suppresses, and it needs the base declared in a referenced assembly --
   a consumer writing `Derived : Base<ObsoleteRow>` in their own source cannot compile that line
   either, pragma or not.
-  Not folded into `NameBindsToType`, and deliberately not as an `[Obsolete]` rule: that predicate
-  exists because enumerating name-resolution rules cost a review round each, and an attribute check
-  is the same trade reopened in a new domain. Asking the compiler instead is what the shape wants and
-  what Roslyn will not do -- measured on 5.6.0, `TryGetSpeculativeSemanticModel` succeeds for the
-  qualifier and its `GetDiagnostics()` returns nothing for the very expression that reports `CS0618`
-  once bound in a real tree. The only route left is adding a syntax tree to the compilation and
-  binding it, once per data source, inside a generator -- the cost this whole path is written to
-  avoid.
+  Done 2026-08-22 as `GeneratedRegistryAccess.NameSpellsAnErrorObsoleteType`, read off the symbol's
+  `ObsoleteAttribute` and asked only where `GetDeclaringTypeName` decides the qualifier, which falls
+  back to the derived type exactly as an unbindable name already does. Kept out of `NameBindsToType`
+  on purpose: that predicate exists because enumerating name-resolution rules cost a review round
+  each, and it stays the one question handed to the binder. Handing this one to the binder too is
+  what the shape wanted and what Roslyn will not do -- measured on 5.6.0,
+  `TryGetSpeculativeSemanticModel` succeeds for the qualifier and its `GetDiagnostics()` returns
+  nothing for the very expression that reports `CS0618` once bound in a real tree, and the only route
+  left is adding a syntax tree to the compilation and binding it, once per data source, inside a
+  generator -- the cost this whole path is written to avoid. So one attribute is read rather than a
+  domain enumerated, and it is read over the whole spelled name, nesting chain and type arguments
+  alike, since one expression writes them all. Only the positional error flag is read, because
+  `ObsoleteAttribute.IsError` has no setter and so has no named form; that is also what Roslyn's own
+  decoder reads. Scoped to that flag and no further:
+  `InheritedFromABaseClosedOverAnErrorObsoleteType_KeepsTheDerivedQualifierAsync` pins the fallback
+  and `InheritedFromABaseClosedOverAWarningObsoleteType_QualifiesByTheDeclaringTypeAsync` pins the
+  warning severity staying qualified, against the file header's blanket `#pragma warning disable`.
+  Both need the base closed over the retired type in a referenced assembly, which is why the fixture
+  assembly is compiled twice under one identity: no source can spell `RowsBase<Retired>` once
+  `Retired` is an error, and neither can the consumer, which is the whole shape of the bug.
 - [x] A class data source type is not accessibility-checked. `[ClassDataSource<T>]` and
   `[ValuesFrom<T>]` emit `typeof(T)` and `new T()`, so an unreachable `T` fails the consumer's build
   with `CS0122` in a file the user did not write, with no diagnostic to explain it. The member paths

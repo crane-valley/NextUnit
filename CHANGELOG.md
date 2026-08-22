@@ -83,6 +83,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   possibly zero, is known only once the member runs -- is left to the discovery-time cap rather than
   charged an inline floor at compile time.
 
+- An inherited data source whose declaring type closes a generic base over a type retired with
+  `[Obsolete(..., error: true)]` no longer fails the consumer's build. That access is qualified by
+  the declaring type, so the generated registry spells the type argument, and `CS0619` is an error no
+  `#pragma warning disable` suppresses -- a base declared in a referenced assembly could therefore
+  put a name in a generated file that the consumer's own source could never write. Such a qualifier
+  is now given up on and the access stays on the derived test class, exactly as it already does for a
+  name that does not bind. A warning-level `[Obsolete]` type argument keeps the declaring-type
+  qualifier: the registry's file header is a bare `#pragma warning disable`, so the `CS0618` never
+  reaches the consumer's build, `TreatWarningsAsErrors` included.
+
 ## [3.0.0] - 2026-08-22
 
 ### Upgrading from 2.x

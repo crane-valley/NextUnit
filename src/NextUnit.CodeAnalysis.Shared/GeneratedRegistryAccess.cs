@@ -116,6 +116,82 @@ internal static class GeneratedRegistryAccess
     }
 
     /// <summary>
+    /// Reports whether the name the registry would write for <paramref name="type"/> spells a type
+    /// retired with <c>[Obsolete(..., error: true)]</c>.
+    /// </summary>
+    /// <remarks>
+    /// The one obsolete case a qualifier cannot be written through. The registry's file header is a
+    /// bare <c>#pragma warning disable</c>, so every warning a name can add -- <c>CS0618</c> among
+    /// them -- is off before any code in the file, <c>TreatWarningsAsErrors</c> included, because a
+    /// suppressed diagnostic is never reported and so is never promoted. <c>CS0619</c> is an error,
+    /// which no pragma suppresses.
+    /// <para>
+    /// Handing the question to the binder, as <see cref="NameBindsToType"/> does for name
+    /// resolution, was measured on Roslyn 5.6.0 and does not answer it: a speculative semantic model
+    /// returns no diagnostics for the very expression that reports <c>CS0619</c> once bound in a
+    /// real tree, and the only route left -- adding a syntax tree to the compilation once per data
+    /// source, inside a generator -- costs more than the capture it protects. So this one attribute
+    /// is read off the symbol instead.
+    /// </para>
+    /// <para>
+    /// The whole name is walked rather than the outermost type alone, because one expression spells
+    /// the nesting chain and every type argument under it, and any one of them retired as an error
+    /// fails the file. Only the positional flag is read: <c>ObsoleteAttribute.IsError</c> has no
+    /// setter, so no named-argument form of it exists, and positional is what Roslyn's own decoder
+    /// reads.
+    /// </para>
+    /// </remarks>
+    public static bool NameSpellsAnErrorObsoleteType(ITypeSymbol type)
+    {
+        if (type is IArrayTypeSymbol array)
+        {
+            return NameSpellsAnErrorObsoleteType(array.ElementType);
+        }
+
+        if (type is not INamedTypeSymbol namedType)
+        {
+            return false;
+        }
+
+        for (INamedTypeSymbol? current = namedType; current is not null; current = current.ContainingType)
+        {
+            if (IsObsoleteError(current))
+            {
+                return true;
+            }
+
+            foreach (var typeArgument in current.TypeArguments)
+            {
+                if (NameSpellsAnErrorObsoleteType(typeArgument))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsObsoleteError(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (attribute.AttributeClass is
+                {
+                    Name: "ObsoleteAttribute",
+                    ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true },
+                } &&
+                attribute.ConstructorArguments.Length > 1 &&
+                attribute.ConstructorArguments[1].Value is true)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Reports whether the generated registry can name <paramref name="type"/>.
     /// </summary>
     /// <remarks>
