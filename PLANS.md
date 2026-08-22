@@ -211,11 +211,27 @@ instance by C# itself -- which is why this was not bundled into the 3.0.0 inheri
   still run, and the attempt propagates the cancellation instead of publishing an outcome -- after
   reporting any coexisting teardown failure, so neither is lost. A discovery-time `[Skip]` is
   unaffected: the skip check short-circuits before any hook runs.
-- [ ] Decide whether a failed class setup should stop aborting the whole run. It still propagates out
-  of `EnsureClassSetupAsync` and ends the run from `RunAsync`, which means one broken fixture costs
-  every other class in the assembly, and no node names the class that broke. Deliberately left out of
-  the unwind change: it needs a per-class failure node, a decision about what the class's own tests
-  are reported as, and a rule for `SetupExecuted`, none of which the unwind decides.
+- [x] Decide whether a failed class setup should stop aborting the whole run. Decided: it does. A
+  non-skip exception from a class setup is recorded on the class context instead of propagating, and
+  every test of that class is reported failed with it from `CheckSkipConditionsAsync`; the other
+  classes run and the run ends failed. Reported per test rather than on a per-class node: a
+  `[ClassTeardown]` node exists because a cleanup failure happens after the tests and cannot be
+  attributed to one without retroactively failing a test that already passed, whereas the tests of a
+  class whose setup failed provably did not run and are all nodes the adapter already discovered, so
+  a `[ClassSetup]` node would only repeat the same exception against a node discovery never
+  advertised. The exception is reported as thrown rather than wrapped in one naming the class,
+  because the VSTest adapter records only the outer `Message` and `StackTrace`: a wrapper would
+  replace what broke with prose and the hook's stack trace with the null one an exception that was
+  never thrown carries. Failed, not skipped -- a broken fixture must not pass as a green run.
+  `SetupExecuted` is set exactly as after a pass, so the setup is attempted once and no class-setup
+  retry is introduced; `EnteredLevels` stays a high-water mark for the paths that still leave
+  `SetupExecuted` false, and cleanup still unwinds only the entered levels and still disposes the
+  shared instance. Run cancellation and a critical exception (`IsCriticalFailure`, so one wrapped in
+  an `AggregateException` counts) still propagate and end the run. A test that `[DependsOn]` one of
+  the failed tests is reported skipped by the scheduler, as it is when its target fails for any other
+  reason. Not covered: a class whose shared instance cannot be constructed still ends the run, since
+  the failure happens inside `_classContexts.GetOrAdd` with no context to record it on and no
+  instance to dispose.
 
 ### Priority 3 -- An explicit interface hook on a base class in a referenced assembly is invisible
 
