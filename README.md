@@ -146,8 +146,9 @@ public class DatabaseTests
 }
 ```
 
-Scopes: `Test`, `Class`, `Assembly`, `Session`. An `Assembly` or `Session` hook must be `static`; an
-instance method carrying one of those scopes is dropped from the registry without a diagnostic.
+Scopes: `Test`, `Class`, `Assembly`, `Session`. An `Assembly` or `Session` hook must be `static`; on
+an instance method that scope is dropped from the registry without a diagnostic, while the same
+method's `Test` and `Class` scopes still run.
 
 Since 3.0.0, `Test` and `Class` hooks and the configuration attributes declared on a base test class
 apply to the classes derived from it: `[Before]` runs base first, `[After]` unwinds derived first, and
