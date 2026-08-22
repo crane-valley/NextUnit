@@ -178,7 +178,7 @@ The NextUnit packages are defined in the parent `Directory.Packages.props` file 
 If you're creating a standalone project, add version numbers:
 
 ```xml
-<PackageReference Include="NextUnit" Version="3.0.0" />
+<PackageReference Include="NextUnit" Version="4.0.0" />
 ```
 
 ## Test Naming Conventions
