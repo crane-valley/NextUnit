@@ -6,9 +6,10 @@
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
     <RootNamespace>NextUnit.ReleaseVerify</RootNamespace>
-    <!-- Release-pipeline tooling. The release build job packs each src project by path, so this
-         project can never reach artifacts/packages, and IsPackable keeps that true if that ever
-         becomes a glob. -->
+    <!-- Release-pipeline tooling, never a shipped package. The release build job packs each src
+         project by explicit path and then asserts the exact release file count, so this project is
+         already outside the artifact; IsPackable is what keeps that true if the pack step ever
+         becomes a glob or a solution-wide pack. -->
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>

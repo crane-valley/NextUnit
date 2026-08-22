@@ -75,18 +75,14 @@ internal static class RepositorySignatureVerifier
 
     private static byte[] ReadSignatureEntry(string packagePath)
     {
-        ZipArchive archive;
+        // The whole read is guarded, not just the open: a zip reader decodes the central directory
+        // lazily, so a truncated or corrupt archive throws while entries are enumerated or while the
+        // entry stream is drained. Those escaping uncaught would exit with a runtime-chosen code and
+        // break this tool's contract that a bad package is always exit 1.
         try
         {
-            archive = ZipFile.OpenRead(packagePath);
-        }
-        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
-        {
-            throw new ReleaseVerifyException($"cannot be opened as a zip archive ({ex.Message})", ex);
-        }
+            using ZipArchive archive = ZipFile.OpenRead(packagePath);
 
-        using (archive)
-        {
             // A zip archive can hold several entries under one name and which of them a reader
             // returns is implementation defined, so an ambiguous archive is rejected rather than
             // resolved: the blob this tool reads has to be the only candidate in the file.
@@ -115,6 +111,10 @@ internal static class RepositorySignatureVerifier
             using MemoryStream buffer = new();
             entryStream.CopyTo(buffer);
             return buffer.ToArray();
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            throw new ReleaseVerifyException($"cannot be read as a zip archive ({ex.Message})", ex);
         }
     }
 

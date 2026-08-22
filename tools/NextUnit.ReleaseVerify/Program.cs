@@ -66,13 +66,28 @@ internal static class Program
                 return false;
             }
 
+            // A repeated option is a usage error rather than last-one-wins. Silently taking the last
+            // value would let a mangled workflow edit hand this tool a different file than the one
+            // dotnet nuget verify judged, and the pair would still report a green package.
             switch (args[index])
             {
                 case PackageOption:
+                    if (package is not null)
+                    {
+                        error = $"option '{PackageOption}' is given more than once";
+                        return false;
+                    }
+
                     package = args[index + 1];
                     break;
 
                 case ServiceIndexOption:
+                    if (expectedServiceIndex is not null)
+                    {
+                        error = $"option '{ServiceIndexOption}' is given more than once";
+                        return false;
+                    }
+
                     expectedServiceIndex = args[index + 1];
                     break;
 
