@@ -737,6 +737,131 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
+    /// A synchronous source implementing the element interface twice is read through the arm
+    /// <c>NU0009</c> validated, which is what the typed adapter call is for: the runtime holds the
+    /// provider's result as <c>object</c> and reads it back as a non-generic <c>IEnumerable</c>, so
+    /// the arm has to be chosen here, where a type argument can still be written.
+    /// </summary>
+    [Fact]
+    public async Task MultipleSyncEnumerableArms_ReadTheSelectedRowTypeAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public sealed class DualRows : IEnumerable<object[]>, IEnumerable<TestDataRow<int>>
+            {
+                IEnumerator<object[]> IEnumerable<object[]>.GetEnumerator() =>
+                    ((IEnumerable<object[]>)new[] { new object[] { 1 } }).GetEnumerator();
+
+                IEnumerator<TestDataRow<int>> IEnumerable<TestDataRow<int>>.GetEnumerator() =>
+                    ((IEnumerable<TestDataRow<int>>)new[] { new TestDataRow<int>(2) }).GetEnumerator();
+
+                IEnumerator IEnumerable.GetEnumerator() =>
+                    new[] { new object[] { 1 } }.GetEnumerator();
+            }
+
+            public class DataTests
+            {
+                public static DualRows Rows() => new DualRows();
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains(
+            "DataSourceProvider = static () => global::NextUnit.Internal.DataSourceAdapter" +
+            ".FromEnumerable<global::NextUnit.TestDataRow<int>>(global::TestProject.DataTests.Rows())",
+            registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A source offering one element type is handed over as it was. The adapter would only add a
+    /// layer between the runtime and the sole arm it was already reading, and the type argument that
+    /// selects an arm is also the one thing that can fail to bind.
+    /// </summary>
+    [Fact]
+    public async Task SingleSyncEnumerableArm_KeepsTheDirectReadAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                public static IEnumerable<object[]> Rows() => new[] { new object[] { 1 } };
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains(
+            "DataSourceProvider = static () => (object?)global::TestProject.DataTests.Rows()",
+            registry);
+        Xunit.Assert.DoesNotContain("DataSourceAdapter.FromEnumerable", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A selected row type declared in a reference reachable only through <c>extern alias</c> keeps
+    /// the direct read. The generated file carries no alias directive, so the name would bind
+    /// nothing there -- <c>CS0400</c> in a file the user did not write -- and this source compiles
+    /// today, reading the wrong arm. A wrong row is worth less than a build nobody can fix.
+    /// </summary>
+    [Fact]
+    public async Task MultipleSyncArmsWithAnAliasOnlyRowType_KeepsTheDirectReadAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                public static Aliased::Fixtures.DualRows Rows() => new Aliased::Fixtures.DualRows();
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references = [Reference(await CompileDualRowsAssemblyAsync(), "Aliased")];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains(
+            "DataSourceProvider = static () => (object?)global::TestProject.DataTests.Rows()",
+            registry);
+        Xunit.Assert.DoesNotContain("DataSourceAdapter.FromEnumerable", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
     /// An unreachable <c>MemberType</c> whose member is declared on a reachable base still emits an
     /// asynchronous access, and it now names that base rather than the test class.
     /// </summary>
@@ -1152,6 +1277,61 @@ public class DataSourceBindingEmissionTests
         var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
         var compilation = CSharpCompilation.Create(
             assemblyName,
+            [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var stream = new MemoryStream();
+        var emitResult = compilation.Emit(stream, cancellationToken: cancellationToken);
+        Xunit.Assert.True(
+            emitResult.Success,
+            string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        return ImmutableArray.Create(stream.ToArray());
+    }
+
+    /// <summary>
+    /// Compiles an assembly declaring a collection that implements the element interface twice, with
+    /// the arm the precedence rule selects carrying a row type declared there too.
+    /// </summary>
+    /// <remarks>
+    /// Referenced under an alias only, so the selected row type is the one thing about this source
+    /// the generated registry cannot write. <c>Fixtures.AliasedRow</c> wins the tie against
+    /// <c>object[]</c> on ordinal comparison of the fully qualified names.
+    /// </remarks>
+    private static async Task<ImmutableArray<byte>> CompileDualRowsAssemblyAsync()
+    {
+        const string source = """
+            namespace Fixtures
+            {
+                public class AliasedRow
+                {
+                }
+
+                public class DualRows :
+                    System.Collections.Generic.IEnumerable<AliasedRow>,
+                    System.Collections.Generic.IEnumerable<object[]>
+                {
+                    System.Collections.Generic.IEnumerator<AliasedRow>
+                        System.Collections.Generic.IEnumerable<AliasedRow>.GetEnumerator() =>
+                        ((System.Collections.Generic.IEnumerable<AliasedRow>)new[] { new AliasedRow() })
+                            .GetEnumerator();
+
+                    System.Collections.Generic.IEnumerator<object[]>
+                        System.Collections.Generic.IEnumerable<object[]>.GetEnumerator() =>
+                        ((System.Collections.Generic.IEnumerable<object[]>)new[] { new object[] { 1 } })
+                            .GetEnumerator();
+
+                    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() =>
+                        new[] { new object[] { 1 } }.GetEnumerator();
+                }
+            }
+            """;
+
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var references = await TestReferenceAssemblies.Net10.ResolveAsync(language: null, cancellationToken);
+        var compilation = CSharpCompilation.Create(
+            "AliasedDualRows",
             [CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken)],
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
