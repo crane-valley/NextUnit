@@ -1208,7 +1208,7 @@ method-level source the partition passes over.
   raw descriptor list, dropping a class data source that a parameter-level source shadows. They
   should, and `EmitDynamicDependencies` now takes the partition. The decision turns on the registry's
   own reading of what a root is for: a root is emitted so that a type the registry reaches only
-  through reflection survives trimming, and a shadowed source is reached at all. No descriptor and no
+  through reflection survives trimming, and a shadowed source is not reached at all. No descriptor and no
   `new T()` factory is written for it, so `DynamicallyAccessedMemberTypes.All` on `T` held every
   member of a dead type. `NEXTUNIT010` is a warning, so this shape publishes; the root was paid for in
   every shipped trimmed artifact, not only in builds the user was about to fix. The same treatment

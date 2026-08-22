@@ -141,4 +141,51 @@ public class TestClass
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
+
+    /// <summary>
+    /// NEXTUNIT009 is not gated on the partition the way NU0022 is. The parameter-level source
+    /// shadows the class source, so nothing expands it and nothing roots it, and the keyed
+    /// declaration is still an error: it judges what the user wrote, not what the registry emitted.
+    /// </summary>
+    [Fact]
+    public async Task KeyedClassDataSourceWithoutKey_ShadowedByParameterSource_ReportsErrorAsync()
+    {
+        var source = @"
+using NextUnit;
+using System.Collections;
+using System.Collections.Generic;
+
+namespace TestProject;
+
+public sealed class Rows : IEnumerable<object[]>
+{
+    public IEnumerator<object[]> GetEnumerator() => throw new System.NotImplementedException();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public class TestClass
+{
+    [Test]
+    [ClassDataSource<Rows>(Shared = SharedType.Keyed)]
+    public void Test1([Values(1, 2)] int value)
+    {
+    }
+}";
+
+        var test = new CSharpSourceGeneratorVerifier<NextUnitGenerator>.Test
+        {
+            TestCode = source,
+            TestBehaviors = Microsoft.CodeAnalysis.Testing.TestBehaviors.SkipGeneratedSourcesCheck,
+        };
+
+        test.ExpectedDiagnostics.Add(
+            new DiagnosticResult("NEXTUNIT009", DiagnosticSeverity.Error)
+        );
+        test.ExpectedDiagnostics.Add(
+            new DiagnosticResult("NEXTUNIT010", DiagnosticSeverity.Warning)
+        );
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
 }

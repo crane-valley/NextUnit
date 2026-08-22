@@ -45,6 +45,78 @@ public class TrimmingRootEmissionTests
     }
 
     /// <summary>
+    /// The positive half for the `[TestData]` bucket. An explicit `MemberType` is the shape that
+    /// exercises it: without one the member owner is the test class, which is rooted anyway.
+    /// </summary>
+    [Fact]
+    public async Task TestDataMemberType_IsRootedAsync()
+    {
+        var registry = await GenerateRegistryAsync("""
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public static class Fixtures
+            {
+                public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+            }
+
+            public class DataTests
+            {
+                [Test]
+                [TestData("Rows", MemberType = typeof(Fixtures))]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """);
+
+        Assert.Contains(RootFor("global::TestProject.Fixtures"), registry);
+    }
+
+    /// <summary>
+    /// The positive half for the combined bucket, which roots two type names per source: the member
+    /// owner of a `[ValuesFromMember]` and the class type of a `[ValuesFrom&lt;T&gt;]`.
+    /// </summary>
+    [Fact]
+    public async Task CombinedParameterSourceTypes_AreRootedAsync()
+    {
+        var registry = await GenerateRegistryAsync("""
+            using NextUnit;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public static class Fixtures
+            {
+                public static IEnumerable<int> Numbers => new[] { 1 };
+            }
+
+            public sealed class Letters : IEnumerable<string>
+            {
+                public IEnumerator<string> GetEnumerator() => throw new System.NotImplementedException();
+
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public class DataTests
+            {
+                [Test]
+                public void Consumes(
+                    [ValuesFromMember("Numbers", MemberType = typeof(Fixtures))] int number,
+                    [ValuesFrom<Letters>] string letter)
+                {
+                }
+            }
+            """);
+
+        Assert.Contains(RootFor("global::TestProject.Fixtures"), registry);
+        Assert.Contains(RootFor("global::TestProject.Letters"), registry);
+    }
+
+    /// <summary>
     /// The parameter-level source wins the partition, so the method-level one expands nothing and is
     /// written into no descriptor. Rooting it would hold a dead type.
     /// </summary>
