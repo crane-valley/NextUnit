@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\tools\NextUnit.ReleaseVerify\NextUnit.ReleaseVerify.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The blob nuget.org actually produced for 3.0.0. Committing it is what keeps the release gate
+         under test against a real repository signature rather than only against ones this project
+         synthesizes for itself. -->
+    <None Include="Fixtures\nextunit.3.0.0.signature.p7s" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

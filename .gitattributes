@@ -27,3 +27,5 @@
 *.exe binary
 *.pdb binary
 *.nupkg binary
+# DER signature fixtures. Line-ending normalization would silently corrupt the bytes under test.
+*.p7s binary

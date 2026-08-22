@@ -1155,6 +1155,27 @@ NU0022 by itself left the consumer with the bare `CS0122` in generated code that
 replace, and a test now pins the reporting. That verdict holds only while the root is emitted, which
 is why the two decisions above are one change and not two.
 
+### Priority 3 — `verify-published` cannot be re-run without re-running the release
+
+Surfaced while repairing the 3.0.0 verification failure (2026-08-22) and deliberately left out of that
+fix. The `verify-published` job in `.github/workflows/release.yml` is reachable only as the tail of a
+run triggered by publishing a GitHub release. When it goes red for a reason that is not a defect in the
+published packages -- index lag past its polling budget, a network error, the CLI output drift that
+broke 3.0.0 -- there is no way to run it again: re-running the workflow reaches `publish` first, whose
+duplicate gate then fails closed by design. The Partial Publish Runbook therefore sends an operator to
+perform the job's checks by hand, which is what 3.0.0 required.
+
+- [ ] Decide the shape of the re-run path: a `workflow_dispatch` trigger on `release.yml` taking a
+  version input, with every job but the verification one gated off it, or a separate workflow that
+  carries its own copy of the job body. The first keeps one definition of the checks but puts the
+  OIDC-holding `publish` job one input away from running against an operator-chosen ref, so the gate
+  that keeps it unreachable is the whole design; the second duplicates the body instead, and a copy
+  that drifts verifies nothing.
+- [ ] Decide what a dispatched run is allowed to conclude. Its checks are read-only against nuget.org,
+  so a green re-run is evidence a keep decision can rest on. The runbook's rule that no automated
+  signal authorizes a destructive action is unaffected: the item exists to produce that evidence
+  without hand-running it, not to let a job color decide anything.
+
 ## Deferred to the next major version
 
 Breaking changes that could not ship in 1.x. All three shipped in 2.0.0, and the

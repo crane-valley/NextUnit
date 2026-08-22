@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NextUnit.ReleaseVerify</RootNamespace>
+    <!-- Release-pipeline tooling, never a shipped package. The release build job packs each src
+         project by explicit path and then asserts the exact release file count, so this project is
+         already outside the artifact; IsPackable is what keeps that true if the pack step ever
+         becomes a glob or a solution-wide pack. -->
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SignedCms and SignerInfo are not in Microsoft.NETCore.App on .NET 10; the PKCS types ship
+         out of band. System.Formats.Asn1, which AsnReader comes from, is in the shared framework. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="NextUnit.ReleaseVerify.Tests" />
+  </ItemGroup>
+
+</Project>
