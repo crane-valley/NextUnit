@@ -258,10 +258,12 @@ internal static class CodeBuilder
     /// untyped row sequence cannot be inlined here. Every emitted call binds its type argument
     /// statically, which is what keeps the generated path free of runtime reflection.
     /// <para>
-    /// Only the <c>IAsyncEnumerable&lt;T&gt;</c> arm ever names that type argument in source, and
-    /// only for a source that offers more than one. The task-wrapped arms take the awaited
-    /// collection type rather than the row type, and <c>Task&lt;TRows&gt;</c> admits exactly one
-    /// inference, so there is nothing there for a name to settle.
+    /// The <c>IAsyncEnumerable&lt;T&gt;</c> arm names that type argument directly, and only for a
+    /// source that offers more than one row type. The task-wrapped arms take the awaited collection
+    /// type rather than the row type, and <c>Task&lt;TRows&gt;</c> admits exactly one inference, so
+    /// the row type reaches them through a converter instead: naming both at one call site would
+    /// need the collection type written as well, since C# cannot infer one type argument and take
+    /// the other.
     /// </para>
     /// </remarks>
     public static string? BuildAsyncTestDataSourceProvider(
@@ -287,12 +289,32 @@ internal static class CodeBuilder
             DataSourceShape.AsyncEnumerable =>
                 $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync{FormatRowTypeArgument(rowTypeName)}({access}, ct)",
             DataSourceShape.TaskOfCollection =>
-                $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync({access}, ct)",
+                $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync({access},{FormatRowReaderArgument(rowTypeName)} ct)",
             DataSourceShape.ValueTaskOfCollection =>
-                $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync(({access}).AsTask(), ct)",
+                $"static ct => global::NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync(({access}).AsTask(),{FormatRowReaderArgument(rowTypeName)} ct)",
             _ => null
         };
     }
+
+    /// <summary>
+    /// Formats the converter a task-wrapped adapter call reads its awaited collection through, or
+    /// the empty string to leave the collection read as a non-generic <c>IEnumerable</c>.
+    /// </summary>
+    /// <remarks>
+    /// The awaited collection reaches the adapter as <c>TRows</c>, which the runtime enumerates
+    /// through the non-generic <c>IEnumerable</c> unless something names an arm. The converter is
+    /// where the name goes, because the call site cannot write the row type without also writing
+    /// the collection type: inference is all-or-nothing per call.
+    /// <para>
+    /// Emitted only for a source offering more than one row type, on the same terms as the
+    /// synchronous provider. A source with one arm is left on the two-argument call, which is what
+    /// it already compiled to.
+    /// </para>
+    /// </remarks>
+    private static string FormatRowReaderArgument(string? rowTypeName) =>
+        rowTypeName is null
+            ? ""
+            : $" static rows => global::NextUnit.Internal.DataSourceAdapter.FromEnumerable<{rowTypeName}>(rows),";
 
     /// <summary>
     /// Formats the row type argument of the asynchronous enumerable adapter call, which the
@@ -328,6 +350,27 @@ internal static class CodeBuilder
 
     public static string BuildDataSourceFactory(string typeName) =>
         $"static () => new {typeName}()";
+
+    /// <summary>
+    /// Builds the reader a <c>[ClassDataSource]</c> instance is enumerated through, or <c>null</c>
+    /// to leave the runtime on its non-generic read.
+    /// </summary>
+    /// <remarks>
+    /// A reader rather than a typed factory: the instance belongs to the shared instance store,
+    /// which creates it, shares it under the declared scope, and disposes it at the end of the
+    /// session. Wrapping the factory would hand the store a wrapper to dispose instead of the
+    /// source, so only the read is wrapped.
+    /// <para>
+    /// The cast names the arm; the store hands the instance over as <c>object</c>, and the
+    /// expander's own read of it is the non-generic <c>IEnumerable</c>, which dispatches to
+    /// whichever arm the source type mapped that interface to.
+    /// </para>
+    /// </remarks>
+    public static string? BuildClassDataSourceRowReader(string? rowTypeName) =>
+        rowTypeName is null
+            ? null
+            : "static source => global::NextUnit.Internal.DataSourceAdapter.FromEnumerable" +
+                $"<{rowTypeName}>((global::System.Collections.Generic.IEnumerable<{rowTypeName}>)source)";
 
     /// <summary>
     /// Builds a lifecycle method delegate.

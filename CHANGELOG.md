@@ -86,6 +86,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Read a task-wrapped `[TestData]` source and a `[ClassDataSource]` through the row type `NU0009`
+  validated, rather than through the non-generic `IEnumerable`. A source implementing
+  `IEnumerable<T>` more than once dispatches that interface to whichever arm its type mapped it to,
+  so the rows a run enumerated could be the rows of an arm nothing had validated, and no cast at the
+  reading end can change it: both values reach the runtime as `object` and are re-read virtually.
+  The arm is now chosen where a type argument can still be written.
+  `AsyncDataSourceAdapter.FromTaskAsync` takes an optional reader for it -- the adapter's type
+  argument is the awaited collection rather than the row, and C# cannot infer one type argument and
+  take the other -- and `ClassDataSourceDescriptor` carries generated row readers aligned with its
+  data source types. A class data source instance stays owned by the shared instance store, which
+  still creates, shares, and disposes it; only the read is wrapped. Both are emitted only for a
+  source offering more than one row type, on the same terms as the synchronous provider: a source
+  with one arm is emitted exactly as before, and no test case id, `DataSourceType`, or snapshot
+  baseline moved.
+- Withhold an emitted row type name that spells a type retired with `[Obsolete(..., error: true)]`,
+  which the binder does not report on a speculative model and the generated file's blanket
+  `#pragma warning disable` cannot suppress, because `CS0619` is an error rather than a warning. The
+  consumer's own source never spells such a row type -- it arrives through the source's interface
+  list -- so their build passed while the generated file did not.
+
 - `[Repeat]` is no longer dropped from a test method that also carries parameter-level data sources.
   Such a method is emitted as a single combined descriptor rather than as one test case per
   iteration, and the descriptor carried no repeat count, so `[Repeat(5)]` beside `[Values(1, 2)]` ran

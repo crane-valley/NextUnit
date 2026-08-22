@@ -88,7 +88,9 @@ internal static class DataSourceAttributeReader
         return builder.ToImmutable();
     }
 
-    public static EquatableArray<ClassDataSource> GetClassDataSources(IMethodSymbol methodSymbol)
+    public static EquatableArray<ClassDataSource> GetClassDataSources(
+        IMethodSymbol methodSymbol,
+        KnownDataSourceTypes knownDataSourceTypes)
     {
         var builder = ImmutableArray.CreateBuilder<ClassDataSource>();
 
@@ -118,7 +120,18 @@ internal static class DataSourceAttributeReader
             foreach (var typeArg in sourceTypes)
             {
                 var typeName = typeArg.ToDisplayString(AttributeHelper.TypeExpressionFormat);
-                builder.Add(new ClassDataSource(typeName, sharedType, key));
+
+                // Named only for a source offering more than one row type, exactly as a [TestData]
+                // member is: the runtime reads the instance as a non-generic IEnumerable, so a
+                // second arm makes the rows a property of the source type's interface map rather
+                // than of what NU0009 validated. A class data source compiles today, so a name the
+                // generated file cannot write is given up on rather than emitted.
+                var classification = knownDataSourceTypes.Classify(typeArg);
+                var rowTypeName = classification.RowTypeIsAmbiguous
+                    ? GetRowTypeName(classification.RowType, requireWritableName: true, knownDataSourceTypes)
+                    : null;
+
+                builder.Add(new ClassDataSource(typeName, sharedType, key, rowTypeName));
             }
         }
 
@@ -449,32 +462,46 @@ internal static class DataSourceAttributeReader
     /// Names the selected row type for the emitted adapter call, or <c>null</c> to emit no name.
     /// </summary>
     /// <remarks>
-    /// A synchronous source has to prove the name binds from the generated file first, and gives it
-    /// up when it does not: that source compiles today and only reads the wrong arm, so a name the
-    /// file cannot resolve -- an <c>extern alias</c> hiding the assembly is the case that shows up
-    /// first -- would trade a wrong row for a build the user cannot fix, and the wrong row is the
-    /// lesser of the two. An asynchronous source is not asked, because without the name it does not
+    /// Every shape but <see cref="DataSourceShape.AsyncEnumerable"/> has to prove the generated file
+    /// can write the name first, and gives it up when it cannot: those sources compile today and
+    /// only read the wrong arm, so a name the file cannot resolve -- an <c>extern alias</c> hiding
+    /// the assembly is the case that shows up first -- or one that spells a type retired as an error
+    /// would trade a wrong row for a build the user cannot fix, and the wrong row is the lesser of
+    /// the two. An <c>IAsyncEnumerable</c> source is not asked, because without the name it does not
     /// compile at all: inference reports <c>CS0411</c> against the generated file, so there is no
-    /// working build for an unbindable name to cost.
+    /// working build for an unwritable name to cost.
     /// </remarks>
     private static string? GetRowTypeName(
         DataSourceClassification classification,
+        KnownDataSourceTypes knownDataSourceTypes) =>
+        GetRowTypeName(
+            classification.RowType,
+            requireWritableName: classification.Shape != DataSourceShape.AsyncEnumerable,
+            knownDataSourceTypes);
+
+    private static string? GetRowTypeName(
+        ITypeSymbol? rowType,
+        bool requireWritableName,
         KnownDataSourceTypes knownDataSourceTypes)
     {
-        if (classification.RowType is not { } rowType)
+        if (rowType is null)
         {
             return null;
         }
 
         var typeExpression = rowType.ToDisplayString(AttributeHelper.TypeExpressionFormat);
 
-        if (classification.Shape != DataSourceShape.Sync)
+        if (!requireWritableName)
         {
             return typeExpression;
         }
 
+        // The obsolete check is separate from binding on purpose: a speculative model returns no
+        // diagnostics for the expression that reports CS0619 once bound in a real tree, and CS0619
+        // is an error the file's blanket pragma cannot suppress.
         return GeneratedRegistryAccess.CanReachType(rowType, knownDataSourceTypes.CompilingAssembly) &&
-            GeneratedRegistryAccess.NameBindsToType(typeExpression, rowType, knownDataSourceTypes.SemanticModel)
+            GeneratedRegistryAccess.NameBindsToType(typeExpression, rowType, knownDataSourceTypes.SemanticModel) &&
+            !GeneratedRegistryAccess.NameSpellsAnErrorObsoleteType(rowType)
             ? typeExpression
             : null;
     }
