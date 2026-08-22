@@ -1194,6 +1194,24 @@ the bound.
   so the id tracks the attribute rather than the count and raising `[Repeat(1)]` to `[Repeat(2)]`
   cannot rename the first iteration.
 
+- [ ] `[Repeat]` is dropped from `[TestData]` and `[ClassDataSource]` tests for the same reason it was
+  dropped from combined ones. `RegistryEmitter` reads `test.RepeatCount` only in `EmitRegularTestCases`
+  and `EmitMatrixTestCases`, which emit one `TestCaseDescriptor` per iteration; the `TestDataTests` and
+  `ClassDataSourceTests` buckets go through `TestCaseEmitter.EmitTestDataDescriptor` and
+  `EmitClassDataSourceDescriptor`, each called once per source, and neither descriptor carries a repeat
+  count -- so `[Repeat(5)]` beside `[TestData(nameof(Rows))]` runs one case per row rather than five,
+  and says nothing. `TestCaseExpansionValidator` charges those buckets one descriptor each and is
+  therefore still correct about the bound, exactly as it was for the combined shape. The fix is the
+  shape this PR already took: carry the count on `TestDataDescriptor` and `ClassDataSourceDescriptor`,
+  multiply it into `TestDataExpander` and `ClassDataSourceExpander`, and charge it through
+  `TestCaseExpansionPolicy.ApplyRepeat` on both sides. What is not settled is the cap: rows come from
+  user code and are deliberately not bounded at discovery, so a repeat factor over a row count nobody
+  bounds has no compile-time product to charge -- which is the argument for charging nothing, and the
+  argument against is that the factor alone is knowable and a large one is exactly the mistake the cap
+  exists to catch. The deferred `[TestData]` placeholder is a second open question, since it stands for
+  a row set whose size is unknown until execution and its id has no row index to suffix. Surfaced while
+  fixing the combined case (2026-08-22).
+
 - [ ] The compile-time and discovery-time caps are configured independently, so raising one does not
   raise the other. `<NextUnitMaxTestCasesPerMethod>50000</NextUnitMaxTestCasesPerMethod>` lets the
   generator emit 50000 cases while discovery still rejects a combined data source at the 10000
