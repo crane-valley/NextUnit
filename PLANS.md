@@ -1038,7 +1038,7 @@ and need a deliberate decision before implementation.
   execution path and guards `AssemblyCleanup` on `IsAssemblyInitializeExecuted` (verified against
   microsoft/testfx `v4.3.3`). MSTest sets that flag in a `finally`, so its cleanup runs after a failed
   initialize -- the same entered-not-succeeded rule taken here.
-  Pinned by four tests in `SessionLifecycleRunnerTests`.
+  Pinned by five tests in `SessionLifecycleRunnerTests`.
 
 ### Priority 2 — A parallel group's declared limit overrides its unannotated members' default
 

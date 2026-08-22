@@ -460,6 +460,31 @@ public sealed class SessionLifecycleRunnerTests
     }
 
     [Test]
+    public async Task RunTeardownAsync_SkipsHooksWhenSetupWasCancelledBeforeItStartedAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);
+        var setupCalls = 0;
+        var teardownCalls = 0;
+        runner.AddMethods(
+            [(_, _) => { setupCalls++; return Task.CompletedTask; }],
+            [(_, _) => { teardownCalls++; return Task.CompletedTask; }]);
+
+        // The gate's WaitAsync throws on an already-cancelled token, so RunSetupOnceAsync is called
+        // but no hook of it ever starts. Marking the session entered on the way in rather than inside
+        // the gated operation would run [After(Session)] against a session holding nothing.
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => runner.RunSetupOnceAsync(cts.Token));
+        var error = await runner.RunTeardownAsync(CancellationToken.None);
+
+        Assert.Equal(0, setupCalls);
+        Assert.Null(error);
+        Assert.Equal(0, teardownCalls);
+    }
+
+    [Test]
     public async Task RunTeardownAsync_RunsHooksForASessionThatDeclaresNoSetupHookAsync()
     {
         var runner = new SessionLifecycleRunner(() => ValueTask.CompletedTask);

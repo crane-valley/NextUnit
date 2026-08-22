@@ -163,11 +163,6 @@ internal sealed class SessionLifecycleRunner
         // reusing a spent instance and has no reported shape that would make the run meaningful.
         ThrowIfSessionClosed();
 
-        // Marked before the hooks run, and never cleared, because this is what pairs the two phases:
-        // a [Before(Session)] that threw halfway may already hold what an [After(Session)] releases,
-        // and a session declaring only [After(Session)] hooks has no first [Before(Session)] to start.
-        Volatile.Write(ref _setupEntered, 1);
-
         try
         {
             await _setupGate.RunOnceAsync(ExecuteSetupAsync, cancellationToken).ConfigureAwait(false);
@@ -383,6 +378,16 @@ internal sealed class SessionLifecycleRunner
 
     private async Task ExecuteSetupAsync(CancellationToken cancellationToken)
     {
+        // Marked before the hooks run, and never cleared, because this is what pairs the two phases:
+        // a [Before(Session)] that threw halfway may already hold what an [After(Session)] releases,
+        // and a session declaring only [After(Session)] hooks has no first [Before(Session)] to start.
+        //
+        // Inside the gate's operation rather than at the top of RunSetupOnceAsync, because the gate's
+        // WaitAsync throws on an already-cancelled token before the operation starts: marking outside
+        // would call a setup entered that never reached a hook, and hand its [After(Session)] hooks a
+        // session with nothing to release.
+        Volatile.Write(ref _setupEntered, 1);
+
         // Session lifecycle methods MUST be static (enforced by generator/runtime). The null! instance
         // parameter is safe because generated delegates for static methods do not use it - they call
         // TypeName.Method() directly.
