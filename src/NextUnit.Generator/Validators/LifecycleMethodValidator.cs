@@ -41,19 +41,14 @@ internal static class LifecycleMethodValidator
         // the silence these rules exist to remove.
         var reported = new HashSet<string>(StringComparer.Ordinal);
 
-        // First, so the shared set leaves the accessibility rule silent about a declaration this one
-        // has already reported with the remedy that actually applies to it.
-        foreach (var method in beforeLifecycle.Concat(afterLifecycle))
+        foreach (var method in beforeLifecycle)
         {
-            ReportExplicitInterfaceMethod(context, method, reported);
+            ReportDeclaredMethod(context, method, reported);
         }
 
-        foreach (var method in beforeLifecycle.Concat(afterLifecycle))
+        foreach (var method in afterLifecycle)
         {
-            if (IsGlobalScope(method))
-            {
-                ReportUnreachableMethod(context, method, reported);
-            }
+            ReportDeclaredMethod(context, method, reported);
         }
 
         foreach (var test in tests)
@@ -110,6 +105,30 @@ internal static class LifecycleMethodValidator
     /// the hook just as dead.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Reports what one declaration is worth reporting on its own, before any test is considered.
+    /// </summary>
+    /// <remarks>
+    /// The declaration-form rule goes first, so the shared set leaves the accessibility rule silent
+    /// about a declaration this one has already reported with the remedy that actually applies to
+    /// it. Ordering the two questions inside one pass rather than running two passes is safe because
+    /// they cannot interact across declarations: the set is keyed on the override chain, so two
+    /// entries share a key only when they are the same method, and a method is an explicit interface
+    /// implementation or is not.
+    /// </remarks>
+    private static void ReportDeclaredMethod(
+        SourceProductionContext context,
+        LifecycleMethodDescriptor method,
+        HashSet<string> reported)
+    {
+        ReportExplicitInterfaceMethod(context, method, reported);
+
+        if (IsGlobalScope(method))
+        {
+            ReportUnreachableMethod(context, method, reported);
+        }
+    }
+
     private static void ReportExplicitInterfaceMethod(
         SourceProductionContext context,
         LifecycleMethodDescriptor method,
