@@ -1263,16 +1263,36 @@ broke 3.0.0 -- there is no way to run it again: re-running the workflow reaches 
 duplicate gate then fails closed by design. The Partial Publish Runbook therefore sends an operator to
 perform the job's checks by hand, which is what 3.0.0 required.
 
-- [ ] Decide the shape of the re-run path: a `workflow_dispatch` trigger on `release.yml` taking a
+- [x] Decide the shape of the re-run path: a `workflow_dispatch` trigger on `release.yml` taking a
   version input, with every job but the verification one gated off it, or a separate workflow that
   carries its own copy of the job body. The first keeps one definition of the checks but puts the
   OIDC-holding `publish` job one input away from running against an operator-chosen ref, so the gate
   that keeps it unreachable is the whole design; the second duplicates the body instead, and a copy
-  that drifts verifies nothing.
-- [ ] Decide what a dispatched run is allowed to conclude. Its checks are read-only against nuget.org,
+  that drifts verifies nothing. Resolved: neither. The job body moved verbatim into
+  `.github/workflows/verify-published.yml`, which carries both `workflow_call` and `workflow_dispatch`
+  triggers, and `release.yml` keeps a caller job with the same name, `needs`, and `if`. One definition
+  of the checks, and `publish` stays unreachable by construction rather than by an `if` expression --
+  `release.yml` still has only `release: published` as a trigger. The callee declares its own `env`
+  block because a caller's workflow-level `env` does not propagate into a called workflow and a
+  caller's `with:` cannot read `env.*`; the two blocks carry sync comments naming each other.
+  Repository variables were rejected for the same duplication because they move release configuration
+  out of reviewed repository content. The callee's concurrency group is
+  `verify-published-<event>-<version>`, so a dispatch never joins `release-publish` and two dispatches
+  of one version queue instead of cancelling.
+- [x] Decide what a dispatched run is allowed to conclude. Its checks are read-only against nuget.org,
   so a green re-run is evidence a keep decision can rest on. The runbook's rule that no automated
   signal authorizes a destructive action is unaffected: the item exists to produce that evidence
-  without hand-running it, not to let a job color decide anything.
+  without hand-running it, not to let a job color decide anything. Resolved as stated, and written
+  into the Partial Publish Runbook: a dispatched run changes no state outside the runner, so a green
+  one is the Step 3 evidence and the manual equivalent became the fallback, while a red one stays an
+  investigate-first signal that authorizes nothing. Dispatch is not a way to wait for a publish: the
+  job derives `PUBLISH_RESULT` as `success` on `workflow_dispatch`, which keeps "still unlisted after
+  the polling budget" fatal there, because `workflow_dispatch` and `workflow_call` declare separate
+  inputs and a `workflow_call` default would never reach a manual run. A dispatch also fails closed on
+  a version outside the release version allowlist and on any ref other than the default branch, since
+  the verification tool and smoke projects come from the checked-out ref. Residual risk recorded in
+  the pull request: the `release.yml` caller path is exercised only by the next release, with
+  actionlint's caller/callee input check and the verbatim-move diff as the pre-merge evidence for it.
 
 ## Deferred to the next major version
 
