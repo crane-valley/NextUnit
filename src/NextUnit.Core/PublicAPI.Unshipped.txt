@@ -1,6 +1,10 @@
 #nullable enable
+NextUnit.Internal.ClassDataSourceDescriptor.RepeatCount.get -> int?
+NextUnit.Internal.ClassDataSourceDescriptor.RepeatCount.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.get -> int?
 NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.init -> void
 NextUnit.Internal.DataSourceAdapter
 NextUnit.Internal.IGeneratedTestRegistry.MaxTestCasesPerMethod.get -> int
+NextUnit.Internal.TestDataDescriptor.RepeatCount.get -> int?
+NextUnit.Internal.TestDataDescriptor.RepeatCount.init -> void
 static NextUnit.Internal.DataSourceAdapter.FromEnumerable<TRow>(System.Collections.Generic.IEnumerable<TRow>? source) -> System.Collections.Generic.IEnumerable<object?>?

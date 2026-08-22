@@ -166,6 +166,7 @@ internal static class TestCaseEmitter
             writer.WriteLine("DeferredEnumeration = true,");
         }
 
+        EmitRuntimeRepeatCount(writer, test);
         writer.WriteLine($"ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
         EmitLifecycleAndParallelBlock(writer, test, lifecycleMethods);
         EmitDependencyAndSkipBlock(writer, test);
@@ -199,6 +200,7 @@ internal static class TestCaseEmitter
         writer.WriteLine($"DataSourceFactories = {dataSourceFactoriesLiteral},");
         writer.WriteLine($"SharedType = {BuildSharedTypeLiteral(firstSource.SharedType)},");
         writer.WriteLine($"SharedKey = {LiteralFormatter.NullableString(firstSource.Key)},");
+        EmitRuntimeRepeatCount(writer, test);
         writer.WriteLine($"ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
         EmitLifecycleAndParallelBlock(writer, test, lifecycleMethods);
         EmitDependencyAndSkipBlock(writer, test);
@@ -222,17 +224,7 @@ internal static class TestCaseEmitter
         writer.WriteLine($"ParameterSources = {BuildParameterSourcesLiteral(test)},");
         writer.WriteLine($"ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");
 
-        // The other three buckets expand [Repeat] here, by emitting one descriptor per iteration; a
-        // combined method has no compile-time expansion to repeat, so the count is handed to
-        // CombinedDataSourceExpander to multiply into the runtime product instead. Emitted only when
-        // the attribute is present, for the same reason as AsyncDataSourceProvider and
-        // DeferredEnumeration above: the descriptor property already defaults to null, and writing it
-        // unconditionally would churn every existing snapshot baseline for no gain.
-        if (test.RepeatCount is { } repeatCount)
-        {
-            writer.WriteLine($"RepeatCount = {LiteralFormatter.Int(repeatCount)},");
-        }
-
+        EmitRuntimeRepeatCount(writer, test);
         EmitLifecycleAndParallelBlock(writer, test, lifecycleMethods);
         EmitDependencyAndSkipBlock(writer, test);
         EmitLabelBlock(writer, test);
@@ -240,6 +232,31 @@ internal static class TestCaseEmitter
         EmitCultureBlock(writer, test);
         EmitDisplayNameAndPriorityBlock(writer, test);
         EndDescriptor(writer);
+    }
+
+    /// <summary>
+    /// Emits the <c>[Repeat]</c> count a runtime-expanded descriptor carries, and nothing when the
+    /// test method declares none.
+    /// </summary>
+    /// <remarks>
+    /// The two compile-time buckets expand <c>[Repeat]</c> here, by emitting one test case per
+    /// iteration. The three runtime-expanded descriptors cannot: a combined method's parameter
+    /// sources, a <c>[TestData]</c> member, and a <c>[ClassDataSource]</c> type all have a length
+    /// that is knowable only once the host runs them, so the count rides on the descriptor and its
+    /// expander multiplies by it at discovery.
+    /// <para>
+    /// Written only when the attribute is present, for the same reason as
+    /// <c>AsyncDataSourceProvider</c> and <c>DeferredEnumeration</c>: the descriptor property already
+    /// defaults to null, so emitting it unconditionally would churn every existing snapshot baseline
+    /// for no gain.
+    /// </para>
+    /// </remarks>
+    private static void EmitRuntimeRepeatCount(CodeWriter writer, TestMethodDescriptor test)
+    {
+        if (test.RepeatCount is { } repeatCount)
+        {
+            writer.WriteLine($"RepeatCount = {LiteralFormatter.Int(repeatCount)},");
+        }
     }
 
     private static void BeginDescriptor(CodeWriter writer, string descriptorTypeName)

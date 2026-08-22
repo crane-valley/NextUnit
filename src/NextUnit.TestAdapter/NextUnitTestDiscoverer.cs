@@ -101,13 +101,19 @@ public sealed class NextUnitTestDiscoverer : ITestDiscoverer
             registryType,
             "TestDataDescriptors",
             "test data",
-            descriptors => TestDataExpander.Expand(descriptors, CancellationToken.None),
+            RegistryDescriptorReader.CreateTestDataExpander(registryType, CancellationToken.None),
             source,
             logger,
             discoverySink);
 
         DiscoverExpandedTests<ClassDataSourceDescriptor>(
-            registryType, "ClassDataSourceDescriptors", "class data source", ClassDataSourceExpander.Expand, source, logger, discoverySink);
+            registryType,
+            "ClassDataSourceDescriptors",
+            "class data source",
+            RegistryDescriptorReader.CreateClassDataSourceExpander(registryType),
+            source,
+            logger,
+            discoverySink);
 
         DiscoverExpandedTests<CombinedDataSourceDescriptor>(
             registryType,

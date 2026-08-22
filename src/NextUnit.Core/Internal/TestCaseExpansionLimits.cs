@@ -51,6 +51,59 @@ internal static class TestCaseExpansionLimits
         Resolve(Environment.GetEnvironmentVariable(EnvironmentVariableName), registryBaseline);
 
     /// <summary>
+    /// Refuses a <c>[Repeat]</c> count larger than the cap, for a data source whose row count the
+    /// cap deliberately leaves alone.
+    /// </summary>
+    /// <param name="methodName">The test method the count is declared on, for the message.</param>
+    /// <param name="repeatCount">
+    /// The declared count, or <see langword="null"/> when the method carries no <c>[Repeat]</c>.
+    /// </param>
+    /// <param name="registryBaseline">
+    /// The cap carried by the registry the descriptor came from, or <see langword="null"/> when the
+    /// caller has no registry to read it from.
+    /// </param>
+    /// <exception cref="InvalidOperationException">The declared count exceeds the cap.</exception>
+    /// <remarks>
+    /// <c>[TestData]</c> and <c>[ClassDataSource]</c> rows come from user code and are deliberately
+    /// uncapped, so there is no product to check for those two -- but a repeat factor is not a row
+    /// count. It is declared in an attribute and NextUnit is what multiplies by it, which is exactly
+    /// what the cap covers; without this, adding <c>[TestData]</c> to a method would let a
+    /// <c>[Repeat]</c> count past a cap that refuses it on every other test, since
+    /// <c>TestCaseExpansionValidator</c> charges those two buckets one descriptor each.
+    /// <para>
+    /// The factor is checked on its own rather than against rows times factor. Charging the product
+    /// would bound the row count as a side effect, which is the decision these two sources
+    /// deliberately leave to the user, and it would start rejecting a member that returns more rows
+    /// than the cap with no <c>[Repeat]</c> anywhere near it.
+    /// </para>
+    /// <para>
+    /// Checked whether or not the source turns out to have rows, unlike
+    /// <c>CombinedDataSourceExpander</c>, which skips its product check once a source has collapsed
+    /// the product to zero. A resolved source can be empty; a declared count cannot. Gating this on
+    /// the first row would also leave a deferred placeholder uncheckable without reading the source
+    /// that deferral exists not to read.
+    /// </para>
+    /// </remarks>
+    public static void EnsureRepeatWithinLimit(string methodName, int? repeatCount, int? registryBaseline)
+    {
+        if (repeatCount is not { } declared)
+        {
+            return;
+        }
+
+        var maxTestCasesPerMethod = ResolveFromEnvironment(registryBaseline);
+
+        if (declared <= maxTestCasesPerMethod)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(string.Create(
+            CultureInfo.InvariantCulture,
+            $"Test '{methodName}' repeats {declared} times, which exceeds the limit of {maxTestCasesPerMethod} test cases per test method. Reduce the [Repeat] count, raise the limit for the project with <NextUnitMaxTestCasesPerMethod>, or raise it for this run only with the {EnvironmentVariableName} environment variable."));
+    }
+
+    /// <summary>
     /// Resolves the cap from a raw override value and a registry baseline.
     /// </summary>
     /// <param name="rawValue">The environment variable's value, or <see langword="null"/> when unset.</param>

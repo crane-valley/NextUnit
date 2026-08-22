@@ -618,6 +618,20 @@ public sealed class TestDataDescriptor
     public bool DeferredEnumeration { get; init; }
 
     /// <summary>
+    /// Gets or initializes how many times each row runs, or <c>null</c> when the test method carries
+    /// no <see cref="NextUnit.RepeatAttribute"/>.
+    /// </summary>
+    /// <remarks>
+    /// Carried rather than expanded by the generator, for the same reason as
+    /// <see cref="CombinedDataSourceDescriptor.RepeatCount"/>: this descriptor is emitted once per
+    /// source, and how many rows that source has is knowable only once the member runs. Null rather
+    /// than a defaulted <c>1</c> is what keeps <c>[Repeat(1)]</c> distinguishable from no attribute
+    /// at all, which is the distinction that decides whether a row's test case id carries a repeat
+    /// suffix.
+    /// </remarks>
+    public int? RepeatCount { get; init; }
+
+    /// <summary>
     /// Gets or initializes the lifecycle hooks configuration for the test.
     /// </summary>
     public LifecycleInfo Lifecycle { get; init; } = new();
@@ -1031,6 +1045,19 @@ public sealed class ClassDataSourceDescriptor
     /// Required when <see cref="SharedType"/> is <see cref="NextUnit.SharedType.Keyed"/>.
     /// </summary>
     public string? SharedKey { get; init; }
+
+    /// <summary>
+    /// Gets or initializes how many times each row runs, or <c>null</c> when the test method carries
+    /// no <see cref="NextUnit.RepeatAttribute"/>.
+    /// </summary>
+    /// <remarks>
+    /// Carried rather than expanded by the generator, for the same reason as
+    /// <see cref="TestDataDescriptor.RepeatCount"/>: this descriptor is emitted once per attribute,
+    /// and how many rows its source types yield is knowable only once they are instantiated. Null
+    /// rather than a defaulted <c>1</c> is what keeps <c>[Repeat(1)]</c> distinguishable from no
+    /// attribute at all.
+    /// </remarks>
+    public int? RepeatCount { get; init; }
 
     /// <summary>
     /// Gets or initializes the lifecycle hooks configuration for the test.
