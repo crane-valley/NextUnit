@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The `NEXTUNIT013` compile-time cap no longer rejects a combined data source whose real expansion is
+  zero. An empty `[Values()]` now collapses the projected product to zero, matching discovery, and a
+  combined list that includes a runtime-resolved `[ValuesFromMember]` or `[ValuesFrom]` -- whose size,
+  possibly zero, is known only once the member runs -- is left to the discovery-time cap rather than
+  charged an inline floor at compile time.
+
 ## [3.0.0] - 2026-08-22
 
 ### Upgrading from 2.x
