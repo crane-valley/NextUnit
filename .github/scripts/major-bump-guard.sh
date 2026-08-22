@@ -17,33 +17,59 @@ TAG_PATTERN='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 # shell integer comparison below, which returns status 2 and would silently skip the MAJOR check.
 VERSION_PATTERN='^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})(-(alpha|beta|rc|preview)(\.(0|[1-9][0-9]{0,8}))?)?$'
 
+# Read the version as XML rather than with a line-oriented regex. MSBuild accepts attributes and
+# line breaks inside a tag, so a second declaration written as
+#   <Version
+#     Condition="true">5.0.0</Version>
+# is invisible to any grep that works one line at a time, and it is the version that would ship.
+# Refusing more than one element, and refusing a conditional one, keeps the value this guard
+# inspects the value every build resolves.
+VERSION_PARSER='
+import sys, xml.etree.ElementTree as ET
+try:
+    root = ET.parse(sys.argv[1]).getroot()
+except Exception as exc:
+    sys.stderr.write("is not well-formed XML: %s" % exc)
+    sys.exit(2)
+parents = {child: parent for parent in root.iter() for child in parent}
+found = []
+for el in root.iter():
+    if el.tag.rsplit("}", 1)[-1] != "Version":
+        continue
+    conditional = bool(el.attrib)
+    ancestor = parents.get(el)
+    while ancestor is not None and not conditional:
+        conditional = "Condition" in ancestor.attrib
+        ancestor = parents.get(ancestor)
+    found.append(((el.text or "").strip(), conditional))
+if len(found) != 1:
+    sys.stderr.write("must declare exactly one <Version> element, found %d" % len(found))
+    sys.exit(3)
+value, conditional = found[0]
+if conditional:
+    sys.stderr.write("declares <Version> under a condition, so it is not the version every build resolves")
+    sys.exit(4)
+sys.stdout.write(value)
+'
+
 fail() {
   echo "::error::$*"
   exit 1
 }
 
-count_matches() {
-  local pattern=$1 file=$2 matches
-  matches=$(grep -oE "$pattern" "$file" || true)
-  if [ -z "$matches" ]; then printf '0'; else printf '%s' "$matches" | grep -c ''; fi
-}
+PY_BIN=
+for candidate in python3 python; do
+  if command -v "$candidate" >/dev/null 2>&1; then PY_BIN=$candidate; break; fi
+done
+[ -n "$PY_BIN" ] || fail "python3 is required to parse Directory.Build.props but was not found."
 
 # Sets VERSION_OUT rather than printing, so that fail() exits the script instead of a
 # command-substitution subshell that would swallow the ::error:: annotation.
 read_version() {
-  local file=$1 label=$2 opens plain value
+  local file=$1 label=$2 value
   [ -f "$file" ] || fail "$label Directory.Build.props not found: $file"
-  # Count every opening Version tag, attributes and self-closing form included, and require it to
-  # be the one plain element. MSBuild redefines a property in document order and allows Condition,
-  # so a second <Version Condition="..."> that a bare <Version> regex cannot see would ship a
-  # version this guard never inspected.
-  opens=$(count_matches '<Version([[:space:]][^>]*)?/?>' "$file")
-  plain=$(count_matches '<Version>[^<]*</Version>' "$file")
-  [ "$opens" -eq 1 ] || fail "$label Directory.Build.props must declare exactly one <Version> element, found $opens"
-  [ "$plain" -eq 1 ] || fail "$label <Version> must be a plain element with no attributes and a literal value"
-  value=$(grep -oE '<Version>[^<]*</Version>' "$file")
-  value=${value#<Version>}
-  value=${value%</Version>}
+  value=$(printf '%s' "$VERSION_PARSER" | "$PY_BIN" - "$file" 2>&1) \
+    || fail "$label Directory.Build.props $value"
   printf '%s' "$value" | grep -qE "$VERSION_PATTERN" \
     || fail "$label <Version> is outside this repository's version scheme: '$value'"
   VERSION_OUT=$value
@@ -96,8 +122,10 @@ while IFS=' ' read -r tag creator; do
   printf '%s' "$tag" | grep -qE "$TAG_PATTERN" || continue
   ts=$(git log -1 --format=%ct "$tag^{commit}" 2>/dev/null || true)
   [ -n "$ts" ] || continue
-  # An annotated tag cut today can point at an old commit. Taking the later of the two dates keeps
-  # that case failing closed instead of reading the release as months old.
+  # An annotated tag cut today can point at an old commit, so take the later of the two dates.
+  # A lightweight tag carries no creation date at all and creatordate reports the commit date;
+  # that residual gap is accepted because this repository tags the release commit itself, and
+  # closing it would mean calling the Releases API, which the local run cannot do.
   if [ -n "$creator" ] && [ "$creator" -gt "$ts" ]; then ts=$creator; fi
   if [ "$ts" -gt "$latest_ts" ]; then
     latest_ts=$ts

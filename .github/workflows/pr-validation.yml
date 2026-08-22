@@ -132,10 +132,12 @@ jobs:
 
   # Job 5: Release guard for MAJOR bumps and back-to-back releases.
   # Like every other job here, this one runs the workflow and script from the pull request's own
-  # head, so a PR that edits the guard is judged by the edited guard. Moving the logic to a
-  # required workflow in a separate trusted repository would close that, at the cost of a second
-  # repository in the release path; for a single-repository project, review of changes under
-  # .github/ is the control that stays.
+  # head, so a PR that edits the guard is judged by the edited guard. Running it from the base
+  # branch instead needs a pull_request_target workflow, and pull_request_target applies to a
+  # whole workflow file: adopting it here would hand a privileged token to the jobs that build
+  # pull request code, which is the failure mode that event is notorious for. Splitting the guard
+  # into its own privileged workflow is the real fix and is a decision for the repository owner;
+  # until then the control is review of changes under .github/.
   major-bump-guard:
     name: Major Bump Guard
     runs-on: ubuntu-latest
