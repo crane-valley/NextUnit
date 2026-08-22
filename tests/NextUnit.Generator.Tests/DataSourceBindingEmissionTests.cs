@@ -210,6 +210,50 @@ public class DataSourceBindingEmissionTests
         await AssertGeneratedOutputCompilesAsync(source);
     }
 
+    /// <summary>
+    /// The same unreachable <c>MemberType</c> shadowed by a parameter-level source: the test is
+    /// bucketed by its combined parameter sources, so no <c>TestDataDescriptor</c> is written for
+    /// the member at all -- not even the throwing provider the test above pins.
+    /// </summary>
+    /// <remarks>
+    /// This is the emission fact the <c>NU0020</c> shadowing gate rests on. Nothing in the generated
+    /// file names the member, so the rule has no unreachable access to report; if a shadowed member
+    /// ever reaches the registry again, the gate in <c>TestDataMemberAnalyzer</c> has to go with it.
+    /// </remarks>
+    [Fact]
+    public async Task ShadowedPrivateMemberType_EmitsNoDescriptorAsync()
+    {
+        const string source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                private static class Fixtures
+                {
+                    public static IEnumerable<object[]> Rows => new[] { new object[] { 1 } };
+                }
+
+                [Test]
+                [TestData("Rows", MemberType = typeof(Fixtures))]
+                public void Consumes([Values(1, 2)] int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains("new global::NextUnit.Internal.CombinedDataSourceDescriptor", registry);
+        Xunit.Assert.DoesNotContain("DataSourceName = \"Rows\",", registry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("Fixtures", registry, StringComparison.Ordinal);
+        Xunit.Assert.DoesNotContain("is not accessible from the generated test registry", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
     [Fact]
     public async Task PrivateMemberTypeOnParameterSource_EmitsNoTypeReferenceAsync()
     {

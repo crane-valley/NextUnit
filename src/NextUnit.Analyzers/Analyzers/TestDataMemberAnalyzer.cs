@@ -46,12 +46,20 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var shadowedByParameterSources = ParameterDataSourceSelector.AnyParameterHasDataSource(method);
+
         // Check method-level [TestData] attributes
         foreach (var attribute in method.GetAttributes())
         {
             if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.TestData)
             {
-                ValidateMemberReference(context, method, attribute, knownDataSourceTypes, isTestDataSource: true);
+                ValidateMemberReference(
+                    context,
+                    method,
+                    attribute,
+                    knownDataSourceTypes,
+                    isTestDataSource: true,
+                    shadowedByParameterSources);
             }
             else
             {
@@ -66,7 +74,15 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
             {
                 if (attribute.AttributeClass?.ToDisplayString() == NextUnitAttributeNames.ValuesFromMember)
                 {
-                    ValidateMemberReference(context, method, attribute, knownDataSourceTypes, isTestDataSource: false);
+                    // Never shadowed: a parameter's own source is the one the registry expands, and
+                    // is in fact what shadows the method-level attributes above.
+                    ValidateMemberReference(
+                        context,
+                        method,
+                        attribute,
+                        knownDataSourceTypes,
+                        isTestDataSource: false,
+                        shadowedByParameterSources: false);
                 }
             }
         }
@@ -77,7 +93,8 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
         IMethodSymbol method,
         AttributeData attribute,
         KnownDataSourceTypes knownDataSourceTypes,
-        bool isTestDataSource)
+        bool isTestDataSource,
+        bool shadowedByParameterSources)
     {
         var constructorArgs = attribute.ConstructorArguments;
         if (constructorArgs.Length == 0)
@@ -144,6 +161,25 @@ public sealed class TestDataMemberAnalyzer : DiagnosticAnalyzer
 
         if (resolved.Issue == DataSourceBindingIssue.MemberNotAccessible)
         {
+            // A parameter-level source shadows the method-level [TestData]: the registry buckets the
+            // whole method by its parameter sources, so it writes a CombinedDataSourceDescriptor and
+            // no TestDataDescriptor at all -- no DataSourceName, no provider, and since PR #257 no
+            // trimming root either. Unshadowed, the same private member is emitted as a descriptor
+            // naming it beside either a null provider that leaves the reflection fallback or a
+            // provider that throws this rule's own message; shadowed, nothing in the generated file
+            // mentions the member, so making it public would change no emitted code and the error
+            // rejects a test that compiles and runs on its parameter sources. NEXTUNIT010 already
+            // warns that only those are processed. Same reasoning and same shared gate as NU0022,
+            // and it is sound for the same reason: the emitter reads the partition.
+            // Gating the whole path was rejected. NU0003, NU0021, and the row type check judge the
+            // declaration -- a name that binds to nothing, or a token the synchronous provider could
+            // never pass, is wrong whichever bucket the test lands in -- and only this rule judges
+            // what generated code can reach. That is the NU0022 against NEXTUNIT009 split.
+            if (shadowedByParameterSources)
+            {
+                return;
+            }
+
             ReportDiagnostic(
                 context,
                 method,
