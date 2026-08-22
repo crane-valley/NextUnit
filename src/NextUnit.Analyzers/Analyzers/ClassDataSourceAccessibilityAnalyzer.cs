@@ -22,6 +22,11 @@ namespace NextUnit.Analyzers.Analyzers;
 /// source is constructed, so withholding the type would trade a build error for a source that
 /// silently supplies no rows.
 /// </para>
+/// <para>
+/// The one shape that is not reported is a method-level source that a parameter-level source
+/// shadows, because there the registry emits neither the factory nor the type: see the gate in
+/// <c>AnalyzeMethod</c>.
+/// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ClassDataSourceAccessibilityAnalyzer : DiagnosticAnalyzer
@@ -57,14 +62,26 @@ public sealed class ClassDataSourceAccessibilityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        foreach (var attribute in method.GetAttributes())
+        // A parameter-level source shadows the method-level ones: the registry buckets the whole
+        // method by its parameter sources, so no ClassDataSourceDescriptor, no new T() factory, and
+        // no reflection root is emitted for the method-level [ClassDataSource<T>]. Nothing names T,
+        // so no CS0122 is coming, and reporting here would reject a test that compiles. NEXTUNIT010
+        // already warns that only the parameter sources are processed.
+        // PR #234 gated this rule alone and had to revert it: the emitter still rooted typeof(T), so
+        // suppressing the rule left the consumer with the bare CS0122 the rule exists to replace.
+        // The gate is sound only because RegistryEmitter.EmitDynamicDependencies now computes its
+        // roots from the same partition; if that root ever comes back, this gate has to go with it.
+        if (!ParameterDataSourceSelector.AnyParameterHasDataSource(method))
         {
-            // Every type argument is emitted, so each is reported separately: one unreachable
-            // source in [ClassDataSource<A, B>] leaves the other perfectly usable, and naming the
-            // attribute rather than the type would not say which half to widen.
-            foreach (var sourceType in ClassDataSourceAttributeMatcher.GetClassDataSourceTypes(attribute))
+            foreach (var attribute in method.GetAttributes())
             {
-                ReportIfUnreachable(context, method, attribute, sourceType);
+                // Every type argument is emitted, so each is reported separately: one unreachable
+                // source in [ClassDataSource<A, B>] leaves the other perfectly usable, and naming the
+                // attribute rather than the type would not say which half to widen.
+                foreach (var sourceType in ClassDataSourceAttributeMatcher.GetClassDataSourceTypes(attribute))
+                {
+                    ReportIfUnreachable(context, method, attribute, sourceType);
+                }
             }
         }
 

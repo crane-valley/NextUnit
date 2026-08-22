@@ -172,6 +172,13 @@ but neither can be named from the registry. Widen the source type to `public` or
 it every type it is nested in and every type argument it names -- a `public Rows<Secret>` is no more
 nameable than `Secret` is.
 
+One shape is exempt. A method-level `[ClassDataSource<T>]` on a test whose parameters carry their own
+`[Values]`, `[ValuesFromMember]`, or `[ValuesFrom<T>]` expands nothing -- the parameter-level sources
+win, which is what `NEXTUNIT010` warns about -- so nothing about `T` reaches the registry: no
+`typeof(T)`, no `new T()`, and no trimming root. There is no build error to replace, so `NU0022` says
+nothing about it. Remove the parameter-level sources to put the class source back in play and the rule
+applies again.
+
 ### Async Data Rows
 
 A `[TestData]` member can produce its rows asynchronously. Three shapes are supported:
