@@ -863,6 +863,20 @@ public sealed class CombinedDataSourceDescriptor
     public Type[] ParameterTypes { get; init; } = [];
 
     /// <summary>
+    /// Gets or initializes how many times each combination runs, or <c>null</c> when the test method
+    /// carries no <see cref="NextUnit.RepeatAttribute"/>.
+    /// </summary>
+    /// <remarks>
+    /// Repeat is a compile-time expansion everywhere else -- the generator emits one
+    /// <see cref="TestCaseDescriptor"/> per iteration -- but a combined data source has no compile-time
+    /// count to repeat, since its parameter sources resolve only once the host runs. So the count is
+    /// carried here and multiplied into the Cartesian product at discovery instead. Null rather than a
+    /// defaulted <c>1</c> is what keeps <c>[Repeat(1)]</c> distinguishable from no attribute at all,
+    /// which is the distinction that decides whether a test case id carries a repeat suffix.
+    /// </remarks>
+    public int? RepeatCount { get; init; }
+
+    /// <summary>
     /// Gets or initializes the lifecycle hooks configuration for the test.
     /// </summary>
     public LifecycleInfo Lifecycle { get; init; } = new();

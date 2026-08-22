@@ -10,10 +10,16 @@ namespace NextUnit.Internal;
 /// by resolving parameter data sources and computing the Cartesian product at runtime.
 /// </summary>
 /// <remarks>
+/// <c>[Repeat]</c> multiplies that product here rather than in the generator. The other three
+/// buckets expand it at compile time, by emitting one descriptor per iteration, but a combined
+/// method's parameter sources have no compile-time length to repeat, so the count rides on the
+/// descriptor and is applied once the sources have resolved.
+/// <para>
 /// Shared instances come from <see cref="SharedInstanceStore"/>, which <c>[ClassDataSource]</c>
 /// shares through <see cref="ClassDataSourceExpander"/>: one data source type used through both
 /// attributes under the same sharing scope is one instance, and the store disposes it at the end of
 /// the session.
+/// </para>
 /// </remarks>
 internal static class CombinedDataSourceExpander
 {
@@ -44,7 +50,13 @@ internal static class CombinedDataSourceExpander
 
         // Resolve values for each parameter
         var parameterValues = new List<object?[]>();
-        var projected = 1L;
+
+        // The running product starts at the repeat factor rather than at one, so [Repeat] is charged
+        // against the cap the way every other multiplying source is. That placement is what keeps the
+        // per-source draw honest as well: PerSourceCap divides the cap by the running product, so a
+        // [Repeat(5)] beside a lazy source bounds that source at a fifth of the cap instead of letting
+        // it fill the whole cap and then multiply past it.
+        var projected = TestCaseExpansionPolicy.ApplyRepeat(1L, descriptor.RepeatCount);
         var truncated = false;
 
         foreach (var source in descriptor.ParameterSources)
@@ -95,10 +107,31 @@ internal static class CombinedDataSourceExpander
         var testMethod = seed.ResolveTestInvoker();
 
         // Create test cases
+        var repeatCount = descriptor.RepeatCount ?? 1;
         var index = 0;
         foreach (var combination in combinations)
         {
-            yield return seed.CreateTestCase($"{descriptor.BaseId}:Combined[{index}]", combination, index, testMethod);
+            var combinedId = $"{descriptor.BaseId}:Combined[{index}]";
+
+            for (var repeatIndex = 0; repeatIndex < repeatCount; repeatIndex++)
+            {
+                // The suffix is emitted whenever the attribute is present, [Repeat(1)] included, which
+                // is what TestCaseEmitter does for every compile-time expansion. Suppressing it for a
+                // count of one would make the id depend on the count rather than on the attribute, and
+                // raising [Repeat(1)] to [Repeat(2)] would then rename the first iteration's test case.
+                // A method with no [Repeat] keeps the bare id it has always had.
+                var suffixedId = descriptor.RepeatCount.HasValue
+                    ? $"{combinedId}#{repeatIndex}"
+                    : combinedId;
+
+                yield return seed.CreateTestCase(
+                    suffixedId,
+                    combination,
+                    index,
+                    testMethod,
+                    repeatIndex: descriptor.RepeatCount.HasValue ? repeatIndex : null);
+            }
+
             index++;
         }
     }

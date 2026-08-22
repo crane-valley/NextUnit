@@ -230,6 +230,39 @@ internal static class GeneratorSnapshotSources
         }
         """;
 
+    /// <summary>
+    /// The same combined test carrying <c>[Repeat]</c>, whose baseline differs from
+    /// <see cref="CombinedDataSourceTest"/> by exactly the emitted repeat count.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately identical apart from the attribute, so a diff between the two baselines is the
+    /// whole of what <c>[Repeat]</c> adds to a combined descriptor. The repeat itself is expanded at
+    /// discovery, not here, so no test case multiplies in the generated file.
+    /// </remarks>
+    public const string CombinedRepeatDataSourceTest = """
+        using System.Collections.Generic;
+        using NextUnit;
+
+        namespace TestProject;
+
+        public class CombinedTests
+        {
+            public static IEnumerable<int> Numbers()
+            {
+                yield return 1;
+                yield return 2;
+            }
+
+            [Test]
+            [Repeat(3)]
+            public void Combine(
+                [ValuesFromMember(nameof(Numbers))] int number,
+                [Values("a", "b")] string label)
+            {
+            }
+        }
+        """;
+
     public const string LifecycleScopesTest = """
         using NextUnit;
 

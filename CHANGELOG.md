@@ -53,6 +53,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `[Repeat]` is no longer dropped from a test method that also carries parameter-level data sources.
+  Such a method is emitted as a single combined descriptor rather than as one test case per
+  iteration, and the descriptor carried no repeat count, so `[Repeat(5)]` beside `[Values(1, 2)]` ran
+  two test cases instead of ten and said nothing about it. The count now rides on the descriptor and
+  multiplies the Cartesian product at discovery, which is where the parameter sources resolve. This
+  is a behavior change: a suite with this combination now runs `n` times the test cases it ran
+  before, and takes correspondingly longer. Repeated cases follow the existing id convention, a `#n`
+  suffix on the combined id with a `(Repeat #n)` display-name suffix, and expose `RepeatIndex` on the
+  test context; a method without `[Repeat]` keeps the ids it already had. The repeat factor is also
+  charged against both expansion caps -- `NEXTUNIT013` at compile time and the discovery-time cap --
+  through one shared multiplication, so a combination that is now over the limit is reported with the
+  same number by both. It is charged at compile time only when every combined source is `[Values]`,
+  since a runtime-resolved source can still resolve to nothing and zero the product however large the
+  repeat count is.
 - A synchronous `[TestData]` source whose type implements `IEnumerable<T>` more than once is now read
   through the arm `NU0009` validated. The generated provider handed the member's value over as
   `object`, and the runtime read it back as the non-generic `IEnumerable`, which dispatches to

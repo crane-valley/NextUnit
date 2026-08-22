@@ -183,6 +183,11 @@ has a size known only once that member runs, so its cap is enforced at discovery
 the resolved product exceeds the limit. Neither ever truncates -- a shortened run would report green
 over tests that never ran.
 
+`[Repeat]` multiplies a combined data source like every other factor: `[Repeat(5)]` beside
+`[Values(1, 2)]` runs ten test cases, each carrying the same `#n` id suffix a repeated `[Arguments]`
+case gets. The product is formed at discovery rather than at build time, because the parameter
+sources have no compile-time length to repeat, and the repeat factor is charged against both caps.
+
 The cap covers the expansions NextUnit performs itself. It does not limit how many rows a
 `[TestData]` or `[ClassDataSource]` member returns, because that member is your code: bounding its
 row count would not bound its running time, and a large row set is a supported case. For `[TestData]`,
