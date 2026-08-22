@@ -42,6 +42,37 @@ internal static class RegistryDescriptorReader
         AssemblyLoader.GetStaticPropertyValue<IReadOnlyList<TDescriptor>>(registryType, propertyName);
 
     /// <summary>
+    /// Builds the combined data source expander for one registry, bound to that registry's cap.
+    /// </summary>
+    /// <remarks>
+    /// One factory rather than the same two lines in the discoverer and the executor, because the
+    /// cap and the descriptors have to come from the same registry: VSTest hands the adapter one
+    /// source at a time and can hold several in one process, so a run over two assemblies with
+    /// different <c>&lt;NextUnitMaxTestCasesPerMethod&gt;</c> settings must bound each assembly by
+    /// its own. Pairing them here is what makes that impossible to get wrong at one call site and
+    /// right at the other.
+    /// <para>
+    /// A registry generated before the property existed reports nothing, and the built-in default
+    /// applies -- the cap that build was already emitted under unless its project raised it, which
+    /// is the one case an old registry cannot report and the reason this is not an error.
+    /// </para>
+    /// </remarks>
+    public static Func<IEnumerable<CombinedDataSourceDescriptor>, IEnumerable<TestCaseDescriptor>> CreateCombinedExpander(
+        Type registryType)
+    {
+        var registryCap = AssemblyLoader.GetStaticStructPropertyValue<int>(
+            registryType, MaxTestCasesPerMethodPropertyName);
+
+        return descriptors => CombinedDataSourceExpander.Expand(descriptors, registryCap);
+    }
+
+    /// <summary>
+    /// The registry property carrying the compile-time cap, read by name like every other member the
+    /// adapter reads by reflection.
+    /// </summary>
+    internal const string MaxTestCasesPerMethodPropertyName = "MaxTestCasesPerMethod";
+
+    /// <summary>
     /// Selects the descriptors worth expanding for a run.
     /// </summary>
     /// <remarks>

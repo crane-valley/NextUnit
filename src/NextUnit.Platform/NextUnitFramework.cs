@@ -513,7 +513,7 @@ internal sealed class NextUnitFramework :
         AddFilteredExpansion(
             generatedRegistry.CombinedDataSourceDescriptors,
             cd => _filterConfig.ShouldExpandDynamicTest(cd.Categories, cd.Tags, cd.DisplayName, cd.IsExplicit),
-            CombinedDataSourceExpander.Expand,
+            descriptors => CombinedDataSourceExpander.Expand(descriptors, generatedRegistry.MaxTestCasesPerMethod),
             allTestCases);
 
         // Apply category and tag filtering to static test cases

@@ -26,6 +26,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Discovery now reads the project's `<NextUnitMaxTestCasesPerMethod>` as its baseline instead of
+  always starting from the 10000 default. The generator writes the cap it enforced into the registry
+  it emits, and `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` stays above it as the per-run override, so the
+  precedence is environment variable, then project property, then default. Raising the property used
+  to raise only the compile-time cap: a project set to 50000 still had a combined data source
+  rejected at 10000, and the run was the first place that showed. The cap is read from the registry
+  the descriptors came from rather than from the last registry registered in the process, so a VSTest
+  run over two assemblies bounds each by its own setting. `IGeneratedTestRegistry` carries the value
+  as a default-implemented `MaxTestCasesPerMethod`, so a test project built by an earlier NextUnit
+  keeps working and reads the default until it is rebuilt. Both values are still refused rather than
+  discarded when they are not a positive 32-bit integer.
+
 - `NU0020` no longer reports a method-level `[TestData]` member that a parameter-level source
   shadows, matching the `NU0022` gate below. The registry buckets such a test by its combined
   parameter sources, so it writes a `CombinedDataSourceDescriptor` and no `TestDataDescriptor`: the

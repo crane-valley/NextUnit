@@ -38,7 +38,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
     /// </remarks>
     private const int MaxExercisableLimit = 1_000_000;
 
-    private static readonly int _limit = TestCaseExpansionLimits.MaxTestCasesPerMethod;
+    private static readonly int _limit = TestCaseExpansionLimits.ResolveFromEnvironment(registryBaseline: null);
 
     /// <summary>
     /// The smallest per-parameter length whose cube exceeds <see cref="_limit"/>, so three sources of
@@ -67,7 +67,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
         var descriptor = CreateDescriptor(parameterCount: 3, valuesPerParameter: _overLimitCubeRoot);
 
         var exception = Assert.Throws<InvalidOperationException>(
-            () => CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
+            () => CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).ToList());
 
         var expected = (long)_overLimitCubeRoot * _overLimitCubeRoot * _overLimitCubeRoot;
         Assert.Contains(expected.ToString(CultureInfo.InvariantCulture), exception.Message);
@@ -90,7 +90,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
         // Silently expanding the first N would report a green run over a suite that never ran in
         // full, which is worse than the exhaustion the limit is here to prevent.
         Assert.Throws<InvalidOperationException>(
-            () => CombinedDataSourceExpander.ExpandSingle(descriptor).First());
+            () => CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).First());
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
 
         Assert.Equal(
             perParameter * perParameter * perParameter,
-            CombinedDataSourceExpander.ExpandSingle(descriptor).Count());
+            CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).Count());
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
         });
 
         var exception = Assert.Throws<InvalidOperationException>(
-            () => CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
+            () => CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).ToList());
 
         // The sequence is drained before any product exists, so a cap that only guarded the product
         // would have pulled every value -- and a genuinely unbounded source would never stop. The
@@ -163,7 +163,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
             .ToArray());
 
         Assert.Throws<InvalidOperationException>(
-            () => CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
+            () => CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).ToList());
 
         // A fixed per-source cap would allow limit+1 values per parameter, so adding parameters would
         // buy the exhaustion back. The cap shrinks as the running product grows: once the product is
@@ -199,7 +199,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
             });
 
         // Order must not decide the outcome: a zero product is zero whichever source is read first.
-        Assert.Empty(CombinedDataSourceExpander.ExpandSingle(descriptor));
+        Assert.Empty(CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null));
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
 
         // The product is zero whichever source is read first, and it was zero before the limit
         // existed, so an oversized sibling must not turn "no test cases" into a failed discovery.
-        Assert.Empty(CombinedDataSourceExpander.ExpandSingle(descriptor));
+        Assert.Empty(CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null));
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
         // "no combinations" result rather than trip the limit.
         var descriptor = CreateDescriptor(parameterCount: 1, valuesPerParameter: 0);
 
-        Assert.Empty(CombinedDataSourceExpander.ExpandSingle(descriptor));
+        Assert.Empty(CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null));
     }
 
     [Theory]
@@ -282,13 +282,13 @@ public sealed class CombinedDataSourceExpansionLimitTests
     [InlineData("")]
     public void Resolve_UnsetEnvironmentValue_UsesTheDefault(string? value)
     {
-        Assert.Equal(TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod, TestCaseExpansionLimits.Resolve(value));
+        Assert.Equal(TestCaseExpansionPolicy.DefaultMaxTestCasesPerMethod, TestCaseExpansionLimits.Resolve(value, registryBaseline: null));
     }
 
     [Fact]
     public void Resolve_UsableEnvironmentValue_IsHonored()
     {
-        Assert.Equal(50, TestCaseExpansionLimits.Resolve("50"));
+        Assert.Equal(50, TestCaseExpansionLimits.Resolve("50", registryBaseline: null));
     }
 
     [Theory]
@@ -299,7 +299,7 @@ public sealed class CombinedDataSourceExpansionLimitTests
     {
         // The discovery-time half of the same decision the generator makes with NEXTUNIT014: a
         // mistyped bound stops the run instead of quietly widening it to the default.
-        var exception = Assert.Throws<InvalidOperationException>(() => TestCaseExpansionLimits.Resolve(value));
+        var exception = Assert.Throws<InvalidOperationException>(() => TestCaseExpansionLimits.Resolve(value, registryBaseline: null));
 
         Assert.Contains(TestCaseExpansionLimits.EnvironmentVariableName, exception.Message);
         Assert.Contains(value, exception.Message);

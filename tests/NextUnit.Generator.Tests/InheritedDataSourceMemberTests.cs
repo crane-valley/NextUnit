@@ -180,7 +180,7 @@ public sealed class InheritedDataSourceMemberTests
         var descriptor = CreateParameterDescriptor(nameof(HidingBase.HiddenValues), typeof(HidingDerived));
 
         var exception = Assert.Throws<InvalidOperationException>(
-            () => CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
+            () => CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).ToList());
 
         // The expander wraps the lookup failure with the parameter it was resolving, so the
         // member-level reason is the inner exception.
@@ -199,7 +199,7 @@ public sealed class InheritedDataSourceMemberTests
     {
         var descriptor = CreateParameterDescriptor(nameof(RowsBase.ParameterValues), typeof(RowsDerived));
 
-        var testCases = CombinedDataSourceExpander.ExpandSingle(descriptor).ToList();
+        var testCases = CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).ToList();
 
         Assert.Equal(
             new object?[] { 11, 12 },

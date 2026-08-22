@@ -195,7 +195,7 @@ row count would not bound its running time, and a large row set is a supported c
 enumerating rows only during execution; `[ClassDataSource]` has no deferred mode and always
 materializes its rows at discovery.
 
-Raise the cap per project for the generator, and per run for discovery:
+Raise the cap for the project, which raises it in both places:
 
 ```xml
 <PropertyGroup>
@@ -203,22 +203,29 @@ Raise the cap per project for the generator, and per run for discovery:
 </PropertyGroup>
 ```
 
+Override it for one run, without rebuilding:
+
 ```bash
-NEXTUNIT_MAX_TEST_CASES_PER_METHOD=50000 dotnet run --project MyProject.Tests
+NEXTUNIT_MAX_TEST_CASES_PER_METHOD=70000 dotnet run --project MyProject.Tests
 ```
+
+The two settings have a precedence, and it is `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` over
+`NextUnitMaxTestCasesPerMethod` over the 10000 default. The generator writes the project's cap into
+the registry it emits, so discovery starts from the number the build enforced instead of from the
+default: raising the property alone raises both caps. The environment variable sits above it, and
+overrides in both directions -- it can narrow a project that raised its cap as well as widen one that
+did not -- because it is the per-run escape hatch, and a run that has to widen the cap should not
+need a rebuild to do it.
 
 Leave both unset and the default applies. Set either one to anything that is not a positive 32-bit
 integer -- `100O` for `1000`, a `0`, a negative -- and NextUnit refuses it instead of falling back:
 the generator reports `NEXTUNIT014` and the build fails, and discovery throws before it resolves a
 single data source. A typo in a cap is always looser than the value you typed, so accepting the
-default in its place would quietly grant more than you asked for.
+default in its place would quietly grant more than you asked for. Each value is still validated
+where it is read, so a usable environment variable does not rescue an unusable property.
 
-Neither setting overrides the other, because nothing reads both. `NextUnitMaxTestCasesPerMethod` is
-the compile-time cap and only the generator sees it; `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` is the
-discovery-time cap and only the test host sees it. Each is validated where it is read, so a valid
-property does not rescue an unusable environment variable, and a valid environment variable does not
-rescue an unusable property. Raising one does not raise the other either -- set both when you want a
-larger cap in both places.
+A test project built by an earlier NextUnit carries no cap in its registry, and discovery reads the
+10000 default for it. Rebuild it to have the property propagate.
 
 ## Performance
 

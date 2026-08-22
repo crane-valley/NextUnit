@@ -128,4 +128,24 @@ internal static class AssemblyLoader
         var property = type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Static);
         return property?.GetValue(null) as T;
     }
+
+    /// <summary>
+    /// Gets the value of a static property of value type from a type.
+    /// </summary>
+    /// <typeparam name="T">The expected type of the property value.</typeparam>
+    /// <param name="type">The type containing the property.</param>
+    /// <param name="propertyName">The name of the property.</param>
+    /// <returns>The property value, or null when the property is absent or of another type.</returns>
+    /// <remarks>
+    /// Separate from <see cref="GetStaticPropertyValue{T}"/> rather than a relaxed constraint on it:
+    /// that method returns <c>default</c> for a miss, and <c>default(int)</c> is <c>0</c>, which a
+    /// caller reading a limit cannot tell from a registry that really reports zero. The nullable
+    /// return keeps "no such property" distinguishable, which is what lets a registry generated
+    /// before the property existed fall back rather than be refused.
+    /// </remarks>
+    public static T? GetStaticStructPropertyValue<T>(Type type, string propertyName) where T : struct
+    {
+        var property = type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Static);
+        return property?.GetValue(null) as T?;
+    }
 }

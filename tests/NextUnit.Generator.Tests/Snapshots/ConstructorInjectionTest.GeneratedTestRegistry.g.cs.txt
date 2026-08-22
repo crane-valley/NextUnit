@@ -494,6 +494,8 @@ internal static class GeneratedTestRegistry
 
     public static global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalAfterSessionMethods { get; } = EmptyLifecycleMethods;
 
+    public static int MaxTestCasesPerMethod { get; } = 10000;
+
     [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::TestProject.ContextAndOutputTests))]
     [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::TestProject.ContextTests))]
     [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::TestProject.MultipleOneArgumentConstructorsTests))]
@@ -519,5 +521,6 @@ internal static class GeneratedTestRegistry
         public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalAfterAssemblyMethods => GeneratedTestRegistry.GlobalAfterAssemblyMethods;
         public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalBeforeSessionMethods => GeneratedTestRegistry.GlobalBeforeSessionMethods;
         public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalAfterSessionMethods => GeneratedTestRegistry.GlobalAfterSessionMethods;
+        public int MaxTestCasesPerMethod => GeneratedTestRegistry.MaxTestCasesPerMethod;
     }
 }

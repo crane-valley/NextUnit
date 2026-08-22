@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using NextUnit.Generator.Builders;
 using NextUnit.Generator.Helpers;
 using NextUnit.Generator.Models;
@@ -19,7 +20,8 @@ internal static class RegistryEmitter
     public static string Emit(
         IReadOnlyList<TestMethodDescriptor> tests,
         ImmutableArray<LifecycleMethodDescriptor> beforeLifecycle,
-        ImmutableArray<LifecycleMethodDescriptor> afterLifecycle)
+        ImmutableArray<LifecycleMethodDescriptor> afterLifecycle,
+        int maxTestCasesPerMethod)
     {
         var lifecycleMethods = beforeLifecycle.Concat(afterLifecycle).ToList();
         var lifecycleByType = lifecycleMethods
@@ -73,6 +75,7 @@ internal static class RegistryEmitter
         EmitGlobalLifecycleProperty(writer, "GlobalAfterAssemblyMethods", globalLifecycle.AfterAssembly);
         EmitGlobalLifecycleProperty(writer, "GlobalBeforeSessionMethods", globalLifecycle.BeforeSession);
         EmitGlobalLifecycleProperty(writer, "GlobalAfterSessionMethods", globalLifecycle.AfterSession);
+        EmitMaxTestCasesPerMethod(writer, maxTestCasesPerMethod);
 
         EmitDynamicDependencies(writer, partition);
         EmitModuleInitializer(writer);
@@ -223,6 +226,22 @@ internal static class RegistryEmitter
     }
 
     /// <summary>
+    /// Emits the compile-time cap this registry was generated under, so discovery bounds the same
+    /// method by the same number.
+    /// </summary>
+    /// <remarks>
+    /// Emitted for every registry rather than only when the project set the property. Absence would
+    /// have to mean "the default", which is the ambiguity this member exists to remove: discovery
+    /// could not then tell a project that never configured a cap from one whose registry predates
+    /// the member, and only the second may be read as the built-in default.
+    /// </remarks>
+    private static void EmitMaxTestCasesPerMethod(CodeWriter writer, int maxTestCasesPerMethod)
+    {
+        writer.WriteLine($"public static int MaxTestCasesPerMethod {{ get; }} = {maxTestCasesPerMethod.ToString(CultureInfo.InvariantCulture)};");
+        writer.WriteLine();
+    }
+
+    /// <summary>
     /// Roots every type the registry reaches only through reflection, or trimming and AOT publishing
     /// drop it.
     /// </summary>
@@ -292,6 +311,7 @@ internal static class RegistryEmitter
         writer.WriteLine("public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalAfterAssemblyMethods => GeneratedTestRegistry.GlobalAfterAssemblyMethods;");
         writer.WriteLine("public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalBeforeSessionMethods => GeneratedTestRegistry.GlobalBeforeSessionMethods;");
         writer.WriteLine("public global::NextUnit.Internal.LifecycleMethodDelegate[] GlobalAfterSessionMethods => GeneratedTestRegistry.GlobalAfterSessionMethods;");
+        writer.WriteLine("public int MaxTestCasesPerMethod => GeneratedTestRegistry.MaxTestCasesPerMethod;");
         writer.Unindent();
         writer.WriteLine("}");
     }

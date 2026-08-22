@@ -321,7 +321,7 @@ public sealed class SharedInstanceStoreTests
             ]
         };
 
-        Assert.NotEmpty(CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
+        Assert.NotEmpty(CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).ToList());
     }
 
     private static void Record(Type scope, string entry)
