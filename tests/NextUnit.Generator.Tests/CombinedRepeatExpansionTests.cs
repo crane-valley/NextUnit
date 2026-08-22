@@ -168,6 +168,23 @@ public class CombinedRepeatExpansionTests
         Assert.Contains(_limit.ToString(CultureInfo.InvariantCulture), exception.Message);
     }
 
+    /// <summary>
+    /// A count below one cannot reach a generated registry, so it means a hand-written one. Refused
+    /// rather than left to collapse the product: the limit check passes over a zero product because
+    /// an empty resolved source has always meant no test cases, and a broken count would ride out on
+    /// that as a silently empty method.
+    /// </summary>
+    [Fact]
+    public void ExpandSingle_NonPositiveRepeat_IsRejected()
+    {
+        var descriptor = CreateDescriptor(repeatCount: 0, "x", "y");
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).ToList());
+
+        Assert.Contains("not positive", exception.Message);
+    }
+
     [Fact]
     public void ExpandSingle_RepeatWithALazySource_BoundsTheDrawByTheRepeatFactor()
     {

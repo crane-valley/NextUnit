@@ -379,6 +379,33 @@ public class MemberSourceRepeatExpansionTests
         Assert.Equal(0, invocations);
     }
 
+    /// <summary>
+    /// A count below one cannot come from the attribute, so it means a hand-written registry.
+    /// Refused rather than clamped to one: running the test once would report a green suite over a
+    /// registry that asked for something impossible, and expanding to nothing hides it just as well.
+    /// </summary>
+    [Fact]
+    public void TestData_NonPositiveRepeat_IsRejected()
+    {
+        var descriptor = CreateTestDataDescriptor(repeatCount: 0);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => TestDataExpander.ExpandSingle(descriptor, CancellationToken.None).ToList());
+
+        Assert.Contains("not positive", exception.Message);
+    }
+
+    [Fact]
+    public void ClassDataSource_NonPositiveRepeat_IsRejected()
+    {
+        var descriptor = CreateClassDataSourceDescriptor(repeatCount: -1);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ClassDataSourceExpander.ExpandSingle(descriptor).ToList());
+
+        Assert.Contains("not positive", exception.Message);
+    }
+
     [Fact]
     public void ClassDataSource_RepeatOverTheCap_IsRejected()
     {

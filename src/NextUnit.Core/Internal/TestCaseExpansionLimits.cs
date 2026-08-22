@@ -51,6 +51,44 @@ internal static class TestCaseExpansionLimits
         Resolve(Environment.GetEnvironmentVariable(EnvironmentVariableName), registryBaseline);
 
     /// <summary>
+    /// Refuses a <c>[Repeat]</c> count that is not positive, whichever expander carries it.
+    /// </summary>
+    /// <param name="methodName">The test method the count is declared on, for the message.</param>
+    /// <param name="repeatCount">
+    /// The declared count, or <see langword="null"/> when the method carries no <c>[Repeat]</c>.
+    /// </param>
+    /// <exception cref="InvalidOperationException">The declared count is not positive.</exception>
+    /// <remarks>
+    /// Refused rather than clamped up to one. A count below one cannot reach a generated registry:
+    /// <c>AttributeHelper.GetRepeatCount</c> reads only a positive constructor argument and drops
+    /// anything else as no attribute at all, and <c>RepeatAttribute</c> throws for it where a test
+    /// author would write it. So this can only be a hand-written <see cref="IGeneratedTestRegistry"/>,
+    /// which is the case <see cref="Resolve"/> already refuses on the same terms. Clamping would run
+    /// the test once and report a green suite over a registry that asked for something impossible --
+    /// the fail-open swap this file exists to refuse -- and letting the expansion loops run zero
+    /// times, which is what they would otherwise do, hides it just as well.
+    /// <para>
+    /// Separate from <see cref="EnsureRepeatWithinLimit"/> so that
+    /// <c>CombinedDataSourceExpander</c> can call it too. That expander charges the factor through
+    /// its product rather than on its own, and a zero count collapses the product to zero, which its
+    /// own limit check deliberately passes over: an empty resolved source has always meant no test
+    /// cases. Only the positivity half is shared, so neither expander has to adopt the other's cap
+    /// rule to get the same answer about a broken count.
+    /// </para>
+    /// </remarks>
+    public static void EnsureRepeatIsPositive(string methodName, int? repeatCount)
+    {
+        if (repeatCount is not { } declared || declared >= 1)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(string.Create(
+            CultureInfo.InvariantCulture,
+            $"Test '{methodName}' declares a repeat count of {declared}, which is not positive. A registry emitted by NextUnit cannot report this, so the registry implementation is at fault."));
+    }
+
+    /// <summary>
     /// Refuses a <c>[Repeat]</c> count larger than the cap, for a data source whose row count the
     /// cap deliberately leaves alone.
     /// </summary>
@@ -62,7 +100,9 @@ internal static class TestCaseExpansionLimits
     /// The cap carried by the registry the descriptor came from, or <see langword="null"/> when the
     /// caller has no registry to read it from.
     /// </param>
-    /// <exception cref="InvalidOperationException">The declared count exceeds the cap.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The declared count exceeds the cap, or is not positive.
+    /// </exception>
     /// <remarks>
     /// <c>[TestData]</c> and <c>[ClassDataSource]</c> rows come from user code and are deliberately
     /// uncapped, so there is no product to check for those two -- but a repeat factor is not a row
@@ -86,6 +126,8 @@ internal static class TestCaseExpansionLimits
     /// </remarks>
     public static void EnsureRepeatWithinLimit(string methodName, int? repeatCount, int? registryBaseline)
     {
+        EnsureRepeatIsPositive(methodName, repeatCount);
+
         if (repeatCount is not { } declared)
         {
             return;
