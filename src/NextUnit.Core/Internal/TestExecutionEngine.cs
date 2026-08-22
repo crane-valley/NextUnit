@@ -688,11 +688,31 @@ internal sealed class TestExecutionEngine
         // Execute class-level setup if not already done
         await EnsureClassSetupAsync(testCase, cancellationToken).ConfigureAwait(false);
 
-        // Check if class setup requested skip
-        if (_classContexts.TryGetValue(testCase.TestClass, out var classContext) && classContext.SkipReason is not null)
+        if (_classContexts.TryGetValue(testCase.TestClass, out var classContext))
         {
-            await sink.ReportSkippedAsync(testCase.WithSkipReason(classContext.SkipReason)).ConfigureAwait(false);
-            return SkipCheckResult.Skip;
+            if (classContext.SetupFailure is { } setupFailure)
+            {
+                // Reported on this test's own node, once per test, rather than on a synthetic class
+                // node like [ClassTeardown]: that node exists because a cleanup failure happens after
+                // the tests and cannot be attributed to one without retroactively failing a test that
+                // already passed, whereas the tests of a class whose setup failed provably did not run
+                // and are all nodes the adapter already discovered. Reported failed rather than
+                // skipped, so a broken fixture cannot pass as a green run.
+                //
+                // The setup exception is passed on as it was thrown. A wrapper naming the class was
+                // rejected: the VSTest adapter records only the outer Message and StackTrace, so it
+                // would replace what broke with prose and the hook's stack trace with the null one an
+                // exception that was never thrown carries.
+                await sink.ReportErrorAsync(testCase, setupFailure).ConfigureAwait(false);
+                return SkipCheckResult.Skip;
+            }
+
+            // Check if class setup requested skip
+            if (classContext.SkipReason is not null)
+            {
+                await sink.ReportSkippedAsync(testCase.WithSkipReason(classContext.SkipReason)).ConfigureAwait(false);
+                return SkipCheckResult.Skip;
+            }
         }
 
         return SkipCheckResult.Continue;
@@ -1497,7 +1517,8 @@ internal sealed class TestExecutionEngine
     }
 
     /// <summary>
-    /// Ensures class-level setup methods have been executed for the test class.
+    /// Ensures class-level setup methods have been executed for the test class, recording a setup
+    /// failure on the class context rather than letting it end the run.
     /// </summary>
     private async Task EnsureClassSetupAsync(TestCaseDescriptor testCase, CancellationToken cancellationToken)
     {
@@ -1544,14 +1565,15 @@ internal sealed class TestExecutionEngine
                     for (var level = 0; level < LevelCount(levels); level++)
                     {
                         // Published before the level's hooks run, and volatile like SetupExecuted, so a
-                        // setup failure that propagates out of this method still leaves cleanup able to
-                        // see which levels it has to unwind.
+                        // setup failure still leaves cleanup able to see which levels it has to unwind.
                         //
-                        // A high-water mark, because a setup that failed leaves SetupExecuted false and
-                        // another test of the same class can therefore start the setup over. A level the
-                        // earlier attempt entered still has to unwind whether or not the later one
-                        // reached it, so the count only ever rises. Read-then-write is safe: this runs
-                        // under SetupLock, so only one setup is in flight at a time.
+                        // A high-water mark, because a setup ending in run cancellation or a critical
+                        // exception leaves SetupExecuted false and another test of the same class can
+                        // therefore start the setup over; a recorded setup failure cannot, since it
+                        // sets SetupExecuted exactly as a passing setup does. A level the earlier
+                        // attempt entered still has to unwind whether or not the later one reached it,
+                        // so the count only ever rises. Read-then-write is safe: this runs under
+                        // SetupLock, so only one setup is in flight at a time.
                         if (level + 1 > Volatile.Read(ref context.EnteredLevels))
                         {
                             Volatile.Write(ref context.EnteredLevels, level + 1);
@@ -1569,6 +1591,26 @@ internal sealed class TestExecutionEngine
                     // Class setup requested skip - all tests in this class will be skipped
                     context.SkipReason = ex.Message;
                 }
+                catch (Exception ex) when (
+                    !ExceptionHelper.IsCriticalFailure(ex) &&
+                    !(ex is OperationCanceledException cancellation && IsRunCancellation(cancellation, cancellationToken)))
+                {
+                    // Recorded instead of propagated, so one broken fixture costs its own class and
+                    // nothing else: this used to escape RunAsync and end the run, and every other class
+                    // in the assembly with it. CheckSkipConditionsAsync fails each test of this class
+                    // with it.
+                    //
+                    // Run cancellation is excluded by the filter rather than caught and rethrown: it is
+                    // the run ending rather than this class failing, so it must still stop every other
+                    // class, and a filter leaves it to propagate with the first-chance debugger
+                    // behavior intact. IsCriticalFailure, not IsCriticalException, because this catch
+                    // is broad in order to keep the run going, and an OutOfMemoryException wrapped in
+                    // an AggregateException must not be reported as one class's bad fixture.
+                    context.SetupFailure = ex;
+                }
+
+                // Written after a recorded failure exactly as after a pass: the setup is attempted once
+                // for the class, so a failed one is not silently re-run by the next test.
                 Volatile.Write(ref context.SetupExecuted, true);
             }
         }
@@ -1708,6 +1750,16 @@ internal sealed class TestExecutionEngine
         public TestCaseDescriptor RepresentativeTest { get; init; } = null!;
         public bool SetupExecuted;
         public string? SkipReason { get; set; }
+
+        /// <summary>
+        /// The exception the class setup failed with, reported against every test of the class.
+        /// </summary>
+        /// <remarks>
+        /// Written under <see cref="SetupLock"/> before <see cref="SetupExecuted"/> is published, so a
+        /// reader that saw the volatile flag set has seen this too - the publication order
+        /// <see cref="SkipReason"/> already relies on.
+        /// </remarks>
+        public Exception? SetupFailure { get; set; }
         public SemaphoreSlim SetupLock { get; init; } = null!;
 
         /// <summary>How many base-chain levels of the class setup were entered, for the unwind.</summary>

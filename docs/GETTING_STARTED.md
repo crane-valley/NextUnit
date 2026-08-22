@@ -491,6 +491,19 @@ public class DatabaseTests
 }
 ```
 
+### When a class setup fails
+
+A `[Before(LifecycleScope.Class)]` hook that throws fails that class and only that class. Every test
+of the class is reported as failed, once each, carrying the setup exception, and the test bodies do
+not run. The setup is not attempted again for the tests that follow it, `[Retry]` included. Every
+other class in the assembly still runs, and the run as a whole still ends failed.
+
+The class then cleans up as it does after any failure: its `[After(LifecycleScope.Class)]` hooks run
+for the levels the setup reached, and the shared instance is disposed. `Assert.Skip` from a class
+setup still skips the class rather than failing it, and cancelling the run still ends the whole run
+rather than being reported as one class's failure. A test that `[DependsOn]` one of the failed tests
+is reported skipped, exactly as it is when the test it depends on fails for any other reason.
+
 ## Inheritance from a base test class
 
 Hooks and configuration attributes declared on a base test class apply to every class derived from
