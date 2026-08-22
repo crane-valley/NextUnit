@@ -118,6 +118,8 @@ public class CombinedRepeatExpansionTests
     [Fact]
     public void ExpandSingle_WithRepeatOfOne_StillSuffixesTheId()
     {
+        Assert.SkipWhen(_limit < 2, $"A configured cap of {_limit} cannot admit this expansion.");
+
         // The suffix tracks the attribute, not the count. Suppressing it at one would rename the first
         // iteration's test case the moment [Repeat(1)] became [Repeat(2)].
         var testCases = CombinedDataSourceExpander
@@ -132,6 +134,8 @@ public class CombinedRepeatExpansionTests
     [Fact]
     public void ExpandSingle_WithoutRepeat_KeepsTheBareIds()
     {
+        Assert.SkipWhen(_limit < 2, $"A configured cap of {_limit} cannot admit this expansion.");
+
         var testCases = CombinedDataSourceExpander
             .ExpandSingle(CreateDescriptor(repeatCount: null, "x", "y"))
             .ToList();
