@@ -1219,7 +1219,8 @@ bucket the test belongs to. That partition puts a test carrying any parameter-le
 sources only, and still emitted `[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(T))]`,
 holding every member of `T` against the trimmer for a source no row ever comes from. `NEXTUNIT010`
 already warns on the combination, so the shape is known at generation time. The three decisions below
-were taken together on 2026-08-22 and implemented in one change; only the `NU0020` follow-up remains.
+were taken together on 2026-08-22 and implemented in one change; the `NU0020` follow-up was audited
+and gated the same day, in the change recorded on the last item below.
 
 The per-parameter case is already right. `ParameterDataSourceSelector` in
 `src/NextUnit.CodeAnalysis.Shared/ParameterDataSourceSelector.cs` picks one attribute per parameter,
@@ -1263,13 +1264,34 @@ method-level source the partition passes over.
   source work -- rather than when they wrote the mistake. `ValidateClassDataSources` therefore still
   never consults `CombinedParameterSources`, and now says why at the report site.
 
-- [ ] `NU0020` was left as it was, and may have the same shape. The member-accessibility rule is
+- [x] `NU0020` was left as it was, and may have the same shape. The member-accessibility rule is
   reported for a `[TestData]` member whose declaring type or member the registry cannot name, and the
   root for such a member is now dropped when a parameter-level source shadows it. Whether the rule
   itself still reports on that shadowed member, and whether it should, was not audited here: it is a
   different rule with a different emission contract -- member paths withhold rather than report -- and
   folding it into this change would have widened a decision about class sources into a decision about
   every data source kind. Raised by the Codex plan review of this item (2026-08-22).
+  Audited 2026-08-22 by generating the registry for four shapes and reading the emitted text, because
+  the withhold contract makes "what is emitted" impossible to settle by reading the analyzer. It is
+  the same shape, and the rule is now gated on the same
+  `ParameterDataSourceSelector.AnyParameterHasDataSource`. The probe: `[TestData("Rows")]` on a
+  `private` member of the test class emits `DataSourceName = "Rows"` with `DataSourceProvider = null`,
+  and with `MemberType = typeof(PrivateNested)` it emits `DataSourceName = "Rows"` beside a provider
+  that throws a message ending "See NU0020."; add a `[Values(1, 2)]` to the parameter and both emit a
+  `CombinedDataSourceDescriptor` in which the strings `Rows` and `Fixtures` do not occur anywhere in
+  the file, with only the test class rooted. So the shadowed member reaches the registry through no
+  path at all -- not the accessor, not the throwing provider, not the root -- and widening it changes
+  no generated code, which makes an unconditional error a rejection of a test that compiles and runs
+  on its parameter sources, and a fix suggestion that does nothing. That is the #257 argument
+  unchanged. Only `NU0020` moves. `NU0003`, `NU0021`, and the row type check stay unconditional on the
+  same code path, on the `NEXTUNIT009` side of the split: a name that binds to nothing, a token no
+  synchronous provider can pass, and a row type that cannot reach the parameters are wrong whichever
+  bucket the test lands in, and gating them would move the error to the moment the user deletes the
+  parameter-level source. The gate covers only the method-level attribute loop; a parameter's own
+  `[ValuesFromMember]` is what the registry expands and is still reported, pinned by a test on a
+  method where a sibling parameter's `[Values]` is what forces the combined bucket. The emission fact
+  the gate rests on is pinned in `DataSourceBindingEmissionTests` beside the unshadowed control, so a
+  change that puts a shadowed member back into the registry has to flip that test.
 
 Record of what was already settled, to keep it from being relitigated as written: the same review
 proposed gating `src/NextUnit.Analyzers/Analyzers/ClassDataSourceAccessibilityAnalyzer.cs` on

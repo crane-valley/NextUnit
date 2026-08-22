@@ -139,6 +139,130 @@ public class TestDataMemberAnalyzerTests
     }
 
     /// <summary>
+    /// A parameter-level source shadows the method-level <c>[TestData]</c>: the registry buckets the
+    /// test by its combined parameter sources and writes a <c>CombinedDataSourceDescriptor</c> and
+    /// no <c>TestDataDescriptor</c>, so nothing in the generated file names the member -- no
+    /// <c>DataSourceName</c>, no provider, and since PR #257 no trimming root. Making the member
+    /// public would change no emitted code, so reporting would reject a test that compiles and runs
+    /// on its parameter sources. <c>NEXTUNIT010</c> already warns that only those are processed.
+    /// </summary>
+    /// <remarks>
+    /// The paired half of the emitter withholding the descriptor, pinned the same way NU0022's gate
+    /// is: if a shadowed <c>[TestData]</c> member ever reaches the registry again, this test has to
+    /// flip back to expecting the diagnostic rather than quietly restoring the unreachable access.
+    /// </remarks>
+    [Fact]
+    public async Task TestDataWithPrivateStaticMemberShadowedByParameterValues_NoDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                private static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+
+                [Test]
+                [TestData("TestCases")]
+                public void TestMethod([Values(1, 2)] int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// The unreachable declaring type is shadowed the same way. Unshadowed this shape emits a
+    /// provider that throws NU0020's own message; shadowed it emits no descriptor to hang one on.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithPrivateNestedMemberTypeShadowedByParameterValues_NoDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                private static class Fixtures
+                {
+                    public static IEnumerable<object[]> TestCases => new[] { new object[] { 1 } };
+                }
+
+                [Test]
+                [TestData("TestCases", MemberType = typeof(Fixtures))]
+                public void TestMethod([Values(1, 2)] int value)
+                {
+                }
+            }
+            """;
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>
+    /// The gate is decided per method but covers only the method-level attributes. A parameter's own
+    /// <c>[ValuesFromMember]</c> is what the registry expands, so it keeps being reported even though
+    /// a sibling parameter's <c>[Values]</c> is what puts the method in the combined bucket.
+    /// </summary>
+    [Fact]
+    public async Task ValuesFromMemberBesideAnotherParametersValues_ReportsDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections.Generic;
+
+            public class Tests
+            {
+                private static IEnumerable<int> Numbers => new[] { 1 };
+
+                [Test]
+                public void TestMethod([Values(1, 2)] int first, [{|#0:ValuesFromMember("Numbers")|}] int second)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0020")
+            .WithLocation(0)
+            .WithArguments("Numbers", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
+    /// Only NU0020 is gated. NU0003 judges the declaration -- a name that binds to nothing binds to
+    /// nothing whichever bucket the test lands in -- so a typo stays an error while it is shadowed,
+    /// rather than surfacing later when the user deletes the parameter-level source.
+    /// </summary>
+    [Fact]
+    public async Task TestDataWithMissingMemberShadowedByParameterValues_ReportsDiagnosticAsync()
+    {
+        var source = """
+            using NextUnit;
+
+            public class Tests
+            {
+                [Test]
+                [{|#0:TestData("Missing")|}]
+                public void TestMethod([Values(1, 2)] int value)
+                {
+                }
+            }
+            """;
+
+        var expected = CSharpAnalyzerVerifier<TestDataMemberAnalyzer>
+            .Diagnostic("NU0003")
+            .WithLocation(0)
+            .WithArguments("Missing", "Tests", "");
+
+        await CSharpAnalyzerVerifier<TestDataMemberAnalyzer>.VerifyAnalyzerAsync(source, expected);
+    }
+
+    /// <summary>
     /// The registry is emitted into the test assembly itself, so internal is reachable and the rule
     /// has to stop short of it. This is the negative half of NU0020.
     /// </summary>
