@@ -150,8 +150,16 @@ the `TestDataRow<T>` arm, because that is the more specific contract: it carries
 as well as its values. If a source offers several row types and none of them is a `TestDataRow<T>`,
 the one whose fully qualified type name sorts first ordinally is used. The rule depends only on the
 types themselves, so the row type a source is checked against does not change between builds. The
-selection governs what `NU0009` validates; a synchronous source is still enumerated through the
-non-generic `IEnumerable` at run time, so prefer a source type that offers one row type.
+selection governs what `NU0009` validates, and since 4.0.0 it governs what the run reads as well: the
+generated provider names the selected row type, so a source with several arms yields the rows that
+were checked rather than the rows of whichever arm the non-generic `IEnumerable` happened to reach.
+Synchronous members, task-wrapped members, and `[ClassDataSource<T>]` are all bound this way, and for
+those three the name is withheld, leaving the older read in place, where the generated file cannot
+spell the row type -- one reached through an `extern alias`, or retired with
+`[Obsolete(..., error: true)]`. A multi-arm `IAsyncEnumerable<T>` source has no such fallback,
+because the adapter call has nothing else to infer the row type from: the name is always emitted, and
+an unwritable one fails the build rather than reading the unchecked arm. A source that offers one row
+type avoids the question entirely and is still the simplest thing to write.
 
 ### Data source member accessibility
 
@@ -826,7 +834,10 @@ before answering. Rules worth knowing:
   call so policies work under Native AOT without reflection.
 - Because the constructor call is direct, the policy must be visible from the generated registry:
   `internal` or `public`, and not nested inside a private or protected scope. A policy that is not is
-  reported as `NU0016`.
+  reported as `NU0016`, or as `NEXTUNIT016` when the `[Retry<TPolicy>]` is inherited from a base
+  class -- which since 3.0.0 it can be, and a policy reachable in the assembly that declared the base
+  class is not necessarily reachable here. `NEXTUNIT016` covers a `[DisplayNameFormatter]` or
+  `[DisplayNameFormatter<T>]` type the same way, wherever it is declared.
 - Applying both `[Retry]` and `[Retry<TPolicy>]` to the same method or class is reported as `NU0015`.
 
 ### Observing Attempts

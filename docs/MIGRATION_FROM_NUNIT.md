@@ -797,11 +797,16 @@ timeouts, runtime skips, and cancellation are never retried.
 
 `[Repeat]` changes shape rather than meaning. NUnit runs the repetitions in sequence and stops at the
 first failure, so one repeated test produces one result. NextUnit expands them into independent test
-cases, each with its own id and result -- at build time, or at discovery when the test also carries
-parameter-level data sources whose length is not known until then -- and the scheduler may run them
-in parallel with everything else. A repeated test that mutates shared state can therefore overlap with itself,
-and a failing repetition no longer stops the ones after it. Add `[NotInParallel]` when the overlap is
-the problem, and write an ordinary loop inside one test when you need stop-on-first-failure.
+cases, each with its own id and result -- at build time, or at discovery when the test also carries a
+data source whose length is not known until then -- and the scheduler may run them in parallel with
+everything else. Since 4.0.0 the count multiplies a `[Values]` combination, a `[TestData]` member,
+and a `[ClassDataSource<T>]` alike, so `[Repeat(5)]` beside a four-row source is twenty test cases,
+and every one of them carries a `#n` id suffix rather than the bare row id. A `[TestData]` source
+with `DeferredEnumeration = true` is the exception: discovery reports one unsuffixed placeholder
+whatever the count is, and the rows and their repetitions appear during execution. A repeated test that
+mutates shared state can therefore overlap with itself, and a failing repetition no longer stops the
+ones after it. Add `[NotInParallel]` when the overlap is the problem, and write an ordinary loop
+inside one test when you need stop-on-first-failure.
 
 The retryable set is wider here than in NUnit. NextUnit's `[Retry]` re-runs a test after any failure
 except a timeout, a runtime skip, cancellation, and a failure thrown while cleaning up after the test

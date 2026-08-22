@@ -246,20 +246,33 @@ public void ClassSetup()
 public class DatabaseTests
 {
     [Before(LifecycleScope.Assembly)]
-    public void InitializeDatabase()
+    public static void InitializeDatabase()
     {
         // Migrate database schema once
         DatabaseMigrator.Migrate();
     }
 
     [After(LifecycleScope.Assembly)]
-    public void CleanupDatabase()
+    public static void CleanupDatabase()
     {
         // Drop test database
         DatabaseMigrator.Drop();
     }
 }
 ```
+
+An `Assembly` or `Session` hook has to be `static`, because it runs once around a whole set of tests
+and has no test instance to run against. An instance method carrying one of those scopes has that
+scope dropped from the generated registry, and nothing reports it, so check the modifier when a
+global setup appears not to have happened; the method's own `Test` and `Class` scopes are unaffected
+and still run. The two scopes differ in reach: an `Assembly` hook runs once for the tests of its own
+test assembly, so a run covering several assemblies runs each assembly's hooks, while a `Session`
+hook wraps the run. Use `Session` scope for setup that must happen exactly once across assemblies
+under Microsoft.Testing.Platform. Under the optional legacy `NextUnit.TestAdapter`, which runs
+assembly-scoped hooks only because VSTest has no session boundary, a `Session` hook does not run at
+all, so a suite on that adapter has to put the setup in `Assembly` scope. `Test` and `Class` hooks
+may be instance methods, as shown above, and both scopes are inherited from a base test class;
+`Assembly` and `Session` hooks are not inherited, and stay with the assembly that declared them.
 
 ## Parallel Execution
 

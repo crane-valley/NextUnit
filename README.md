@@ -15,7 +15,8 @@ it stood for an earlier release, check out that release's git tag.
 - **Zero-reflection execution** - Source generators produce delegate-based test registry
 - **Familiar assertions** - `Assert.Equal`, `Assert.True`, `Assert.Throws`, `Assert.Same`, `Assert.DoesNotThrow`, etc.
 - **Async tests** - `Task`, `Task<T>`, `ValueTask`, and `ValueTask<T>` return types for tests and lifecycle hooks
-- **Multi-scope lifecycle** - `[Before]`/`[After]` at Test, Class, Assembly, or Session level
+- **Multi-scope lifecycle** - `[Before]`/`[After]` at Test, Class, Assembly, or Session level, with
+  Test and Class hooks inherited from base test classes
 - **Fine-grained parallelism** - `[ParallelLimit(N)]`, `[NotInParallel("key")]`, `[ParallelGroup]`
 - **Execution priority** - `[ExecutionPriority(N)]` for controlling test execution order
 - **Parameterized tests** - `[Arguments]`, `[TestData]`, `[Matrix]`, and typed per-row metadata
@@ -145,7 +146,19 @@ public class DatabaseTests
 }
 ```
 
-Scopes: `Test`, `Class`, `Assembly`, `Session`
+Scopes: `Test`, `Class`, `Assembly`, `Session`. An `Assembly` or `Session` hook must be `static`; on
+an instance method that scope is dropped from the registry without a diagnostic, while the same
+method's `Test` and `Class` scopes still run.
+
+Since 3.0.0, `Test` and `Class` hooks and the configuration attributes declared on a base test class
+apply to the classes derived from it: `[Before]` runs base first, `[After]` unwinds derived first, and
+`[After]` runs after a failing `[Before]` or a failing test for the classes the setup reached.
+`Assembly` and `Session` hooks are not inherited; they belong to the assembly that declared them.
+To opt one derived class out of an inherited hook, override a `virtual` or `abstract` hook with an
+empty body; a non-virtual hook has no per-class opt-out, so make it `virtual` in the base class or
+move it down to the classes that want it. Hiding it with `new` adds a second hook instead of
+replacing the inherited one. See
+[Inheritance from a base test class](docs/GETTING_STARTED.md#inheritance-from-a-base-test-class).
 
 ## Parallel Execution
 
