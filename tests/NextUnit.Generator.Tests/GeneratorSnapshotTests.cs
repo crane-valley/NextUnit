@@ -47,6 +47,10 @@ public class GeneratorSnapshotTests
         VerifySnapshotAsync("CombinedDataSourceTest", GeneratorSnapshotSources.CombinedDataSourceTest);
 
     [Fact]
+    public Task CombinedRepeatDataSourceTest_MatchesSnapshotAsync() =>
+        VerifySnapshotAsync("CombinedRepeatDataSourceTest", GeneratorSnapshotSources.CombinedRepeatDataSourceTest);
+
+    [Fact]
     public Task LifecycleScopesTest_MatchesSnapshotAsync() =>
         VerifySnapshotAsync("LifecycleScopesTest", GeneratorSnapshotSources.LifecycleScopesTest);
 

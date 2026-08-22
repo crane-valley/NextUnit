@@ -163,12 +163,23 @@ internal sealed class TestCaseSeed
     /// The resolved data row when the expansion came from a data row, or <c>null</c> when the arguments
     /// have no row-level display name, skip reason, or labels to merge.
     /// </param>
+    /// <param name="repeatIndex">
+    /// The zero-based <c>[Repeat]</c> iteration this case is, or <c>null</c> when the test carries no
+    /// <see cref="NextUnit.RepeatAttribute"/>.
+    /// </param>
+    /// <remarks>
+    /// The repeat suffix on the display name is appended here rather than by the caller so that the
+    /// runtime expansion reads the same as the generated one: <c>TestCaseEmitter</c> appends
+    /// <c>" (Repeat #n)"</c> after the parameterized name is built, including over a row-supplied
+    /// name, and a suffix applied before the formatter ran would sort and group differently.
+    /// </remarks>
     public TestCaseDescriptor CreateTestCase(
         string testId,
         object?[] arguments,
         int argumentSetIndex,
         TestMethodWithArgumentsDelegate? testMethod,
-        ResolvedTestDataRow? row = null)
+        ResolvedTestDataRow? row = null,
+        int? repeatIndex = null)
     {
         var displayName = row?.DisplayName ?? DisplayNameBuilder.Build(
             MethodName,
@@ -177,6 +188,11 @@ internal sealed class TestCaseSeed
             TestClass,
             arguments,
             argumentSetIndex);
+
+        if (repeatIndex is { } iteration)
+        {
+            displayName = $"{displayName} (Repeat #{iteration + 1})";
+        }
 
         return new TestCaseDescriptor
         {
@@ -204,7 +220,8 @@ internal sealed class TestCaseSeed
             Culture = Culture,
             CustomDisplayNameTemplate = CustomDisplayNameTemplate,
             DisplayNameFormatterType = DisplayNameFormatterType,
-            Priority = Priority
+            Priority = Priority,
+            RepeatIndex = repeatIndex
         };
     }
 

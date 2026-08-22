@@ -1,3 +1,5 @@
 #nullable enable
+NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.get -> int?
+NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.init -> void
 NextUnit.Internal.DataSourceAdapter
 static NextUnit.Internal.DataSourceAdapter.FromEnumerable<TRow>(System.Collections.Generic.IEnumerable<TRow>? source) -> System.Collections.Generic.IEnumerable<object?>?

@@ -1169,7 +1169,7 @@ the bound.
   follow-up candidate by the Codex review of PR #236, which noted the emitter already carried this
   cost.
 
-- [ ] `[Repeat]` is silently dropped when a test method also carries parameter-level data sources.
+- [x] `[Repeat]` is silently dropped when a test method also carries parameter-level data sources.
   `RegistryEmitter` partitions such a method into `CombinedDataSourceTests`, and
   `EmitCombinedDataSourceDescriptor` writes no repeat information, so `[Repeat(5)]` beside
   `[Values(1, 2)]` runs two test cases rather than ten and says nothing. The projection in
@@ -1179,6 +1179,38 @@ the bound.
   through `CombinedDataSourceDescriptor` and into `CombinedDataSourceExpander`'s product, or diagnose
   the combination and say so in the documentation. The first is the honest reading of the attribute
   and the more invasive change, since it moves repeat from a compile-time expansion to a runtime one.
+  Resolved by taking the honest reading. `CombinedDataSourceDescriptor.RepeatCount` carries the count,
+  emitted only when the attribute is present so no existing baseline moves, and
+  `CombinedDataSourceExpander` multiplies it into the product at discovery. The repeat factor is
+  charged against both caps through one shared multiplication,
+  `TestCaseExpansionPolicy.ApplyRepeat`, which the compile-time projection and the discovery-time
+  check both call, so the two cannot report different numbers for the same method. It seeds the
+  running product in the expander rather than being applied after it, which is what keeps
+  `PerSourceCap` from letting a lazy source fill the whole cap and then multiply past it. Compile-time
+  charging stays on the exact-when-all-inline rule above: a runtime-resolved source can resolve to
+  nothing and zero the product however large the repeat count is, so charging the factor beside one
+  would re-create the over-rejection that rule removed. Ids follow the non-combined convention -- a
+  `#n` suffix on the combined id, emitted whenever the attribute is present including `[Repeat(1)]`,
+  so the id tracks the attribute rather than the count and raising `[Repeat(1)]` to `[Repeat(2)]`
+  cannot rename the first iteration.
+
+- [ ] `[Repeat]` is dropped from `[TestData]` and `[ClassDataSource]` tests for the same reason it was
+  dropped from combined ones. `RegistryEmitter` reads `test.RepeatCount` only in `EmitRegularTestCases`
+  and `EmitMatrixTestCases`, which emit one `TestCaseDescriptor` per iteration; the `TestDataTests` and
+  `ClassDataSourceTests` buckets go through `TestCaseEmitter.EmitTestDataDescriptor` and
+  `EmitClassDataSourceDescriptor`, each called once per source, and neither descriptor carries a repeat
+  count -- so `[Repeat(5)]` beside `[TestData(nameof(Rows))]` runs one case per row rather than five,
+  and says nothing. `TestCaseExpansionValidator` charges those buckets one descriptor each and is
+  therefore still correct about the bound, exactly as it was for the combined shape. The fix is the
+  shape this PR already took: carry the count on `TestDataDescriptor` and `ClassDataSourceDescriptor`,
+  multiply it into `TestDataExpander` and `ClassDataSourceExpander`, and charge it through
+  `TestCaseExpansionPolicy.ApplyRepeat` on both sides. What is not settled is the cap: rows come from
+  user code and are deliberately not bounded at discovery, so a repeat factor over a row count nobody
+  bounds has no compile-time product to charge -- which is the argument for charging nothing, and the
+  argument against is that the factor alone is knowable and a large one is exactly the mistake the cap
+  exists to catch. The deferred `[TestData]` placeholder is a second open question, since it stands for
+  a row set whose size is unknown until execution and its id has no row index to suffix. Surfaced while
+  fixing the combined case (2026-08-22).
 
 - [ ] The compile-time and discovery-time caps are configured independently, so raising one does not
   raise the other. `<NextUnitMaxTestCasesPerMethod>50000</NextUnitMaxTestCasesPerMethod>` lets the
