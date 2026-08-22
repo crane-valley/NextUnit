@@ -22,8 +22,14 @@ VERSION_PATTERN='^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})(
 #   <Version
 #     Condition="true">5.0.0</Version>
 # is invisible to any grep that works one line at a time, and it is the version that would ship.
-# Refusing more than one element, and refusing a conditional one, keeps the value this guard
-# inspects the value every build resolves.
+# Refusing more than one element, a conditional one, and any construct that pulls properties in
+# from elsewhere keeps the value this guard inspects the value every build resolves.
+#
+# The guard reads this one file, which is where this repository declares the version. Asking
+# MSBuild for the effective property with `dotnet msbuild -getProperty:Version` would cover every
+# other file too, and is rejected here: it needs a .NET toolchain in a job that exists to be cheap,
+# it evaluates pull-request-controlled project files, and it cannot run against the fixture files
+# this script is tested with. A version moved into another file therefore stays out of scope.
 VERSION_PARSER='
 import sys, xml.etree.ElementTree as ET
 try:
@@ -31,6 +37,13 @@ try:
 except Exception as exc:
     sys.stderr.write("is not well-formed XML: %s" % exc)
     sys.exit(2)
+for el in root.iter():
+    if el.tag.rsplit("}", 1)[-1] == "Import":
+        sys.stderr.write("uses <Import>, which can redefine Version from a file this guard does not read")
+        sys.exit(5)
+    if any(name.rsplit("}", 1)[-1] == "Sdk" for name in el.attrib):
+        sys.stderr.write("carries an Sdk attribute, which imports properties this guard does not read")
+        sys.exit(6)
 parents = {child: parent for parent in root.iter() for child in parent}
 found = []
 for el in root.iter():
