@@ -348,7 +348,9 @@ nuget.org publishing credential.
    then pushes all seven primary packages followed by the four symbol packages.
 4. `verify-published` - polls nuget.org for the published set, then checks each package's repository
    signature and nuspec metadata and runs the consumer smokes against nuget.org from an empty cache. No
-   OIDC permission.
+   OIDC permission. Its body lives in `.github/workflows/verify-published.yml`, which `release.yml`
+   calls; that workflow also takes a manual dispatch, so the checks can be run again on their own. See
+   [Re-running the verification](#re-running-the-verification).
 
 The signature check in `verify-published` is split across two tools, because no single one answers
 both questions. `dotnet nuget verify <file> --all` decides validity - signature integrity,
@@ -375,7 +377,39 @@ publish proceeds with no approval.
 
 No manual API key or `dotnet nuget push` command is needed. If the run goes red at or after the
 `publish` job, do not re-run it and do not unlist anything before reading the
-[Partial Publish Runbook](#partial-publish-runbook).
+[Partial Publish Runbook](#partial-publish-runbook). The verification is the one part that can be run
+again on its own, without re-running the release.
+
+#### Re-running the verification
+
+The verification body lives in its own workflow, `.github/workflows/verify-published.yml`, which
+`release.yml` calls as its fourth job. The same workflow accepts a manual dispatch, so the checks can
+be repeated for a version that is already published:
+
+```bash
+gh workflow run verify-published.yml --ref main -f version=X.Y.Z
+```
+
+The dispatch is main-only and version-checked. It fails before any network call unless the version
+matches the same allowlist the release applies to the tag, and unless the run was started from the
+default branch, because `tools/NextUnit.ReleaseVerify` and the smoke projects it builds come from the
+checked-out ref.
+
+What a dispatched run does and does not settle:
+
+- It changes nothing outside the runner. It receives no repository or organization secret, its
+  automatic `GITHUB_TOKEN` is scoped to `contents: read`, and it has no `id-token` permission, so it
+  writes nothing to GitHub or to nuget.org and leaves only a job log and a run summary. Dispatching
+  it is always safe.
+- A green run is the evidence
+  [Step 3](#step-3-before-keeping-a-release-from-a-red-run-get-the-verification-evidence) of the
+  Partial Publish Runbook asks for, so a keep decision can rest on it rather than on the manual
+  equivalent.
+- A red run is an input to a human investigation and nothing more. The runbook's rule is unchanged:
+  no automated signal authorizes unlisting or any other destructive action.
+- It assumes the version is already published. Unlike the release-driven call, a dispatched run
+  treats a package that is still unlisted after the polling budget as a hard failure, so dispatching
+  is not a way to wait for a publish to land.
 
 #### One-time release setup (required before the first release)
 
@@ -474,12 +508,21 @@ and cutting a new release, because a re-run reuses the same `GITHUB_SHA`.
 
 Keeping a release that came out of a failed or cancelled run is conditional on the same evidence a
 green run produces: the `verify-published` job's signature, nuspec, and clean-cache consumer checks
-having completed, or you performing their manual equivalent before the keep decision is final.
+having completed. Get that evidence by dispatching the verification again:
+
+```bash
+gh workflow run verify-published.yml --ref main -f version=X.Y.Z
+```
+
+Performing the checks by hand is the fallback for when the dispatch cannot run at all. Either way the
+evidence must exist before the keep decision is final, and
+[Re-running the verification](#re-running-the-verification) states what a dispatched run may and may
+not conclude.
 
 A red `verify-published` job on a green `publish` job is an investigate-first signal, not an unlist
 trigger. It can also go red on index lag beyond its 20-minute budget, on network errors, on CLI output
-drift, or on a transient restore failure. Unlist only after re-running the verification later confirms
-an actual defect in content, signature, nuspec, or the completeness of the published set.
+drift, or on a transient restore failure. Unlist only after a dispatched re-run confirms an actual
+defect in content, signature, nuspec, or the completeness of the published set.
 
 This procedure has no enumerated state machine on purpose. Verify registry reality first; every action
 follows from what exists.
