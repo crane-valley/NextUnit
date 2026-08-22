@@ -18,7 +18,7 @@ namespace NextUnit.Generator.Emitters;
 internal static class RegistryEmitter
 {
     public static string Emit(
-        IReadOnlyList<TestMethodDescriptor> tests,
+        IReadOnlyList<EmittableTestMethod> tests,
         ImmutableArray<LifecycleMethodDescriptor> beforeLifecycle,
         ImmutableArray<LifecycleMethodDescriptor> afterLifecycle,
         int maxTestCasesPerMethod)
@@ -168,19 +168,26 @@ internal static class RegistryEmitter
         }
     }
 
+    /// <remarks>
+    /// The combinations are the ones <c>TestCaseExpansionValidator</c> already built and filtered to
+    /// count what this loop emits, not a second expansion: <c>MatrixHelper.ApplyExclusions</c> is
+    /// exclusions x combinations x parameter width and nothing bounds the exclusion count, so a
+    /// method at the cap with thousands of <c>[MatrixExclusion]</c> attributes used to pay that pass
+    /// twice for one answer. Reading the value the count came from is also what keeps the two from
+    /// disagreeing about which combinations an exclusion removes.
+    /// </remarks>
     private static void EmitMatrixTestCases(
         CodeWriter writer,
-        List<TestMethodDescriptor> tests,
+        List<EmittableTestMethod> tests,
         Dictionary<string, List<LifecycleMethodDescriptor>> lifecycleByType)
     {
-        foreach (var test in tests)
+        foreach (var emittable in tests)
         {
+            var test = emittable.Test;
             var lifecycleMethods = LifecycleMethodsFor(lifecycleByType, test);
             var repeatCount = test.RepeatCount ?? 1;
             var hasRepeatAttribute = test.RepeatCount.HasValue;
-
-            var combinations = MatrixHelper.ComputeCartesianProduct(test.MatrixParameters);
-            combinations = MatrixHelper.ApplyExclusions(combinations, test.MatrixExclusions);
+            var combinations = emittable.MatrixCombinations;
 
             for (var matrixIndex = 0; matrixIndex < combinations.Length; matrixIndex++)
             {
@@ -341,50 +348,55 @@ internal static class RegistryEmitter
     /// Splits the discovered tests by which registry property they belong to.
     /// </summary>
     /// <remarks>
-    /// The order of the checks is the precedence rule: a test carrying several data-source kinds
-    /// lands in exactly one bucket, and the generator reports the conflict as a diagnostic
-    /// separately.
+    /// A test carrying several data-source kinds lands in exactly one bucket, and the generator
+    /// reports the conflict as a diagnostic separately. The precedence lives in
+    /// <see cref="TestExpansionClassifier"/> rather than here, because the expansion validator
+    /// charges the cap by the same decision and computes the matrix bucket's combinations for it.
     /// </remarks>
     private sealed class TestPartition
     {
         public List<TestMethodDescriptor> RegularTests { get; } = new();
-        public List<TestMethodDescriptor> MatrixTests { get; } = new();
+        public List<EmittableTestMethod> MatrixTests { get; } = new();
         public List<TestMethodDescriptor> TestDataTests { get; } = new();
         public List<TestMethodDescriptor> ClassDataSourceTests { get; } = new();
         public List<TestMethodDescriptor> CombinedDataSourceTests { get; } = new();
 
         public IEnumerable<TestMethodDescriptor> AllTests =>
             RegularTests
-                .Concat(MatrixTests)
+                .Concat(MatrixTests.Select(static matrix => matrix.Test))
                 .Concat(TestDataTests)
                 .Concat(ClassDataSourceTests)
                 .Concat(CombinedDataSourceTests);
 
-        public static TestPartition Create(IReadOnlyList<TestMethodDescriptor> tests)
+        public static TestPartition Create(IReadOnlyList<EmittableTestMethod> tests)
         {
             var partition = new TestPartition();
 
-            foreach (var test in tests)
+            foreach (var emittable in tests)
             {
-                if (!test.CombinedParameterSources.IsDefaultOrEmpty)
+                var test = emittable.Test;
+
+                switch (TestExpansionClassifier.Classify(test))
                 {
-                    partition.CombinedDataSourceTests.Add(test);
-                }
-                else if (!test.ClassDataSources.IsDefaultOrEmpty)
-                {
-                    partition.ClassDataSourceTests.Add(test);
-                }
-                else if (!test.TestDataSources.IsDefaultOrEmpty)
-                {
-                    partition.TestDataTests.Add(test);
-                }
-                else if (!test.MatrixParameters.IsDefaultOrEmpty)
-                {
-                    partition.MatrixTests.Add(test);
-                }
-                else
-                {
-                    partition.RegularTests.Add(test);
+                    case TestExpansionKind.CombinedDataSource:
+                        partition.CombinedDataSourceTests.Add(test);
+                        break;
+
+                    case TestExpansionKind.ClassDataSource:
+                        partition.ClassDataSourceTests.Add(test);
+                        break;
+
+                    case TestExpansionKind.TestData:
+                        partition.TestDataTests.Add(test);
+                        break;
+
+                    case TestExpansionKind.Matrix:
+                        partition.MatrixTests.Add(emittable);
+                        break;
+
+                    default:
+                        partition.RegularTests.Add(test);
+                        break;
                 }
             }
 

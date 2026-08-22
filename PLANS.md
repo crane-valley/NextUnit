@@ -1180,7 +1180,7 @@ the bound.
   product; bounding the sum was dropped because a single inline array is only as large as the values
   the developer typed, not the multiplicative explosion the cap exists to stop.
 
-- [ ] The cap bounds emitted test cases, not the work of computing them, and `MatrixHelper` now runs
+- [x] The cap bounds emitted test cases, not the work of computing them, and `MatrixHelper` now runs
   twice for a matrix test that passes the peak check -- once in `TestCaseExpansionValidator` to count
   survivors exactly, once in `RegistryEmitter` to emit them. Within the cap that is bounded work, but
   `ApplyExclusions` is exclusions x combinations x parameter width, and nothing bounds the exclusion
@@ -1190,6 +1190,28 @@ the bound.
   between the two, or bounding the exclusion count on its own, would buy it back. Raised as a
   follow-up candidate by the Codex review of PR #236, which noted the emitter already carried this
   cost.
+  Bought back by the first of those, and the property the double run paid for is now structural: the
+  validator hands the expansion it counted to the emitter on `EmittableTestMethod`, and the emitter
+  writes that value out instead of building its own. One value with two readers cannot disagree with
+  itself, so nothing is given up in exchange for dropping the second exclusion pass. The exclusion
+  count is deliberately left unbounded: a bound needs a new rule ID and would reject a shape that is
+  now cheap, since the one surviving pass is the one the cap already bounds.
+  None of this had to fit the incremental value model. Both readers run inside the single
+  `RegisterSourceOutput` callback, `EmitRegistry`, so the shared value never crosses a pipeline
+  boundary, needs no equality, and is never retained between compilations. Modelling the expansion as
+  its own pipeline step was rejected for the opposite reason: it would expand before the cap check,
+  which is the hang the peak check exists to prevent, and Roslyn would then hold a cap's worth of
+  combinations per matrix method alive across compilations in the IDE.
+  The precedence deciding which methods get a matrix expansion moved into `TestExpansionClassifier`,
+  shared by the validator and `TestPartition`. Two hand-synchronized copies used to cost only a wrong
+  projected count when they drifted; with the expansion threaded, drift would hand the emitter no
+  combinations and drop that method's test cases in silence.
+  Single evaluation is pinned by scanning the compiled IL of `RegistryEmitter` for calls into
+  `MatrixHelper`, with the matching scan of the validator as the guard against a vacuous pass. It is
+  not pinned through `InternalsVisibleTo`: `NextUnit.Shared` is linked into both `NextUnit.Core` and
+  `NextUnit.Generator`, so granting the test project the generator's internals makes
+  `TestCaseExpansionPolicy` ambiguous (CS0433) in every test that already names it. No output-only
+  pin exists, because the expansion is pure and one run and two runs emit identical text.
 
 - [x] `[Repeat]` is silently dropped when a test method also carries parameter-level data sources.
   `RegistryEmitter` partitions such a method into `CombinedDataSourceTests`, and

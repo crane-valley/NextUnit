@@ -19,25 +19,26 @@ namespace NextUnit.Generator.Validators;
 /// allocate until the compiler dies, and a check that ran after the expansion would never be
 /// reached. An expansion already known to fit inside the cap is a different matter -- there the
 /// emitter's own helpers are run to count exactly what it will emit, at a cost the cap itself
-/// bounds. Over-limit methods are also dropped from the registry rather than only reported, because
-/// reporting alone still leaves the emitter to run the expansion this exists to prevent.
+/// bounds, and the result is handed to the emitter rather than computed twice. Over-limit methods
+/// are also dropped from the registry rather than only reported, because reporting alone still
+/// leaves the emitter to run the expansion this exists to prevent.
 /// </remarks>
 internal static class TestCaseExpansionValidator
 {
     /// <summary>
     /// Reports <c>NEXTUNIT013</c> for every test method that would exceed the limit and returns the
-    /// remaining methods.
+    /// remaining methods, each carrying the matrix expansion counted for it.
     /// </summary>
-    public static ImmutableArray<TestMethodDescriptor> RemoveOverLimitTests(
+    public static ImmutableArray<EmittableTestMethod> RemoveOverLimitTests(
         SourceProductionContext context,
         ImmutableArray<TestMethodDescriptor> tests,
         int maxTestCasesPerMethod)
     {
-        var withinLimit = ImmutableArray.CreateBuilder<TestMethodDescriptor>(tests.Length);
+        var withinLimit = ImmutableArray.CreateBuilder<EmittableTestMethod>(tests.Length);
 
         foreach (var test in tests)
         {
-            var projected = ProjectTestCaseCount(test, maxTestCasesPerMethod);
+            var projected = ProjectTestCaseCount(test, maxTestCasesPerMethod, out var matrixCombinations);
 
             if (projected > maxTestCasesPerMethod)
             {
@@ -59,77 +60,101 @@ internal static class TestCaseExpansionValidator
                 continue;
             }
 
-            withinLimit.Add(test);
+            withinLimit.Add(new EmittableTestMethod(test, matrixCombinations));
         }
 
-        return withinLimit.Count == tests.Length ? tests : withinLimit.ToImmutable();
+        return withinLimit.ToImmutable();
     }
 
     /// <summary>
-    /// Projects how many test cases the registry would emit for one test method.
+    /// Projects how many test cases the registry would emit for one test method, and hands back the
+    /// matrix expansion when the method has one.
     /// </summary>
-    private static long ProjectTestCaseCount(TestMethodDescriptor test, int maxTestCasesPerMethod)
+    private static long ProjectTestCaseCount(
+        TestMethodDescriptor test,
+        int maxTestCasesPerMethod,
+        out ImmutableArray<EquatableArray<ConstantValue>> matrixCombinations)
     {
-        // The bucket order mirrors RegistryEmitter's partition precedence, or a method carrying both
-        // [Matrix] and [TestData] would be charged for an expansion the emitter never performs.
-        if (!test.CombinedParameterSources.IsDefaultOrEmpty)
+        matrixCombinations = ImmutableArray<EquatableArray<ConstantValue>>.Empty;
+
+        // The expansion kind comes from the shared classifier rather than from a copy of the
+        // emitter's precedence, or a method carrying both [Matrix] and [TestData] would be charged
+        // for an expansion the emitter never performs -- and, since the matrix case now hands its
+        // expansion forward, would leave the emitter with nothing to emit for it.
+        switch (TestExpansionClassifier.Classify(test))
         {
-            return ProjectCombinedSourceCount(test);
+            case TestExpansionKind.CombinedDataSource:
+                return ProjectCombinedSourceCount(test);
+
+            // [TestData] and [ClassDataSource] emit one descriptor each, so one descriptor is the
+            // whole compile-time cost of them. Their rows are deliberately not capped at discovery
+            // either. What this validator bounds is expansion NextUnit performs from declarative
+            // attribute data; a member's rows come from running the user's own code, and capping the
+            // row count would not cap the time that code takes -- a blocking member has always
+            // stalled discovery, and a cap would only make the protection look wider than it is. A
+            // large row set is a supported case besides: [TestData] serves one with
+            // DeferredEnumeration, which keeps discovery O(1) per source, and [ClassDataSource] has
+            // no deferred mode to offer.
+            case TestExpansionKind.ClassDataSource:
+            case TestExpansionKind.TestData:
+                return 1;
+
+            case TestExpansionKind.Matrix:
+                return ProjectMatrixCount(test, maxTestCasesPerMethod, out matrixCombinations);
+
+            default:
+                var argumentSetCount = test.ArgumentSets.IsDefaultOrEmpty ? 1L : test.ArgumentSets.Length;
+                return TestCaseExpansionPolicy.ApplyRepeat(argumentSetCount, test.RepeatCount);
+        }
+    }
+
+    /// <summary>
+    /// Projects the emitted test case count for a <c>[Matrix]</c> method, expanding it only once the
+    /// cap is known to admit the expansion.
+    /// </summary>
+    private static long ProjectMatrixCount(
+        TestMethodDescriptor test,
+        int maxTestCasesPerMethod,
+        out ImmutableArray<EquatableArray<ConstantValue>> matrixCombinations)
+    {
+        matrixCombinations = ImmutableArray<EquatableArray<ConstantValue>>.Empty;
+
+        // The peak of the running product is charged rather than its final value, because
+        // MatrixHelper.ComputeCartesianProduct multiplies one parameter at a time and holds every
+        // intermediate combination. An empty [Matrix()] after four 256-value ones ends at zero
+        // combinations, but only after 2^32 of them have been allocated, so the final product
+        // reads as "no test cases" for precisely the expansion that hangs the compiler. The peak
+        // cannot over-reject the mirror case: a zero arriving first keeps every later product at
+        // zero, which is the emitter doing no work at all.
+        var combinations = 1L;
+        var peak = 1L;
+
+        foreach (var parameter in test.MatrixParameters)
+        {
+            combinations = TestCaseExpansionPolicy.MultiplyClamped(combinations, parameter.Values.Length);
+            peak = Math.Max(peak, combinations);
         }
 
-        // [TestData] and [ClassDataSource] emit one descriptor each, so one descriptor is the whole
-        // compile-time cost of them. Their rows are deliberately not capped at discovery either.
-        // What this validator bounds is expansion NextUnit performs from declarative attribute data;
-        // a member's rows come from running the user's own code, and capping the row count would not
-        // cap the time that code takes -- a blocking member has always stalled discovery, and a cap
-        // would only make the protection look wider than it is. A large row set is a supported case
-        // besides: [TestData] serves one with DeferredEnumeration, which keeps discovery O(1) per
-        // source, and [ClassDataSource] has no deferred mode to offer.
-        if (!test.ClassDataSources.IsDefaultOrEmpty || !test.TestDataSources.IsDefaultOrEmpty)
+        if (peak > maxTestCasesPerMethod)
         {
-            return 1;
+            return peak;
         }
 
-        if (!test.MatrixParameters.IsDefaultOrEmpty)
-        {
-            // The peak of the running product is charged rather than its final value, because
-            // MatrixHelper.ComputeCartesianProduct multiplies one parameter at a time and holds every
-            // intermediate combination. An empty [Matrix()] after four 256-value ones ends at zero
-            // combinations, but only after 2^32 of them have been allocated, so the final product
-            // reads as "no test cases" for precisely the expansion that hangs the compiler. The peak
-            // cannot over-reject the mirror case: a zero arriving first keeps every later product at
-            // zero, which is the emitter doing no work at all.
-            var combinations = 1L;
-            var peak = 1L;
+        // Past the peak check the product is known to fit inside the cap, so the emitter's own
+        // expansion is run here to get the emitted count exactly. It is run rather than modelled on
+        // purpose: the emitter applies [MatrixExclusion] between building the product and repeating
+        // the survivors, and every attempt to predict how many combinations an exclusion removes has
+        // to re-derive matching rules that already live in MatrixHelper -- an exclusion naming a
+        // value no parameter offers removes none, duplicate [Matrix] values let one exclusion remove
+        // several, and two identical exclusions remove one between them. The result is then handed to
+        // the emitter, which emits it instead of expanding again: one value with two readers cannot
+        // disagree with itself, and ApplyExclusions is exclusions x combinations x parameter width
+        // with nothing bounding the exclusion count, so the second pass was the expensive half.
+        matrixCombinations = MatrixHelper.ApplyExclusions(
+            MatrixHelper.ComputeCartesianProduct(test.MatrixParameters),
+            test.MatrixExclusions);
 
-            foreach (var parameter in test.MatrixParameters)
-            {
-                combinations = TestCaseExpansionPolicy.MultiplyClamped(combinations, parameter.Values.Length);
-                peak = Math.Max(peak, combinations);
-            }
-
-            if (peak > maxTestCasesPerMethod)
-            {
-                return peak;
-            }
-
-            // Past the peak check the product is known to fit inside the cap, so the emitter's own
-            // expansion can be run here to get the emitted count exactly. It is run rather than
-            // modelled on purpose: the emitter applies [MatrixExclusion] between building the product
-            // and repeating the survivors, and every attempt to predict how many combinations an
-            // exclusion removes has to re-derive matching rules that already live in MatrixHelper --
-            // an exclusion naming a value no parameter offers removes none, duplicate [Matrix] values
-            // let one exclusion remove several, and two identical exclusions remove one between them.
-            // Calling the same helpers cannot disagree with the emitter about any of that.
-            var survivors = MatrixHelper.ApplyExclusions(
-                MatrixHelper.ComputeCartesianProduct(test.MatrixParameters),
-                test.MatrixExclusions).Length;
-
-            return TestCaseExpansionPolicy.ApplyRepeat(survivors, test.RepeatCount);
-        }
-
-        var argumentSetCount = test.ArgumentSets.IsDefaultOrEmpty ? 1L : test.ArgumentSets.Length;
-        return TestCaseExpansionPolicy.ApplyRepeat(argumentSetCount, test.RepeatCount);
+        return TestCaseExpansionPolicy.ApplyRepeat(matrixCombinations.Length, test.RepeatCount);
     }
 
     /// <summary>
