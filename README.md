@@ -175,10 +175,13 @@ NEXTUNIT_EXCLUDE_TAGS=Slow dotnet run --project MyProject.Tests
 
 `[Matrix]`, `[Arguments]`, `[Repeat]`, and parameter-level data sources (`[Values]`,
 `[ValuesFromMember]`, `[ValuesFrom]`) multiply, so a small edit can ask for millions of test cases.
-NextUnit caps those at **10000** test cases per test method and fails fast instead of expanding: the
-generator reports `NEXTUNIT013` at compile time, and discovery throws when a combined data source
-resolves to more than the cap. Neither ever truncates -- a shortened run would report green over
-tests that never ran.
+NextUnit caps those at **10000** test cases per test method and fails fast instead of expanding. The
+generator reports `NEXTUNIT013` at compile time for an expansion it can size from the attributes
+alone -- `[Matrix]`, `[Arguments]`, `[Repeat]`, and combinations whose parameters are all `[Values]`.
+A combined data source that includes a runtime-resolved member (`[ValuesFromMember]`, `[ValuesFrom]`)
+has a size known only once that member runs, so its cap is enforced at discovery, which throws when
+the resolved product exceeds the limit. Neither ever truncates -- a shortened run would report green
+over tests that never ran.
 
 The cap covers the expansions NextUnit performs itself. It does not limit how many rows a
 `[TestData]` or `[ClassDataSource]` member returns, because that member is your code: bounding its

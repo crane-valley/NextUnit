@@ -449,11 +449,12 @@ public class TestCaseExpansionLimitTests
     }
 
     [Fact]
-    public async Task InlineParameterValues_BesideAnEmptyOne_StillReportAsync()
+    public async Task InlineParameterValues_BesideAnEmptyOne_ReportsNothingAsync()
     {
-        // The expansion is zero test cases because one parameter has no values, but the emitter still
-        // writes every inline array out, so an empty parameter must not become a way to smuggle an
-        // arbitrarily large literal past the cap.
+        // Every source is inline, so the product is exact: an empty [Values()] zeroes it, exactly as
+        // discovery counts it, so the real expansion is zero test cases and the cap must not fire.
+        // Charging the empty parameter as one (the earlier floor) rejected a method that expands to
+        // nothing.
         var source = """
             using NextUnit;
 
@@ -468,7 +469,7 @@ public class TestCaseExpansionLimitTests
             }
             """;
 
-        await VerifyAsync(source, expectExpansionLimitDiagnostic: true, configuredLimit: "5");
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "5");
     }
 
     [Fact]
@@ -503,6 +504,82 @@ public class TestCaseExpansionLimitTests
             """;
 
         await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "2");
+    }
+
+    [Fact]
+    public async Task LargeInlineParameterValues_BesideARuntimeSource_ReportNothingAsync()
+    {
+        // The inline product alone (6 x 6 = 36) exceeds the configured cap of 10, but a runtime
+        // [ValuesFromMember] sits beside it and can resolve to nothing. The real expansion is only
+        // knowable at discovery, so the compile-time cap must not charge the inline floor and reject a
+        // method that may expand to zero cases. This is the shape the earlier floor over-rejected.
+        var source = """
+            using System.Collections.Generic;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class ValuesTests
+            {
+                public static IEnumerable<int> Sizes() => new[] { 1, 2, 3 };
+
+                [Test]
+                public void Combined(
+                    [Values(1, 2, 3, 4, 5, 6)] int a,
+                    [Values(1, 2, 3, 4, 5, 6)] int b,
+                    [ValuesFromMember(nameof(Sizes))] int size)
+                {
+                }
+            }
+            """;
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "10");
+    }
+
+    [Fact]
+    public async Task LargeInlineParameterValues_BesideAClassValuesSource_ReportNothingAsync()
+    {
+        // Same shape as the [ValuesFromMember] case but through [ValuesFrom<T>], the other
+        // runtime-resolved kind: the class is constructed and enumerated only at discovery and can
+        // yield nothing, so the oversized inline product (6 x 6 = 36 over a cap of 10) must not be
+        // charged at compile time.
+        var source = """
+            using System.Collections;
+            using System.Collections.Generic;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class Sizes : IEnumerable<int>
+            {
+                public IEnumerator<int> GetEnumerator() => ((IEnumerable<int>)new[] { 1, 2, 3 }).GetEnumerator();
+
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public class ValuesTests
+            {
+                [Test]
+                public void Combined(
+                    [Values(1, 2, 3, 4, 5, 6)] int a,
+                    [Values(1, 2, 3, 4, 5, 6)] int b,
+                    [ValuesFrom<Sizes>] int size)
+                {
+                }
+            }
+            """;
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "10");
+    }
+
+    [Fact]
+    public async Task InlineParameterValues_SaturatingTheProduct_ReportAsync()
+    {
+        // 2^63 overflows long, so the all-inline product must stay on MultiplyClamped and report the
+        // saturated bound rather than wrap to a value below the cap and wave the method through.
+        var source = ValuesSource(parameterCount: 63, valuesPerParameter: 2);
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: true);
     }
 
     [Fact]
