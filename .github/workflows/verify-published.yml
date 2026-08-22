@@ -149,11 +149,11 @@ jobs:
       # FULL is granted on the event type, and `release` is not private to release.yml:
       # a second caller triggered by the same event would inherit it. What FULL claims is
       # that this checkout is the commit the published package was built from, so it is
-      # bound to the two facts that carry that claim. The caller must be release.yml,
-      # which is the only workflow that builds and publishes: in a called workflow
-      # `github.workflow_ref` names the CALLER's workflow file, while `job_workflow_ref`
-      # names this one, which is the same distinction nuget.org's trusted-publishing
-      # policy pins release.yml by. And the version verified must be the tag being
+      # bound to the two facts that carry that claim. The caller must be this
+      # repository's release.yml, the only workflow that builds and publishes: in a
+      # called workflow `github.workflow_ref` names the CALLER's workflow file, while
+      # `job_workflow_ref` names this one, which is the same distinction nuget.org's
+      # trusted-publishing policy pins release.yml by. And the version verified must be the tag being
       # published, with the leading `v` stripped, as release.yml passes it. Neither value
       # is echoed on mismatch: this step exists for the case where one of them came from
       # a caller this workflow does not know.
@@ -164,11 +164,16 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
+          # The owner and repository are literal rather than "$GITHUB_REPOSITORY/...":
+          # this workflow is callable from another repository, and there both that
+          # variable and the workflow ref would name the caller, whose sources are what
+          # actions/checkout would then check out. A fork that wants FULL has to change
+          # this constant, which is the deliberate edit the closed world above asks for.
           case "$GITHUB_WORKFLOW_REF" in
-            "$GITHUB_REPOSITORY/.github/workflows/release.yml@"*)
+            'crane-valley/NextUnit/.github/workflows/release.yml@'*)
               ;;
             *)
-              echo "::error::FULL mode is reserved for $GITHUB_REPOSITORY/.github/workflows/release.yml, and this run was not called by it"
+              echo "::error::FULL mode is reserved for crane-valley/NextUnit/.github/workflows/release.yml, and this run was not called by it"
               exit 1
               ;;
           esac

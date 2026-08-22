@@ -1353,8 +1353,10 @@ derives `SMOKE_MODE` from `github.event_name`: `release` gives FULL, which passe
 REDUCED, which passes nothing and demands 1; any other event type fails the run in its first step, so
 a caller with a new event type has to be added deliberately. FULL is additionally bound to the
 release being published, because `release` is not private to `release.yml`: the calling workflow must
-be this repository's `release.yml`, read from `github.workflow_ref`, which in a called workflow names
-the caller while `job_workflow_ref` names the callee; and the version verified must equal
+be this repository's `release.yml`, matched literally against `github.workflow_ref`, which in a
+called workflow names the caller while `job_workflow_ref` names the callee, and which is literal
+because a cross-repository caller controls both its own repository name and the sources that would be
+checked out; and the version verified must equal
 `github.event.release.tag_name` without its leading `v`. The version allowlist that used to run only
 on dispatch now runs on every entry point, so the announced version is validated on both. The mode,
 the validated version, the caller event, and both floors reach the step summary and the log first, so
