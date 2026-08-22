@@ -84,6 +84,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # grep matches line by line, so a multi-line input would pass the
+          # allowlist below on its first line and carry the rest into every URL
+          # built from it. Rejecting every character the allowlist cannot accept
+          # makes the value single-line before the allowlist ever runs.
+          case "$PACKAGE_VERSION" in
+            '' | *[!0-9A-Za-z.-]*)
+              echo "::error::version input contains characters outside this repository's allowed version scheme"
+              exit 1
+              ;;
+          esac
           if ! printf '%s' "$PACKAGE_VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc|preview)(\.(0|[1-9][0-9]*))?)?$'; then
             echo "::error::version '$PACKAGE_VERSION' is outside this repository's allowed version scheme"
             echo "Allowed: MAJOR.MINOR.PATCH with no leading zeros, optionally -alpha|-beta|-rc|-preview with an optional .N suffix"

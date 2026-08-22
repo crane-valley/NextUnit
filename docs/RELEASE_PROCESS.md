@@ -397,8 +397,10 @@ checked-out ref.
 
 What a dispatched run does and does not settle:
 
-- It changes nothing outside the runner. It holds no secrets and no `id-token`, writes nothing to
-  GitHub or to nuget.org, and leaves only a job log and a run summary. Dispatching it is always safe.
+- It changes nothing outside the runner. It receives no repository or organization secret, its
+  automatic `GITHUB_TOKEN` is scoped to `contents: read`, and it has no `id-token` permission, so it
+  writes nothing to GitHub or to nuget.org and leaves only a job log and a run summary. Dispatching
+  it is always safe.
 - A green run is the evidence
   [Step 3](#step-3-before-keeping-a-release-from-a-red-run-get-the-verification-evidence) of the
   Partial Publish Runbook asks for, so a keep decision can rest on it rather than on the manual
