@@ -28,8 +28,29 @@ namespace NextUnit.Platform;
 /// the cancellation its own teardown observes.
 /// </para>
 /// <para>
+/// The two phases are paired: <c>[After(Session)]</c> runs only when session setup was entered. A run
+/// whose filter selects no test returns from
+/// <see cref="NextUnitFramework.CreateTestSessionAsync(CancellationToken)"/> before setup, so its
+/// close skips the hooks rather than tearing down a session that was never set up - the same rule
+/// <see cref="TestExecutionEngine"/> applies to class scope, and what assembly scope already did by
+/// returning early from both phases on an empty test list. Setup counts as entered the moment the
+/// phase is reached, before any hook runs, so a <c>[Before(Session)]</c> that throws halfway still
+/// runs every <c>[After(Session)]</c> hook: what it had already acquired still has to be released.
+/// </para>
+/// <para>
+/// Unwinding only part of the <c>[After(Session)]</c> list after a partial setup was rejected. Class
+/// scope can do that because its levels are the base chain and each level knows its own hook counts;
+/// session hooks are deliberately not inherited, so the whole scope is a single level, and the
+/// before- and after-lists the registry emits carry no pairing that a prefix could be measured
+/// against. Cutting the list positionally would skip an <c>[After(Session)]</c> whose
+/// <c>[Before(Session)]</c> did run, which is the failure this pairing exists to prevent.
+/// </para>
+/// <para>
 /// Session end is also where the shared data source instances are released, because the session is
 /// the widest scope <c>[ClassDataSource]</c> and <c>[ValuesFrom]</c> can share an instance across.
+/// Releasing them is not part of the pairing and happens on every close: expansion runs before the
+/// row-level filter, so a run that ends up selecting no test can still have constructed a
+/// session-shared instance that nothing else would ever dispose.
 /// </para>
 /// <para>
 /// One instance serves exactly one session, and that is enforced rather than assumed:
@@ -61,6 +82,7 @@ internal sealed class SessionLifecycleRunner
     private readonly List<LifecycleMethodDelegate> _afterMethods = new();
     private readonly Func<ValueTask> _disposeSharedInstances;
     private int _teardownClaimed;
+    private int _setupEntered;
     private string? _skipReason;
 
     /// <summary>
@@ -141,6 +163,11 @@ internal sealed class SessionLifecycleRunner
         // reusing a spent instance and has no reported shape that would make the run meaningful.
         ThrowIfSessionClosed();
 
+        // Marked before the hooks run, and never cleared, because this is what pairs the two phases:
+        // a [Before(Session)] that threw halfway may already hold what an [After(Session)] releases,
+        // and a session declaring only [After(Session)] hooks has no first [Before(Session)] to start.
+        Volatile.Write(ref _setupEntered, 1);
+
         try
         {
             await _setupGate.RunOnceAsync(ExecuteSetupAsync, cancellationToken).ConfigureAwait(false);
@@ -165,9 +192,15 @@ internal sealed class SessionLifecycleRunner
     }
 
     /// <summary>
-    /// Runs the session teardown hooks in reverse order, running every remaining hook even after one
-    /// of them fails, then releases the shared data source instances.
+    /// Runs the session teardown hooks in reverse order when session setup was entered, running every
+    /// remaining hook even after one of them fails, then releases the shared data source instances.
     /// </summary>
+    /// <remarks>
+    /// The hooks are skipped, with one diagnostic line, when setup was never entered: a run whose
+    /// filter selects no test closes a session it never opened, and running <c>[After(Session)]</c>
+    /// there would tear down what no <c>[Before(Session)]</c> ever set up. The shared data source
+    /// instances are released either way.
+    /// </remarks>
     /// <returns>
     /// An error message describing the failures, or <see langword="null"/> when teardown succeeded.
     /// </returns>
@@ -194,18 +227,25 @@ internal sealed class SessionLifecycleRunner
         OperationCanceledException? cancellation = null;
         var failures = new List<Exception>();
 
-        // Session lifecycle methods MUST be static (enforced by generator/runtime). The null! instance
-        // parameter is safe because generated delegates for static methods do not use it - they call
-        // TypeName.Method() directly.
-        // Catch per hook so a hook observing cancellation (or failing) still runs every remaining hook.
-        for (var i = _afterMethods.Count - 1; i >= 0; i--)
+        if (Volatile.Read(ref _setupEntered) == 0)
         {
-            var afterMethod = _afterMethods[i];
+            ReportSkippedTeardown();
+        }
+        else
+        {
+            // Session lifecycle methods MUST be static (enforced by generator/runtime). The null! instance
+            // parameter is safe because generated delegates for static methods do not use it - they call
+            // TypeName.Method() directly.
+            // Catch per hook so a hook observing cancellation (or failing) still runs every remaining hook.
+            for (var i = _afterMethods.Count - 1; i >= 0; i--)
+            {
+                var afterMethod = _afterMethods[i];
 
-            await RunGuardedAsync(
-                () => afterMethod(null!, cancellationToken),
-                "A session teardown method threw OperationCanceledException that does not represent run cancellation.")
-                .ConfigureAwait(false);
+                await RunGuardedAsync(
+                    () => afterMethod(null!, cancellationToken),
+                    "A session teardown method threw OperationCanceledException that does not represent run cancellation.")
+                    .ConfigureAwait(false);
+            }
         }
 
         // Disposal follows the hooks rather than preceding them: an [After(Session)] hook is entitled
@@ -273,6 +313,27 @@ internal sealed class SessionLifecycleRunner
                 failures.Add(ex);
             }
         }
+    }
+
+    /// <summary>
+    /// Says once that the session teardown hooks were skipped because setup never ran.
+    /// </summary>
+    /// <remarks>
+    /// Silence is the one outcome this must not have: a suite whose <c>[After(Session)]</c> hooks stop
+    /// running would otherwise look identical to one whose hooks succeeded. Teardown is claimed once
+    /// per instance, so the line is written at most once per session. A session that declares no
+    /// <c>[After(Session)]</c> hook at all has nothing to report and stays quiet.
+    /// </remarks>
+    private void ReportSkippedTeardown()
+    {
+        if (_afterMethods.Count == 0)
+        {
+            return;
+        }
+
+        Diagnostics.SafeWriteError(
+            $"[NextUnit] Skipped {_afterMethods.Count} [After(LifecycleScope.Session)] hook(s) because " +
+            "session setup never ran; a run whose filter selects no test never reaches it.");
     }
 
     /// <summary>

@@ -993,7 +993,8 @@ and need a deliberate decision before implementation.
   Neither of the two options the item listed was taken. Resetting the gate at close invents a
   per-session re-run of `[Before(Session)]` that no caller asks for, and pairing teardown with setup
   would silently stop the `[After(Session)]` hooks on the reachable path where a filter matches no
-  tests and `CreateTestSessionAsync` returns before setup runs. Enforcement was chosen over both
+  tests and `CreateTestSessionAsync` returns before setup runs -- pairing was taken later, once the
+  skip was made loud rather than silent; see the item below. Enforcement was chosen over both
   because the instance-per-session contract is a fact of the host rather than a convention:
   Microsoft.Testing.Platform runs the registered framework factory inside
   `TestHostBuilder.BuildTestFrameworkAsync`, which `ConsoleTestHost` calls once per run and
@@ -1007,6 +1008,37 @@ and need a deliberate decision before implementation.
   teardown would need both phases under one lock held across user hooks, where a `[Before(Session)]`
   hook that never returns would hang session close instead of letting it release the shared instances.
   Pinned by five tests in `SessionLifecycleRunnerTests`.
+- [x] Decide whether a run whose filter selects no tests should run the session-scoped hooks at all.
+  Filed by PR #233, which found the asymmetry while declining to fix it: `CreateTestSessionAsync`
+  returns before session setup when no test case survives the filter, while `CloseTestSessionAsync`
+  ran `RunTeardownAsync` unconditionally, so `[After(Session)]` tore down a session no
+  `[Before(Session)]` had ever opened. Resolved: it should not, and the two phases are now paired on
+  whether session setup was entered. `SessionLifecycleRunner` marks the session entered when
+  `RunSetupOnceAsync` reaches the setup phase, and `RunTeardownAsync` runs the `[After(Session)]`
+  hooks only for an entered session. The shared data source instances are released either way,
+  because expansion runs before the row-level filter and can construct one for a run that ends up
+  selecting nothing.
+  Entered means reached, not succeeded, which is the `TestExecutionEngine` rule from PR #247 applied
+  at session scope: a `[Before(Session)]` that throws at hook k of n still runs every
+  `[After(Session)]` hook, in reverse declaration order. Unwinding only a prefix of the after-list was
+  rejected. Class scope can cut its unwind because its levels are the base chain and each level
+  carries its own hook counts; `LifecycleScope.Session` is deliberately not inherited, so the scope is
+  a single level, and the registry emits two flat delegate lists with no pairing a prefix could be
+  measured against -- cutting positionally would skip an `[After(Session)]` whose `[Before(Session)]`
+  did run, which is the failure the pairing exists to prevent. Emitting that pairing means new
+  registry surface through the public `IGeneratedTestRegistry`, which is not worth it for a scope with
+  one level.
+  Skipping the hooks is a behavior change, so it is never silent: teardown writes one line to standard
+  error naming how many `[After(Session)]` hooks it skipped, and a session that declares none stays
+  quiet. The precedent was checked rather than assumed. xUnit v3 pre-creates assembly fixtures but
+  skips the creation when no non-statically-skipped test case survives (`XunitTestAssemblyRunnerBase`,
+  added in 3.1.0 for `xunit/xunit#3371`); NUnit builds no `CompositeWorkItem` for a suite whose leaves
+  the filter rejected, and `OneTimeSetUp`/`OneTimeTearDown` are commands on that work item
+  (`WorkItemBuilder.CreateWorkItem`); MSTest calls `AssemblyInitialize` from inside the single-test
+  execution path and guards `AssemblyCleanup` on `IsAssemblyInitializeExecuted` (verified against
+  microsoft/testfx `v4.3.3`). MSTest sets that flag in a `finally`, so its cleanup runs after a failed
+  initialize -- the same entered-not-succeeded rule taken here.
+  Pinned by four tests in `SessionLifecycleRunnerTests`.
 
 ### Priority 2 — A parallel group's declared limit overrides its unannotated members' default
 
