@@ -1,15 +1,1 @@
 #nullable enable
-NextUnit.Internal.ClassDataSourceDescriptor.DataSourceRowReaders.get -> NextUnit.Internal.DataSourceRowReaderDelegate?[]!
-NextUnit.Internal.ClassDataSourceDescriptor.DataSourceRowReaders.init -> void
-NextUnit.Internal.ClassDataSourceDescriptor.RepeatCount.get -> int?
-NextUnit.Internal.ClassDataSourceDescriptor.RepeatCount.init -> void
-NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.get -> int?
-NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.init -> void
-NextUnit.Internal.DataSourceAdapter
-NextUnit.Internal.DataSourceRowReaderDelegate
-NextUnit.Internal.IGeneratedTestRegistry.MaxTestCasesPerMethod.get -> int
-NextUnit.Internal.TestDataDescriptor.RepeatCount.get -> int?
-NextUnit.Internal.TestDataDescriptor.RepeatCount.init -> void
-static NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync<TRows>(System.Threading.Tasks.Task<TRows>! source, System.Func<TRows, System.Collections.Generic.IEnumerable<object?>?>! reader, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
-static NextUnit.Internal.DataSourceAdapter.FromEnumerable<TRow>(System.Collections.Generic.IEnumerable<TRow>? source) -> System.Collections.Generic.IEnumerable<object?>?
-virtual NextUnit.Internal.DataSourceRowReaderDelegate.Invoke(object! source) -> System.Collections.Generic.IEnumerable<object?>?

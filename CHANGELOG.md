@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-08-22
+
+### Upgrading from 3.0.0
+
+4.0.0 adds one build error, and changes what several existing declarations run: how many test
+cases they expand into, what those cases are called, and which rows they draw from. A suite that
+built and ran green on 3.0.0 can therefore fail to build on 4.0.0, or run a different set of tests
+than it did before.
+
+New error that can fail a build that used to compile:
+
+- `NEXTUNIT017` -- a `[Before]` or `[After]` hook declared as an explicit interface implementation,
+  such as `void IFixture.Setup()`. The generated registry calls a hook through its declaring type,
+  so such a hook has never run in any version; the rule reports a hook that was already dead rather
+  than one that stops working now. Declare it as an ordinary `public` method implementing the
+  interface member implicitly. There is no `internal` variant of that remedy, unlike `NEXTUNIT015`,
+  because C# requires an implicit implementation of an interface member to be `public`. The rule is
+  not configurable, and it is reported in the assembly where the hook is declared whether or not
+  anything there derives from the class. It is gated on the scopes the registry emits, so an
+  instance method scoped only to `Assembly` or `Session` is not reported: such a hook is dropped
+  for being an instance method whatever its declaration form, and naming the explicit
+  implementation there would point at a remedy that leaves the hook just as dead.
+
+Behavior changes in a build that still compiles:
+
+- `[Repeat(n)]` now multiplies a `[TestData]`, `[ClassDataSource]`, or parameter-level data source,
+  where the count used to be dropped for all three. A method carrying both now runs `n` times the
+  test cases it ran on 3.0.0 and takes correspondingly longer. To audit a suite before upgrading,
+  search it for `[Repeat` and check each hit for a data source on the same method: those are the
+  methods whose case count changes. Their test case ids change as well, and not only for the added
+  iterations: every iteration takes a suffix, so the unsuffixed id a run previously reported for
+  such a case no longer exists. The id suffix counts from zero, `#0`, `#1`, and so on, while the
+  display-name suffix counts from one, `(Repeat #1)`, `(Repeat #2)`, matching what compile-time
+  expansion has always emitted. The suffix follows the attribute rather than the count, so
+  `[Repeat(1)]` produces a `#0` case rather than the bare id. An id-based filter or a stored
+  baseline covering one of these methods has to be rewritten.
+- The repeat factor is now charged against the expansion caps as well. Discovery charges it for
+  every shape. `NEXTUNIT013` charges it at compile time only where the count is settled there,
+  which for a combined data source means every parameter source is an inline `[Values]`; a
+  combination including a runtime-resolved source is left to discovery, and `[TestData]` and
+  `[ClassDataSource]` project one descriptor at compile time whatever the repeat count is. A
+  method that sat close to a cap can therefore newly report `NEXTUNIT013` or throw at discovery.
+- A `[TestData]` or `[ClassDataSource]` source whose type implements `IEnumerable<T>` more than
+  once is now read through the arm `NU0009` selected, rather than through whichever arm the
+  non-generic `IEnumerable` happened to dispatch to. Such a source can therefore yield different
+  rows, and a different number of them, than it did on 3.0.0. A source implementing the interface
+  once is unaffected, and no test case id moves.
+- A run whose filter selects no tests no longer runs its `[After(LifecycleScope.Session)]` hooks,
+  because session setup is never entered for an empty selection. NextUnit writes one line to
+  standard error naming how many hooks it skipped, so the change is visible in the run output. A
+  suite that cleaned up shared state from session teardown on an empty selection has to do that
+  elsewhere.
+- A failing `[Before(LifecycleScope.Class)]` hook now fails only its own class instead of ending
+  the whole run. Every test of that class is reported as failed, once each, carrying the setup
+  exception, and every other class in the assembly still runs, so a report reading per-test results
+  shows more failed tests than the same broken fixture produced before. The run still ends failed.
+- Discovery now takes its cap baseline from the registry the generator emitted, so
+  `<NextUnitMaxTestCasesPerMethod>` applies at discovery as well as at compile time. The precedence
+  is `NEXTUNIT_MAX_TEST_CASES_PER_METHOD`, then the project property, then the 10000 default. A
+  project that raised the property to get past `NEXTUNIT013` and then still hit 10000 at discovery
+  no longer does. A test project built by an earlier NextUnit reads the default until it is rebuilt.
+
 ### Added
 
 - `NEXTUNIT017` reports a `[Before]` or `[After]` hook declared as an explicit interface
@@ -142,8 +204,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A source offering one row type is emitted exactly as before, and no test case id moves either way.
   The name is withheld, leaving the previous read in place, when the generated file cannot bind it --
   a row type reached only through an `extern alias` -- because such a source compiles today, and a
-  name that binds nothing would cost the user a build to fix a row. Task-wrapped asynchronous sources
-  and `[ClassDataSource<T>]` still read through the non-generic interface.
+  name that binds nothing would cost the user a build to fix a row. This entry covers synchronous
+  member sources only. Task-wrapped asynchronous sources and `[ClassDataSource<T>]` are closed in
+  this same release by the separate entry above, which binds their arm through a generated row
+  reader rather than through `FromEnumerable<TRow>`.
 - A run whose filter selects no tests no longer runs the `[After(LifecycleScope.Session)]` hooks.
   Session setup is never reached when nothing is selected, so teardown used to tear down a session
   that no `[Before(LifecycleScope.Session)]` hook had set up. The two phases are now paired: teardown
@@ -1975,6 +2039,7 @@ Behavior changes in a build that still compiles:
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 4.0.0 | 2026-08-22 | 1771 | [Repeat] multiplies data-source expansion, project test case cap read at discovery, session teardown paired with setup, class setup failure scoped to its class, validated row-type reads for task-wrapped and class data sources, NEXTUNIT017 | Released |
 | 3.0.0 | 2026-08-22 | 1630 | Lifecycle hooks and configuration attributes inherited from base test classes, [After] hooks run after failures with teardown unwinding only entered levels, test case expansion cap, invariant-culture display names, NU0022 and NEXTUNIT013-NEXTUNIT016 | Released |
 | 2.0.0 | 2026-08-12 | 1402 | Unified shared data source instances with session-end disposal, NextUnit.Internal execution types demoted to internal, obsolete Assert.Throws expectedMessage overloads removed, deterministic data source row-type selection, assembly-level ParallelLimit resolution, NU0019-NU0021 | Released |
 | 1.19.1 | 2026-08-10 | 1342 | --list-tests discovery reporting, keyword identifier escaping in generated type names | Released |
