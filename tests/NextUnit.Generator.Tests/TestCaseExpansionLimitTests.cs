@@ -427,14 +427,14 @@ public class TestCaseExpansionLimitTests
         var source = MatrixSource(parameterCount: 2, valuesPerParameter: 3);
 
         await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "50");
-        Assert.Throws<InvalidOperationException>(() => TestCaseExpansionLimits.Resolve("100O"));
+        Assert.Throws<InvalidOperationException>(() => TestCaseExpansionLimits.Resolve("100O", registryBaseline: null));
 
         await VerifyAsync(
             source,
             expectExpansionLimitDiagnostic: false,
             configuredLimit: "100O",
             expectedUnusableOverride: "100O");
-        Assert.Equal(50, TestCaseExpansionLimits.Resolve("50"));
+        Assert.Equal(50, TestCaseExpansionLimits.Resolve("50", registryBaseline: null));
     }
 
     [Fact]

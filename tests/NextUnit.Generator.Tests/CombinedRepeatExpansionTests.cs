@@ -21,7 +21,7 @@ public class CombinedRepeatExpansionTests
     /// </summary>
     private const int MaxExercisableLimit = 1_000_000;
 
-    private static readonly int _limit = TestCaseExpansionLimits.MaxTestCasesPerMethod;
+    private static readonly int _limit = TestCaseExpansionLimits.ResolveFromEnvironment(registryBaseline: null);
 
     [Fact]
     public async Task CombinedSourceWithRepeat_EmitsTheCountAsync()
@@ -81,7 +81,7 @@ public class CombinedRepeatExpansionTests
         Assert.SkipWhen(_limit < 10, $"A configured cap of {_limit} cannot admit this expansion.");
 
         var testCases = CombinedDataSourceExpander
-            .ExpandSingle(CreateDescriptor(repeatCount: 5, "x", "y"))
+            .ExpandSingle(CreateDescriptor(repeatCount: 5, "x", "y"), registryMaxTestCasesPerMethod: null)
             .ToList();
 
         Assert.Equal(10, testCases.Count);
@@ -94,7 +94,7 @@ public class CombinedRepeatExpansionTests
         Assert.SkipWhen(_limit < 10, $"A configured cap of {_limit} cannot admit this expansion.");
 
         var testCases = CombinedDataSourceExpander
-            .ExpandSingle(CreateDescriptor(repeatCount: 2, "x", "y"))
+            .ExpandSingle(CreateDescriptor(repeatCount: 2, "x", "y"), registryMaxTestCasesPerMethod: null)
             .ToList();
 
         // The suffix is the one the generator writes for every compile-time expansion, so a repeated
@@ -123,7 +123,7 @@ public class CombinedRepeatExpansionTests
         // The suffix tracks the attribute, not the count. Suppressing it at one would rename the first
         // iteration's test case the moment [Repeat(1)] became [Repeat(2)].
         var testCases = CombinedDataSourceExpander
-            .ExpandSingle(CreateDescriptor(repeatCount: 1, "x", "y"))
+            .ExpandSingle(CreateDescriptor(repeatCount: 1, "x", "y"), registryMaxTestCasesPerMethod: null)
             .ToList();
 
         Assert.Equal(
@@ -137,7 +137,7 @@ public class CombinedRepeatExpansionTests
         Assert.SkipWhen(_limit < 2, $"A configured cap of {_limit} cannot admit this expansion.");
 
         var testCases = CombinedDataSourceExpander
-            .ExpandSingle(CreateDescriptor(repeatCount: null, "x", "y"))
+            .ExpandSingle(CreateDescriptor(repeatCount: null, "x", "y"), registryMaxTestCasesPerMethod: null)
             .ToList();
 
         // Threading the count through must not move an id that no [Repeat] participates in; these are
@@ -157,7 +157,7 @@ public class CombinedRepeatExpansionTests
         var descriptor = CreateDescriptor(repeatCount: _limit, "x", "y");
 
         var exception = Assert.Throws<InvalidOperationException>(
-            () => CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
+            () => CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).ToList());
 
         // Asserted against the shared helper rather than against a literal: this is the same call
         // TestCaseExpansionValidator projects NEXTUNIT013 from, so the two caps cannot report
@@ -197,7 +197,7 @@ public class CombinedRepeatExpansionTests
         };
 
         Assert.Throws<InvalidOperationException>(
-            () => CombinedDataSourceExpander.ExpandSingle(descriptor).ToList());
+            () => CombinedDataSourceExpander.ExpandSingle(descriptor, registryMaxTestCasesPerMethod: null).ToList());
 
         // The repeat seeds the running product, so the source may only contribute a quarter of the cap
         // before the product is over it. Charging the repeat after the sources were drawn would have

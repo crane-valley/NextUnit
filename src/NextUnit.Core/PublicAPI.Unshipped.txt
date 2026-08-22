@@ -2,4 +2,5 @@
 NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.get -> int?
 NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.init -> void
 NextUnit.Internal.DataSourceAdapter
+NextUnit.Internal.IGeneratedTestRegistry.MaxTestCasesPerMethod.get -> int
 static NextUnit.Internal.DataSourceAdapter.FromEnumerable<TRow>(System.Collections.Generic.IEnumerable<TRow>? source) -> System.Collections.Generic.IEnumerable<object?>?

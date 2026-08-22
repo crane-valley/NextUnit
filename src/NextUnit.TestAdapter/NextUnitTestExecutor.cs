@@ -213,7 +213,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             selectedDescriptorIds,
             descriptor => descriptor.BaseId,
             descriptor => descriptor.IsExplicit,
-            CombinedDataSourceExpander.Expand,
+            RegistryDescriptorReader.CreateCombinedExpander(registryType),
             allTestCases);
 
         // Filter tests if specific tests were requested

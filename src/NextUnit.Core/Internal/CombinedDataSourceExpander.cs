@@ -27,12 +27,18 @@ internal static class CombinedDataSourceExpander
     /// Expands a collection of combined data source descriptors into test case descriptors.
     /// </summary>
     /// <param name="descriptors">The combined data source descriptors to expand.</param>
+    /// <param name="registryMaxTestCasesPerMethod">
+    /// The cap carried by the registry these descriptors came from, or <see langword="null"/> when
+    /// the caller has no registry to read it from.
+    /// </param>
     /// <returns>A collection of expanded test case descriptors.</returns>
-    public static IEnumerable<TestCaseDescriptor> Expand(IEnumerable<CombinedDataSourceDescriptor> descriptors)
+    public static IEnumerable<TestCaseDescriptor> Expand(
+        IEnumerable<CombinedDataSourceDescriptor> descriptors,
+        int? registryMaxTestCasesPerMethod)
     {
         foreach (var descriptor in descriptors)
         {
-            foreach (var testCase in ExpandSingle(descriptor))
+            foreach (var testCase in ExpandSingle(descriptor, registryMaxTestCasesPerMethod))
             {
                 yield return testCase;
             }
@@ -43,10 +49,21 @@ internal static class CombinedDataSourceExpander
     /// Expands a single combined data source descriptor into test case descriptors.
     /// </summary>
     /// <param name="descriptor">The combined data source descriptor to expand.</param>
+    /// <param name="registryMaxTestCasesPerMethod">
+    /// The cap carried by the registry this descriptor came from, or <see langword="null"/> when the
+    /// caller has no registry to read it from.
+    /// </param>
     /// <returns>A collection of expanded test case descriptors.</returns>
-    public static IEnumerable<TestCaseDescriptor> ExpandSingle(CombinedDataSourceDescriptor descriptor)
+    public static IEnumerable<TestCaseDescriptor> ExpandSingle(
+        CombinedDataSourceDescriptor descriptor,
+        int? registryMaxTestCasesPerMethod)
     {
-        var maxTestCasesPerMethod = TestCaseExpansionLimits.MaxTestCasesPerMethod;
+        // Taken from the caller rather than read from GeneratedTestRegistryStore.Current, which is a
+        // single last-writer-wins static: the VSTest adapter reads each source assembly's registry by
+        // reflection off that assembly's own type, so in a run over two assemblies Current is
+        // whichever module initializer happened to run last and one assembly's descriptors would be
+        // bounded by the other assembly's cap.
+        var maxTestCasesPerMethod = TestCaseExpansionLimits.ResolveFromEnvironment(registryMaxTestCasesPerMethod);
 
         // Resolve values for each parameter
         var parameterValues = new List<object?[]>();
@@ -278,7 +295,8 @@ internal static class CombinedDataSourceExpander
 
         throw new InvalidOperationException(
             $"Test '{descriptor.MethodName}' expands to {countText} test cases, which exceeds the limit of " +
-            $"{maxTestCasesPerMethod}. Reduce the parameter data sources, or raise the limit with the " +
+            $"{maxTestCasesPerMethod}. Reduce the parameter data sources, raise the limit for the " +
+            $"project with <NextUnitMaxTestCasesPerMethod>, or raise it for this run only with the " +
             $"{TestCaseExpansionLimits.EnvironmentVariableName} environment variable.");
     }
 
