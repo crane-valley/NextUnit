@@ -32,31 +32,52 @@ VERSION_PATTERN='^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})(
 # this script is tested with. A version moved into another file therefore stays out of scope.
 VERSION_PARSER='
 import sys, xml.etree.ElementTree as ET
+
+def local(el):
+    return el.tag.rsplit("}", 1)[-1]
+
 try:
     root = ET.parse(sys.argv[1]).getroot()
 except Exception as exc:
     sys.stderr.write("is not well-formed XML: %s" % exc)
     sys.exit(2)
+parents = {child: parent for parent in root.iter() for child in parent}
+
+def item_scoped(el):
+    # An item (child of ItemGroup) or item metadata (grandchild of ItemGroup). Neither declares a
+    # property nor imports anything, whatever it happens to be named.
+    parent = parents.get(el)
+    if parent is None:
+        return False
+    if local(parent) == "ItemGroup":
+        return True
+    grandparent = parents.get(parent)
+    return grandparent is not None and local(grandparent) == "ItemGroup"
+
 for el in root.iter():
-    if el.tag.rsplit("}", 1)[-1] in ("Import", "Sdk"):
-        sys.stderr.write("uses <%s>, which can redefine Version from a file this guard does not read" % el.tag.rsplit("}", 1)[-1])
+    if item_scoped(el):
+        continue
+    if local(el) in ("Import", "Sdk"):
+        sys.stderr.write("uses <%s>, which can redefine Version from a file this guard does not read" % local(el))
         sys.exit(5)
     if any(name.rsplit("}", 1)[-1] == "Sdk" for name in el.attrib):
         sys.stderr.write("carries an Sdk attribute, which imports properties this guard does not read")
         sys.exit(6)
-parents = {child: parent for parent in root.iter() for child in parent}
 found = []
 for el in root.iter():
-    if el.tag.rsplit("}", 1)[-1] != "Version":
+    parent = parents.get(el)
+    # A property is a child of PropertyGroup and nothing else, so an element named Version
+    # anywhere else in the tree is not the package version and must not be counted as one.
+    if local(el) != "Version" or parent is None or local(parent) != "PropertyGroup":
         continue
     conditional = bool(el.attrib)
-    ancestor = parents.get(el)
+    ancestor = parent
     while ancestor is not None and not conditional:
         conditional = "Condition" in ancestor.attrib
         ancestor = parents.get(ancestor)
     found.append(((el.text or "").strip(), conditional))
 if len(found) != 1:
-    sys.stderr.write("must declare exactly one <Version> element, found %d" % len(found))
+    sys.stderr.write("must declare exactly one <Version> property, found %d" % len(found))
     sys.exit(3)
 value, conditional = found[0]
 if conditional:
