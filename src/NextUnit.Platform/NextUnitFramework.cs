@@ -124,6 +124,9 @@ internal sealed class NextUnitFramework :
         var testCases = await GetTestCasesAsync(cancellationToken).ConfigureAwait(false);
         if (testCases.Count == 0)
         {
+            // Returning without running session setup is what makes the close skip the
+            // [After(Session)] hooks: SessionLifecycleRunner pairs the two phases on whether setup was
+            // entered, so a filter that selects nothing runs neither half rather than only the second.
             return new CreateTestSessionResult { IsSuccess = true };
         }
 
