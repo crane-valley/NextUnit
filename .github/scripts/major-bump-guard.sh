@@ -23,7 +23,7 @@ VERSION_PATTERN='^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})(
 #     Condition="true">5.0.0</Version>
 # is invisible to any grep that works one line at a time, and it is the version that would ship.
 # Refusing more than one element, a conditional one, and any construct that pulls properties in
-# from elsewhere keeps the value this guard inspects the value every build resolves.
+# from elsewhere keeps the version this guard inspects self-contained in this file.
 #
 # The guard reads this one file, which is where this repository declares the version. Asking
 # MSBuild for the effective property with `dotnet msbuild -getProperty:Version` would cover every
@@ -38,8 +38,8 @@ except Exception as exc:
     sys.stderr.write("is not well-formed XML: %s" % exc)
     sys.exit(2)
 for el in root.iter():
-    if el.tag.rsplit("}", 1)[-1] == "Import":
-        sys.stderr.write("uses <Import>, which can redefine Version from a file this guard does not read")
+    if el.tag.rsplit("}", 1)[-1] in ("Import", "Sdk"):
+        sys.stderr.write("uses <%s>, which can redefine Version from a file this guard does not read" % el.tag.rsplit("}", 1)[-1])
         sys.exit(5)
     if any(name.rsplit("}", 1)[-1] == "Sdk" for name in el.attrib):
         sys.stderr.write("carries an Sdk attribute, which imports properties this guard does not read")
