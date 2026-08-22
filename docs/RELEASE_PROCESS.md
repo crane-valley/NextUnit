@@ -819,43 +819,70 @@ Examples:
 
 ### Behavioral Breaks That Require a MAJOR
 
-An API break is not the only kind of break. Cut a major release when any of these hold:
+An API break is not the only kind of break, and not every behavior change is one. The question is
+whether a suite that was CORRECT on the previous release stops being correct: code that built and
+worked, tests that passed for the right reason, ids that resolved. Cut a major release when any of
+these hold:
 
-1. **A build that compiled stops compiling.** A new Error-severity diagnostic, or an existing rule
-   raised to Error, can fail a project that built clean on the previous release.
-2. **Existing test case ids move.** Filters, snapshot baselines, and IDE test state all key on the
-   id, so a suite that selected a named subset before now selects something else.
-3. **What runs, or what it concludes, changes for a suite that passed before.** Hooks that start or
-   stop running, test cases that multiply or disappear, changed teardown or session semantics, and a
-   fix that changes an assertion's verdict on a test that was already green all belong here.
+1. **A public API is removed, or a shipped signature changes.** A `*REMOVED*` line in any
+   `PublicAPI.Unshipped.txt`, a changed signature on an already shipped member, a new required
+   member on a shipped public interface with no default implementation, or a new abstract member on
+   a shipped public abstract class, which every existing subclass must now implement. Sealing a
+   shipped public type that consumers could derive from belongs here as well.
+2. **A test that was green on the previous release now fails, or reaches a different verdict.** A
+   changed assertion outcome, or a hook that stops running, under a suite that was already doing
+   what its author intended.
+3. **Test case ids move for tests that were already running correctly.** Filters, snapshot
+   baselines, and IDE test state all key on the id, so a suite that selected a named subset before
+   now selects something else.
+4. **A new Error-severity diagnostic matches code that both built AND ran correctly before.** A rule
+   that can only fire on code which already failed at run time is not this trigger.
+5. **A test that was running correctly stops being discovered or run.** A suite that quietly loses
+   test cases still reports green while covering less than it did, so a shrinking run set is a break
+   even though nothing turns red. Cases that start appearing are the MINOR case below; cases that
+   stop appearing are this trigger.
 
-These triggers are in addition to the incompatible API changes the Major bullet above already names,
-not a replacement for them. Everything else stays below major: additive API is MINOR, except that a
-new required member on a shipped public interface is a break unless it ships a default
-implementation; and a new Warning-severity rule is MINOR by default, but name it in the Upgrading
-callout regardless, because `TreatWarningsAsErrors` or an `.editorconfig` promotion turns it into a
-build failure downstream. Only a bug fix that moves no test case id, changes no run set, and flips no
-verdict a green test already reached is PATCH.
+Everything else stays below major. MINOR covers additive public API; an Error diagnostic that can
+only match code which already failed at run time, or which only a feature introduced in the same
+release can produce; a fix that makes a silently ignored declaration take effect, such as test cases
+that start appearing or a hook that starts running, as long as every id the already-running tests
+reported still resolves; and a new Warning-severity rule. Every fix in
+that silently-ignored group MUST be named in the version's "Upgrading from X" callout together with
+the command or filter a reader runs to find the affected tests, because such a fix does move case
+counts and adds ids, and a reader cannot audit what the callout does not name. Name new Warning rules
+there as well, because `TreatWarningsAsErrors` or an `.editorconfig` promotion turns one into a
+build failure downstream. PATCH is a fix that changes no public API, moves no test case id, and
+flips no verdict for a suite that was already correct.
 
 #### How to decide
 
 1. Check the public API surface first. A `*REMOVED*` line in any `PublicAPI.Unshipped.txt`, a changed
    signature on an already shipped member, or a new interface member with no default implementation,
-   is an incompatible API change and is a major on its own, whatever the three triggers say.
-2. List every diagnostic the release adds or re-severities. Any of them at Error is trigger 1, with
-   two exceptions: a rule that only replaces a failure the same code already hit at run time, and a
-   rule that can only match a feature the same release introduces. Both are MINOR, because no code
-   that built and worked before can trip them.
-3. Ask whether any id in a passing suite changes. A new `#n` suffix, an added row, or a renamed case
-   is trigger 2.
-4. Ask what a suite that was green on the previous version runs afterward, and what it decides. A
-   different set, or a different verdict on the same set, is trigger 3.
-5. If any trigger fired, cut a major and record which one in the CHANGELOG's "Upgrading from X"
-   callout for that version. That callout is where the release PR states which trigger applied and
-   what the reader has to fix, so a major without one is incomplete.
+   is an incompatible API change and is a major on its own, whatever the other triggers say.
+2. List every diagnostic the release adds or re-severities. One at Error is trigger 4 only if code
+   that compiled and ran correctly can trip it. A rule that only replaces a failure the same code
+   already hit at run time, and a rule that can only match a feature the same release introduces,
+   are both MINOR.
+3. Ask whether any id in a passing suite changes, and whether those tests were running correctly. A
+   new `#n` suffix, an added row, or a renamed case is trigger 3 when the test was already correct.
+   Ids that move because a declaration the framework used to ignore now takes effect are MINOR only
+   while every id those tests already reported still resolves: new ids appearing beside them is the
+   MINOR case, and goes in the callout with its audit command. An id that a correct test reported
+   and that no longer exists is trigger 3, and a major.
+4. Ask what a suite that was green and correct on the previous version runs afterward, and what it
+   decides. A different verdict on the same test is trigger 2; a test that no longer shows up in the
+   run at all is trigger 5, and comparing discovered case counts across the two versions is how you
+   see it.
+5. If any trigger fired, cut a major, record which one in the CHANGELOG's "Upgrading from X" callout
+   for that version, and state `MAJOR-JUSTIFICATION: <which trigger>` in the release PR body. That
+   callout is where the release PR states which trigger applied and what the reader has to fix, so a
+   major without one is incomplete. If no trigger fired, the release is MINOR or PATCH, and the
+   cadence rule below decides whether to cut it now at all.
 
-3.0.0 and 4.0.0 are the behavioral precedents. 3.0.0 was a major because its new Error diagnostics --
-`NU0022` and `NEXTUNIT013` through `NEXTUNIT016` -- could fail a build that compiled on 2.0.0, and
+3.0.0 and 4.0.0 are the behavioral precedents, and each records the judgment made at the time;
+"Release cadence" below re-reads 4.0.0 against the triggers as they now stand. 3.0.0 was
+a major because its new Error diagnostics -- `NU0022` and `NEXTUNIT013` through `NEXTUNIT016` --
+could fail a build that compiled on 2.0.0, and
 because lifecycle declarations on a base test class started taking effect, so suites ran setup they
 used to skip. 4.0.0, the release after it, was re-versioned from 3.1.0 because `NEXTUNIT017` can fail
 a compiling build, `[Repeat]` on a data source test now multiplies its cases and moves their ids, and
@@ -866,6 +893,52 @@ overloads.
 The triggers are illustrative, not an exhaustive specification: a change none of them names is still
 a break if it can turn a working suite red. The "Upgrading from X" callout is where the release PR
 states the judgment it made, and Codex and Copilot review of that PR is the check on it.
+
+### Release cadence
+
+Version numbering says what a release is called. Cadence says whether to cut one at all. Cut a
+release only when one of these holds:
+
+- At least 30 days have passed since the previous release.
+- A fix unblocks users: a security issue, data loss, or a wrong result in a shipped version. Wrong
+  results include both directions -- a green-to-red regression, and a false green such as a failing
+  assertion that now passes or tests that silently stop executing. Ship the fix as a PATCH or MINOR
+  of the shipped line. If the only correct fix trips a trigger above, because it has to change
+  shipped public API for instance, the release is still a MAJOR: the exception waives the 30-day
+  bar, never a trigger.
+
+Anything else waits. Breaking changes in particular wait in `PLANS.md` under "Queued for the next
+major version" and ship together, so that one major carries the whole batch instead of one major
+carrying each change as it lands. Expect at most one MAJOR every six months or so, unless the owner
+decides otherwise for a specific release.
+
+Queued breaking work does not sit on `main` while it waits. `main` stays releasable as a MINOR or
+PATCH at any moment, so a breaking change either keeps its PR open and rebased or lands on a `next`
+integration branch, and merges to `main` only inside the major release window.
+
+The release PR body records the judgment in two tokens:
+
+- `RELEASE-CADENCE-EXCEPTION: <reason>` -- required whenever the release meets neither bar above,
+  naming the reason it ships anyway.
+- `MAJOR-JUSTIFICATION: <which trigger>` -- required on every MAJOR bump, naming the trigger from
+  "Behavioral Breaks That Require a MAJOR" that fired.
+
+Both tokens are checked by the major-bump guard in PR validation once the `ci/major-bump-guard` PR
+lands; until then they are a convention the release PR author and its reviewers uphold.
+
+This rule exists because of what preceded it. 2.0.0 shipped on 2026-08-12, and 3.0.0 and 4.0.0 both
+on 2026-08-22: three major releases in ten days, the last two on the same day. Read against the
+triggers as they now stand, 4.0.0 keeps its number on two of its changes. A run whose filter selects
+no tests stopped invoking its `[After(LifecycleScope.Session)]` hooks, and those hooks did run on
+3.0.0 for a suite that was doing nothing wrong. Honoring `[Repeat]` on a data source test also
+retired the unsuffixed id that such a case previously reported, so an id a correct test resolved
+stopped existing, which is trigger 3 even though the fix itself corrected a silently dropped count.
+`NEXTUNIT017` is the MINOR one: it reports a hook shape that has never run in any version, so no
+code that built and ran correctly can trip it. The classification therefore held, and what actually
+went wrong was cadence. Three majors in ten days made each of those changes a separate upgrade for
+consumers, where the rule above would have batched them into one release. The numbers stand: 2.0.0,
+3.0.0, and 4.0.0 are tagged and released, nothing is renamed, and the sections above still describe
+what each of them broke. What changes is the rule applied from here on.
 
 ## Package Configuration Notes
 
