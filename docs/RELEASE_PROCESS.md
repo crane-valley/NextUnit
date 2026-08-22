@@ -923,6 +923,9 @@ The release PR body records the judgment in two tokens:
 - `MAJOR-JUSTIFICATION: <which trigger>` -- required on every MAJOR bump, naming the trigger from
   "Behavioral Breaks That Require a MAJOR" that fired.
 
+An urgent fix inside the 30-day window still carries `RELEASE-CADENCE-EXCEPTION` in the release PR
+body; the token states the urgent reason, it does not mean the release is irregular.
+
 Both tokens are checked by the major-bump guard in PR validation once the `ci/major-bump-guard` PR
 lands; until then they are a convention the release PR author and its reviewers uphold.
 
