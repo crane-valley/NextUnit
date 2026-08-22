@@ -75,6 +75,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cannot be constructed at all still ends the run, since there is no fixture to attribute the failure
   to.
 
+- A `[Matrix]` test method is now expanded once per build instead of twice. The expansion limit check
+  already built the full Cartesian product and applied every `[MatrixExclusion]` to count what the
+  registry would hold, and the registry emitter then built and filtered the same combinations again
+  to write them out. Exclusion filtering costs exclusions x combinations x parameter width and the
+  number of exclusions is not capped, so a method sitting at the cap with many `[MatrixExclusion]`
+  attributes paid that pass twice for one answer. The check now hands its result to the emitter,
+  which writes exactly those combinations. Generated registries are byte-for-byte identical, and no
+  test case id, ordering, or diagnostic changes.
+
 ### Fixed
 
 - Read a task-wrapped `[TestData]` source and a `[ClassDataSource]` through the row type `NU0009`
