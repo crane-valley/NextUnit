@@ -43,9 +43,10 @@ internal readonly struct EmittableTestMethod
     /// <remarks>
     /// Read through <c>IsDefault</c> because a struct can always be default-initialized -- an array
     /// slot, a field, <c>default</c> written by hand -- and a default <see cref="ImmutableArray{T}"/>
-    /// throws on <c>Length</c> and on enumeration. Without this, such an instance would fail the
-    /// emitter's loop with a <see cref="NullReferenceException"/> out of a struct that reads as
-    /// initialized rather than emitting no matrix cases.
+    /// throws on <c>Length</c> and on enumeration instead of reading as empty. This normalizes the
+    /// property alone; it does not make a wholly default pairing usable, since
+    /// <see cref="Test"/> is null there and the emitter classifies it before ever reading the
+    /// combinations.
     /// </remarks>
     public ImmutableArray<EquatableArray<ConstantValue>> MatrixCombinations =>
         _matrixCombinations.IsDefault
