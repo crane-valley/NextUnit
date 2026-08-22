@@ -2,7 +2,9 @@ name: PR Validation
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    # edited is here for major-bump-guard: it reads the PR body, so a body edited after a green
+    # run would otherwise leave a stale pass behind and let a justification be deleted post-check.
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -128,7 +130,12 @@ jobs:
         echo "=== NextUnit.Core Dependencies ==="
         dotnet list src/NextUnit.Core/NextUnit.Core.csproj package
 
-  # Job 5: Release guard for MAJOR bumps and back-to-back releases
+  # Job 5: Release guard for MAJOR bumps and back-to-back releases.
+  # Like every other job here, this one runs the workflow and script from the pull request's own
+  # head, so a PR that edits the guard is judged by the edited guard. Moving the logic to a
+  # required workflow in a separate trusted repository would close that, at the cost of a second
+  # repository in the release path; for a single-repository project, review of changes under
+  # .github/ is the control that stays.
   major-bump-guard:
     name: Major Bump Guard
     runs-on: ubuntu-latest
@@ -155,20 +162,25 @@ jobs:
         # never through workflow interpolation into the shell source.
         PR_BODY: ${{ github.event.pull_request.body }}
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      # HEAD is the pull_request merge ref, so this compares the base against what merging would
+      # actually put on the base branch; head.sha alone would miss a version the merge produces.
+      # Both sides are read as blobs so that the compared content is the committed content.
       run: |
         if git diff --quiet "$BASE_SHA" HEAD -- Directory.Build.props; then
           echo "Directory.Build.props unchanged; guard not applicable."
           exit 0
         fi
         BASE_PROPS="$(mktemp)"
+        HEAD_PROPS="$(mktemp)"
         git show "$BASE_SHA:Directory.Build.props" > "$BASE_PROPS"
-        bash .github/scripts/major-bump-guard.sh "$BASE_PROPS" Directory.Build.props
+        git show HEAD:Directory.Build.props > "$HEAD_PROPS"
+        bash .github/scripts/major-bump-guard.sh "$BASE_PROPS" "$HEAD_PROPS"
 
   # Summary
   pr-summary:
     name: PR Summary
     runs-on: ubuntu-latest
-    needs: [pr-analysis, strict-build, format-check, dependency-check]
+    needs: [pr-analysis, strict-build, format-check, dependency-check, major-bump-guard]
     if: always()
 
     steps:
@@ -179,7 +191,9 @@ jobs:
         echo "Strict Build: ${{ needs.strict-build.result }}"
         echo "Format Check: ${{ needs.format-check.result }}"
         echo "Dependencies: ${{ needs.dependency-check.result }}"
+        echo "Major Bump Guard: ${{ needs.major-bump-guard.result }}"
 
         [[ "${{ needs.strict-build.result }}" == "success" ]] || exit 1
         [[ "${{ needs.format-check.result }}" == "success" ]] || exit 1
+        [[ "${{ needs.major-bump-guard.result }}" == "success" ]] || exit 1
         echo "✅ All PR checks passed"

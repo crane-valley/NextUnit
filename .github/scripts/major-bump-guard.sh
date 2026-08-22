@@ -9,39 +9,57 @@ MIN_INTERVAL_DAYS=30
 MIN_TOKEN_CHARS=20
 MAJOR_TOKEN='MAJOR-JUSTIFICATION:'
 CADENCE_TOKEN='RELEASE-CADENCE-EXCEPTION:'
-TAG_PATTERN='^v[0-9]+\.[0-9]+\.[0-9]+$'
+# Stable releases only. An rc or preview tag days before its GA is the normal shape of a release,
+# not the back-to-back cutting this guard exists to catch.
+TAG_PATTERN='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+# The grammar release.yml enforces on the published package, so a version this guard accepts is a
+# version that can actually ship. Components are capped at nine digits: a longer one overflows the
+# shell integer comparison below, which returns status 2 and would silently skip the MAJOR check.
+VERSION_PATTERN='^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})(-(alpha|beta|rc|preview)(\.(0|[1-9][0-9]{0,8}))?)?$'
 
 fail() {
   echo "::error::$*"
   exit 1
 }
 
+count_matches() {
+  local pattern=$1 file=$2 matches
+  matches=$(grep -oE "$pattern" "$file" || true)
+  if [ -z "$matches" ]; then printf '0'; else printf '%s' "$matches" | grep -c ''; fi
+}
+
 # Sets VERSION_OUT rather than printing, so that fail() exits the script instead of a
 # command-substitution subshell that would swallow the ::error:: annotation.
 read_version() {
-  local file=$1 label=$2 matches count=0 value
+  local file=$1 label=$2 opens plain value
   [ -f "$file" ] || fail "$label Directory.Build.props not found: $file"
-  matches=$(grep -oE '<Version>[^<]*</Version>' "$file" || true)
-  [ -z "$matches" ] || count=$(printf '%s\n' "$matches" | wc -l | tr -d '[:space:]')
-  # Demand exactly one declaration. MSBuild lets a later write win, so guessing which of several
-  # elements is the shipped version would let the guard check a version nobody releases.
-  [ "$count" -eq 1 ] || fail "$label Directory.Build.props must declare exactly one <Version> element, found $count"
-  value=${matches#<Version>}
+  # Count every opening Version tag, attributes and self-closing form included, and require it to
+  # be the one plain element. MSBuild redefines a property in document order and allows Condition,
+  # so a second <Version Condition="..."> that a bare <Version> regex cannot see would ship a
+  # version this guard never inspected.
+  opens=$(count_matches '<Version([[:space:]][^>]*)?/?>' "$file")
+  plain=$(count_matches '<Version>[^<]*</Version>' "$file")
+  [ "$opens" -eq 1 ] || fail "$label Directory.Build.props must declare exactly one <Version> element, found $opens"
+  [ "$plain" -eq 1 ] || fail "$label <Version> must be a plain element with no attributes and a literal value"
+  value=$(grep -oE '<Version>[^<]*</Version>' "$file")
+  value=${value#<Version>}
   value=${value%</Version>}
-  printf '%s' "$value" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' \
-    || fail "$label <Version> is malformed, expected MAJOR.MINOR.PATCH: '$value'"
+  printf '%s' "$value" | grep -qE "$VERSION_PATTERN" \
+    || fail "$label <Version> is outside this repository's version scheme: '$value'"
   VERSION_OUT=$value
 }
 
 # The body is attacker-controlled text: it is only ever matched against an anchored literal
-# prefix, never printed back into the log, expanded, or executed.
+# prefix, never printed back into the log, expanded, or executed. Every matching line is checked,
+# so an empty token line left in a template cannot mask a real justification further down.
 has_token() {
   local token=$1 line rest
-  line=$(printf '%s' "${PR_BODY:-}" | tr -d '\r' | grep -m 1 -E "^${token}" || true)
-  [ -n "$line" ] || return 1
-  rest=${line#"$token"}
-  rest=${rest//[[:space:]]/}
-  [ ${#rest} -ge "$MIN_TOKEN_CHARS" ]
+  while IFS= read -r line; do
+    rest=${line#"$token"}
+    rest=${rest//[[:space:]]/}
+    [ ${#rest} -lt "$MIN_TOKEN_CHARS" ] || return 0
+  done < <(printf '%s' "${PR_BODY:-}" | tr -d '\r' | grep -E "^${token}" || true)
+  return 1
 }
 
 BASE_PROPS=${1:-}
@@ -55,8 +73,8 @@ base_version=$VERSION_OUT
 read_version "$HEAD_PROPS" head
 head_version=$VERSION_OUT
 
-IFS=. read -r base_major base_minor base_patch <<<"$base_version"
-IFS=. read -r head_major head_minor head_patch <<<"$head_version"
+IFS=. read -r base_major base_minor base_patch <<<"${base_version%%-*}"
+IFS=. read -r head_major head_minor head_patch <<<"${head_version%%-*}"
 
 if [ "$base_version" = "$head_version" ]; then
   bump_kind='none'
@@ -67,22 +85,25 @@ elif [ "$head_major" -eq "$base_major" ] && [ "$head_minor" -gt "$base_minor" ];
 elif [ "$head_major" -eq "$base_major" ] && [ "$head_minor" -eq "$base_minor" ] && [ "$head_patch" -gt "$base_patch" ]; then
   bump_kind='patch'
 else
-  # A backwards or sideways move is still a release-shaped change, so it faces the cadence rule,
-  # but it is not a MAJOR bump and must not be waved through by a MAJOR justification.
+  # A prerelease move, or a backwards one, is still a release-shaped change, so it faces the
+  # cadence rule, but it is not a MAJOR bump and must not be waved through by a MAJOR justification.
   bump_kind='other'
 fi
 
 latest_tag=
 latest_ts=0
-while IFS= read -r tag; do
-  [ -n "$tag" ] || continue
+while IFS=' ' read -r tag creator; do
+  printf '%s' "$tag" | grep -qE "$TAG_PATTERN" || continue
   ts=$(git log -1 --format=%ct "$tag^{commit}" 2>/dev/null || true)
   [ -n "$ts" ] || continue
+  # An annotated tag cut today can point at an old commit. Taking the later of the two dates keeps
+  # that case failing closed instead of reading the release as months old.
+  if [ -n "$creator" ] && [ "$creator" -gt "$ts" ]; then ts=$creator; fi
   if [ "$ts" -gt "$latest_ts" ]; then
     latest_ts=$ts
     latest_tag=$tag
   fi
-done < <(git tag --list 2>/dev/null | grep -E "$TAG_PATTERN" || true)
+done < <(git for-each-ref --format='%(refname:strip=2) %(creatordate:unix)' refs/tags 2>/dev/null || true)
 
 days_since=
 if [ -n "$latest_tag" ]; then
