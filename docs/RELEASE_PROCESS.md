@@ -817,6 +817,39 @@ Examples:
 - `1.6.0` → `1.7.0`: New assertions, new features (MINOR)
 - `1.6.0` → `2.0.0`: Breaking API changes (MAJOR)
 
+### Behavioral Breaks That Require a MAJOR
+
+An API break is not the only kind of break. Cut a major release when any of these hold:
+
+1. **A build that compiled stops compiling.** A new Error-severity diagnostic, or an existing rule
+   raised to Error, can fail a project that built clean on the previous release.
+2. **Existing test case ids move.** Filters, snapshot baselines, and IDE test state all key on the
+   id, so a suite that selected a named subset before now selects something else.
+3. **What runs changes for a suite that passed before.** Hooks that start or stop running, test
+   cases that multiply or disappear, and changed teardown or session semantics all belong here.
+
+Everything else stays below major. Additive API and new Warning-severity rules are MINOR, as is a fix
+that only turns a runtime failure into a build error where the code never worked. Bug fixes that move
+no test case id and change no run set are PATCH.
+
+#### How to decide
+
+1. List every diagnostic the release adds or re-severities. Any of them at Error is trigger 1.
+2. Ask whether any id in a passing suite changes. A new `#n` suffix, an added row, or a renamed case
+   is trigger 2.
+3. Ask what a suite that was green on the previous version runs afterward. A different set is
+   trigger 3.
+4. If any trigger fired, cut a major and record which one in the CHANGELOG's "Upgrading from X"
+   callout for that version. That callout is where the release PR states which trigger applied and
+   what the reader has to fix, so a major without one is incomplete.
+
+Both majors so far were cut on these triggers rather than on an API break. 3.0.0 was a major because
+its new Error diagnostics -- `NU0022` and `NEXTUNIT013` through `NEXTUNIT016` -- could fail a build
+that compiled on 2.0.0, and because lifecycle declarations on a base test class started taking
+effect, so suites ran setup they used to skip. The release after 3.0.0 was re-versioned from 3.1.0
+to 4.0.0 because `NEXTUNIT017` can fail a compiling build, `[Repeat]` on a data source test now
+multiplies its cases and moves their ids, and session and class setup semantics changed.
+
 ## Package Configuration Notes
 
 Only the analyzer and source-generator packages use
