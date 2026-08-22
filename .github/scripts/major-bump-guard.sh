@@ -27,6 +27,28 @@ flatten() {
   printf '%s' "$1" | tr -d '\r' | tr '\n' ' '
 }
 
+# What this guard is for, and what it is not for.
+#
+# It catches an unexplained MAJOR bump or an unexplained release inside the cadence window: the
+# accident, the forgotten justification, the release cut a week after the last one because nobody
+# checked. Against that it is reliable.
+#
+# It is not an adversarial control, and cannot be made into one where it runs. The guard evaluates
+# MSBuild logic the pull request controls, in a job whose environment necessarily differs from the
+# release job's, so any difference between the two can be conditioned on. Review found three such
+# differences after the obvious ones were closed: the Configuration, reserved properties such as
+# MSBuildProjectExtension, and then the GITHUB_JOB variable, whether restore has run, and the base
+# tree still being on disk while the head tree is evaluated. That list is open-ended by nature,
+# because the environments are not identical and cannot be. Every one of those evasions is a
+# conditional sitting in plain sight in the diff, so review of Directory.Build.props is what
+# catches a deliberate one; this job catches the honest mistake.
+#
+# Closing the category properly means running the guard from the base branch through a separate
+# pull_request_target workflow, and deciding whether the version it compares is the literal that
+# release.yml publishes as the tag or the value MSBuild resolves for the package. Those two can
+# already disagree today. Both are the repository owner's calls and are recorded in the pull
+# request that introduced this file.
+#
 # Ask MSBuild what the version is, from the projects that actually pack.
 #
 # Earlier revisions parsed Directory.Build.props directly and were bypassed four separate times
