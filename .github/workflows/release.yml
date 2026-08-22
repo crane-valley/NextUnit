@@ -289,11 +289,18 @@ jobs:
           dotnet restore tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
             --configfile .github/NextUnit.PackageSmoke.NuGet.Config \
             -p:UseLocalNextUnitPackage=true
+          # The floor is the number of test cases this run executes -- eight, because
+          # -p:UseLocalNextUnitPackage=true compiles the whole project -- and not the seven that
+          # --list-tests reports, since the deferred source stays one placeholder until the run
+          # expands it. Eight is one contract: the JIT and AOT floors of dotnet.yml's "Package
+          # Integration" job, verify-published.yml's FULL mode, and the manual FULL equivalent in
+          # docs/RELEASE_PROCESS.md all assert it. Adding a test moves all four; a site left behind
+          # stops proving anything.
           dotnet run --project tests/NextUnit.PackageSmoke/NextUnit.PackageSmoke.csproj \
             --configuration Release \
             --no-restore \
             -p:UseLocalNextUnitPackage=true \
-            -- --minimum-expected-tests 2
+            -- --minimum-expected-tests 8
           dotnet restore tests/NextUnit.AspNetCore.PackageSmoke/NextUnit.AspNetCore.PackageSmoke.csproj \
             --configfile .github/NextUnit.PackageSmoke.NuGet.Config \
             -p:UseLocalNextUnitPackage=true
