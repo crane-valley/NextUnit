@@ -23,6 +23,10 @@ fail() {
   exit 1
 }
 
+flatten() {
+  printf '%s' "$1" | tr -d '\r' | tr '\n' ' '
+}
+
 # Ask MSBuild what the version is instead of reading the XML.
 #
 # Earlier revisions parsed Directory.Build.props directly and were bypassed four separate times in
@@ -32,16 +36,25 @@ fail() {
 # review round found another, because reimplementing MSBuild's evaluation rules in a parser is an
 # open-ended job. The evaluator is authoritative and already installed in CI, so this asks it.
 #
+# Configuration=Release because that is what release.yml packs with, and a property can be
+# conditioned on it: evaluating in the default empty configuration would read a version that the
+# release never publishes.
+#
 # Evaluating a pull request's own project files runs its MSBuild logic. That is not a new exposure
 # here: strict-build in this same workflow already runs dotnet build over the same tree.
 read_version() {
-  local tree=$1 label=$2 props output value
+  local tree=$1 label=$2 props output body count value
   props="$tree/Directory.Build.props"
   [ -f "$props" ] || fail "$label Directory.Build.props not found: $props"
-  output=$(dotnet msbuild "$props" -getProperty:Version -nologo 2>&1) \
-    || fail "$label Directory.Build.props could not be evaluated by MSBuild: $(printf '%s' "$output" | tr '\n' ' ')"
-  value=$(printf '%s' "$output" | tr -d '\r' | grep -v '^[[:space:]]*$' | tail -n 1 || true)
-  value=${value#"${value%%[![:space:]]*}"}
+  output=$(dotnet msbuild "$props" -getProperty:Version -p:Configuration=Release -nologo 2>&1) \
+    || fail "$label Directory.Build.props could not be evaluated by MSBuild: $(flatten "$output")"
+  # The whole of stdout has to be the version. Accepting just its last non-blank line would let
+  # whatever MSBuild printed ahead of that line through unexamined.
+  body=$(printf '%s' "$output" | tr -d '\r' | grep -v '^[[:space:]]*$' || true)
+  count=$(printf '%s' "$body" | grep -c '' || true)
+  [ -n "$body" ] && [ "$count" -eq 1 ] \
+    || fail "$label version evaluation did not produce a single value: $(flatten "$output")"
+  value=${body#"${body%%[![:space:]]*}"}
   value=${value%"${value##*[![:space:]]}"}
   # Anything MSBuild did not resolve to a shippable version, an empty property included, stops
   # here rather than being guessed at.

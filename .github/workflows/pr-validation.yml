@@ -171,19 +171,20 @@ jobs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
       # HEAD is the pull_request merge ref, so this compares the base against what merging would
       # actually put on the base branch; head.sha alone would miss a version the merge produces.
-      # Each side is extracted as a whole tree rather than a single file because MSBuild resolves
-      # the version by evaluation, and an import in the props file has to resolve against the
-      # commit it came from.
+      #
+      # The guard runs on every pull request rather than only when Directory.Build.props changed.
+      # MSBuild resolves the version by evaluation, so a change to a file that props imports moves
+      # the version without touching the props file, and a path filter would skip exactly that.
+      #
+      # The base goes into a linked worktree under its own temporary directory, not next to the
+      # head tree: sibling directories with predictable names let a head props file import the
+      # base one and read the old version back under the guard while shipping a different one.
+      # A worktree rather than git archive, because archive applies export-ignore from a
+      # .gitattributes the pull request controls, which could hide an imported file from the guard.
       run: |
-        if git diff --quiet "$BASE_SHA" HEAD -- Directory.Build.props; then
-          echo "Directory.Build.props unchanged; guard not applicable."
-          exit 0
-        fi
-        WORK="$(mktemp -d)"
-        mkdir -p "$WORK/base" "$WORK/head"
-        git archive "$BASE_SHA" | tar -x -C "$WORK/base"
-        git archive HEAD | tar -x -C "$WORK/head"
-        bash .github/scripts/major-bump-guard.sh "$WORK/base" "$WORK/head"
+        BASE_TREE="$(mktemp -d)/base"
+        git worktree add --detach "$BASE_TREE" "$BASE_SHA"
+        bash .github/scripts/major-bump-guard.sh "$BASE_TREE" .
 
   # Summary
   pr-summary:
