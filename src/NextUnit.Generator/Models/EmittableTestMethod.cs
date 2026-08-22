@@ -12,6 +12,14 @@ namespace NextUnit.Generator.Models;
 /// cache between compilations. A struct rather than a class because one exists for every admitted
 /// test method, and a suite with no <c>[Matrix]</c> at all should not pay an allocation per test
 /// for a field it never fills.
+/// <para>
+/// Carrying the expansion here does keep every matrix method's combinations alive until emission
+/// finishes, where computing it twice kept one method's alive at a time. Recomputing to shorten that
+/// lifetime was rejected: <c>RegistryEmitter</c> builds the whole registry in one
+/// <c>CodeWriter</c> before it returns, and one emitted matrix case is several hundred characters of
+/// that text against a combination of a few parameter references, so peak memory already scales as
+/// methods x cap and the retained expansions are a fraction of the text they produce.
+/// </para>
 /// </remarks>
 internal readonly struct EmittableTestMethod
 {

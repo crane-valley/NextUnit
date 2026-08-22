@@ -20,6 +20,9 @@ namespace NextUnit.Generator.Tests;
 public sealed class MatrixExpansionReuseTests
 {
     private const string ExpansionLimitId = "NEXTUNIT013";
+    private const string MatrixHelperTypeName = "NextUnit.Generator.Helpers.MatrixHelper";
+    private const string EmitterTypeName = "NextUnit.Generator.Emitters.RegistryEmitter";
+    private const string ValidatorTypeName = "NextUnit.Generator.Validators.TestCaseExpansionValidator";
 
     /// <summary>
     /// Thirteen surviving combinations repeated twice, from sixteen before the exclusions.
@@ -57,30 +60,25 @@ public sealed class MatrixExpansionReuseTests
     [Fact]
     public void RegistryEmitter_DoesNotExpandTheMatrixAgain()
     {
-        var calls = CallsFromInto(
-            "NextUnit.Generator.Emitters.RegistryEmitter",
-            "NextUnit.Generator.Helpers.MatrixHelper");
-
-        Assert.Empty(calls);
+        Assert.DoesNotContain(EmitterTypeName, ExpansionCallSites().Select(static site => site.Caller));
     }
 
     /// <summary>
-    /// The other half of the same property, and the guard that keeps the test above from passing
-    /// because the scan found nothing anywhere: the validator is the one caller of the expansion.
+    /// The whole generator holds two call sites into the expansion, both in the validator, one per
+    /// helper. Counted rather than deduplicated, and scanned across every type rather than the two
+    /// named above: a second expansion added beside the first, or moved into a third type, is the
+    /// regression this is here to catch, and either would survive a check that only asked which
+    /// distinct helpers some named type calls.
     /// </summary>
     [Fact]
-    public void TestCaseExpansionValidator_IsTheOnlyCallerOfTheExpansion()
+    public void TheExpansion_HasExactlyOneCallSitePerHelper()
     {
-        var calls = CallsFromInto(
-            "NextUnit.Generator.Validators.TestCaseExpansionValidator",
-            "NextUnit.Generator.Helpers.MatrixHelper");
-
         Assert.Equal(
-            ["ApplyExclusions", "ComputeCartesianProduct"],
-            calls.Select(static call => call.Name)
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(static name => name, StringComparer.Ordinal)
-                .ToArray());
+            [
+                (ValidatorTypeName, "ApplyExclusions"),
+                (ValidatorTypeName, "ComputeCartesianProduct"),
+            ],
+            ExpansionCallSites());
     }
 
     /// <summary>
@@ -162,21 +160,47 @@ public sealed class MatrixExpansionReuseTests
         return count;
     }
 
-    private static IReadOnlyList<MethodBase> CallsFromInto(string callerTypeName, string calleeTypeName)
+    /// <summary>
+    /// Every call site in the generator that reaches <c>MatrixHelper</c>, named by the type that
+    /// declares the calling method and the helper it calls.
+    /// </summary>
+    /// <remarks>
+    /// The helper's own internal calls are dropped: <c>ApplyExclusions</c> reaching its matcher is
+    /// the one expansion doing its work, not a second one.
+    /// </remarks>
+    private static IReadOnlyList<(string Caller, string Method)> ExpansionCallSites()
     {
         var generator = typeof(NextUnitGenerator).Assembly;
-        var caller = generator.GetType(callerTypeName, throwOnError: true)!;
-        var callee = generator.GetType(calleeTypeName, throwOnError: true)!;
+        var helper = generator.GetType(MatrixHelperTypeName, throwOnError: true)!;
 
-        return DeclaredMethods(caller)
-            .SelectMany(CalledMethods)
-            .Where(called => called.DeclaringType == callee)
+        return generator.GetTypes()
+            .SelectMany(DeclaredMethods)
+            .SelectMany(static method => CalledMethods(method).Select(called => (Caller: method, Called: called)))
+            .Where(site => site.Called.DeclaringType == helper)
+            .Select(static site => (Caller: OutermostTypeName(site.Caller.DeclaringType!), site.Called.Name))
+            .Where(static site => site.Caller != MatrixHelperTypeName)
+            .OrderBy(static site => site.Caller, StringComparer.Ordinal)
+            .ThenBy(static site => site.Name, StringComparer.Ordinal)
             .ToList();
     }
 
     /// <summary>
-    /// Every method the type itself declares, including the ones the compiler moved into nested
-    /// closure classes for the lambdas the emitter passes around.
+    /// The type a compiler-generated closure class belongs to, so a call moved into a lambda is
+    /// still attributed to the type whose source contains it.
+    /// </summary>
+    private static string OutermostTypeName(Type type)
+    {
+        while (type.DeclaringType is { } declaring)
+        {
+            type = declaring;
+        }
+
+        return type.FullName!;
+    }
+
+    /// <summary>
+    /// Every method the type itself declares. Nested types are not walked, because the assembly-wide
+    /// scan reaches them on their own and would otherwise count their call sites twice.
     /// </summary>
     private static IEnumerable<MethodBase> DeclaredMethods(Type type)
     {
@@ -191,14 +215,6 @@ public sealed class MatrixExpansionReuseTests
         foreach (var constructor in type.GetConstructors(flags))
         {
             yield return constructor;
-        }
-
-        foreach (var nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
-        {
-            foreach (var method in DeclaredMethods(nested))
-            {
-                yield return method;
-            }
         }
     }
 
