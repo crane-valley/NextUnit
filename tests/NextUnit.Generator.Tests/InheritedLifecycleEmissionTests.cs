@@ -658,6 +658,8 @@ public class InheritedLifecycleEmissionTests
             {
                 void Setup();
                 void Setup(CancellationToken token);
+                void Setup(int value);
+                void Setup(in int value);
             }
 
             public class SharedFixture : IFixture
@@ -667,12 +669,54 @@ public class InheritedLifecycleEmissionTests
 
                 [Before(LifecycleScope.Test)]
                 void IFixture.Setup(CancellationToken token) { }
+
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup(int value) { }
+
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup(in int value) { }
             }
             """);
 
-        // Roslyn answers IFixture.Setup for both declarations, so a report keyed on the method name
-        // would silence the second one -- the silence these rules exist to remove. Keying on the
-        // override chain tells the overloads apart exactly as C# does.
+        // Roslyn answers IFixture.Setup for every one of these, so a report keyed on the method name
+        // would silence three of the four -- the silence these rules exist to remove. The override
+        // chain carries the parameter types and their ref kinds, so the last pair, which differs by
+        // `in` alone, is told apart too.
+        Assert.Equal(4, diagnostics.Count(static diagnostic => diagnostic.Id == "NEXTUNIT017"));
+    }
+
+    [Fact]
+    public async Task ExplicitInterfaceHooksOfTwoInterfaces_AreEachReportedAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public interface IFirst
+            {
+                void Setup();
+            }
+
+            public interface ISecond
+            {
+                void Setup();
+            }
+
+            public class SharedFixture : IFirst, ISecond
+            {
+                [Before(LifecycleScope.Test)]
+                void IFirst.Setup() { }
+
+                [Before(LifecycleScope.Test)]
+                void ISecond.Setup() { }
+            }
+            """);
+
+        // Two methods of one class with one signature: what tells them apart is the interface they
+        // implement, so the override chain has to carry it. Explicitly implementing two interfaces
+        // that declare the same member is the ordinary reason to write an explicit implementation
+        // at all, which makes this the shape most likely to reach the rule.
         Assert.Equal(2, diagnostics.Count(static diagnostic => diagnostic.Id == "NEXTUNIT017"));
     }
 

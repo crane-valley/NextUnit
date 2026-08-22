@@ -26,13 +26,23 @@ internal static class LifecycleMethodFactory
     /// called <c>Setup</c> would answer the same key, and a <c>new</c> method would be collapsed
     /// into the base hook it hides. The containing type and the parameter types are what make the
     /// key identify one method.
+    /// <para>
+    /// Every option here separates two declarations C# separates, and none joins two it separates.
+    /// The explicit interface qualifier is included because <c>void IFirst.Setup()</c> and
+    /// <c>void ISecond.Setup()</c> are two methods of one class that print the same name without
+    /// it, and the parameter ref kinds because <c>Setup(int)</c> and <c>Setup(in int)</c> are an
+    /// overload pair whose types alone are equal.
+    /// </para>
     /// </remarks>
     private static readonly SymbolDisplayFormat _overrideRootFormat =
         new(globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
-            memberOptions: SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeParameters,
-            parameterOptions: SymbolDisplayParameterOptions.IncludeType,
+            memberOptions: SymbolDisplayMemberOptions.IncludeContainingType |
+                SymbolDisplayMemberOptions.IncludeParameters |
+                SymbolDisplayMemberOptions.IncludeExplicitInterface,
+            parameterOptions: SymbolDisplayParameterOptions.IncludeType |
+                SymbolDisplayParameterOptions.IncludeParamsRefOut,
             miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
 
     /// <summary>
