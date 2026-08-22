@@ -434,7 +434,7 @@ internal static class DataSourceAttributeReader
         // differently -- or not at all. Naming an unambiguous row type would change nothing except
         // to add a way for the emitted call to fail on a type inference resolves without a name.
         var rowTypeName = classification.RowTypeIsAmbiguous
-            ? classification.RowType?.ToDisplayString(AttributeHelper.TypeExpressionFormat)
+            ? GetRowTypeName(classification, knownDataSourceTypes)
             : null;
 
         return (
@@ -443,6 +443,40 @@ internal static class DataSourceAttributeReader
             classification.Shape,
             rowTypeName,
             resolved.AcceptsCancellationToken);
+    }
+
+    /// <summary>
+    /// Names the selected row type for the emitted adapter call, or <c>null</c> to emit no name.
+    /// </summary>
+    /// <remarks>
+    /// A synchronous source has to prove the name binds from the generated file first, and gives it
+    /// up when it does not: that source compiles today and only reads the wrong arm, so a name the
+    /// file cannot resolve -- an <c>extern alias</c> hiding the assembly is the case that shows up
+    /// first -- would trade a wrong row for a build the user cannot fix, and the wrong row is the
+    /// lesser of the two. An asynchronous source is not asked, because without the name it does not
+    /// compile at all: inference reports <c>CS0411</c> against the generated file, so there is no
+    /// working build for an unbindable name to cost.
+    /// </remarks>
+    private static string? GetRowTypeName(
+        DataSourceClassification classification,
+        KnownDataSourceTypes knownDataSourceTypes)
+    {
+        if (classification.RowType is not { } rowType)
+        {
+            return null;
+        }
+
+        var typeExpression = rowType.ToDisplayString(AttributeHelper.TypeExpressionFormat);
+
+        if (classification.Shape != DataSourceShape.Sync)
+        {
+            return typeExpression;
+        }
+
+        return GeneratedRegistryAccess.CanReachType(rowType, knownDataSourceTypes.CompilingAssembly) &&
+            GeneratedRegistryAccess.NameBindsToType(typeExpression, rowType, knownDataSourceTypes.SemanticModel)
+            ? typeExpression
+            : null;
     }
 
     /// <summary>

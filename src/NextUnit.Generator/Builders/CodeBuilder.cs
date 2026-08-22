@@ -204,16 +204,10 @@ internal static class CodeBuilder
     public static string BuildDataSourceProvider(
         string typeName,
         string memberName,
-        DataSourceMemberKind memberKind)
-    {
-        var access = memberKind == DataSourceMemberKind.Method
-            ? $"{typeName}.{memberName}()"
-            : $"{typeName}.{memberName}";
-
-        return memberKind == DataSourceMemberKind.Unknown
+        DataSourceMemberKind memberKind) =>
+        memberKind == DataSourceMemberKind.Unknown
             ? "null"
-            : $"static () => (object?){access}";
-    }
+            : $"static () => (object?){BuildMemberAccess(typeName, memberName, memberKind)}";
 
     /// <summary>
     /// Builds the synchronous provider for a <c>[TestData]</c> member, which is emitted only for a
@@ -221,14 +215,39 @@ internal static class CodeBuilder
     /// <see cref="BuildAsyncTestDataSourceProvider"/> instead, and emitting both would make the
     /// runtime invoke the member twice.
     /// </summary>
+    /// <remarks>
+    /// The member is handed to <c>DataSourceAdapter.FromEnumerable&lt;TRow&gt;</c> only when the
+    /// descriptor names a row type, which it does for a source offering more than one. That call is
+    /// where the arm gets chosen: the runtime holds the provider's result as <c>object</c> and reads
+    /// it back as a non-generic <c>IEnumerable</c>, so a cast there would select no implementation.
+    /// A source offering one row type is passed straight through, since the wrapper would only add a
+    /// layer between the runtime and the sole arm it was already reading.
+    /// </remarks>
     public static string BuildTestDataSourceProvider(
         string typeName,
         string memberName,
         DataSourceMemberKind memberKind,
-        DataSourceShape shape) =>
-        shape == DataSourceShape.Sync
+        DataSourceShape shape,
+        string? rowTypeName)
+    {
+        if (shape != DataSourceShape.Sync || memberKind == DataSourceMemberKind.Unknown)
+        {
+            return "null";
+        }
+
+        return rowTypeName is null
             ? BuildDataSourceProvider(typeName, memberName, memberKind)
-            : "null";
+            : "static () => global::NextUnit.Internal.DataSourceAdapter.FromEnumerable" +
+                $"<{rowTypeName}>({BuildMemberAccess(typeName, memberName, memberKind)})";
+    }
+
+    private static string BuildMemberAccess(
+        string typeName,
+        string memberName,
+        DataSourceMemberKind memberKind) =>
+        memberKind == DataSourceMemberKind.Method
+            ? $"{typeName}.{memberName}()"
+            : $"{typeName}.{memberName}";
 
     /// <summary>
     /// Builds the asynchronous provider for a <c>[TestData]</c> member, or <c>null</c> when the
