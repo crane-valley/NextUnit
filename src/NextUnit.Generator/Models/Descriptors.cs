@@ -349,17 +349,18 @@ internal sealed record TestDataSource
     public DataSourceShape Shape { get; }
 
     /// <summary>
-    /// Gets the row type to name in the emitted adapter call, or <c>null</c> when inference already
-    /// arrives at the selected one on its own.
+    /// Gets the row type to name in the emitted adapter call, or <c>null</c> to emit no name.
     /// </summary>
     /// <remarks>
-    /// Only a source offering more than one element type carries a value here. That is the case
-    /// inference cannot resolve -- it reports <c>CS0411</c> in a file the user did not write -- and
-    /// the only case where the arm the call reads can differ from the one
-    /// <c>KnownDataSourceTypes.SelectRowType</c> chose and <c>NU0009</c> validated against. A source
-    /// implementing the interface once is left inferred because the name buys nothing there and can
-    /// still fail: a written type reaches nothing an <c>extern alias</c> hides, where inference
-    /// needs no name at all.
+    /// Only a source offering more than one element type carries a value here, and it is what pins
+    /// the arm the call reads to the one <c>KnownDataSourceTypes.SelectRowType</c> chose and
+    /// <c>NU0009</c> validated against. An asynchronous source also needs it to compile at all,
+    /// since inference reports <c>CS0411</c> in a file the user did not write; a synchronous one
+    /// compiles either way, and the name is what routes it through
+    /// <c>DataSourceAdapter.FromEnumerable&lt;TRow&gt;</c> rather than through the non-generic
+    /// <c>IEnumerable</c> the runtime would otherwise read. A source implementing the interface once
+    /// is left unnamed because the name buys nothing there and can still fail: a written type
+    /// reaches nothing an <c>extern alias</c> hides.
     /// <para>
     /// It comes from the same <c>KnownDataSourceTypes.Classify</c> result <see cref="Shape"/> does.
     /// Recomputing it at the emitter was rejected: a second walk over the interfaces would be a

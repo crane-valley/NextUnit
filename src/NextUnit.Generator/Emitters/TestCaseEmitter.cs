@@ -134,7 +134,12 @@ internal static class TestCaseEmitter
         writer.WriteLine($"DataSourceType = typeof({dataSourceType}),");
         var dataSourceProvider = dataSource.UnreachableMemberTypeName is { } unreachableTypeName
             ? CodeBuilder.BuildUnreachableDataSourceProvider(unreachableTypeName, dataSource.MemberName)
-            : CodeBuilder.BuildTestDataSourceProvider(accessType, dataSource.MemberName, dataSource.MemberKind, dataSource.Shape);
+            : CodeBuilder.BuildTestDataSourceProvider(
+                accessType,
+                dataSource.MemberName,
+                dataSource.MemberKind,
+                dataSource.Shape,
+                dataSource.RowTypeName);
         writer.WriteLine($"DataSourceProvider = {dataSourceProvider},");
 
         // Emitted only for an asynchronous source. The descriptor property already defaults to

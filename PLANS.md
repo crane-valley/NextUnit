@@ -685,7 +685,7 @@ decision, and none of them was introduced by that change.
   does not compile today either. The threading is orthogonal to the declaring-type item below --
   `RowTypeName` is its own field and touches neither `MemberTypeName` nor the emitted
   `DataSourceType` -- so that route is unaffected.
-- [ ] Rows still reach the runtime through the non-generic `IEnumerable`, which is the other half of
+- [x] Rows still reach the runtime through the non-generic `IEnumerable`, which is the other half of
   the bullet above. Both the synchronous provider and `AsyncDataSourceAdapter.FromTaskAsync`
   enumerate whatever `IEnumerable.GetEnumerator` dispatches to, so a source implementing
   `IEnumerable<T>` more than once still yields rows of a different arm than the one `NU0009`
@@ -695,7 +695,34 @@ decision, and none of them was introduced by that change.
   it moves every synchronous snapshot baseline rather than only the async ones, which is why it was
   left out of the row type threading. Nothing here fails a build: the shape resolves and runs, and
   only the arm chosen is wrong, which is why it is worth less than the `CS0411` half and is recorded
-  separately rather than held open with it.
+  separately rather than held open with it. Done 2026-08-22 for the synchronous `[TestData]`
+  provider: `DataSourceAdapter.FromEnumerable<TRow>` is the typed adapter, and the provider is
+  emitted through it for a source offering more than one row type, naming the type `SelectRowType`
+  chose. Emitting it for every synchronous source was rejected, unlike the async adapter which every
+  asynchronous source needs to exist at all: it buys nothing where there is one arm, and the gate
+  would have to model which member types implement `IEnumerable<T>` at all -- a rank-two array
+  reports an element type and implements only the non-generic interface, so the emitted call would
+  have failed the consumer's build with `CS0411` on code that compiles today. No baseline moved for
+  the same reason, and no test case id: `DataSourceType` was not touched. The row type name is
+  withheld, and the direct read kept, when it does not bind from the generated file -- an
+  `extern alias` hiding the row type's assembly. That check is synchronous-only on purpose: an
+  asynchronous source does not compile without the name, so an unbindable one costs nothing there,
+  where a synchronous source compiles today and would be traded a wrong row for a broken build.
+  Returning `null` from the adapter for a null source, rather than throwing as the async adapter
+  does, keeps the reflection fallback and the "not found" message a null-returning member gets
+  today.
+- [ ] The reads left on the non-generic `IEnumerable` by the bullet above, which share its root and
+  differ only in what closing them costs. `AsyncDataSourceAdapter.FromTaskAsync` enumerates its
+  awaited collection non-generically, and pinning that arm needs two type arguments at one call site
+  -- C# cannot infer one and take the other -- so either the awaited collection type joins the
+  descriptor model, or the adapter takes a converter lambda
+  (`FromTaskAsync(access, static rows => DataSourceAdapter.FromEnumerable<TRow>(rows), ct)`), which
+  is a public API shape worth its own review. `[ClassDataSource<T>]` reads its constructed instance
+  non-generically in `ClassDataSourceExpander`, and its model carries no selected row type; the
+  wrapper cannot simply be dropped in there either, because `SharedInstanceStore` owns and disposes
+  the instance the factory returned. A source with one `IEnumerable<T>` arm whose non-generic
+  `GetEnumerator` disagrees with it is the third: nothing detects the disagreement statically, and
+  the fix for it is the one the bullet above rejected.
 
 ### Priority 2 — Emitted type names do not escape keyword identifiers
 

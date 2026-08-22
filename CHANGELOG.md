@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A synchronous `[TestData]` source whose type implements `IEnumerable<T>` more than once is now read
+  through the arm `NU0009` validated. The generated provider handed the member's value over as
+  `object`, and the runtime read it back as the non-generic `IEnumerable`, which dispatches to
+  whichever `GetEnumerator` the source type maps that interface to -- so a run could expand rows from
+  an arm nothing had checked, and no cast at the reading end could change that. The generator now
+  emits `NextUnit.Internal.DataSourceAdapter.FromEnumerable<TRow>` for such a source, naming the row
+  type the precedence rule selected, which binds the arm where a type argument can still be written.
+  A source offering one row type is emitted exactly as before, and no test case id moves either way.
+  The name is withheld, leaving the previous read in place, when the generated file cannot bind it --
+  a row type reached only through an `extern alias` -- because such a source compiles today, and a
+  name that binds nothing would cost the user a build to fix a row. Task-wrapped asynchronous sources
+  and `[ClassDataSource<T>]` still read through the non-generic interface.
 - A run whose filter selects no tests no longer runs the `[After(LifecycleScope.Session)]` hooks.
   Session setup is never reached when nothing is selected, so teardown used to tear down a session
   that no `[Before(LifecycleScope.Session)]` hook had set up. The two phases are now paired: teardown
