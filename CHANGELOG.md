@@ -26,6 +26,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `NU0020` no longer reports a method-level `[TestData]` member that a parameter-level source
+  shadows, matching the `NU0022` gate below. The registry buckets such a test by its combined
+  parameter sources, so it writes a `CombinedDataSourceDescriptor` and no `TestDataDescriptor`: the
+  generated file names the member nowhere -- no `DataSourceName`, no accessor, no provider, and since
+  the change below no trimming root -- where the same unshadowed member is emitted as a descriptor
+  naming it beside either a null provider that leaves the reflection fallback or a provider that
+  throws this rule's own message. Making the member reachable would change no generated code, so the
+  error rejected a test that compiles and runs on its parameter sources. `NEXTUNIT010` already warns
+  that only those are processed. A member that is not shadowed, and a parameter's own
+  `[ValuesFromMember]`, are reported exactly as before. `NU0003`, `NU0021`, and the row type check are
+  deliberately unchanged: they judge the declaration, which is wrong whichever bucket the test lands
+  in, while `NU0020` alone judges what generated code can reach.
 - The generated registry no longer emits a `[DynamicDependency]` trimming root for a method-level
   data source that a parameter-level one shadows. A test that carries `[ClassDataSource<T>]` or
   `[TestData]` alongside a parameter's `[Values]`, `[ValuesFromMember]`, or `[ValuesFrom<T>]` expands

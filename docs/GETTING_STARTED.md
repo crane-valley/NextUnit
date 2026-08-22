@@ -172,12 +172,14 @@ but neither can be named from the registry. Widen the source type to `public` or
 it every type it is nested in and every type argument it names -- a `public Rows<Secret>` is no more
 nameable than `Secret` is.
 
-One shape is exempt. A method-level `[ClassDataSource<T>]` on a test whose parameters carry their own
-`[Values]`, `[ValuesFromMember]`, or `[ValuesFrom<T>]` expands nothing -- the parameter-level sources
-win, which is what `NEXTUNIT010` warns about -- so nothing about `T` reaches the registry: no
-`typeof(T)`, no `new T()`, and no trimming root. There is no build error to replace, so `NU0022` says
-nothing about it. Remove the parameter-level sources to put the class source back in play and the rule
-applies again.
+One shape is exempt from both rules. A method-level `[ClassDataSource<T>]` or `[TestData]` on a test
+whose parameters carry their own `[Values]`, `[ValuesFromMember]`, or `[ValuesFrom<T>]` expands
+nothing -- the parameter-level sources win, which is what `NEXTUNIT010` warns about -- so nothing
+about the source reaches the registry: no `typeof(T)`, no `new T()`, no descriptor, no member access,
+and no trimming root. Widening the source would change no generated code, so neither `NU0022` nor
+`NU0020` says anything about it. Remove the parameter-level sources to put the method-level one back
+in play and the rules apply again. A parameter's own `[ValuesFromMember]` or `[ValuesFrom<T>]` is what
+the registry does expand, and is reported as before.
 
 ### Async Data Rows
 
