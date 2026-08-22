@@ -15,7 +15,8 @@ it stood for an earlier release, check out that release's git tag.
 - **Zero-reflection execution** - Source generators produce delegate-based test registry
 - **Familiar assertions** - `Assert.Equal`, `Assert.True`, `Assert.Throws`, `Assert.Same`, `Assert.DoesNotThrow`, etc.
 - **Async tests** - `Task`, `Task<T>`, `ValueTask`, and `ValueTask<T>` return types for tests and lifecycle hooks
-- **Multi-scope lifecycle** - `[Before]`/`[After]` at Test, Class, Assembly, or Session level
+- **Multi-scope lifecycle** - `[Before]`/`[After]` at Test, Class, Assembly, or Session level,
+  inherited from base test classes
 - **Fine-grained parallelism** - `[ParallelLimit(N)]`, `[NotInParallel("key")]`, `[ParallelGroup]`
 - **Execution priority** - `[ExecutionPriority(N)]` for controlling test execution order
 - **Parameterized tests** - `[Arguments]`, `[TestData]`, `[Matrix]`, and typed per-row metadata
@@ -145,7 +146,14 @@ public class DatabaseTests
 }
 ```
 
-Scopes: `Test`, `Class`, `Assembly`, `Session`
+Scopes: `Test`, `Class`, `Assembly`, `Session`. An `Assembly` or `Session` hook must be `static`; an
+instance method carrying one of those scopes is dropped from the registry without a diagnostic.
+
+Since 3.0.0, hooks and configuration attributes declared on a base test class apply to the classes
+derived from it: `[Before]` runs base first, `[After]` unwinds derived first, and `[After]` runs after
+a failing `[Before]` or a failing test for the classes the setup reached. Override a hook with an
+empty body to opt one derived class out. See
+[Inheritance from a base test class](docs/GETTING_STARTED.md#inheritance-from-a-base-test-class).
 
 ## Parallel Execution
 

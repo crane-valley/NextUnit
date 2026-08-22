@@ -246,20 +246,27 @@ public void ClassSetup()
 public class DatabaseTests
 {
     [Before(LifecycleScope.Assembly)]
-    public void InitializeDatabase()
+    public static void InitializeDatabase()
     {
         // Migrate database schema once
         DatabaseMigrator.Migrate();
     }
 
     [After(LifecycleScope.Assembly)]
-    public void CleanupDatabase()
+    public static void CleanupDatabase()
     {
         // Drop test database
         DatabaseMigrator.Drop();
     }
 }
 ```
+
+An `Assembly` or `Session` hook has to be `static`, because it runs once for the whole run and has no
+test instance to run against. An instance method carrying one of those scopes is dropped from the
+generated registry and never runs, and nothing reports it, so check the modifier when a global setup
+appears not to have happened. `Test` and `Class` hooks may be instance methods, as shown above, and
+both scopes are inherited from a base test class; `Assembly` and `Session` hooks are not inherited,
+since they already run once for the whole run.
 
 ## Parallel Execution
 
