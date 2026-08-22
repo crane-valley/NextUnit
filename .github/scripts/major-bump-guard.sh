@@ -131,20 +131,24 @@ fi
 
 latest_tag=
 latest_ts=0
-while IFS=' ' read -r tag creator; do
+# One for-each-ref rather than a git log per tag: both dates this loop needs are ref fields, so
+# the lookup costs one process however many tags the repository carries.
+while IFS=' ' read -r tag objecttype creator commit_ts; do
   printf '%s' "$tag" | grep -qE "$TAG_PATTERN" || continue
-  ts=$(git log -1 --format=%ct "$tag^{commit}" 2>/dev/null || true)
-  [ -n "$ts" ] || continue
-  # An annotated tag cut today can point at an old commit, so take the later of the two dates.
-  # A lightweight tag carries no creation date at all and creatordate reports the commit date;
-  # that residual gap is accepted because this repository tags the release commit itself, and
-  # closing it would mean calling the Releases API, which the local run cannot do.
-  if [ -n "$creator" ] && [ "$creator" -gt "$ts" ]; then ts=$creator; fi
+  # An annotated tag cut today can point at an old commit, so take the later of the tagger date
+  # and the tagged commit's date. A lightweight tag has no creation date of its own: creatordate
+  # reports the commit date and there is no dereferenced date, so a lightweight tag cut today on
+  # an old commit still reads as old. That residual gap is accepted because this repository tags
+  # the release commit itself, and closing it would mean calling the Releases API, which the
+  # local run cannot do.
+  ts=${creator:-0}
+  if [ "$objecttype" = 'tag' ] && [ -n "$commit_ts" ] && [ "$commit_ts" -gt "$ts" ]; then ts=$commit_ts; fi
+  [ "$ts" -gt 0 ] || continue
   if [ "$ts" -gt "$latest_ts" ]; then
     latest_ts=$ts
     latest_tag=$tag
   fi
-done < <(git for-each-ref --format='%(refname:strip=2) %(creatordate:unix)' refs/tags 2>/dev/null || true)
+done < <(git for-each-ref --format='%(refname:strip=2) %(objecttype) %(creatordate:unix) %(*committerdate:unix)' refs/tags 2>/dev/null || true)
 
 days_since=
 if [ -n "$latest_tag" ]; then
