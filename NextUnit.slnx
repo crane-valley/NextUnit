@@ -36,9 +36,12 @@
     <Project Path="tests/NextUnit.Docs.Tests/NextUnit.Docs.Tests.csproj" />
     <Project Path="tests/NextUnit.Generator.Tests/NextUnit.Generator.Tests.csproj" />
     <Project Path="tests/NextUnit.Platform.Tests/NextUnit.Platform.Tests.csproj" />
+    <Project Path="tests/NextUnit.ReleaseVerify.Tests/NextUnit.ReleaseVerify.Tests.csproj" />
     <Project Path="tests/NextUnit.TestAdapter.Tests/NextUnit.TestAdapter.Tests.csproj" />
   </Folder>
-  <Folder Name="/tools/" />
+  <Folder Name="/tools/">
+    <Project Path="tools/NextUnit.ReleaseVerify/NextUnit.ReleaseVerify.csproj" />
+  </Folder>
   <Folder Name="/tools/speed-comparison/">
     <File Path="tools/speed-comparison/BENCHMARKS.md" />
     <File Path="tools/speed-comparison/Directory.Build.props" />

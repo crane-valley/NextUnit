@@ -350,6 +350,22 @@ nuget.org publishing credential.
    signature and nuspec metadata and runs the consumer smokes against nuget.org from an empty cache. No
    OIDC permission.
 
+The signature check in `verify-published` is split across two tools, because no single one answers
+both questions. `dotnet nuget verify <file> --all` decides validity - signature integrity,
+certificate trust, timestamps - and its exit status is that verdict; its output is printed for the log
+and never parsed. `tools/NextUnit.ReleaseVerify`, built by the job and invoked once per package as
+`verify-repository-signature --package <file> --expected-service-index <url>`, then reads the
+package's `.signature.p7s` CMS blob structurally and asserts what the text does not state: that the
+signature is a repository signature, by the commitment-type-indication attribute
+(`1.2.840.113549.1.9.16.2.16`) naming proof-of-receipt on the primary signer or on exactly one
+countersigner of an author signature, and that its `nuget-v3-service-index-url` attribute
+(`1.3.6.1.4.1.311.84.2.1.1.1`) carries exactly one IA5String value equal to the expected service
+index. The tool evaluates no trust and reaches no network; it exits 1 with a `::error::` line naming
+what it observed, and 2 if it was invoked wrong, so a bad workflow edit cannot read as a bad package.
+Its rules come from the NuGet package signature specification and are covered by
+`tests/NextUnit.ReleaseVerify.Tests` against the real 3.0.0 signature blob plus synthesized
+negatives, so they are exercised by every pull request rather than only by a release.
+
 The `publish` job targets the `release` GitHub environment. The release pauses for a deployment
 approval before any credential is minted only once that environment has been created with a required
 reviewer, as described under
@@ -467,6 +483,36 @@ an actual defect in content, signature, nuspec, or the completeness of the publi
 
 This procedure has no enumerated state machine on purpose. Verify registry reality first; every action
 follows from what exists.
+
+### Worked example: 3.0.0, 2026-08-22
+
+3.0.0 is the worked example of the CLI output drift cause named above, and of this runbook reaching a
+keep decision without any registry change.
+
+The release [run](https://github.com/crane-valley/NextUnit/actions/runs/32533636306) built, smoked,
+and published green, and `verify-published` then went red on the first package with
+`repository signature does not name https://api.nuget.org/v3/index.json`. That assertion was a `grep`
+over `dotnet nuget verify --all` output, and the .NET 10 SDK prints a report that names no service
+index at all, so the check could not have passed on any package. `verify-published` was introduced
+after 2.0.0 and 3.0.0 was its first execution, which is why the drift surfaced only here.
+
+Step 1 found registry reality intact: all seven primary package IDs list 3.0.0 in the flat container.
+Because the step failed on the first package, `set -e` ended the job before the clean-cache consumer
+smoke and the template smoke ran at all, so Step 3's evidence was produced by hand:
+
+- Signature and nuspec, all seven packages. The published `.nupkg` files were downloaded from the
+  flat container and run through the repaired step body on Ubuntu 24.04 with the .NET 10 SDK; all
+  seven passed. The old step body, run against the same packages, still stops at the first one with
+  the message above. Recorded in the pull request that replaced those greps with
+  `tools/NextUnit.ReleaseVerify`.
+- Clean-cache consumer smoke. Performed in #249, which restored both PackageSmoke projects at 3.0.0
+  from an empty `NUGET_PACKAGES` against nuget.org and ran each to 1/1 passing tests.
+- Template smoke. `NextUnit.Templates` 3.0.0 was installed from nuget.org into a scratch
+  `DOTNET_CLI_HOME`, `dotnet new nextunit` created a project from it, and that project restored,
+  built, and ran its example test. Recorded in the same pull request.
+
+Outcome: the release is complete and sound. Nothing was unlisted or deprecated, because the defect
+was in how the release verified itself and not in anything published.
 
 ## Post-Release
 
