@@ -796,9 +796,10 @@ attempts. A `[Timeout]` budget applies to each attempt separately, and
 timeouts, runtime skips, and cancellation are never retried.
 
 `[Repeat]` changes shape rather than meaning. NUnit runs the repetitions in sequence and stops at the
-first failure, so one repeated test produces one result. NextUnit expands them at build time into
-independent test cases, each with its own id and result, and the scheduler may run them in parallel
-with everything else. A repeated test that mutates shared state can therefore overlap with itself,
+first failure, so one repeated test produces one result. NextUnit expands them into independent test
+cases, each with its own id and result -- at build time, or at discovery when the test also carries
+parameter-level data sources whose length is not known until then -- and the scheduler may run them
+in parallel with everything else. A repeated test that mutates shared state can therefore overlap with itself,
 and a failing repetition no longer stops the ones after it. Add `[NotInParallel]` when the overlap is
 the problem, and write an ordinary loop inside one test when you need stop-on-first-failure.
 

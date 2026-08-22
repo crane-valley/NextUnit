@@ -90,8 +90,6 @@ internal static class TestCaseExpansionValidator
             return 1;
         }
 
-        var repeatCount = test.RepeatCount ?? 1;
-
         if (!test.MatrixParameters.IsDefaultOrEmpty)
         {
             // The peak of the running product is charged rather than its final value, because
@@ -127,11 +125,11 @@ internal static class TestCaseExpansionValidator
                 MatrixHelper.ComputeCartesianProduct(test.MatrixParameters),
                 test.MatrixExclusions).Length;
 
-            return TestCaseExpansionPolicy.MultiplyClamped(survivors, repeatCount);
+            return TestCaseExpansionPolicy.ApplyRepeat(survivors, test.RepeatCount);
         }
 
         var argumentSetCount = test.ArgumentSets.IsDefaultOrEmpty ? 1L : test.ArgumentSets.Length;
-        return TestCaseExpansionPolicy.MultiplyClamped(argumentSetCount, repeatCount);
+        return TestCaseExpansionPolicy.ApplyRepeat(argumentSetCount, test.RepeatCount);
     }
 
     /// <summary>
@@ -151,6 +149,14 @@ internal static class TestCaseExpansionValidator
     /// an empty <c>[Values()]</c> as one -- rejected methods whose real expansion was zero. So a
     /// combined list with any runtime source is not bounded here at all; discovery's
     /// <c>EnsureWithinExpansionLimit</c> enforces the real product once the resolved lengths are known.
+    /// </para>
+    /// <para>
+    /// <c>[Repeat]</c> multiplies the product on both sides, through
+    /// <see cref="TestCaseExpansionPolicy.ApplyRepeat"/>, so the number in <c>NEXTUNIT013</c> is the
+    /// number discovery would reject the same method with. It is charged only on the all-inline
+    /// branch: a runtime source that resolves to nothing zeroes the product however large the repeat
+    /// count is, so charging the repeat factor on its own would reject a method that expands to no
+    /// test cases at all.
     /// </para>
     /// </remarks>
     private static long ProjectCombinedSourceCount(TestMethodDescriptor test)
@@ -181,6 +187,6 @@ internal static class TestCaseExpansionValidator
                 source.InlineValues.Length);
         }
 
-        return inlineCombinations;
+        return TestCaseExpansionPolicy.ApplyRepeat(inlineCombinations, test.RepeatCount);
     }
 }

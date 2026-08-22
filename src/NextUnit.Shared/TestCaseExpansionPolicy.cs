@@ -98,4 +98,25 @@ internal static class TestCaseExpansionPolicy
 
         return left > long.MaxValue / right ? long.MaxValue : left * right;
     }
+
+    /// <summary>
+    /// Multiplies an expansion by the factor a <c>[Repeat]</c> attribute contributes to it.
+    /// </summary>
+    /// <param name="count">The expansion before the attribute is applied.</param>
+    /// <param name="repeatCount">
+    /// The declared repeat count, or <see langword="null"/> when the method carries no <c>[Repeat]</c>.
+    /// </param>
+    /// <remarks>
+    /// The factor lives beside the cap it is charged against because it is charged in two places that
+    /// must agree: <c>TestCaseExpansionValidator</c> projects it at compile time, and
+    /// <c>CombinedDataSourceExpander</c> charges it again once the runtime sources are resolved. A
+    /// second <c>?? 1</c> written at either site is exactly the shape that lets a build admit a method
+    /// discovery then rejects, with two different numbers in the two messages.
+    /// <para>
+    /// An absent attribute contributes one rather than zero, so a method without <c>[Repeat]</c>
+    /// expands to what it always did. A declared count below one is unreachable:
+    /// <c>RepeatAttribute</c> refuses it at construction.
+    /// </para>
+    /// </remarks>
+    public static long ApplyRepeat(long count, int? repeatCount) => MultiplyClamped(count, repeatCount ?? 1);
 }

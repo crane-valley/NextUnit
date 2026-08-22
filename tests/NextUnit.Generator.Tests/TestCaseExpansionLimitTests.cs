@@ -481,6 +481,89 @@ public class TestCaseExpansionLimitTests
     }
 
     [Fact]
+    public async Task InlineParameterValuesTimesRepeat_AboveTheLimit_ReportsAsync()
+    {
+        // The inline product is 2 and the repeat is 6, so neither factor alone reaches the cap of 10.
+        // Before the count was threaded through, [Repeat] was dropped from a combined method entirely
+        // and this projected as 2 -- a build that passed for a suite that then ran 12 test cases.
+        var source = """
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class ValuesTests
+            {
+                [Test]
+                [Repeat(6)]
+                public void Combined([Values(1, 2)] int value)
+                {
+                }
+            }
+            """;
+
+        // The count is pinned rather than only the rule, because the discovery-time cap has to reject
+        // the same method with the same number; both sides charge the factor through
+        // TestCaseExpansionPolicy.ApplyRepeat.
+        await VerifyAsync(
+            source,
+            expectExpansionLimitDiagnostic: true,
+            configuredLimit: "10",
+            expectedMessage:
+                "Test 'TestProject.ValuesTests.Combined' expands to 12 test cases, which exceeds the " +
+                "limit of 10. Reduce the [Matrix], [Arguments], [Repeat], or [Values] values, or raise " +
+                "the limit with <NextUnitMaxTestCasesPerMethod> in the project file.");
+    }
+
+    [Fact]
+    public async Task InlineParameterValuesTimesRepeat_AtTheLimit_ReportsNothingAsync()
+    {
+        var source = """
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class ValuesTests
+            {
+                [Test]
+                [Repeat(5)]
+                public void Combined([Values(1, 2)] int value)
+                {
+                }
+            }
+            """;
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "10");
+    }
+
+    [Fact]
+    public async Task RepeatBesideARuntimeResolvedParameterSource_IsNotChargedAsync()
+    {
+        // The repeat factor alone is over the cap, but the member beside it can resolve to nothing,
+        // which zeroes the product however many times it would have repeated. Charging the factor on
+        // its own here would reject a method whose real expansion is no test cases at all -- the same
+        // over-rejection the inline floor used to produce.
+        var source = """
+            using System.Collections.Generic;
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class ValuesTests
+            {
+                public static IEnumerable<int> Sizes() => new[] { 1, 2, 3 };
+
+                [Test]
+                [Repeat(20)]
+                public void Combined([ValuesFromMember(nameof(Sizes))] int size)
+                {
+                }
+            }
+            """;
+
+        await VerifyAsync(source, expectExpansionLimitDiagnostic: false, configuredLimit: "10");
+    }
+
+    [Fact]
     public async Task RuntimeResolvedParameterSource_IsNotChargedForItsRuntimeExpansionAsync()
     {
         // The inline product is 2 and the member contributes an unknown factor, so a configured cap
