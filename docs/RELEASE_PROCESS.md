@@ -654,15 +654,23 @@ smoke and the template smoke ran at all, so Step 3's evidence was produced by ha
 Outcome: the release is complete and sound. Nothing was unlisted or deprecated, because the defect
 was in how the release verified itself and not in anything published.
 
-3.0.0 is also where the re-run path was first exercised, once it existed:
+3.0.0 is also where the re-run path from #256 was first exercised, once it existed:
 [run 32552727121](https://github.com/crane-valley/NextUnit/actions/runs/32552727121) dispatched
 `verify-published.yml` for this version. Signature and nuspec verification passed for all seven
-packages, and the run then went red in the clean-cache consumer smoke, where `NextUnit.PackageSmoke`
+packages; that pass was the first end-to-end run of the structural verifier from #250 against a
+published set. The run then went red in the clean-cache consumer smoke, where `NextUnit.PackageSmoke`
 executed 1 test against a floor of 2. The cause was the workflow's own: it passed no surface switch,
 so all but one test stayed behind `#if NEXTUNIT_LOCAL_PACKAGE`, and the floor of 2 was the first
 thing to notice. That is a second defect in the verification rather than in 3.0.0 -- the manual FULL
 equivalent above ran the same published package to 8 of 8 -- and
-[the two consumer smoke modes](#the-two-consumer-smoke-modes) are the fix.
+[the two consumer smoke modes](#the-two-consumer-smoke-modes) are the fix, shipped in #258.
+
+The second dispatch closed the incident.
+[Run 32556606482](https://github.com/crane-valley/NextUnit/actions/runs/32556606482) ran the fixed
+workflow against 3.0.0 and went green end to end in REDUCED mode: signature, nuspec, template smoke,
+and the minimal consumer path. Together with the manual FULL equivalent above, which #258 records
+against the `v3.0.0` tag, it completes the Step 3 evidence, so the keep decision for 3.0.0 is final
+under the rule that same pull request documents.
 
 ## Post-Release
 
