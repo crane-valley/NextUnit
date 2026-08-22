@@ -124,6 +124,8 @@ NextUnit.Internal.ClassDataSourceDescriptor.CustomDisplayNameTemplate.get -> str
 NextUnit.Internal.ClassDataSourceDescriptor.CustomDisplayNameTemplate.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.DataSourceFactories.get -> NextUnit.Internal.DataSourceProviderDelegate?[]!
 NextUnit.Internal.ClassDataSourceDescriptor.DataSourceFactories.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.DataSourceRowReaders.get -> NextUnit.Internal.DataSourceRowReaderDelegate?[]!
+NextUnit.Internal.ClassDataSourceDescriptor.DataSourceRowReaders.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.DataSourceTypes.get -> System.Type![]!
 NextUnit.Internal.ClassDataSourceDescriptor.DataSourceTypes.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.Dependencies.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseId!>!
@@ -150,6 +152,8 @@ NextUnit.Internal.ClassDataSourceDescriptor.ParameterTypes.get -> System.Type![]
 NextUnit.Internal.ClassDataSourceDescriptor.ParameterTypes.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.Priority.get -> int
 NextUnit.Internal.ClassDataSourceDescriptor.Priority.init -> void
+NextUnit.Internal.ClassDataSourceDescriptor.RepeatCount.get -> int?
+NextUnit.Internal.ClassDataSourceDescriptor.RepeatCount.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.RequiresTestContext.get -> bool
 NextUnit.Internal.ClassDataSourceDescriptor.RequiresTestContext.init -> void
 NextUnit.Internal.ClassDataSourceDescriptor.RequiresTestOutput.get -> bool
@@ -208,6 +212,8 @@ NextUnit.Internal.CombinedDataSourceDescriptor.ParameterTypes.get -> System.Type
 NextUnit.Internal.CombinedDataSourceDescriptor.ParameterTypes.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.Priority.get -> int
 NextUnit.Internal.CombinedDataSourceDescriptor.Priority.init -> void
+NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.get -> int?
+NextUnit.Internal.CombinedDataSourceDescriptor.RepeatCount.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.RequiresTestContext.get -> bool
 NextUnit.Internal.CombinedDataSourceDescriptor.RequiresTestContext.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.RequiresTestOutput.get -> bool
@@ -226,7 +232,9 @@ NextUnit.Internal.CombinedDataSourceDescriptor.TestMethodWithArguments.get -> Ne
 NextUnit.Internal.CombinedDataSourceDescriptor.TestMethodWithArguments.init -> void
 NextUnit.Internal.CombinedDataSourceDescriptor.TimeoutMs.get -> int?
 NextUnit.Internal.CombinedDataSourceDescriptor.TimeoutMs.init -> void
+NextUnit.Internal.DataSourceAdapter
 NextUnit.Internal.DataSourceProviderDelegate
+NextUnit.Internal.DataSourceRowReaderDelegate
 NextUnit.Internal.DependencyInfo
 NextUnit.Internal.DependencyInfo.DependencyInfo() -> void
 NextUnit.Internal.DependencyInfo.DependsOnId.get -> NextUnit.Internal.TestCaseId!
@@ -241,6 +249,7 @@ NextUnit.Internal.IGeneratedTestRegistry.GlobalAfterAssemblyMethods.get -> NextU
 NextUnit.Internal.IGeneratedTestRegistry.GlobalAfterSessionMethods.get -> NextUnit.Internal.LifecycleMethodDelegate![]!
 NextUnit.Internal.IGeneratedTestRegistry.GlobalBeforeAssemblyMethods.get -> NextUnit.Internal.LifecycleMethodDelegate![]!
 NextUnit.Internal.IGeneratedTestRegistry.GlobalBeforeSessionMethods.get -> NextUnit.Internal.LifecycleMethodDelegate![]!
+NextUnit.Internal.IGeneratedTestRegistry.MaxTestCasesPerMethod.get -> int
 NextUnit.Internal.IGeneratedTestRegistry.TestCases.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestCaseDescriptor!>!
 NextUnit.Internal.IGeneratedTestRegistry.TestDataDescriptors.get -> System.Collections.Generic.IReadOnlyList<NextUnit.Internal.TestDataDescriptor!>!
 NextUnit.Internal.LifecycleInfo
@@ -439,6 +448,8 @@ NextUnit.Internal.TestDataDescriptor.ParameterTypes.get -> System.Type![]!
 NextUnit.Internal.TestDataDescriptor.ParameterTypes.init -> void
 NextUnit.Internal.TestDataDescriptor.Priority.get -> int
 NextUnit.Internal.TestDataDescriptor.Priority.init -> void
+NextUnit.Internal.TestDataDescriptor.RepeatCount.get -> int?
+NextUnit.Internal.TestDataDescriptor.RepeatCount.init -> void
 NextUnit.Internal.TestDataDescriptor.RequiresTestContext.get -> bool
 NextUnit.Internal.TestDataDescriptor.RequiresTestContext.init -> void
 NextUnit.Internal.TestDataDescriptor.RequiresTestOutput.get -> bool
@@ -621,13 +632,16 @@ static NextUnit.Assert.True(bool condition, string? message = null) -> void
 static NextUnit.Core.TestContext.Current.get -> NextUnit.Core.ITestContext?
 static NextUnit.Internal.ArgumentConverter.Convert<T>(object? value, string! parameterName, string! methodName) -> T
 static NextUnit.Internal.AsyncDataSourceAdapter.FromAsyncEnumerableAsync<TRow>(System.Collections.Generic.IAsyncEnumerable<TRow>! source, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
+static NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync<TRows>(System.Threading.Tasks.Task<TRows>! source, System.Func<TRows, System.Collections.Generic.IEnumerable<object?>?>! reader, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
 static NextUnit.Internal.AsyncDataSourceAdapter.FromTaskAsync<TRows>(System.Threading.Tasks.Task<TRows>! source, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
+static NextUnit.Internal.DataSourceAdapter.FromEnumerable<TRow>(System.Collections.Generic.IEnumerable<TRow>? source) -> System.Collections.Generic.IEnumerable<object?>?
 static NextUnit.Internal.GeneratedTestRegistryStore.Current.get -> NextUnit.Internal.IGeneratedTestRegistry?
 static NextUnit.Internal.GeneratedTestRegistryStore.Register(NextUnit.Internal.IGeneratedTestRegistry! registry) -> void
 static NextUnit.Internal.TestCaseId.operator !=(NextUnit.Internal.TestCaseId? left, NextUnit.Internal.TestCaseId? right) -> bool
 static NextUnit.Internal.TestCaseId.operator ==(NextUnit.Internal.TestCaseId? left, NextUnit.Internal.TestCaseId? right) -> bool
 virtual NextUnit.Internal.AsyncDataSourceProviderDelegate.Invoke(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<object?>!
 virtual NextUnit.Internal.DataSourceProviderDelegate.Invoke() -> object?
+virtual NextUnit.Internal.DataSourceRowReaderDelegate.Invoke(object! source) -> System.Collections.Generic.IEnumerable<object?>?
 virtual NextUnit.Internal.LifecycleMethodDelegate.Invoke(object! instance, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 virtual NextUnit.Internal.RetryPolicyFactoryDelegate.Invoke() -> NextUnit.IRetryPolicy!
 virtual NextUnit.Internal.TestClassFactoryDelegate.Invoke(NextUnit.Core.ITestOutput! output, NextUnit.Core.ITestContext! context) -> object!
