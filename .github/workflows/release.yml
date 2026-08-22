@@ -689,23 +689,30 @@ jobs:
           workdir="$RUNNER_TEMP/published-verify"
           rm -rf "$workdir"
           mkdir -p "$workdir"
+          # Built once for the whole loop. --output pins the path invoked below instead
+          # of leaving it to the project's default bin layout.
+          verify_tool_dir="$workdir/release-verify-tool"
+          dotnet build tools/NextUnit.ReleaseVerify/NextUnit.ReleaseVerify.csproj \
+            --configuration Release \
+            --output "$verify_tool_dir"
           for package in "${packages[@]}"; do
             id_lower=$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')
             file="$workdir/$id_lower.$version_lower.nupkg"
             curl --silent --show-error --fail --location --retry 5 --retry-delay 5 --retry-all-errors --max-time 120 --output "$file" "$NUGET_FLATCONTAINER_BASE/$id_lower/$version_lower/$id_lower.$version_lower.nupkg"
             # Byte comparison against our artifact is impossible: nuget.org
-            # repository-signs the package. Assert the signature in the tool OUTPUT
-            # rather than trusting the exit code alone.
-            verify_output=$(dotnet nuget verify "$file" --all)
-            printf '%s\n' "$verify_output"
-            if ! printf '%s' "$verify_output" | grep -q 'Signature type: Repository'; then
-              echo "::error::$package $PACKAGE_VERSION carries no repository signature"
-              exit 1
-            fi
-            if ! printf '%s' "$verify_output" | grep -qF "$NUGET_SOURCE"; then
-              echo "::error::$package $PACKAGE_VERSION repository signature does not name $NUGET_SOURCE"
-              exit 1
-            fi
+            # repository-signs the package, so two assertions stand in for it.
+            # dotnet nuget verify decides VALIDITY -- signature integrity, certificate
+            # trust, timestamps -- and under set -e its exit status is that verdict;
+            # its output is printed for the log and never parsed, because the text is
+            # a human-readable report rather than a contract. Parsing it is what broke
+            # 3.0.0: SDK 10 prints no service index URL at all, so the grep for one
+            # could not pass on any package. WHICH signature it is and WHICH service
+            # index it names are read structurally out of the CMS blob instead, by
+            # OID, against the NuGet package signature specification.
+            dotnet nuget verify "$file" --all
+            dotnet "$verify_tool_dir/NextUnit.ReleaseVerify.dll" verify-repository-signature \
+              --package "$file" \
+              --expected-service-index "$NUGET_SOURCE"
             nuspec_dir="$workdir/nuspec-$id_lower"
             mkdir -p "$nuspec_dir"
             unzip -o -q -j "$file" '*.nuspec' -d "$nuspec_dir"
