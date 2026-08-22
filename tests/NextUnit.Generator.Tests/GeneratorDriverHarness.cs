@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.Testing.Platform.Builder;
 
 namespace NextUnit.Generator.Tests;
@@ -37,10 +38,48 @@ internal static class GeneratorDriverHarness
             new CSharpCompilationOptions(outputKind, nullableContextOptions: NullableContextOptions.Enable));
     }
 
-    public static GeneratorDriver CreateDriver(bool trackIncrementalGeneratorSteps) =>
+    public static GeneratorDriver CreateDriver(
+        bool trackIncrementalGeneratorSteps,
+        AnalyzerConfigOptionsProvider? optionsProvider = null) =>
         CSharpGeneratorDriver.Create(
             new[] { new NextUnitGenerator().AsSourceGenerator() },
+            additionalTexts: null,
+            parseOptions: null,
+            optionsProvider: optionsProvider,
             driverOptions: new GeneratorDriverOptions(
                 IncrementalGeneratorOutputKind.None,
                 trackIncrementalGeneratorSteps));
+
+    /// <summary>
+    /// Supplies MSBuild properties to the generator the way the generated <c>.globalconfig</c> does.
+    /// </summary>
+    /// <remarks>
+    /// Hand-built rather than routed through <c>CSharpSourceGeneratorVerifier</c>'s
+    /// <c>AnalyzerConfigFiles</c>, because that harness asserts against expected generated text and
+    /// these tests need the emitted text back to assert on one line of it.
+    /// </remarks>
+    internal sealed class GlobalOptionsProvider(IReadOnlyDictionary<string, string> properties)
+        : AnalyzerConfigOptionsProvider
+    {
+        public override AnalyzerConfigOptions GlobalOptions { get; } = new Options(properties);
+
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => GlobalOptions;
+
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => GlobalOptions;
+
+        private sealed class Options(IReadOnlyDictionary<string, string> properties) : AnalyzerConfigOptions
+        {
+            public override bool TryGetValue(string key, out string value)
+            {
+                if (properties.TryGetValue(key, out var found))
+                {
+                    value = found;
+                    return true;
+                }
+
+                value = string.Empty;
+                return false;
+            }
+        }
+    }
 }

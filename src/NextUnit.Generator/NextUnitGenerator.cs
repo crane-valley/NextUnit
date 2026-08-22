@@ -261,7 +261,10 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var emittableTests = TestCaseExpansionValidator.RemoveOverLimitTests(
             context, allTests, maxTestCasesPerMethod.Cap);
 
-        var source = RegistryEmitter.Emit(emittableTests, beforeLifecycle, afterLifecycle);
+        // The cap the registry carries is the one this compilation actually enforced, so a build that
+        // reported NEXTUNIT014 emits the default it fell back to rather than the value it refused.
+        var source = RegistryEmitter.Emit(
+            emittableTests, beforeLifecycle, afterLifecycle, maxTestCasesPerMethod.Cap);
         context.AddSource("GeneratedTestRegistry.g.cs", SourceText.From(source, Encoding.UTF8));
     }
 

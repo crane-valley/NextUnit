@@ -1212,7 +1212,7 @@ the bound.
   a row set whose size is unknown until execution and its id has no row index to suffix. Surfaced while
   fixing the combined case (2026-08-22).
 
-- [ ] The compile-time and discovery-time caps are configured independently, so raising one does not
+- [x] The compile-time and discovery-time caps are configured independently, so raising one does not
   raise the other. `<NextUnitMaxTestCasesPerMethod>50000</NextUnitMaxTestCasesPerMethod>` lets the
   generator emit 50000 cases while discovery still rejects a combined data source at the 10000
   default, and the user learns this only when the run fails. The README documents both knobs, so the
@@ -1221,6 +1221,23 @@ the bound.
   `NEXTUNIT_MAX_TEST_CASES_PER_METHOD` as an explicit per-run override above it. That changes the
   registry contract and the snapshot baselines, which is why it did not ride along with a security
   fix.
+  Taken as written. `RegistryEmitter` emits `MaxTestCasesPerMethod` for every registry, carrying the
+  cap that compilation actually enforced -- the default, when `NEXTUNIT014` refused the property --
+  and `IGeneratedTestRegistry` carries it as a default-implemented member so a registry compiled
+  against the old interface still reads. Emitted unconditionally rather than only when the project
+  configured one: absence would have to mean "the default", which is exactly the ambiguity this item
+  removes, and it would leave a project that set no cap indistinguishable from a registry predating
+  the member. Precedence is environment variable, then registry baseline, then built-in default, and
+  the variable overrides in both directions because it is the per-run hatch. The cap is threaded from
+  the registry the descriptors came from into `CombinedDataSourceExpander` rather than read from
+  `GeneratedTestRegistryStore.Current`, which is one last-writer-wins static: the VSTest adapter reads
+  each source assembly's registry by reflection off its own type, so `Current` in a two-assembly run
+  is whichever module initializer ran last and one assembly's tests would be bounded by the other's
+  setting. `RegistryDescriptorReader.CreateCombinedExpander` pairs the two reads so the discoverer and
+  the executor cannot disagree. A non-positive baseline throws instead of falling back to the default,
+  before the environment variable is even read: the generator cannot emit one, absence already arrives
+  as null, and substituting the default would be the same fail-open swap `NEXTUNIT014` exists to
+  refuse. Raised by the Codex plan review of this change (2026-08-22); do not raise either again.
 
 - [x] A cap override that is present but unusable falls back to the default without a word, so a typo
   meant to tighten the cap loosens it instead: `100O` for `1000` silently permits 10000. The fallback

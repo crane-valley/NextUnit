@@ -39,8 +39,14 @@ internal static class TestCaseExpansionPolicy
     /// </summary>
     /// <param name="value">The raw configured value, or <see langword="null"/> when unset.</param>
     /// <param name="cap">
-    /// The cap to apply: the configured value when it is usable, and
-    /// <see cref="DefaultMaxTestCasesPerMethod"/> when the override is unset or unusable.
+    /// The cap to apply: the configured value when it is usable, and <paramref name="fallbackCap"/>
+    /// when the override is unset or unusable.
+    /// </param>
+    /// <param name="fallbackCap">
+    /// The cap that applies when the override is unset. Discovery passes the cap the generator
+    /// emitted into the registry, so the project's compile-time setting is the baseline the
+    /// environment variable overrides rather than a number discovery never sees. The generator has
+    /// nothing below its own property to fall back to and leaves it at the default.
     /// </param>
     /// <returns>
     /// <see langword="true"/> when the override is unset or usable, and <see langword="false"/> when
@@ -62,9 +68,9 @@ internal static class TestCaseExpansionPolicy
     /// and reporting at each call site is what makes the two distinguishable.
     /// </para>
     /// </remarks>
-    public static bool TryResolve(string? value, out int cap)
+    public static bool TryResolve(string? value, out int cap, int fallbackCap = DefaultMaxTestCasesPerMethod)
     {
-        cap = DefaultMaxTestCasesPerMethod;
+        cap = fallbackCap;
 
         if (string.IsNullOrWhiteSpace(value))
         {
