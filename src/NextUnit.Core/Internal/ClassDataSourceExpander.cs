@@ -46,6 +46,9 @@ internal static class ClassDataSourceExpander
             var factory = sourceIndex < descriptor.DataSourceFactories.Length
                 ? descriptor.DataSourceFactories[sourceIndex]
                 : null;
+            var reader = sourceIndex < descriptor.DataSourceRowReaders.Length
+                ? descriptor.DataSourceRowReaders[sourceIndex]
+                : null;
             var instance = SharedInstanceStore.GetOrCreate(
                 sourceType,
                 descriptor.SharedType,
@@ -55,9 +58,16 @@ internal static class ClassDataSourceExpander
 
             try
             {
-                if (instance is IEnumerable nonGeneric)
+                // The reader is a read, not a handover: the store created this instance and disposes
+                // it at the end of the session either way. What it buys is the arm -- a source
+                // implementing IEnumerable<T> more than once dispatches the non-generic read below
+                // to whichever arm its type mapped that interface to, which is not the arm NU0009
+                // validated, and no cast here can change that because the instance arrives as object.
+                var rows = reader is not null ? reader(instance) : instance as IEnumerable;
+
+                if (rows is not null)
                 {
-                    foreach (var item in nonGeneric)
+                    foreach (var item in rows)
                     {
                         allData.Add(TestDataRowResolver.Resolve(item));
                     }

@@ -734,7 +734,7 @@ decision, and none of them was introduced by that change.
   Returning `null` from the adapter for a null source, rather than throwing as the async adapter
   does, keeps the reflection fallback and the "not found" message a null-returning member gets
   today.
-- [ ] The reads left on the non-generic `IEnumerable` by the bullet above, which share its root and
+- [x] The reads left on the non-generic `IEnumerable` by the bullet above, which share its root and
   differ only in what closing them costs. `AsyncDataSourceAdapter.FromTaskAsync` enumerates its
   awaited collection non-generically, and pinning that arm needs two type arguments at one call site
   -- C# cannot infer one and take the other -- so either the awaited collection type joins the
@@ -743,9 +743,29 @@ decision, and none of them was introduced by that change.
   is a public API shape worth its own review. `[ClassDataSource<T>]` reads its constructed instance
   non-generically in `ClassDataSourceExpander`, and its model carries no selected row type; the
   wrapper cannot simply be dropped in there either, because `SharedInstanceStore` owns and disposes
-  the instance the factory returned. A source with one `IEnumerable<T>` arm whose non-generic
-  `GetEnumerator` disagrees with it is the third: nothing detects the disagreement statically, and
-  the fix for it is the one the bullet above rejected.
+  the instance the factory returned. Done 2026-08-22 for both. The converter lambda won on the
+  Codex plan review of this change: it leaves the descriptor model alone, where the awaited
+  collection type would have added a second emitted name with its own bindability check for nothing
+  a lambda does not already buy. `[ClassDataSource]` got a `DataSourceRowReaderDelegate` array on
+  the descriptor, aligned with `DataSourceTypes` and never compacted, so one source's cast can never
+  be applied to another; the reader wraps the read and not the ownership, since wrapping the factory
+  would hand `SharedInstanceStore` a wrapper to dispose and leave the source owned by nobody. Both
+  are emitted only for a source offering more than one row type whose name the generated file can
+  write, which is why no snapshot baseline moved and no test case id or `DataSourceType` changed:
+  every existing fixture has one arm. The writable-name check now also refuses a name spelling a
+  type retired with `[Obsolete(..., error: true)]`, and that term closes the same hole on the
+  synchronous name the bullet above added -- `CS0619` is an error the file's blanket pragma cannot
+  suppress, and a speculative model does not report it, so `NameSpellsAnErrorObsoleteType` is asked
+  directly. The `IAsyncEnumerable` arm stays exempt from the whole check, because without the name it
+  does not compile at all and there is no working build for an unwritable name to cost.
+  A source with one `IEnumerable<T>` arm whose non-generic `GetEnumerator` disagrees with it is left
+  open deliberately and is not tracked as a separate item: nothing detects the disagreement
+  statically -- the arm and the non-generic implementation are both what the source type says they
+  are -- and the only fix is to emit the wrapper for every source, which the bullet above rejected
+  because the gate would have to model which member types implement `IEnumerable<T>` at all. A
+  rank-two array reports an element type and implements only the non-generic interface, so the
+  emitted call would fail the consumer's build with `CS0411` on code that compiles today. Nothing
+  changed about that trade, so the case stays as it is.
 
 ### Priority 2 — Emitted type names do not escape keyword identifiers
 
