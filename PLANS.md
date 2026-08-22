@@ -1326,6 +1326,42 @@ perform the job's checks by hand, which is what 3.0.0 required.
   the verification tool and smoke projects come from the checked-out ref. Residual risk recorded in
   the pull request: the `release.yml` caller path is exercised only by the next release, with
   actionlint's caller/callee input check and the verbatim-move diff as the pre-merge evidence for it.
+- [ ] Align the `release.yml` `smoke` job's floor for `NextUnit.PackageSmoke` with the run surface it
+  actually compiles. That job passes `-p:UseLocalNextUnitPackage=true`, so all eight tests are built,
+  but it asserts `--minimum-expected-tests 2`, while `dotnet.yml` asserts 8 for the same project
+  against the same locally packed package. A regression that silently dropped six of the eight would
+  clear the release's own gate. Deliberately out of scope of the `verify-published.yml` surface fix:
+  `release.yml` is the publishing path, and a change to its gate belongs in a review of that path
+  rather than riding along with a callee fix.
+
+The first dispatch of the finished re-run path found a defect in it, and the fix changed what a
+dispatched run means, so both belong in this record.
+[Run 32552727121](https://github.com/crane-valley/NextUnit/actions/runs/32552727121) (version 3.0.0,
+2026-08-22) verified signatures and nuspec metadata for all seven packages and then went red in the
+clean-cache consumer smoke: `NextUnit.PackageSmoke` executed 1 test against a floor of 2. All but one
+of that project's tests sit behind `#if NEXTUNIT_LOCAL_PACKAGE`, and its csproj defined that symbol
+only under `-p:UseLocalNextUnitPackage=true`, which `verify-published.yml` does not pass. Both entry
+points had been compiling a single test since the body moved out of `release.yml`; the release-driven
+call never reached the step at 3.0.0 because the signature grep failed first.
+
+Resolved by deciding the consumer surface from the caller event rather than by inferring it. Three
+review rounds rejected every inference rule offered -- version equality, byte-diffing the smoke
+sources against the tag, materializing a fixture -- because each answers a question about content
+while the real question is which commit the checkout came from, and each had holes. The workflow now
+derives `SMOKE_MODE` from `github.event_name`: `release` gives FULL, which passes the new
+`NextUnitPackageSmokeFullSurface` property and demands 8 executed tests; `workflow_dispatch` gives
+REDUCED, which passes nothing and demands 1; any other event type fails the run in its first step, so
+a caller with a new event type has to be added deliberately. FULL is additionally bound to the
+release being published, because `release` is not private to `release.yml`: the version verified must
+equal `github.event.release.tag_name` without its leading `v`. The mode, the validated version, the
+caller event, and both floors are written to the step summary and the log before any network call, so
+the record of which surface was exercised survives a run that dies in polling or in the verifier.
+FULL is the in-repo JIT run surface only; discovery and the Native AOT publish of the smoke projects
+stay in pull request CI against the locally packed package, and `dotnet.yml` gained an evaluation-only
+gate asserting that the new property defines the symbol and that nothing else does. What this costs is
+recorded in `docs/RELEASE_PROCESS.md`: a green dispatch no longer carries the consumer half of the
+Step 3 keep evidence on its own, and the manual FULL equivalent from the release tag supplies it.
+Residual risk: the FULL path is exercised only by the next release, since no dispatch can reach it.
 
 ## Deferred to the next major version
 
