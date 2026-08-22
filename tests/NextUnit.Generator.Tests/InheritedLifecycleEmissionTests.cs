@@ -557,7 +557,7 @@ public class InheritedLifecycleEmissionTests
     }
 
     [Fact]
-    public async Task ExplicitInterfaceHookOnABaseClass_ReportsNextUnit014Async()
+    public async Task ExplicitInterfaceHookOnABaseClass_ReportsNextUnit017Async()
     {
         var (registry, diagnostics) = await GenerateWithDiagnosticsAsync("""
             using NextUnit;
@@ -582,11 +582,194 @@ public class InheritedLifecycleEmissionTests
             }
             """);
 
-        // The registry cannot call an explicit implementation without naming the interface, and it
-        // reports Private accessibility, so the existing reachability check turns it into a report.
-        // Skipping it during collection instead would drop an attributed hook without a word.
-        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
+        // The registry cannot call an explicit implementation without naming the interface. It also
+        // reports Private accessibility, so NEXTUNIT015 would fire too; the declaration-form rule
+        // claims the declaration first, because "make it public" is an edit C# rejects here.
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT017"), FormatIds(diagnostics));
+        Assert.False(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT015"), FormatIds(diagnostics));
         Assert.False(registry.Contains(".Setup()", StringComparison.Ordinal), "the uncallable hook must not be emitted");
+    }
+
+    [Fact]
+    public async Task ExplicitInterfaceHookInAnAssemblyWithNoTests_IsStillReportedAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public interface IFixture
+            {
+                void Setup();
+            }
+
+            public class SharedFixture : IFixture
+            {
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup() { }
+            }
+            """);
+
+        // The shape a consumer can never report: metadata is imported with
+        // MetadataImportOptions.Public, so a test assembly deriving from SharedFixture never
+        // receives this member and has nothing to diagnose. Reporting it where it is still source
+        // is the only point at which the silence can be broken, so the rule does not wait for a
+        // test the way the accessibility rule does.
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT017"), FormatIds(diagnostics));
+    }
+
+    [Fact]
+    public async Task ExplicitInterfaceHookInAScopeTheRegistryDoesNotEmit_IsNotReportedAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public interface IFixture
+            {
+                void Setup();
+            }
+
+            public class SharedFixture : IFixture
+            {
+                // Assembly scope is collected from static methods only, so this hook is emitted
+                // nowhere whatever its declaration form.
+                [Before(LifecycleScope.Assembly)]
+                void IFixture.Setup() { }
+            }
+            """);
+
+        // Reporting here would name a remedy that changes nothing: an ordinary instance method with
+        // this scope is dropped just the same.
+        Assert.False(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT017"), FormatIds(diagnostics));
+    }
+
+    [Fact]
+    public async Task ExplicitInterfaceHookOverloads_AreEachReportedAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using System.Threading;
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public interface IFixture
+            {
+                void Setup();
+                void Setup(CancellationToken token);
+                void Setup(int value);
+                void Setup(in int value);
+            }
+
+            public class SharedFixture : IFixture
+            {
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup() { }
+
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup(CancellationToken token) { }
+
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup(int value) { }
+
+                [Before(LifecycleScope.Test)]
+                void IFixture.Setup(in int value) { }
+            }
+            """);
+
+        // Roslyn answers IFixture.Setup for every one of these, so a report keyed on the method name
+        // would silence three of the four -- the silence these rules exist to remove. The override
+        // chain carries the parameter types and their ref kinds, so the last pair, which differs by
+        // `in` alone, is told apart too.
+        Assert.Equal(4, diagnostics.Count(static diagnostic => diagnostic.Id == "NEXTUNIT017"));
+    }
+
+    [Fact]
+    public async Task ExplicitInterfaceHooksOfTwoInterfaces_AreEachReportedAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public interface IFirst
+            {
+                void Setup();
+            }
+
+            public interface ISecond
+            {
+                void Setup();
+            }
+
+            public class SharedFixture : IFirst, ISecond
+            {
+                [Before(LifecycleScope.Test)]
+                void IFirst.Setup() { }
+
+                [Before(LifecycleScope.Test)]
+                void ISecond.Setup() { }
+            }
+            """);
+
+        // Two methods of one class with one signature: what tells them apart is the interface they
+        // implement, so the override chain has to carry it. Explicitly implementing two interfaces
+        // that declare the same member is the ordinary reason to write an explicit implementation
+        // at all, which makes this the shape most likely to reach the rule.
+        Assert.Equal(2, diagnostics.Count(static diagnostic => diagnostic.Id == "NEXTUNIT017"));
+    }
+
+    [Fact]
+    public async Task ExplicitInterfaceHookCarryingBothDirections_IsReportedOnceAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public interface IFixture
+            {
+                void Setup();
+            }
+
+            public class SharedFixture : IFixture
+            {
+                [Before(LifecycleScope.Test)]
+                [After(LifecycleScope.Test)]
+                void IFixture.Setup() { }
+            }
+            """);
+
+        // One declaration, read by both syntax providers. What the user has to fix is one method,
+        // so telling them twice would be noise.
+        Assert.Equal(1, diagnostics.Count(static diagnostic => diagnostic.Id == "NEXTUNIT017"));
+    }
+
+    [Fact]
+    public async Task StaticExplicitInterfaceHookInAGlobalScope_IsReportedAsync()
+    {
+        var (_, diagnostics) = await GenerateWithDiagnosticsAsync("""
+            using NextUnit;
+
+            namespace Fixtures;
+
+            public interface IFixture
+            {
+                static abstract void Setup();
+            }
+
+            public class SharedFixture : IFixture
+            {
+                [Before(LifecycleScope.Assembly)]
+                static void IFixture.Setup() { }
+            }
+            """);
+
+        // A static hook in a global scope is emitted, so the declaration form matters here -- and an
+        // interface cast could not have rescued it, since calling a static interface member needs a
+        // generic constraint the registry has no type parameter to put it on.
+        Assert.True(diagnostics.Any(static diagnostic => diagnostic.Id == "NEXTUNIT017"), FormatIds(diagnostics));
     }
 
     [Fact]

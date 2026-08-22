@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `NEXTUNIT017` reports a `[Before]` or `[After]` hook declared as an explicit interface
+  implementation, such as `void IFixture.Setup()`. The generated registry calls a hook through its
+  declaring type, and an explicit implementation is reachable only through the interface, so such a
+  hook has never run in any version. Declare it as an ordinary `public` method implementing the
+  interface member implicitly; unlike `NEXTUNIT015`, this remedy has no `internal` variant, because
+  an implicit implementation of an interface member must be `public`. The rule is an error and is not
+  configurable, for the reason `NEXTUNIT015` is both, and it replaces `NEXTUNIT015` for this shape:
+  the cause is the declaration form rather than an accessibility modifier, and C# rejects a modifier
+  on an explicit implementation, so "make it public" named an edit that cannot be made.
+  Unlike every other lifecycle rule, it is reported where the hook is declared, whether or not
+  anything in that project derives from the class. A consumer cannot report it: a compilation
+  imports metadata with `MetadataImportOptions.Public`, so an explicit implementation on a base
+  class in a referenced assembly is not among that type's members at all. Reporting in the declaring
+  assembly is what keeps the shape from shipping silently in a shared fixture package.
+
 ### Changed
 
 - A failing `[Before(LifecycleScope.Class)]` hook now fails only its own class instead of ending the
