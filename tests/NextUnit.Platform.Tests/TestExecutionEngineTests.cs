@@ -648,14 +648,14 @@ public sealed class TestExecutionEngineTests
     }
 
     [Test]
-    public async Task ClassSetupFailure_AbortsRunWithoutRetryingSetupAsync()
+    public async Task ClassSetupFailure_FailsOnlyThatClassAsync()
     {
-        // Characterization: class setup runs in the pre-execution skip check, outside the retry loop,
-        // so [Retry] never re-runs a failing BeforeClass hook. The failure is not attributed to a test
-        // node either - it aborts the run and surfaces from RunAsync.
+        // A failing class setup fails the tests of its own class and nothing else, where it used to
+        // escape RunAsync and cost every other class in the assembly its run. Class setup still runs
+        // in the pre-execution skip check, outside the retry loop, so [Retry] does not re-run it.
         var setupInvocations = 0;
         var testInvocations = 0;
-        var test = TestCaseDescriptorBuilder
+        var failingClass = TestCaseDescriptorBuilder
             .For<SampleTestClass>("class.setup.failure")
             .WithRetry(3)
             .WithMethod((_, _) =>
@@ -670,16 +670,109 @@ public sealed class TestExecutionEngineTests
             })
             .Build();
 
-        var sink = new RecordingSink();
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None));
+        var healthyClass = TestCaseDescriptorBuilder
+            .For<SecondSampleTestClass>("class.setup.ok")
+            .Build();
 
-        Assert.Contains("class setup boom", error.Message);
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([failingClass, healthyClass], sink, CancellationToken.None);
+
+        // The test of the broken class is failed on its own node, carrying the setup exception exactly
+        // as it was thrown - not wrapped, which would cost the VSTest adapter its message and stack.
+        var error = Assert.Single(sink.Errors);
+        Assert.Equal("class.setup.failure", error.Test.Id.Value);
+        Assert.True(error.Exception is InvalidOperationException);
+        Assert.Equal("class setup boom", error.Exception.Message);
+
         Assert.Equal(1, setupInvocations);
         Assert.Equal(0, testInvocations);
-        Assert.Empty(sink.Passed);
-        Assert.Empty(sink.Errors);
         Assert.Empty(sink.Skipped);
+
+        var passed = Assert.Single(sink.Passed);
+        Assert.Equal("class.setup.ok", passed.Id.Value);
+    }
+
+    [Test]
+    public async Task ClassSetupFailure_ReportsEveryTestOfTheClassOnceAsync()
+    {
+        var setupInvocations = 0;
+        var lifecycle = new LifecycleInfo
+        {
+            BeforeClassMethods =
+            [
+                (_, _) =>
+                {
+                    Interlocked.Increment(ref setupInvocations);
+                    throw new InvalidOperationException("class setup boom");
+                }
+            ]
+        };
+
+        TestCaseDescriptor CreateTest(string id) => TestCaseDescriptorBuilder
+            .For<SampleTestClass>(id)
+            .WithLifecycle(lifecycle)
+            .Build();
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync(
+            [CreateTest("class.setup.failure.1"), CreateTest("class.setup.failure.2"), CreateTest("class.setup.failure.3")],
+            sink,
+            CancellationToken.None);
+
+        // Every test of the class is failed, once each: none may be reported skipped or vanish, which
+        // would let a broken fixture pass as a green run. The tests run in one parallel batch, so the
+        // two that wait on the setup lock read the failure the third published.
+        Assert.Equal(1, setupInvocations);
+        Assert.Equal(
+            ["class.setup.failure.1", "class.setup.failure.2", "class.setup.failure.3"],
+            sink.Errors.Select(static e => e.Test.Id.Value).OrderBy(static id => id, StringComparer.Ordinal).ToList());
+        Assert.All(sink.Errors, static e => Assert.Equal("class setup boom", e.Exception.Message));
+        Assert.Empty(sink.Passed);
+        Assert.Empty(sink.Skipped);
+    }
+
+    [Test]
+    public async Task ClassSetupForeignCancellation_FailsTheClassNotTheRunAsync()
+    {
+        // An OCE carrying a token that is NOT the run token is the hook's own cancellation, so it is a
+        // class setup failure like any other rather than the run being cancelled.
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("class.setup.foreign.oce")
+            .WithBeforeClass(static (_, _) => throw new OperationCanceledException(new CancellationToken(canceled: true)))
+            .Build();
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        var error = Assert.Single(sink.Errors);
+        Assert.Equal("class.setup.foreign.oce", error.Test.Id.Value);
+        Assert.True(error.Exception is OperationCanceledException);
+    }
+
+    [Test]
+    public async Task ClassSetupObservingRunCancellation_StillEndsTheRunAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var test = TestCaseDescriptorBuilder
+            .For<SampleTestClass>("class.setup.run.cancelled")
+            .Serial()
+            .WithBeforeClass((_, ct) =>
+            {
+                cts.Cancel();
+                ct.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            })
+            .Build();
+
+        var sink = new RecordingSink();
+
+        // Isolating a failed class must not swallow run cancellation: the run token firing still ends
+        // the run rather than being reported as this class's setup failure.
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => new TestExecutionEngine().RunAsync([test], sink, cts.Token));
+
+        Assert.Empty(sink.Errors);
+        Assert.Empty(sink.Passed);
     }
 
     [Test]

@@ -458,14 +458,43 @@ public sealed class TestExecutionEngineTeardownUnwindTests
             .Build();
 
         var sink = new RecordingSink();
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None));
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
 
-        // The class setup still aborts the run, but cleanup now unwinds only what it entered rather
-        // than running a derived AfterClass against a fixture whose derived setup never ran.
+        // Cleanup unwinds only what the setup entered rather than running a derived AfterClass against
+        // a fixture whose derived setup never ran, and the failure now lands on the class's own test
+        // instead of ending the run.
         Assert.Equal(
             ["Base.BeforeClass", "Mid.BeforeClass", "Mid.AfterClass", "Base.AfterClass"],
             calls.Names);
+
+        var error = Assert.Single(sink.Errors);
+        Assert.Equal("unwind.class.setup.failure", error.Test.Id.Value);
+        Assert.Contains("Mid.BeforeClass boom", error.Exception.Message);
+    }
+
+    [Test]
+    public async Task ClassSetupFailure_StillDisposesTheSharedInstanceAsync()
+    {
+        var calls = new HookRecorder();
+        var test = TestCaseDescriptorBuilder
+            .For<ThrowingDisposeClass>("unwind.class.setup.dispose")
+            .WithLifecycle(new LifecycleInfo
+            {
+                BeforeClassMethods = [calls.Hook("Base.BeforeClass", shouldThrow: true)],
+                AfterClassMethods = [calls.Hook("Base.AfterClass")]
+            })
+            .Build();
+
+        var sink = new RecordingSink();
+        await new TestExecutionEngine().RunAsync([test], sink, CancellationToken.None);
+
+        // The entered level unwinds, and the shared instance is disposed whatever the setup did - the
+        // failing disposer is how that disposal proves it ran.
+        Assert.Equal(["Base.BeforeClass", "Base.AfterClass"], calls.Names);
+
+        var errorIds = sink.Errors.Select(static e => e.Test.Id.Value).ToList();
+        Assert.Contains("unwind.class.setup.dispose", errorIds);
+        Assert.Contains(errorIds, static id => id.EndsWith("[ClassDispose]", StringComparison.Ordinal));
     }
 
     [Test]
