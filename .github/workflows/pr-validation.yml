@@ -2,7 +2,9 @@ name: PR Validation
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    # edited is here for major-bump-guard: it reads the PR body, so a body edited after a green
+    # run would otherwise leave a stale pass behind and let a justification be deleted post-check.
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -128,11 +130,74 @@ jobs:
         echo "=== NextUnit.Core Dependencies ==="
         dotnet list src/NextUnit.Core/NextUnit.Core.csproj package
 
+  # Job 5: Release guard for MAJOR bumps and back-to-back releases.
+  # Like every other job here, this one runs the workflow and script from the pull request's own
+  # head, so a PR that edits the guard is judged by the edited guard. Running it from the base
+  # branch instead needs a pull_request_target workflow, and pull_request_target applies to a
+  # whole workflow file: adopting it here would hand a privileged token to the jobs that build
+  # pull request code, which is the failure mode that event is notorious for. Splitting the guard
+  # into its own privileged workflow is the real fix and is a decision for the repository owner;
+  # until then the control is review of changes under .github/.
+  major-bump-guard:
+    name: Major Bump Guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    # actions/checkout fetches with --no-tags unless fetch-tags is set, and the guard measures
+    # the cadence from the newest release tag. Fetching explicitly rather than relying on the
+    # action's fetch-tags input: an input the action version silently ignores would leave the
+    # guard with no tag, and it fails closed, which would block every release PR.
+    - name: Fetch release tags
+      run: git fetch --tags --force origin
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Check version bump and release cadence
+      env:
+        # The PR body is untrusted input: it reaches the script only through this variable,
+        # never through workflow interpolation into the shell source.
+        PR_BODY: ${{ github.event.pull_request.body }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      # HEAD is the pull_request merge ref, so this compares the base against what merging would
+      # actually put on the base branch; head.sha alone would miss a version the merge produces.
+      #
+      # The guard runs on every pull request rather than only when Directory.Build.props changed.
+      # MSBuild resolves the version by evaluation, so a change to a file that props imports moves
+      # the version without touching the props file, and a path filter would skip exactly that.
+      #
+      # The base is materialised through a linked worktree, copied out, and then unregistered
+      # before anything from the head tree is evaluated. Three reasons for that shape: a worktree
+      # rather than git archive, because archive applies export-ignore from a .gitattributes the
+      # pull request controls and could hide an imported file from the guard; a copy under its own
+      # temporary directory rather than a sibling of the head tree, because a predictable adjacent
+      # path lets a head project import the base one and read the old version back under the guard
+      # alone; and the unregistration, because git records the worktree's absolute path inside
+      # .git/worktrees, which MSBuild can read during evaluation and follow back to the base.
+      run: |
+        BASE_ROOT="$(mktemp -d)"
+        git worktree add --detach "$BASE_ROOT/linked" "$BASE_SHA"
+        cp -a "$BASE_ROOT/linked" "$BASE_ROOT/tree"
+        rm -f "$BASE_ROOT/tree/.git"
+        git worktree remove --force "$BASE_ROOT/linked"
+        git worktree prune
+        bash .github/scripts/major-bump-guard.sh "$BASE_ROOT/tree" .
+
   # Summary
   pr-summary:
     name: PR Summary
     runs-on: ubuntu-latest
-    needs: [pr-analysis, strict-build, format-check, dependency-check]
+    needs: [pr-analysis, strict-build, format-check, dependency-check, major-bump-guard]
     if: always()
 
     steps:
@@ -143,7 +208,9 @@ jobs:
         echo "Strict Build: ${{ needs.strict-build.result }}"
         echo "Format Check: ${{ needs.format-check.result }}"
         echo "Dependencies: ${{ needs.dependency-check.result }}"
+        echo "Major Bump Guard: ${{ needs.major-bump-guard.result }}"
 
         [[ "${{ needs.strict-build.result }}" == "success" ]] || exit 1
         [[ "${{ needs.format-check.result }}" == "success" ]] || exit 1
+        [[ "${{ needs.major-bump-guard.result }}" == "success" ]] || exit 1
         echo "✅ All PR checks passed"
