@@ -966,7 +966,13 @@ same way, because `Type.GetMethod` does not return inherited statics without `Fl
   decoder reads. The attribute is matched by containing type as well as namespace, because a nested
   type reports the namespace of its outermost container and a `System.Outer.ObsoleteAttribute`
   retires nothing -- raised as P2 by the pre-push Codex review and pinned by
-  `InheritedFromABaseClosedOverANestedObsoleteHomonym_QualifiesByTheDeclaringTypeAsync`.
+  `InheritedFromABaseClosedOverANestedObsoleteHomonym_QualifiesByTheDeclaringTypeAsync`. Matching the
+  constructor signature as well was raised in the next round and rejected on measurement: a source
+  assembly declaring a top-level `System.ObsoleteAttribute` taking `(int, bool)` crashes Roslyn 5.6.0
+  where it declares it, casting the first argument to string, so the name is what the compiler
+  matched on rather than the signature `AttributeDescription` lists. The predicate is asymmetric --
+  a false positive costs the qualifier, which is the fallback an unbindable name already takes, and
+  a false negative costs the consumer a build -- so the looser match is the safe one.
   Scoped to that flag and no further:
   `InheritedFromABaseClosedOverAnErrorObsoleteType_KeepsTheDerivedQualifierAsync` pins the fallback
   and `InheritedFromABaseClosedOverAWarningObsoleteType_QualifiesByTheDeclaringTypeAsync` pins the

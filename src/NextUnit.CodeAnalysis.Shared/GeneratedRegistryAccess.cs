@@ -179,6 +179,16 @@ internal static class GeneratedRegistryAccess
             // The containing type has to be null as well as the namespace right: a nested type
             // reports the namespace of its outermost container, so a `System.Outer.ObsoleteAttribute`
             // answers to the same namespace as the real one and retires nothing.
+            //
+            // The constructor signature is deliberately not part of the match, though Roslyn's
+            // `AttributeDescription` lists `()`, `(string)`, and `(string, bool)` and no others.
+            // Measured on 5.6.0: a source assembly declaring its own top-level
+            // `System.ObsoleteAttribute` taking `(int, bool)` crashes the compiler that declares it,
+            // in `SourceNamespaceSymbol.ForceComplete`, casting the first argument to string -- so
+            // the name is what Roslyn matched on there, not the signature. Requiring the signature
+            // would risk reading a homonym Roslyn does treat as obsolete as harmless, and this
+            // predicate is asymmetric: a false positive costs the qualifier, which is the fallback
+            // an unbindable name already takes, and a false negative costs the consumer a build.
             if (attribute.AttributeClass is
                 {
                     Name: "ObsoleteAttribute",
