@@ -746,9 +746,9 @@ public class DataSourceBindingEmissionTests
     }
 
     /// <summary>
-    /// The task-wrapped arms are deliberately left inferred. Their type argument is the awaited
-    /// collection, not the row, and Task&lt;TRows&gt; admits exactly one inference, so naming it
-    /// would move every baseline to state what the compiler had no choice about.
+    /// A task-wrapped source offering one row type keeps the two-argument call. Its type argument is
+    /// the awaited collection, not the row, and Task&lt;TRows&gt; admits exactly one inference, so a
+    /// converter would only add a layer between the runtime and the sole arm it was already reading.
     /// </summary>
     [Fact]
     public async Task TaskWrappedSource_LeavesTheCollectionTypeInferredAsync()
@@ -775,9 +775,201 @@ public class DataSourceBindingEmissionTests
 
         var registry = await GenerateRegistryAsync(source);
 
-        Assert.Contains("FromTaskAsync(global::TestProject.DataTests.Rows()", registry);
+        Assert.Contains("FromTaskAsync(global::TestProject.DataTests.Rows(), ct)", registry);
 
         await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A task-wrapped source whose awaited collection implements the element interface twice is read
+    /// through the arm <c>NU0009</c> validated. The converter is where that arm gets chosen: the
+    /// adapter's type argument is the collection, so naming the row type at the call site as well
+    /// would need the collection type written too -- C# cannot infer one and take the other.
+    /// </summary>
+    [Fact]
+    public async Task MultipleTaskWrappedArms_ReadTheSelectedRowTypeAsync()
+    {
+        var source = $$"""
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            namespace TestProject;
+
+            {{DualRowsDeclaration}}
+
+            public class DataTests
+            {
+                public static Task<DualRows> Rows() => Task.FromResult(new DualRows());
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains(
+            "FromTaskAsync(global::TestProject.DataTests.Rows(), static rows => " +
+            "global::NextUnit.Internal.DataSourceAdapter.FromEnumerable" +
+            "<global::NextUnit.TestDataRow<int>>(rows), ct)",
+            registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// The <c>ValueTask</c> arm reaches the same adapter through <c>AsTask()</c>, and it is emitted
+    /// from its own branch, so the converter it gets is pinned separately.
+    /// </summary>
+    [Fact]
+    public async Task MultipleValueTaskWrappedArms_ReadTheSelectedRowTypeAsync()
+    {
+        var source = $$"""
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            namespace TestProject;
+
+            {{DualRowsDeclaration}}
+
+            public class DataTests
+            {
+                public static ValueTask<DualRows> Rows() => new ValueTask<DualRows>(new DualRows());
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains(
+            "FromTaskAsync((global::TestProject.DataTests.Rows()).AsTask(), static rows => " +
+            "global::NextUnit.Internal.DataSourceAdapter.FromEnumerable" +
+            "<global::NextUnit.TestDataRow<int>>(rows), ct)",
+            registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A task-wrapped source whose selected row type lives in a reference reachable only through
+    /// <c>extern alias</c> keeps the two-argument call, on the same terms as a synchronous one: the
+    /// call compiles today and only reads the wrong arm, so the name that would fix the arm is not
+    /// worth a build the user cannot fix. The <c>IAsyncEnumerable</c> arm is the one exception,
+    /// because it does not compile without the name at all.
+    /// </summary>
+    [Fact]
+    public async Task MultipleTaskWrappedArmsWithAnAliasOnlyRowType_KeepsTheDirectReadAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                public static Task<Aliased::Fixtures.DualRows> Rows() =>
+                    Task.FromResult(new Aliased::Fixtures.DualRows());
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references = [Reference(await CompileDualRowsAssemblyAsync(), "Aliased")];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("FromTaskAsync(global::TestProject.DataTests.Rows(), ct)", registry);
+        Xunit.Assert.DoesNotContain("DataSourceAdapter.FromEnumerable", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// A selected row type retired with <c>[Obsolete(..., error: true)]</c> keeps the direct read as
+    /// well. The consumer never spells that type -- it arrives through the source's interface list
+    /// -- so their build passes and only the generated file would take the <c>CS0619</c>, which the
+    /// file's blanket pragma cannot suppress because it is an error rather than a warning.
+    /// </summary>
+    [Fact]
+    public async Task MultipleSyncArmsWithAnErrorObsoleteRowType_KeepsTheDirectReadAsync()
+    {
+        var source = """
+            using NextUnit;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                public static Fixtures.RetiredDualRows Rows() => new Fixtures.RetiredDualRows();
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var references = await CompileRetiredRowTypeReferencesAsync();
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains(
+            "DataSourceProvider = static () => (object?)global::TestProject.DataTests.Rows()",
+            registry);
+        Xunit.Assert.DoesNotContain("DataSourceAdapter.FromEnumerable", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
+    }
+
+    /// <summary>
+    /// The same retired row type on the task-wrapped arm, which is where the check is new: a name
+    /// the generated file cannot write costs a working build there too.
+    /// </summary>
+    [Fact]
+    public async Task MultipleTaskWrappedArmsWithAnErrorObsoleteRowType_KeepsTheDirectReadAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Threading.Tasks;
+
+            namespace TestProject;
+
+            public class DataTests
+            {
+                public static Task<Fixtures.RetiredDualRows> Rows() =>
+                    Task.FromResult(new Fixtures.RetiredDualRows());
+
+                [Test]
+                [TestData("Rows")]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var references = await CompileRetiredRowTypeReferencesAsync();
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Assert.Contains("FromTaskAsync(global::TestProject.DataTests.Rows(), ct)", registry);
+        Xunit.Assert.DoesNotContain("DataSourceAdapter.FromEnumerable", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
     }
 
     /// <summary>
@@ -828,6 +1020,182 @@ public class DataSourceBindingEmissionTests
             registry);
 
         await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A <c>[ClassDataSource]</c> whose type implements the element interface twice gets a reader,
+    /// which is the only place the arm can be chosen: the shared instance store owns the instance
+    /// and hands it over as <c>object</c>, so the expander's read of it selects no implementation.
+    /// </summary>
+    [Fact]
+    public async Task ClassDataSourceWithTwoArms_ReadsTheSelectedRowTypeAsync()
+    {
+        var source = $$"""
+            using NextUnit;
+
+            namespace TestProject;
+
+            {{DualRowsDeclaration}}
+
+            public class DataTests
+            {
+                [Test]
+                [ClassDataSource<DualRows>]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains(
+            "DataSourceRowReaders = new global::NextUnit.Internal.DataSourceRowReaderDelegate?[] " +
+            "{ static source => global::NextUnit.Internal.DataSourceAdapter.FromEnumerable" +
+            "<global::NextUnit.TestDataRow<int>>" +
+            "((global::System.Collections.Generic.IEnumerable<global::NextUnit.TestDataRow<int>>)source) }",
+            registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A <c>[ClassDataSource]</c> offering one element type gets no reader property at all, so a
+    /// source that never had an arm to choose is read exactly as it was.
+    /// </summary>
+    [Fact]
+    public async Task ClassDataSourceWithOneArm_KeepsTheDirectReadAsync()
+    {
+        var source = """
+            using NextUnit;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public sealed class Rows : IEnumerable<object[]>
+            {
+                public IEnumerator<object[]> GetEnumerator() =>
+                    ((IEnumerable<object[]>)new[] { new object[] { 1 } }).GetEnumerator();
+
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public class DataTests
+            {
+                [Test]
+                [ClassDataSource<Rows>]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Xunit.Assert.DoesNotContain("DataSourceRowReaders", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// The reader array stays aligned with <c>DataSourceTypes</c> rather than compacted, so a
+    /// second source's reader is never applied to the first. Both positions are pinned, because a
+    /// shift in either direction reads one source's instance through the other's row type.
+    /// </summary>
+    [Theory]
+    [InlineData("DualRows, Rows", "{ static source => global::NextUnit", ")source), null }")]
+    [InlineData("Rows, DualRows", "{ null, static source => global::NextUnit", ")source) }")]
+    public async Task ClassDataSourcesWithOneAmbiguousArm_AlignTheReadersWithTheTypesAsync(
+        string typeArguments,
+        string expectedPrefix,
+        string expectedSuffix)
+    {
+        var source = $$"""
+            using NextUnit;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            {{DualRowsDeclaration}}
+
+            public sealed class Rows : IEnumerable<object[]>
+            {
+                public IEnumerator<object[]> GetEnumerator() =>
+                    ((IEnumerable<object[]>)new[] { new object[] { 1 } }).GetEnumerator();
+
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public class DataTests
+            {
+                [Test]
+                [ClassDataSource<{{typeArguments}}>]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        var registry = await GenerateRegistryAsync(source);
+
+        Assert.Contains($"DataSourceRowReaders = new global::NextUnit.Internal.DataSourceRowReaderDelegate?[] {expectedPrefix}", registry);
+        Assert.Contains(expectedSuffix, registry);
+
+        await AssertGeneratedOutputCompilesAsync(source);
+    }
+
+    /// <summary>
+    /// A <c>[ClassDataSource]</c> whose selected row type is reachable only through
+    /// <c>extern alias</c> gets no reader, on the same terms as every other source that compiles
+    /// today: a name the generated file cannot write costs a build the user cannot fix. The source
+    /// type itself is declared locally, so the only name at stake is the row type's.
+    /// </summary>
+    [Fact]
+    public async Task ClassDataSourceWithAnAliasOnlyRowType_KeepsTheDirectReadAsync()
+    {
+        var source = """
+            extern alias Aliased;
+            using NextUnit;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            namespace TestProject;
+
+            public sealed class LocalDualRows :
+                IEnumerable<Aliased::Fixtures.AliasedRow>,
+                IEnumerable<object[]>
+            {
+                IEnumerator<Aliased::Fixtures.AliasedRow>
+                    IEnumerable<Aliased::Fixtures.AliasedRow>.GetEnumerator() =>
+                    ((IEnumerable<Aliased::Fixtures.AliasedRow>)
+                        new[] { new Aliased::Fixtures.AliasedRow() }).GetEnumerator();
+
+                IEnumerator<object[]> IEnumerable<object[]>.GetEnumerator() =>
+                    ((IEnumerable<object[]>)new[] { new object[] { 1 } }).GetEnumerator();
+
+                IEnumerator IEnumerable.GetEnumerator() =>
+                    new[] { new object[] { 1 } }.GetEnumerator();
+            }
+
+            public class DataTests
+            {
+                [Test]
+                [ClassDataSource<LocalDualRows>]
+                public void Consumes(int value)
+                {
+                }
+            }
+            """;
+
+        MetadataReference[] references = [Reference(await CompileDualRowsAssemblyAsync(), "Aliased")];
+
+        var registry = await GenerateRegistryAsync(source, references);
+
+        Xunit.Assert.DoesNotContain("DataSourceRowReaders", registry, StringComparison.Ordinal);
+
+        await AssertGeneratedOutputCompilesAsync(source, extraReferences: references);
     }
 
     /// <summary>
@@ -1525,6 +1893,34 @@ public class DataSourceBindingEmissionTests
         return ImmutableArray.Create(stream.ToArray());
     }
 
+    /// <summary>
+    /// A collection implementing the element interface twice, with a third, non-generic
+    /// implementation that agrees with the arm the precedence rule does not select.
+    /// </summary>
+    /// <remarks>
+    /// Fully qualified so it can be pasted into a test source whatever using directives that source
+    /// needs for the member wrapping it.
+    /// </remarks>
+    private const string DualRowsDeclaration = """
+        public sealed class DualRows :
+            System.Collections.Generic.IEnumerable<object[]>,
+            System.Collections.Generic.IEnumerable<NextUnit.TestDataRow<int>>
+        {
+            System.Collections.Generic.IEnumerator<object[]>
+                System.Collections.Generic.IEnumerable<object[]>.GetEnumerator() =>
+                ((System.Collections.Generic.IEnumerable<object[]>)new[] { new object[] { 1 } })
+                    .GetEnumerator();
+
+            System.Collections.Generic.IEnumerator<NextUnit.TestDataRow<int>>
+                System.Collections.Generic.IEnumerable<NextUnit.TestDataRow<int>>.GetEnumerator() =>
+                ((System.Collections.Generic.IEnumerable<NextUnit.TestDataRow<int>>)
+                    new[] { new NextUnit.TestDataRow<int>(2) }).GetEnumerator();
+
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() =>
+                new[] { new object[] { 1 } }.GetEnumerator();
+        }
+        """;
+
     private const string ErrorObsoleteAttribute = """[System.Obsolete("Retired.", true)]""";
 
     private const string WarningObsoleteAttribute = """[System.Obsolete("Retired.")]""";
@@ -1610,6 +2006,74 @@ public class DataSourceBindingEmissionTests
         [
             Reference(await CompileAssemblyAsync("ClosingFixtures", closingSource, bindable)),
             Reference(await CompileAssemblyAsync("RetiredFixtures", retiredSource)),
+        ];
+    }
+
+    /// <summary>
+    /// Compiles the references a retired row type needs: a fixtures assembly declaring the type, and
+    /// a second declaring a collection whose selected arm is <c>IEnumerable&lt;Retired&gt;</c>.
+    /// </summary>
+    /// <remarks>
+    /// The fixtures assembly is compiled twice under one identity, once without the attribute for
+    /// the collection to bind against and once with it for the consumer, the same way the
+    /// declaring-type cases do it: no source can implement <c>IEnumerable&lt;Retired&gt;</c> once
+    /// <c>Retired</c> is an error, and a consumer able to spell that name would take the
+    /// <c>CS0619</c> in their own source rather than in the generated file.
+    /// <para>
+    /// <c>Fixtures.Retired</c> wins the tie against <c>object[]</c> on ordinal comparison of the
+    /// fully qualified names, which is what makes it the arm the emitted name would pin.
+    /// </para>
+    /// </remarks>
+    private static async Task<MetadataReference[]> CompileRetiredRowTypeReferencesAsync()
+    {
+        const string retiredWithoutAttribute = """
+            namespace Fixtures
+            {
+                public class Retired
+                {
+                }
+            }
+            """;
+
+        const string dualRowsSource = """
+            namespace Fixtures
+            {
+                public class RetiredDualRows :
+                    System.Collections.Generic.IEnumerable<Retired>,
+                    System.Collections.Generic.IEnumerable<object[]>
+                {
+                    System.Collections.Generic.IEnumerator<Retired>
+                        System.Collections.Generic.IEnumerable<Retired>.GetEnumerator() =>
+                        ((System.Collections.Generic.IEnumerable<Retired>)new[] { new Retired() })
+                            .GetEnumerator();
+
+                    System.Collections.Generic.IEnumerator<object[]>
+                        System.Collections.Generic.IEnumerable<object[]>.GetEnumerator() =>
+                        ((System.Collections.Generic.IEnumerable<object[]>)new[] { new object[] { 1 } })
+                            .GetEnumerator();
+
+                    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() =>
+                        new[] { new object[] { 1 } }.GetEnumerator();
+                }
+            }
+            """;
+
+        var retiredSource = $$"""
+            namespace Fixtures
+            {
+                {{ErrorObsoleteAttribute}}
+                public class Retired
+                {
+                }
+            }
+            """;
+
+        var bindable = Reference(await CompileAssemblyAsync("RetiredRowFixtures", retiredWithoutAttribute));
+
+        return
+        [
+            Reference(await CompileAssemblyAsync("DualRowsFixtures", dualRowsSource, bindable)),
+            Reference(await CompileAssemblyAsync("RetiredRowFixtures", retiredSource)),
         ];
     }
 

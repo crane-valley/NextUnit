@@ -451,11 +451,12 @@ internal sealed record MatrixExclusionDescriptor
 /// </summary>
 internal sealed record ClassDataSource
 {
-    public ClassDataSource(string typeName, int sharedType, string? key)
+    public ClassDataSource(string typeName, int sharedType, string? key, string? rowTypeName)
     {
         TypeName = typeName;
         SharedType = sharedType;
         Key = key;
+        RowTypeName = rowTypeName;
     }
 
     /// <summary>
@@ -472,6 +473,17 @@ internal sealed record ClassDataSource
     /// Gets the key for keyed sharing (null if not applicable).
     /// </summary>
     public string? Key { get; }
+
+    /// <summary>
+    /// Gets the row type the emitted reader reads the instance through, or <c>null</c> to leave the
+    /// runtime on its non-generic read.
+    /// </summary>
+    /// <remarks>
+    /// Set only for a source offering more than one row type whose name the generated file can
+    /// write. It pins the arm to the one <c>KnownDataSourceTypes.SelectRowType</c> chose, which is
+    /// the arm <c>NU0009</c> validated against the test method.
+    /// </remarks>
+    public string? RowTypeName { get; }
 }
 
 /// <summary>

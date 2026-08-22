@@ -118,6 +118,25 @@ public sealed class SharedInstanceStoreTests
         Assert.Equal(2, CreatedCount<DisposalScope>());
     }
 
+    /// <summary>
+    /// A source read through a generated row reader is still the store's to release. The reader
+    /// wraps the read, not the ownership: wrapping the factory instead would hand the store a
+    /// wrapper to dispose and leave the source itself owned by nobody.
+    /// </summary>
+    [Fact]
+    public async Task DisposeAllAsync_StillOwnsAnInstanceReadThroughARowReaderAsync()
+    {
+        ExpandClassDataSource(
+            typeof(DualArmRecordingSource<ReaderDisposalScope>),
+            SharedType.PerSession,
+            typeof(FirstTestClass),
+            rowReaders: [static source => DataSourceAdapter.FromEnumerable<object?[]>((IEnumerable<object?[]>)source)]);
+
+        await SharedInstanceStore.DisposeAllAsync();
+
+        Assert.Equal(new[] { "created", "disposed" }, Entries<ReaderDisposalScope>());
+    }
+
     [Fact]
     public async Task DisposeAllAsync_LeavesAnUnsharedInstanceAloneAsync()
     {
@@ -258,7 +277,8 @@ public sealed class SharedInstanceStoreTests
         Type sourceType,
         SharedType shared,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)] Type testClass,
-        string? key = null)
+        string? key = null,
+        DataSourceRowReaderDelegate?[]? rowReaders = null)
     {
         var descriptor = new ClassDataSourceDescriptor
         {
@@ -268,7 +288,8 @@ public sealed class SharedInstanceStoreTests
             DataSourceTypes = [sourceType],
             ParameterTypes = [typeof(int)],
             SharedType = shared,
-            SharedKey = key
+            SharedKey = key,
+            DataSourceRowReaders = rowReaders ?? []
         };
 
         Assert.NotEmpty(ClassDataSourceExpander.ExpandSingle(descriptor).ToList());
@@ -358,6 +379,8 @@ public sealed class SharedInstanceStoreTests
 
     private sealed class DisposalScope;
 
+    private sealed class ReaderDisposalScope;
+
     private sealed class UnsharedDisposalScope;
 
     private sealed class DualDisposalScope;
@@ -407,6 +430,23 @@ public sealed class SharedInstanceStoreTests
         public RecordingSource() => Record(typeof(TScope), "created");
 
         public void Dispose() => Record(typeof(TScope), "disposed");
+    }
+
+    /// <summary>
+    /// Offers a second element arm, so it is the shape the generator emits a row reader for.
+    /// </summary>
+    private sealed class DualArmRecordingSource<TScope> : SingleRowSource, IEnumerable<int>, IDisposable
+    {
+        public DualArmRecordingSource() => Record(typeof(TScope), "created");
+
+        public void Dispose() => Record(typeof(TScope), "disposed");
+
+        IEnumerator<int> IEnumerable<int>.GetEnumerator() => Values().GetEnumerator();
+
+        private static IEnumerable<int> Values()
+        {
+            yield return 1;
+        }
     }
 
     private sealed class AsyncDisposableSource<TScope> : SingleRowSource, IAsyncDisposable

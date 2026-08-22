@@ -197,6 +197,20 @@ internal static class TestCaseEmitter
         EmitRuntimeDescriptorHeader(writer, test, lifecycleMethods);
         writer.WriteLine($"DataSourceTypes = {dataSourceTypesLiteral},");
         writer.WriteLine($"DataSourceFactories = {dataSourceFactoriesLiteral},");
+
+        // Emitted only when some source in this attribute offers more than one row type, for the
+        // same reason the asynchronous provider is emitted only for an asynchronous source: the
+        // descriptor property already defaults to empty, and writing it unconditionally would churn
+        // every existing snapshot baseline for no gain. The array stays aligned with
+        // DataSourceTypes when it is written, so a source with nothing to choose carries null.
+        var rowReaders = classDataSources.Select(s => CodeBuilder.BuildClassDataSourceRowReader(s.RowTypeName)).ToArray();
+        if (Array.Exists(rowReaders, reader => reader is not null))
+        {
+            var rowReadersList = string.Join(", ", rowReaders.Select(reader => reader ?? "null"));
+            writer.WriteLine(
+                "DataSourceRowReaders = new global::NextUnit.Internal.DataSourceRowReaderDelegate?[] " +
+                $"{{ {rowReadersList} }},");
+        }
         writer.WriteLine($"SharedType = {BuildSharedTypeLiteral(firstSource.SharedType)},");
         writer.WriteLine($"SharedKey = {LiteralFormatter.NullableString(firstSource.Key)},");
         writer.WriteLine($"ParameterTypes = {CodeBuilder.BuildParameterTypesLiteral(test.Parameters)},");

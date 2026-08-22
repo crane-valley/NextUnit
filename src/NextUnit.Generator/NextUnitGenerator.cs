@@ -120,7 +120,7 @@ public sealed class NextUnitGenerator : IIncrementalGenerator
         var (isExplicit, explicitReason) = AttributeHelper.GetExplicitInfo(methodSymbol, typeSymbol);
         var argumentSets = DataSourceAttributeReader.GetArgumentSets(methodSymbol);
         var testDataSources = DataSourceAttributeReader.GetTestDataSources(methodSymbol, knownDataSourceTypes);
-        var classDataSources = DataSourceAttributeReader.GetClassDataSources(methodSymbol);
+        var classDataSources = DataSourceAttributeReader.GetClassDataSources(methodSymbol, knownDataSourceTypes);
         var parameters = AttributeHelper.GetParameters(methodSymbol);
         var categories = AttributeHelper.GetCategories(methodSymbol, typeSymbol);
         var tags = AttributeHelper.GetTags(methodSymbol, typeSymbol);
