@@ -23,12 +23,14 @@ namespace NextUnit.Generator.Models;
 /// </remarks>
 internal readonly struct EmittableTestMethod
 {
+    private readonly ImmutableArray<EquatableArray<ConstantValue>> _matrixCombinations;
+
     public EmittableTestMethod(
         TestMethodDescriptor test,
         ImmutableArray<EquatableArray<ConstantValue>> matrixCombinations)
     {
         Test = test;
-        MatrixCombinations = matrixCombinations;
+        _matrixCombinations = matrixCombinations;
     }
 
     public TestMethodDescriptor Test { get; }
@@ -38,5 +40,15 @@ internal readonly struct EmittableTestMethod
     /// <c>[MatrixExclusion]</c>, and empty for every expansion kind but
     /// <see cref="Helpers.TestExpansionKind.Matrix"/>.
     /// </summary>
-    public ImmutableArray<EquatableArray<ConstantValue>> MatrixCombinations { get; }
+    /// <remarks>
+    /// Read through <c>IsDefault</c> because a struct can always be default-initialized -- an array
+    /// slot, a field, <c>default</c> written by hand -- and a default <see cref="ImmutableArray{T}"/>
+    /// throws on <c>Length</c> and on enumeration. Without this, such an instance would fail the
+    /// emitter's loop with a <see cref="NullReferenceException"/> out of a struct that reads as
+    /// initialized rather than emitting no matrix cases.
+    /// </remarks>
+    public ImmutableArray<EquatableArray<ConstantValue>> MatrixCombinations =>
+        _matrixCombinations.IsDefault
+            ? ImmutableArray<EquatableArray<ConstantValue>>.Empty
+            : _matrixCombinations;
 }

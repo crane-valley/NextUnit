@@ -82,6 +82,21 @@ public sealed class MatrixExpansionReuseTests
     }
 
     /// <summary>
+    /// The pairing is a struct, so a default instance is always constructible, and a default
+    /// <c>ImmutableArray</c> throws rather than reading as empty.
+    /// </summary>
+    [Fact]
+    public void ADefaultPairing_ReadsAsNoCombinations()
+    {
+        var pairing = typeof(NextUnitGenerator).Assembly
+            .GetType("NextUnit.Generator.Models.EmittableTestMethod", throwOnError: true)!;
+
+        var combinations = pairing.GetProperty("MatrixCombinations")!.GetValue(Activator.CreateInstance(pairing))!;
+
+        Assert.Equal(0, combinations.GetType().GetProperty("Length")!.GetValue(combinations));
+    }
+
+    /// <summary>
     /// At the boundary the cap admits, the registry holds exactly as many test cases as the
     /// projection counted -- exclusions applied, then repeated.
     /// </summary>
