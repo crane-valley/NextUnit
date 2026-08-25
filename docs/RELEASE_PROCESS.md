@@ -884,9 +884,11 @@ flips no verdict for a suite that was already correct.
 a major because its new Error diagnostics -- `NU0022` and `NEXTUNIT013` through `NEXTUNIT016` --
 could fail a build that compiled on 2.0.0, and
 because lifecycle declarations on a base test class started taking effect, so suites ran setup they
-used to skip. 4.0.0, the release after it, was re-versioned from 3.1.0 because `NEXTUNIT017` can fail
-a compiling build, `[Repeat]` on a data source test now multiplies its cases and moves their ids, and
-session and class setup semantics changed. 2.0.0 remains the API-break precedent: it made the
+used to skip. 4.0.0, the release after it, was re-versioned from 3.1.0, on the judgment at the time that
+`NEXTUNIT017` can fail a compiling build, `[Repeat]` on a data source test now multiplies its cases and moves
+their ids, and session and class setup semantics changed. "Release cadence" below re-reads that call against
+the narrowed triggers and finds `NEXTUNIT017` is MINOR, so the major stands on the other two, not on it.
+2.0.0 remains the API-break precedent: it made the
 `NextUnit.Internal` execution and expansion types `internal` and removed two `Assert.Throws`
 overloads.
 
