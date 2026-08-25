@@ -24,7 +24,7 @@ A clear and concise description of what you expected to happen.
 
 - OS: [e.g., Windows, Linux, macOS]
 - .NET Version: [e.g., .NET 10.0.100]
-- NextUnit Version: [e.g., 1.6.6]
+- NextUnit Version: [e.g., 4.0.0]
 - IDE: [e.g., Visual Studio 2026, VS Code]
 
 **Test Code**
