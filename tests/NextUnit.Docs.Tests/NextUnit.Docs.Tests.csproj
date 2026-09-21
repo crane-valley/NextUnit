@@ -16,6 +16,7 @@
     <!-- NextUnit.Analyzers ships its code fixes in the same assembly as its analyzers, so
          enumerating its types needs the Workspaces assembly those code fixes derive from. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+    <PackageReference Include="Microsoft.Testing.Platform.MSBuild" />
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
 
