@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel.Adapter;
+using Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging;
 using NextUnit.Internal;
 
 namespace NextUnit.TestAdapter;
@@ -18,6 +19,12 @@ namespace NextUnit.TestAdapter;
 /// Shared data source instances are not deferred the same way: they hold resources rather than user
 /// code, so the end of a run stands in for the end of a session and <see cref="SharedInstanceCleanup"/>
 /// releases them there.
+/// </para>
+/// <para>
+/// Source-based VSTest filters are evaluated against expanded test cases. Data providers still run
+/// to determine row names and row-level traits, even when the filter excludes every row. Use
+/// explicitly selected test cases to avoid unrelated providers. Deferred sources are filtered by
+/// their discovery placeholder and retain their documented whole-source execution granularity.
 /// </para>
 /// </remarks>
 [ExtensionUri(ExecutorUri)]
@@ -49,6 +56,19 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         try
         {
+            ITestCaseFilterExpression? testFilter;
+            try
+            {
+                testFilter = runContext?.GetTestCaseFilter(
+                    VSTestCaseFactory.SupportedFilterProperties,
+                    VSTestCaseFactory.GetFilterProperty);
+            }
+            catch (Exception ex) when (!ExceptionHelper.IsCriticalException(ex))
+            {
+                frameworkHandle.SendMessage(TestMessageLevel.Error, $"NextUnit: Could not read test filter: {ex}");
+                return;
+            }
+
             foreach (var source in sources)
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -58,7 +78,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
                 try
                 {
-                    RunTestsInAssembly(source, null, frameworkHandle, cancellationToken);
+                    RunTestsInAssembly(source, null, frameworkHandle, cancellationToken, testFilter);
                 }
                 catch (OperationCanceledException)
                 {
@@ -160,7 +180,8 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         string source,
         HashSet<string>? testIdsToRun,
         IFrameworkHandle frameworkHandle,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ITestCaseFilterExpression? testFilter = null)
     {
         var registryType = RegistryDescriptorReader.TryResolveRegistryType(source, frameworkHandle);
         if (registryType is null)
@@ -173,6 +194,7 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         var selectedDescriptorIds = testIdsToRun is null
             ? null
             : BuildSelectedDescriptorIds(testIdsToRun);
+        var selectedSourceIds = testIdsToRun is null ? null : BuildSelectedSourceIds(testIdsToRun);
 
         // Get static TestCases
         var testCases = RegistryDescriptorReader.ReadDescriptors<TestCaseDescriptor>(registryType, "TestCases");
@@ -196,7 +218,8 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             descriptor => descriptor.BaseId,
             descriptor => descriptor.IsExplicit,
             RegistryDescriptorReader.CreateTestDataExpander(registryType, cancellationToken),
-            allTestCases);
+            allTestCases,
+            descriptor => IsSelectedTestDataSource(descriptor, testIdsToRun, selectedSourceIds));
 
         AddExpandedTests<ClassDataSourceDescriptor>(
             registryType,
@@ -235,6 +258,17 @@ public sealed class NextUnitTestExecutor : ITestExecutor
             allTestCases = allTestCases.Where(t => !t.IsExplicit).ToList();
         }
 
+        if (testFilter is not null)
+        {
+            // A descriptor's names and traits are incomplete: TestDataRow can supply both, so a
+            // representative descriptor match cannot safely exclude a source before enumeration.
+            allTestCases = allTestCases.Where(test =>
+            {
+                var testCase = VSTestCaseFactory.Create(test, source);
+                return testFilter.MatchTestCase(testCase, property => VSTestCaseFactory.GetFilterValue(testCase, property));
+            }).ToList();
+        }
+
         // Create execution engine and run tests
         var engine = new TestExecutionEngine();
         var sink = new VSTestResultSink(frameworkHandle, source);
@@ -257,7 +291,8 @@ public sealed class NextUnitTestExecutor : ITestExecutor
         Func<TDescriptor, string> baseIdSelector,
         Func<TDescriptor, bool> isExplicitSelector,
         Func<IEnumerable<TDescriptor>, IEnumerable<TestCaseDescriptor>> expand,
-        List<TestCaseDescriptor> destination)
+        List<TestCaseDescriptor> destination,
+        Func<TDescriptor, bool>? shouldExpand = null)
     {
         var descriptors = RegistryDescriptorReader.ReadDescriptors<TDescriptor>(registryType, propertyName);
         if (descriptors is null)
@@ -267,8 +302,38 @@ public sealed class NextUnitTestExecutor : ITestExecutor
 
         var descriptorsToExpand = RegistryDescriptorReader.SelectDescriptorsToExpand(
             descriptors, selectedDescriptorIds, baseIdSelector, isExplicitSelector);
+        if (shouldExpand is not null)
+        {
+            descriptorsToExpand = descriptorsToExpand.Where(shouldExpand);
+        }
 
         destination.AddRange(expand(descriptorsToExpand.ToList()));
+    }
+
+    private static HashSet<string> BuildSelectedSourceIds(HashSet<string> testIdsToRun)
+    {
+        var sourceIds = BuildSelectedRowGroupIds(testIdsToRun);
+        foreach (var testId in testIdsToRun)
+        {
+            sourceIds.Add(TrimRepeatSuffix(testId));
+        }
+
+        return sourceIds;
+    }
+
+    private static bool IsSelectedTestDataSource(
+        TestDataDescriptor descriptor,
+        HashSet<string>? selectedTestIds,
+        HashSet<string>? selectedSourceIds)
+    {
+        if (selectedTestIds is null || selectedTestIds.Contains(descriptor.BaseId))
+        {
+            return true;
+        }
+
+        var sourceType = descriptor.DataSourceType ?? descriptor.TestClass;
+        var sourceId = $"{descriptor.BaseId}:{sourceType.FullName}.{descriptor.DataSourceName}";
+        return selectedSourceIds!.Contains(sourceId);
     }
 
     /// <summary>

@@ -8,6 +8,44 @@ namespace NextUnit.TestAdapter;
 /// </summary>
 internal static class VSTestCaseFactory
 {
+    private static readonly Dictionary<string, TestProperty> _filterProperties = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["FullyQualifiedName"] = TestCaseProperties.FullyQualifiedName,
+        ["DisplayName"] = TestCaseProperties.DisplayName,
+        ["Category"] = RegisterTraitProperty("Category"),
+        ["Tag"] = RegisterTraitProperty("Tag"),
+        ["SkipReason"] = RegisterTraitProperty("SkipReason"),
+        ["Explicit"] = RegisterTraitProperty("Explicit"),
+        ["ExplicitReason"] = RegisterTraitProperty("ExplicitReason")
+    };
+
+    internal static IEnumerable<string> SupportedFilterProperties => _filterProperties.Keys;
+
+    internal static TestProperty? GetFilterProperty(string propertyName) =>
+        _filterProperties.GetValueOrDefault(propertyName);
+
+    internal static object? GetFilterValue(TestCase testCase, string propertyName)
+    {
+        if (propertyName.Equals("FullyQualifiedName", StringComparison.OrdinalIgnoreCase))
+        {
+            return testCase.FullyQualifiedName;
+        }
+
+        if (propertyName.Equals("DisplayName", StringComparison.OrdinalIgnoreCase))
+        {
+            return testCase.DisplayName;
+        }
+
+        var values = testCase.Traits
+            .Where(trait => trait.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+            .Select(trait => trait.Value)
+            .ToArray();
+        return values.Length == 0 ? null : values;
+    }
+
+    private static TestProperty RegisterTraitProperty(string name) =>
+        TestProperty.Register($"NextUnit.{name}", name, typeof(string[]), TestPropertyAttributes.Hidden, typeof(TestCase));
+
     /// <summary>
     /// Creates a VSTest TestCase from a test descriptor.
     /// </summary>
