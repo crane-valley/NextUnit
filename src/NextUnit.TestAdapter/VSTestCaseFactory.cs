@@ -14,9 +14,7 @@ internal static class VSTestCaseFactory
         ["DisplayName"] = TestCaseProperties.DisplayName,
         ["Category"] = RegisterTraitProperty("Category"),
         ["Tag"] = RegisterTraitProperty("Tag"),
-        ["SkipReason"] = RegisterTraitProperty("SkipReason"),
-        ["Explicit"] = RegisterTraitProperty("Explicit"),
-        ["ExplicitReason"] = RegisterTraitProperty("ExplicitReason")
+        ["SkipReason"] = RegisterTraitProperty("SkipReason")
     };
 
     internal static IEnumerable<string> SupportedFilterProperties => _filterProperties.Keys;

@@ -128,6 +128,46 @@ namespace NextUnit.TestAdapter.Tests
         }
 
         [Fact]
+        public void FilterProperties_DoNotAdvertiseExplicitOptIn()
+        {
+            Xunit.Assert.DoesNotContain("Explicit", VSTestCaseFactory.SupportedFilterProperties);
+            Xunit.Assert.DoesNotContain("ExplicitReason", VSTestCaseFactory.SupportedFilterProperties);
+            Assert.Null(VSTestCaseFactory.GetFilterProperty("Explicit"));
+            Assert.Null(VSTestCaseFactory.GetFilterProperty("explicitreason"));
+        }
+
+        [Fact]
+        public void SourceRun_ExcludesExplicitCasesBeforeProviderExecution()
+        {
+            Generated.GeneratedTestRegistry.Reset(includeSecondProvider: false, explicitTests: true);
+            var handle = DispatchProxy.Create<IFrameworkHandle, InvestigationFrameworkHandle>();
+
+            new NextUnitTestExecutor().RunTests(new[] { Source }, null, handle);
+
+            Assert.Equal(0, Generated.GeneratedTestRegistry.FirstProviderCalls);
+            Assert.Equal(0, Generated.GeneratedTestRegistry.OrdinaryBodyCalls);
+            Assert.Equal(0, Generated.GeneratedTestRegistry.DynamicBodyCalls);
+            Assert.Empty(((InvestigationFrameworkHandle)handle).Results);
+            Assert.Empty(((InvestigationFrameworkHandle)handle).Messages);
+        }
+
+        [Fact]
+        public void SelectedExplicitCase_PreservesExplicitSelectionOptIn()
+        {
+            Generated.GeneratedTestRegistry.Reset(includeSecondProvider: false, explicitTests: true);
+            var handle = DispatchProxy.Create<IFrameworkHandle, InvestigationFrameworkHandle>();
+            var selected = new TestCase("Investigation.Ordinary", new Uri(NextUnitTestExecutor.ExecutorUri), Source);
+
+            new NextUnitTestExecutor().RunTests(new[] { selected }, null, handle);
+
+            Assert.Equal(0, Generated.GeneratedTestRegistry.FirstProviderCalls);
+            Assert.Equal(1, Generated.GeneratedTestRegistry.OrdinaryBodyCalls);
+            Assert.Equal(0, Generated.GeneratedTestRegistry.DynamicBodyCalls);
+            Assert.Equal(Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Passed, Assert.Single(((InvestigationFrameworkHandle)handle).Results).Outcome);
+            Assert.Empty(((InvestigationFrameworkHandle)handle).Messages);
+        }
+
+        [Fact]
         public void SelectedDifferentMethod_DoesNotExpandUnselectedProvider()
         {
             Generated.GeneratedTestRegistry.Reset(includeSecondProvider: false);
@@ -289,7 +329,7 @@ namespace NextUnit.Generated
             TestDataDescriptors = [];
         }
 
-        public static void Reset(bool includeSecondProvider, bool typedRow = false, bool deferred = false, bool repeated = false)
+        public static void Reset(bool includeSecondProvider, bool typedRow = false, bool deferred = false, bool repeated = false, bool explicitTests = false)
         {
             _firstProviderCalls = 0;
             _secondProviderCalls = 0;
@@ -301,6 +341,7 @@ namespace NextUnit.Generated
                 {
                     Id = new TestCaseId("Investigation.Ordinary"),
                     DisplayName = "Ordinary",
+                    IsExplicit = explicitTests,
                     TestClass = typeof(TestAdapter.Tests.InvestigationTarget),
                     TestClassFactory = static (_, _) => new TestAdapter.Tests.InvestigationTarget(),
                     TestMethod = static (_, _) =>
@@ -310,19 +351,20 @@ namespace NextUnit.Generated
                     }
                 }
             ];
-            var descriptors = new List<TestDataDescriptor> { CreateDataDescriptor("FirstRows", false, typedRow, deferred, repeated) };
+            var descriptors = new List<TestDataDescriptor> { CreateDataDescriptor("FirstRows", false, typedRow, deferred, repeated, explicitTests) };
             if (includeSecondProvider)
             {
-                descriptors.Add(CreateDataDescriptor("SecondRows", true, typedRow, deferred, repeated));
+                descriptors.Add(CreateDataDescriptor("SecondRows", true, typedRow, deferred, repeated, explicitTests));
             }
 
             TestDataDescriptors = descriptors;
         }
 
-        private static TestDataDescriptor CreateDataDescriptor(string memberName, bool second, bool typedRow, bool deferred, bool repeated) => new()
+        private static TestDataDescriptor CreateDataDescriptor(string memberName, bool second, bool typedRow, bool deferred, bool repeated, bool explicitTests) => new()
         {
             BaseId = "Investigation.Dynamic",
             DisplayName = "Dynamic",
+            IsExplicit = explicitTests,
             TestClass = typeof(TestAdapter.Tests.InvestigationTarget),
             MethodName = "Dynamic",
             DataSourceName = memberName,
