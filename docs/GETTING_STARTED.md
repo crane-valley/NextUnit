@@ -144,6 +144,11 @@ Method- and class-level categories or tags are combined with row metadata. A row
 skip reason apply only to that generated test case. Tuple values expand across parameters; other
 values, including `null` and collections, remain a single argument.
 
+Eager data sources are enumerated before filters are evaluated against row metadata, so a provider
+can run even when none of its rows are selected. For `[TestData]`, use `DeferredEnumeration = true`
+when selection should apply to the source as a whole. Filters select tests; they do not sandbox the
+test assembly.
+
 A source type may offer more than one row type, for instance by implementing both
 `IEnumerable<object[]>` and `IEnumerable<TestDataRow<T>>`. Build-time row validation reads it through
 the `TestDataRow<T>` arm, because that is the more specific contract: it carries each row's metadata
@@ -680,6 +685,11 @@ public class IntegrationTests
     public void Step3_Verify() { }
 }
 ```
+
+When filtering a run, select each test's prerequisites as well. `[DependsOn]` is a hard dependency:
+if a selected test's prerequisite is missing from the selected set, NextUnit reports a missing
+dependency error before executing that set. This also applies to source-based VSTest filters;
+excluded prerequisites are not automatically executed.
 
 ## Execution Priority
 
