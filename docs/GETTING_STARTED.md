@@ -686,6 +686,11 @@ public class IntegrationTests
 }
 ```
 
+When filtering a run, select each test's prerequisites as well. `[DependsOn]` is a hard dependency:
+if a selected test's prerequisite is missing from the selected set, NextUnit reports a missing
+dependency error before executing that set. This also applies to source-based VSTest filters;
+excluded prerequisites are not automatically executed.
+
 ## Execution Priority
 
 Control test execution order within the same dependency level:

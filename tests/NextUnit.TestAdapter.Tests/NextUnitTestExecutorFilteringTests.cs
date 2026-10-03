@@ -168,6 +168,63 @@ namespace NextUnit.TestAdapter.Tests
         }
 
         [Fact]
+        public void SourceRun_ExcludedPrerequisiteReportsMissingDependencyWithoutRunningBodies()
+        {
+            Generated.GeneratedTestRegistry.ResetDependencyCases();
+            var context = DispatchProxy.Create<IRunContext, InvestigationRunContext>();
+            ((InvestigationRunContext)context).Matcher = (_, values) =>
+                values("FullyQualifiedName") is string id && id != "Investigation.Prerequisite";
+            var handle = DispatchProxy.Create<IFrameworkHandle, InvestigationFrameworkHandle>();
+
+            new NextUnitTestExecutor().RunTests(new[] { Source }, context, handle);
+
+            Assert.Empty(Generated.GeneratedTestRegistry.DependencyExecutions);
+            Assert.Empty(((InvestigationFrameworkHandle)handle).Results);
+            var message = Assert.Single(((InvestigationFrameworkHandle)handle).Messages);
+            Assert.Equal(TestMessageLevel.Error, message.Level);
+            Assert.Contains("Missing dependency Investigation.Prerequisite for Dependent", message.Message);
+        }
+
+        [Fact]
+        public void SourceRun_CompleteDependencySelectionRunsPrerequisiteBeforeDependent()
+        {
+            Generated.GeneratedTestRegistry.ResetDependencyCases();
+            var context = DispatchProxy.Create<IRunContext, InvestigationRunContext>();
+            ((InvestigationRunContext)context).Matcher = (_, _) => true;
+            var handle = DispatchProxy.Create<IFrameworkHandle, InvestigationFrameworkHandle>();
+
+            new NextUnitTestExecutor().RunTests(new[] { Source }, context, handle);
+
+            var executionOrder = Generated.GeneratedTestRegistry.DependencyExecutions.ToList();
+            Assert.Equal(3, executionOrder.Count);
+            Assert.Contains("Prerequisite", executionOrder);
+            Assert.Contains("Dependent", executionOrder);
+            Assert.Contains("Independent", executionOrder);
+            Assert.True(executionOrder.IndexOf("Prerequisite") < executionOrder.IndexOf("Dependent"));
+            var results = ((InvestigationFrameworkHandle)handle).Results;
+            Assert.Equal(3, results.Count);
+            Xunit.Assert.All(results, result => Assert.Equal(Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome.Passed, result.Outcome));
+            Assert.Empty(((InvestigationFrameworkHandle)handle).Messages);
+        }
+
+        [Fact]
+        public void SelectedCases_MissingPrerequisitePreservesSameFailClosedPolicy()
+        {
+            Generated.GeneratedTestRegistry.ResetDependencyCases();
+            var handle = DispatchProxy.Create<IFrameworkHandle, InvestigationFrameworkHandle>();
+            var selected = new[] { "Investigation.Dependent", "Investigation.Independent" }
+                .Select(id => new TestCase(id, new Uri(NextUnitTestExecutor.ExecutorUri), Source));
+
+            new NextUnitTestExecutor().RunTests(selected, null, handle);
+
+            Assert.Empty(Generated.GeneratedTestRegistry.DependencyExecutions);
+            Assert.Empty(((InvestigationFrameworkHandle)handle).Results);
+            var message = Assert.Single(((InvestigationFrameworkHandle)handle).Messages);
+            Assert.Equal(TestMessageLevel.Error, message.Level);
+            Assert.Contains("Missing dependency Investigation.Prerequisite for Dependent", message.Message);
+        }
+
+        [Fact]
         public void SelectedDifferentMethod_DoesNotExpandUnselectedProvider()
         {
             Generated.GeneratedTestRegistry.Reset(includeSecondProvider: false);
@@ -322,12 +379,39 @@ namespace NextUnit.Generated
         public static int DynamicBodyCalls => Volatile.Read(ref _dynamicBodyCalls);
         public static IReadOnlyList<TestCaseDescriptor> TestCases { get; private set; } = [];
         public static IReadOnlyList<TestDataDescriptor> TestDataDescriptors { get; private set; } = [];
+        public static ConcurrentQueue<string> DependencyExecutions { get; } = [];
 
         public static void Clear()
         {
             TestCases = [];
             TestDataDescriptors = [];
+            DependencyExecutions.Clear();
         }
+
+        public static void ResetDependencyCases()
+        {
+            Clear();
+            TestCases =
+            [
+                CreateDependencyCase("Prerequisite"),
+                CreateDependencyCase("Dependent", "Prerequisite"),
+                CreateDependencyCase("Independent")
+            ];
+        }
+
+        private static TestCaseDescriptor CreateDependencyCase(string name, params string[] prerequisites) => new()
+        {
+            Id = new TestCaseId($"Investigation.{name}"),
+            DisplayName = name,
+            Dependencies = prerequisites.Select(prerequisite => new TestCaseId($"Investigation.{prerequisite}")).ToArray(),
+            TestClass = typeof(TestAdapter.Tests.InvestigationTarget),
+            TestClassFactory = static (_, _) => new TestAdapter.Tests.InvestigationTarget(),
+            TestMethod = (_, _) =>
+            {
+                DependencyExecutions.Enqueue(name);
+                return Task.CompletedTask;
+            }
+        };
 
         public static void Reset(bool includeSecondProvider, bool typedRow = false, bool deferred = false, bool repeated = false, bool explicitTests = false)
         {
