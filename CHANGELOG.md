@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-10-06
+
+### Upgrade Notes
+
+- Concrete expanded tests now honor VSTest source-run filters (`FullyQualifiedName`, `DisplayName`, `Category`, `Tag`,
+  `SkipReason`).
+- Filtered test selections must explicitly include any `DependsOn` hard prerequisites; missing prerequisites will fail
+  before test bodies execute.
+- Eager test data providers may still enumerate during discovery to discover row metadata; filters restrict execution
+  rather than acting as a sandbox.
+
+### Fixed
+
+- Honor `IRunContext` source-run test filters on concrete expanded tests (`FullyQualifiedName`, `DisplayName`,
+  `Category`, `Tag`, `SkipReason`).
+- Prevent evaluation of unrelated sibling `TestData` providers on the same method when selecting specific rows by
+  canonical source ID while preserving deferred and repeated selection.
+- Restore compiler dependency baseline to `Microsoft.CodeAnalysis.CSharp` and
+  `Microsoft.CodeAnalysis.CSharp.Workspaces` 5.6.0 (retaining build-time `Microsoft.CodeAnalysis.Analyzers` at 5.9),
+  fixing CS9057 warnings and test discovery failures on Roslyn 5.6 compilers.
+
+### Changed
+
+- Update `Microsoft.OpenApi` dependency from 2.11.0 to 2.12.2.
+- Clarify documentation and release rules.
+
 ## [4.0.0] - 2026-08-22
 
 ### Upgrading from 3.0.0
@@ -2039,6 +2065,7 @@ Behavior changes in a build that still compiles:
 
 | Version | Date | Tests | Features | Status |
 | ------- | ---- | ----- | -------- | ------ |
+| 4.0.1 | 2026-10-06 | 1796 (10 skipped) | VSTest filter/provider fix | Released |
 | 4.0.0 | 2026-08-22 | 1771 | [Repeat] multiplies data-source expansion, project test case cap read at discovery, session teardown paired with setup, class setup failure scoped to its class, validated row-type reads for task-wrapped and class data sources, NEXTUNIT017 | Released |
 | 3.0.0 | 2026-08-22 | 1630 | Lifecycle hooks and configuration attributes inherited from base test classes, [After] hooks run after failures with teardown unwinding only entered levels, test case expansion cap, invariant-culture display names, NU0022 and NEXTUNIT013-NEXTUNIT016 | Released |
 | 2.0.0 | 2026-08-12 | 1402 | Unified shared data source instances with session-end disposal, NextUnit.Internal execution types demoted to internal, obsolete Assert.Throws expectedMessage overloads removed, deterministic data source row-type selection, assembly-level ParallelLimit resolution, NU0019-NU0021 | Released |
