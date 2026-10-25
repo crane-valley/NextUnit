@@ -16,7 +16,7 @@ public static class RegressionReport
         builder.AppendLine();
         builder.AppendLine($"- Baseline key: `{result.BaselineKey}`");
         builder.AppendLine(
-            Invariant($"- Comparable runs: {result.BaselineRunCount} of a {RegressionGate.BaselineWindow}-run window ")
+            Invariant($"- Primary comparable runs: {result.BaselineRunCount} of a {RegressionGate.BaselineWindow}-run window ")
             + Invariant($"(the gate arms at {RegressionGate.MinimumBaselineRuns})"));
         builder.AppendLine(
             "- Series: "
@@ -52,7 +52,11 @@ public static class RegressionReport
         builder.AppendLine();
         builder.AppendLine("The original all-reference ratio is retained below. A shared AOT slowdown can cancel "
             + "against the AOT reference, so investigate this signal even when the primary gate is stable. "
-            + "A shift does not establish an SDK regression or a NextUnit code regression.");
+            + "A shift does not establish an SDK regression or a NextUnit code regression. "
+            + "This diagnostic can reuse revision-1 raw samples during revision-2 warm-up; it never reuses their verdicts.");
+        builder.AppendLine();
+        builder.AppendLine("- Diagnostic usable runs: " + string.Join(", ", result.CrossModeAssessments.Select(
+            assessment => Invariant($"{assessment.Framework}: {assessment.BaselineRunCount}"))));
         builder.AppendLine();
         builder.AppendLine("| Participant | Normalized median | Baseline | Change | Robust spread | p | Diagnostic |");
         builder.AppendLine("| ----------- | ----------------: | -------: | -----: | ------------: | -: | ---------- |");
@@ -121,7 +125,10 @@ public static class RegressionReport
 
         if (result.Assessments.All(assessment => assessment.Verdict == RegressionVerdict.InsufficientBaseline))
         {
-            return "Baseline is still warming up, so no decision was made.";
+            return "Baseline is still warming up, so no decision was made."
+                + (result.CrossModeAssessments.Any(assessment => assessment.Verdict == RegressionVerdict.Suspected)
+                    ? " **Cross-mode movement warrants investigation**; see the diagnostic below."
+                    : "");
         }
 
         if (result.CrossModeAssessments.Any(assessment => assessment.Verdict == RegressionVerdict.Suspected))

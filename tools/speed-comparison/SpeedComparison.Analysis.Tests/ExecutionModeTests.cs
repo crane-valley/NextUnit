@@ -79,6 +79,29 @@ public class ExecutionModeTests
         Assert.Equal(0, result.BaselineRunCount);
         Assert.Equal(RegressionVerdict.InsufficientBaseline, Aot(result).Verdict);
         Assert.False(result.HasConfirmedRegression);
+        Assert.Equal(RegressionVerdict.Suspected, result.CrossModeAssessments.Single(x => x.Framework == "NextUnit (AOT)").Verdict);
+        Assert.Contains("Cross-mode movement warrants investigation", RegressionReport.Render(result));
+        Assert.True(result.CrossModeAssessments.All(x => x.PreviousVerdict == RegressionVerdict.NotEvaluated));
+        Assert.Contains("NextUnit (AOT): 10", RegressionReport.Render(result));
+    }
+
+    [Test]
+    public void ReferenceVersionChanges_AreVisibleDuringPrimaryWarmup()
+    {
+        var history = History().Select(x => x with { MetricRevision = 1 }).ToArray();
+        var current = Current();
+        current = current with { Summaries = [.. current.Summaries.Select(s => s.Framework == "TUnit (AOT)" ? s with { Version = "2.0.0" } : s)] };
+        var result = RegressionGate.Evaluate(current, history, GateSeries.Baseline);
+        Assert.Equal(0, result.BaselineRunCount);
+        Assert.Contains("TUnit (AOT) 1.0.0 -> 2.0.0", RegressionReport.Render(result));
+    }
+
+    [Test]
+    public void UnrelatedMetricRevisions_DoNotFeedTheDiagnostic()
+    {
+        var history = History().Select(x => x with { MetricRevision = 99 }).ToArray();
+        var result = RegressionGate.Evaluate(Current(subjectFactor: 1.25), history, GateSeries.Baseline);
+        Assert.Equal(RegressionVerdict.InsufficientBaseline, result.CrossModeAssessments.Single(x => x.Framework == "NextUnit (AOT)").Verdict);
     }
 
     [Test]

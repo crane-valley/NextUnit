@@ -199,6 +199,19 @@ public static class RegressionGate
             .TakeLast(BaselineWindow)
             .ToArray();
 
+        // Revision 2 changes only normalization, not the raw measurement protocol. The all-reference
+        // diagnostic can therefore retain r1 raw samples while the primary r2 baseline warms up.
+        // This is an explicit r1 -> r2 exception, not permission to compare future metric revisions.
+        // No historical verdict is used to confirm a diagnostic.
+        var diagnosticBaseline = history
+            .Where(record => record.RunId != result.RunId)
+            .Where(record => record.MetricRevision == result.MetricRevision
+                || (result.MetricRevision == 2 && record.MetricRevision == 1))
+            .Where(record => string.Equals(BaselineKey.For(record with { MetricRevision = result.MetricRevision }), key, StringComparison.Ordinal))
+            .OrderBy(record => record.GeneratedAtUtc)
+            .TakeLast(BaselineWindow)
+            .ToArray();
+
         var assessments = new List<ParticipantAssessment>();
         foreach (var summary in result.Summaries.Where(summary => IsGated(summary.Framework)))
         {
@@ -211,13 +224,13 @@ public static class RegressionGate
             Series = series,
             BaselineRunCount = baseline.Length,
             SkippedRecordCount = skippedRecordCount,
-            ReferenceVersionChanges = ReferenceVersionChanges(result, baseline),
+            ReferenceVersionChanges = ReferenceVersionChanges(result, baseline.Length == 0 ? diagnosticBaseline : baseline),
             Assessments = assessments,
             // These verdicts are deliberately never confirmed: history stores the primary same-mode
             // verdict, not a cross-mode predecessor. Do not reuse that chain for another metric.
             CrossModeAssessments = result.Summaries.Where(summary => IsGated(summary.Framework))
                 .Select(summary => Assess(summary.Framework, crossModeNormalized,
-                    baseline, GateSeries.PullRequest, false)).ToArray(),
+                    diagnosticBaseline, GateSeries.PullRequest, false)).ToArray(),
             Record = BuildRecord(result, currentSamples, normalized, assessments)
         };
     }
@@ -282,7 +295,7 @@ public static class RegressionGate
         // deliberately not part of the baseline key, so one can be removed and later restored; carrying a
         // verdict across the runs that did not measure it would confirm a repeat that never happened.
         // Statistics still use every comparable record above.
-        var previousVerdict = baseline.Count == 0
+        var previousVerdict = !matchExecutionMode || baseline.Count == 0
             ? RegressionVerdict.NotEvaluated
             : baseline[^1].Participants
                 .FirstOrDefault(participant => participant.Framework == framework)?.Verdict

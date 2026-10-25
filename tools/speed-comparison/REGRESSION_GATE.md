@@ -115,6 +115,9 @@ Revision 2 uses mode-matched references for the gate. The original all-reference
 reported as a **cross-mode diagnostic**, with the same effect-size, spread, and rank-test bars. It can
 flag movement shared by AOT implementations that the primary ratio cannot see. It never confirms or fails:
 history stores primary verdicts, which must not be reused as a different metric's confirmation chain.
+Because revision 2 changes only normalization and not raw measurement, this diagnostic explicitly accepts
+revision-1 raw samples with otherwise matching keys during warm-up. It never imports their verdicts and
+never assumes an arbitrary future revision is compatible.
 A stable primary ratio is not a claim of unchanged absolute performance. Review raw timings, the diagnostic,
 reference versions, and environment metadata together; a diagnostic shift warrants investigation.
 If a mode has no reference, its primary verdict is `InsufficientBaseline`, not a cross-mode fallback.
