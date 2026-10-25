@@ -33,8 +33,7 @@ public static class RegressionReport
 
         if (result.ReferenceVersionChanges.Count > 0)
         {
-            // The references are the denominator, so an upgrade among them moves every gated participant
-            // at once. Naming it here is what separates a real regression from a dependency bump.
+            // An upgrade can move same-mode ratios; naming it supplies context, not proof of causality.
             builder.AppendLine(
                 "- Reference frameworks changed since the last comparable run: "
                 + string.Join(", ", result.ReferenceVersionChanges));
@@ -49,11 +48,42 @@ public static class RegressionReport
         }
 
         builder.AppendLine();
+        builder.AppendLine("### Cross-mode diagnostic (not a gate)");
+        builder.AppendLine();
+        builder.AppendLine("The original all-reference ratio is retained below. A shared AOT slowdown can cancel "
+            + "against the AOT reference, so investigate this signal even when the primary gate is stable. "
+            + "A shift does not establish an SDK regression or a NextUnit code regression.");
+        builder.AppendLine();
+        builder.AppendLine("| Participant | Normalized median | Baseline | Change | Robust spread | p | Diagnostic |");
+        builder.AppendLine("| ----------- | ----------------: | -------: | -----: | ------------: | -: | ---------- |");
+        foreach (var row in result.CrossModeAssessments.Select(FormatRow))
+        {
+            builder.AppendLine(row);
+        }
+
+        builder.AppendLine();
+        var aotReferences = result.Record.Participants
+            .Where(participant => !RegressionGate.IsGated(participant.Framework) && RegressionGate.IsAot(participant.Framework))
+            .Select(participant => participant.Framework).ToArray();
+        if (result.Record.Participants.Any(participant => RegressionGate.IsGated(participant.Framework)
+            && RegressionGate.IsAot(participant.Framework)))
+        {
+            builder.AppendLine("- AOT references: " + (aotReferences.Length == 0 ? "none; no same-mode decision" : string.Join(", ", aotReferences)));
+            if (aotReferences.Length == 1)
+            {
+                builder.AppendLine("- Only one AOT reference is available: its changes are not diluted by averaging. "
+                    + "A shared regression can be hidden in the primary ratio; review the cross-mode diagnostic, "
+                    + "raw timings, and reference version changes before accepting a result.");
+            }
+        }
+
+        builder.AppendLine();
         builder.AppendLine("Method:");
         builder.AppendLine();
         builder.AppendLine(
-            "- Each sample is divided by the geometric mean of the reference frameworks measured in the same "
-            + "round, so machine speed, hosted image, and background load cancel out of the comparison.");
+            "- Each sample is divided by the geometric mean of the same-execution-mode reference frameworks "
+            + "measured in the same round. Only common multiplicative movement cancels; environment effects "
+            + "need not affect AOT and managed startup equally.");
         builder.AppendLine(
             Invariant($"- A regression must be at least {RegressionGate.MinimumRelativeChange * 100:F0}% slower, exceed ")
             + Invariant($"{RegressionGate.RobustDeviationMultiple:F0} robust standard deviations of the observed ")
@@ -94,13 +124,23 @@ public static class RegressionReport
             return "Baseline is still warming up, so no decision was made.";
         }
 
+        if (result.CrossModeAssessments.Any(assessment => assessment.Verdict == RegressionVerdict.Suspected))
+        {
+            return "No same-mode regression. **Cross-mode movement warrants investigation**; see the diagnostic below.";
+        }
+
+        if (result.Assessments.Any(assessment => assessment.Verdict == RegressionVerdict.InsufficientBaseline))
+        {
+            return "No same-mode regression detected among evaluated participants; some participants have insufficient evidence.";
+        }
+
         if (result.Assessments.Any(assessment => assessment.Verdict == RegressionVerdict.Improved))
         {
             var frameworks = Join(result.Assessments, RegressionVerdict.Improved);
-            return $"No regression. Measurable improvement in {frameworks}.";
+            return $"No same-mode regression. Measurable relative improvement in {frameworks}.";
         }
 
-        return "No regression.";
+        return "No same-mode regression.";
     }
 
     private static string FormatRow(ParticipantAssessment assessment)

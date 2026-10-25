@@ -90,7 +90,7 @@ public class BaselineKeyTests
         // is the manual escape hatch for exactly that, so it has to split the baseline on its own.
         var samples = SyntheticRuns.Samples(seed: 1);
         var first = BaselineKey.For(SyntheticRuns.Result(samples));
-        var second = BaselineKey.For(SyntheticRuns.Result(samples) with { MetricRevision = 2 });
+        var second = BaselineKey.For(SyntheticRuns.Result(samples) with { MetricRevision = ComparisonResult.CurrentMetricRevision + 1 });
 
         Assert.NotEqual(first, second);
     }

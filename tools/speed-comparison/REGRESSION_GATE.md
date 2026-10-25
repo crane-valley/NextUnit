@@ -18,12 +18,13 @@ gate compares participants rather than clocks. For each round, a participant's s
 geometric mean of the reference participants measured in that same round:
 
 ```text
-normalized(p, round) = elapsed(p, round) / geomean(elapsed(q, round) for q in references)
+normalized(p, round) = elapsed(p, round) / geomean(elapsed(q, round) for q in same_mode_references(p))
 ```
 
-The references are every participant that is not NextUnit's. They are pinned dependencies, so they do not
-change when this repository changes, and a machine that is uniformly slow moves the numerator and the
-denominator together and cancels out. The geometric mean is the right average here because the result is a
+The references are participants that are not NextUnit's and use the same execution mode: managed
+participants use managed references; Native AOT participants use references named with the ` (AOT)`
+suffix. Dependencies are pinned. A machine that uniformly scales a mode moves its numerator and
+denominator together and cancels out; AOT and managed startup need not scale equally. The geometric mean is the right average here because the result is a
 ratio; an arithmetic mean would let the slowest reference dominate.
 
 Only NextUnit's own participants are judged. The competing frameworks are measured, recorded, and reported,
@@ -66,7 +67,7 @@ record one measurement twice, and the baseline would count it as two independent
 A run is compared only against recorded runs with the same baseline key:
 
 ```text
-round-robin-runtime | metric r1 | 127 tests | 21 rounds | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, TUnit (AOT), xUnit
+round-robin-runtime | metric r2 | 127 tests | 21 rounds | ubuntu24 | X64 | sdk 10.0 | runtime 10.0 | references MSTest, NUnit, TUnit, TUnit (AOT), xUnit
 ```
 
 The key holds the benchmark, its metric revision, the size and shape of the workload, the runner image
@@ -89,19 +90,41 @@ split the baseline.
 Two things are deliberately **not** in the key.
 
 **SDK and runtime patch versions.** Hosted images move them almost every week, so keying on them would
-retire the baseline before it could ever arm, while the metric already cancels the machine differences a
-patch bump might bring.
+retire the baseline before it could ever arm, while same-mode normalization reduces common machine movement. It does not guarantee that a
+patch affects every participant equally or prove the cause of any observed shift.
 
 **Reference framework versions.** These are dependency-managed and bump often enough that keying on them
-would leave the gate disarmed most of the time. The metric is also resistant to them: a reference is one of
-several inside a geometric mean, so even an unusually large 20% improvement to a single competing framework
-moves the denominator by only about 5% of itself, which lands under the effect-size bar. The residual risk
-is real but small, so the report names it instead of the key absorbing it: whenever a reference version
+would leave the gate disarmed most of the time. Multiple managed references dilute individual changes in their geometric mean. Native AOT currently has
+only one reference, TUnit (AOT), so its changes are not diluted and shared AOT regressions can cancel
+entirely. The report explicitly warns about that limitation and retains an all-reference diagnostic: whenever a reference version
 differs from the most recent comparable run, the report says so, which is the first thing to check when a
 finding looks surprising.
 
 The exact SDK version, runtime version, image build, and every participant's framework version are recorded
 on every line regardless, so any result can be traced back to them.
+
+## Metric revision 2 and cross-mode context
+
+Revision 1 used one denominator containing four managed references and one AOT reference for both modes.
+This assumes their startup costs respond equally to environment changes. The October 2026 history shows
+why that assumption is unsafe: both AOT participants moved relative to the mixed denominator while their
+ratio remained within the effect-size threshold. This is evidence of confounding, not proof that a
+particular SDK, runtime, or runner image caused it.
+
+Revision 2 uses mode-matched references for the gate. The original all-reference calculation is still
+reported as a **cross-mode diagnostic**, with the same effect-size, spread, and rank-test bars. It can
+flag movement shared by AOT implementations that the primary ratio cannot see. It never confirms or fails:
+history stores primary verdicts, which must not be reused as a different metric's confirmation chain.
+A stable primary ratio is not a claim of unchanged absolute performance. Review raw timings, the diagnostic,
+reference versions, and environment metadata together; a diagnostic shift warrants investigation.
+If a mode has no reference, its primary verdict is `InsufficientBaseline`, not a cross-mode fallback.
+
+The revision bump preserves all old history but excludes revision 1 from the new baseline. No old
+`Suspected` or `Confirmed` verdict is carried over, and no historical line is rewritten or deleted.
+The analyzer rejects old-revision result files rather than relabeling them with new calculations.
+The new gate is explicitly warming up until three revision-2 baseline runs have been recorded; the fourth
+can first be suspected and a subsequent run can confirm. Historical recalculation is useful validation,
+but is not a replacement baseline and must not be published by merely changing revision numbers.
 
 ## What counts as a regression
 
@@ -200,9 +223,9 @@ reviewable commit explaining the decision.
 dimension of the key is churning; the reference set or the runner image family is the usual cause.
 
 **A finding that arrives with a dependency bump.** The report lists any reference framework whose version
-moved since the last comparable run. A competing framework getting materially faster raises every gated
-participant's ratio at once, so a finding that names one is about the denominator, not about NextUnit.
-Retire the baseline as for an accepted change.
+moved since the last comparable run. A competing framework getting materially faster raises the ratios of participants sharing its mode.
+That is a possible denominator effect, not proof that NextUnit is unchanged. Investigate both sides;
+retire the baseline only after explicitly accepting the changed comparison.
 
 **The history branch is not being written.** The `publish-history` job runs only for non-pull-request events
 on `main`, and needs `benchmark-data` to be unprotected so `GITHUB_TOKEN` can push to it.
