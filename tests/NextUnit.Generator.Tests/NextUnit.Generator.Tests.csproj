@@ -15,6 +15,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.SourceGenerators.Testing" />
     <!-- Override the vulnerable PKCS dependency pulled in by Roslyn testing through NuGet.Packaging. -->
+    <PackageReference Include="Microsoft.Testing.Platform.MSBuild" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" PrivateAssets="all" />
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
