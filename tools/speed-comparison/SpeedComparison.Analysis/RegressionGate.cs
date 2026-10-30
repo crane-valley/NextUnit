@@ -87,12 +87,18 @@ public sealed record GateResult
     /// <summary>
     /// Reference frameworks whose version differs from the most recent comparable run, as
     /// <c>name old -&gt; new</c>. The references are the denominator of the metric, so an upgrade among them
-    /// shifts every gated participant at once and is the first thing to check when a finding is surprising.
+    /// can shift participants sharing its mode and is important context when a finding is surprising.
     /// </summary>
     public required IReadOnlyList<string> ReferenceVersionChanges { get; init; }
 
     /// <summary>The finding for every gated participant.</summary>
     public required IReadOnlyList<ParticipantAssessment> Assessments { get; init; }
+
+    /// <summary>
+    /// All-reference comparisons retained as diagnostic context, never a confirmation chain. A common
+    /// AOT slowdown can cancel in a same-mode ratio; this view keeps that signal visible for investigation.
+    /// </summary>
+    public required IReadOnlyList<ParticipantAssessment> CrossModeAssessments { get; init; }
 
     /// <summary>The record this run would append to the history.</summary>
     public required HistoryRecord Record { get; init; }
@@ -107,8 +113,8 @@ public sealed record GateResult
 /// <para>
 /// The gate measures each participant against the other participants of the same round rather than
 /// against wall-clock time. Every participant runs once per round on the same machine within a couple of
-/// seconds, so a slow runner, a noisy neighbour, or a different hosted image moves all of them together
-/// and cancels out of the ratio. What survives is a change specific to the participant under test.
+/// seconds. Common multiplicative movement cancels within each execution mode; AOT and managed startup
+/// need not respond equally to an environment change. Ratios cannot identify the cause of a shift.
 /// </para>
 /// <para>
 /// A finding has to clear three independent bars and then repeat. It must be large enough to matter, it
@@ -172,15 +178,36 @@ public static class RegressionGate
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(history);
+        if (result.MetricRevision != ComparisonResult.CurrentMetricRevision)
+        {
+            throw new ArgumentException(
+                $"Result metric revision {result.MetricRevision} is not supported by this analyzer "
+                + $"(revision {ComparisonResult.CurrentMetricRevision}). Rerun the comparison before analyzing it.",
+                nameof(result));
+        }
 
         var key = BaselineKey.For(result);
         var currentSamples = SamplesByFramework(result);
         var references = currentSamples.Keys.Where(framework => !IsGated(framework)).Order(StringComparer.Ordinal).ToArray();
         var normalized = Normalize(currentSamples, references);
+        var crossModeNormalized = Normalize(currentSamples, references, false);
 
         var baseline = history
             .Where(record => record.RunId != result.RunId)
             .Where(record => string.Equals(BaselineKey.For(record), key, StringComparison.Ordinal))
+            .OrderBy(record => record.GeneratedAtUtc)
+            .TakeLast(BaselineWindow)
+            .ToArray();
+
+        // Revision 2 changes only normalization, not the raw measurement protocol. The all-reference
+        // diagnostic can therefore retain r1 raw samples while the primary r2 baseline warms up.
+        // This is an explicit r1 -> r2 exception, not permission to compare future metric revisions.
+        // No historical verdict is used to confirm a diagnostic.
+        var diagnosticBaseline = history
+            .Where(record => record.RunId != result.RunId)
+            .Where(record => record.MetricRevision == result.MetricRevision
+                || (result.MetricRevision == 2 && record.MetricRevision == 1))
+            .Where(record => string.Equals(BaselineKey.For(record with { MetricRevision = result.MetricRevision }), key, StringComparison.Ordinal))
             .OrderBy(record => record.GeneratedAtUtc)
             .TakeLast(BaselineWindow)
             .ToArray();
@@ -197,8 +224,13 @@ public static class RegressionGate
             Series = series,
             BaselineRunCount = baseline.Length,
             SkippedRecordCount = skippedRecordCount,
-            ReferenceVersionChanges = ReferenceVersionChanges(result, baseline),
+            ReferenceVersionChanges = ReferenceVersionChanges(result, baseline.Length == 0 ? diagnosticBaseline : baseline),
             Assessments = assessments,
+            // These verdicts are deliberately never confirmed: history stores the primary same-mode
+            // verdict, not a cross-mode predecessor. Do not reuse that chain for another metric.
+            CrossModeAssessments = result.Summaries.Where(summary => IsGated(summary.Framework))
+                .Select(summary => Assess(summary.Framework, crossModeNormalized,
+                    diagnosticBaseline, GateSeries.PullRequest, false)).ToArray(),
             Record = BuildRecord(result, currentSamples, normalized, assessments)
         };
     }
@@ -208,9 +240,9 @@ public static class RegressionGate
     /// <para>
     /// Reference versions are deliberately not part of the baseline key. They are dependency-managed and
     /// move often, so keying on them would retire the baseline before it could arm. The metric is also
-    /// resistant to them: a single reference is one of several inside a geometric mean, so even a large
-    /// upgrade to one of them moves the denominator by a fraction of its own change. What is left is a
-    /// residual risk worth naming in the report rather than one worth disarming the gate over.
+    /// resistant to an individual change when multiple references share a mode. Native AOT currently
+    /// has only one reference, so there is no dilution there. Always surface version changes, and do
+    /// not infer a participant's code regressed merely because its reference-relative metric moved.
     /// </para>
     /// </summary>
     private static IReadOnlyList<string> ReferenceVersionChanges(
@@ -239,7 +271,8 @@ public static class RegressionGate
         string framework,
         IReadOnlyDictionary<string, double[]> normalized,
         IReadOnlyList<HistoryRecord> baseline,
-        GateSeries series)
+        GateSeries series,
+        bool matchExecutionMode = true)
     {
         var current = normalized.TryGetValue(framework, out var samples) ? samples : [];
         var currentMedian = current.Length > 0 ? RobustStatistics.Median(current) : 0;
@@ -252,7 +285,7 @@ public static class RegressionGate
         // against later: it is what keeps every value below strictly positive, and therefore keeps the
         // baseline median a safe divisor.
         var usable = baseline
-            .Select(record => NormalizeRecord(record).GetValueOrDefault(framework, []))
+            .Select(record => NormalizeRecord(record, matchExecutionMode).GetValueOrDefault(framework, []))
             .Where(values => values.Length > 0 && Array.TrueForAll(values, value => value > 0))
             .ToArray();
         var runMedians = Array.ConvertAll(usable, RobustStatistics.Median);
@@ -262,7 +295,7 @@ public static class RegressionGate
         // deliberately not part of the baseline key, so one can be removed and later restored; carrying a
         // verdict across the runs that did not measure it would confirm a repeat that never happened.
         // Statistics still use every comparable record above.
-        var previousVerdict = baseline.Count == 0
+        var previousVerdict = !matchExecutionMode || baseline.Count == 0
             ? RegressionVerdict.NotEvaluated
             : baseline[^1].Participants
                 .FirstOrDefault(participant => participant.Framework == framework)?.Verdict
@@ -383,65 +416,63 @@ public static class RegressionGate
                 group => group.OrderBy(measurement => measurement.Round).Select(measurement => measurement.ElapsedMilliseconds).ToArray(),
                 StringComparer.Ordinal);
 
-    private static Dictionary<string, double[]> NormalizeRecord(HistoryRecord record)
+    private static Dictionary<string, double[]> NormalizeRecord(HistoryRecord record, bool matchExecutionMode)
     {
         var samples = record.Participants.ToDictionary(
             participant => participant.Framework,
             participant => participant.SamplesMilliseconds.ToArray(),
             StringComparer.Ordinal);
         var references = samples.Keys.Where(framework => !IsGated(framework)).Order(StringComparer.Ordinal).ToArray();
-        return Normalize(samples, references);
+        return Normalize(samples, references, matchExecutionMode);
     }
 
+    /// <summary>Whether a participant uses the benchmark's explicit Native AOT naming convention.</summary>
+    public static bool IsAot(string framework) => framework.EndsWith(" (AOT)", StringComparison.Ordinal);
+
     /// <summary>
-    /// Divides each round's sample by the geometric mean of the references measured in the same round.
-    /// Rounds where any series is missing a sample are dropped rather than compared across rounds.
+    /// Divides a sample by references in the same round and execution mode. Missing same-mode references
+    /// leave that participant unevaluated rather than silently falling back to a different startup model.
     /// </summary>
     private static Dictionary<string, double[]> Normalize(
         IReadOnlyDictionary<string, double[]> samples,
-        IReadOnlyList<string> references)
+        IReadOnlyList<string> references,
+        bool matchExecutionMode = true)
     {
         var normalized = new Dictionary<string, double[]>(StringComparer.Ordinal);
-        if (references.Count == 0)
-        {
-            return normalized;
-        }
-
-        var rounds = references.Min(framework => samples[framework].Length);
-        if (rounds == 0)
-        {
-            return normalized;
-        }
-
-        var referenceMeans = new double[rounds];
-        var buffer = new double[references.Count];
-        for (var round = 0; round < rounds; round++)
-        {
-            for (var index = 0; index < references.Count; index++)
-            {
-                buffer[index] = samples[references[index]][round];
-            }
-
-            if (Array.Exists(buffer, value => value <= 0))
-            {
-                // A non-positive sample cannot be a wall-clock time, so the record is unusable rather
-                // than merely noisy; dropping it is safer than normalising against a bad reference.
-                return new Dictionary<string, double[]>(StringComparer.Ordinal);
-            }
-
-            referenceMeans[round] = RobustStatistics.GeometricMean(buffer);
-        }
-
         foreach (var (framework, values) in samples)
         {
-            var count = Math.Min(rounds, values.Length);
-            var series = new double[count];
-            for (var round = 0; round < count; round++)
+            var peers = references.Where(reference =>
+                !matchExecutionMode || IsAot(reference) == IsAot(framework)).ToArray();
+            if (peers.Length == 0)
             {
-                series[round] = values[round] / referenceMeans[round];
+                continue;
             }
 
-            normalized[framework] = series;
+            var count = Math.Min(values.Length, peers.Min(reference => samples[reference].Length));
+            var series = new double[count];
+            var buffer = new double[peers.Length];
+            var valid = true;
+            for (var round = 0; round < count; round++)
+            {
+                for (var index = 0; index < peers.Length; index++)
+                {
+                    buffer[index] = samples[peers[index]][round];
+                }
+
+                if (Array.Exists(buffer, value => !double.IsFinite(value) || value <= 0)
+                    || !double.IsFinite(values[round]) || values[round] <= 0)
+                {
+                    valid = false;
+                    break;
+                }
+
+                series[round] = values[round] / RobustStatistics.GeometricMean(buffer);
+            }
+
+            if (valid)
+            {
+                normalized[framework] = series;
+            }
         }
 
         return normalized;

@@ -307,8 +307,8 @@ public static class BaselineKey
 
     /// <summary>
     /// Reduces a version to major.minor. Patch-level churn on a hosted runner would otherwise reset the
-    /// baseline almost every week, and the metric is already normalised against references measured on the
-    /// same machine, so a patch bump does not change what a comparison means.
+    /// baseline almost every week, and same-mode normalisation reduces common movement. It does not guarantee that a patch affects
+    /// every participant equally; exact versions remain recorded for diagnosis.
     /// </summary>
     private static string MajorMinor(string version)
     {

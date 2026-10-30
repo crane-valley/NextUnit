@@ -34,7 +34,7 @@ public sealed record ComparisonResult
     /// Bumping starts a fresh baseline instead of comparing across the change.
     /// </para>
     /// </summary>
-    public const int CurrentMetricRevision = 1;
+    public const int CurrentMetricRevision = 2;
 
     /// <summary>When the comparison finished.</summary>
     public required DateTimeOffset GeneratedAtUtc { get; init; }
