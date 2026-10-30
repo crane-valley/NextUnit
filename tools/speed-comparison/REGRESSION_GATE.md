@@ -22,10 +22,10 @@ normalized(p, round) = elapsed(p, round) / geomean(elapsed(q, round) for q in sa
 ```
 
 The references are participants that are not NextUnit's and use the same execution mode: managed
-participants use managed references; Native AOT participants use references named with the ` (AOT)`
-suffix. Dependencies are pinned. A machine that uniformly scales a mode moves its numerator and
-denominator together and cancels out; AOT and managed startup need not scale equally. The geometric mean is the right average here because the result is a
-ratio; an arithmetic mean would let the slowest reference dominate.
+participants use managed references; Native AOT reference names end with a space followed by `(AOT)`.
+Dependencies are pinned. A machine that uniformly scales a mode moves its numerator and denominator
+together and cancels out; AOT and managed startup need not scale equally. The geometric mean is the right
+average here because the result is a ratio; an arithmetic mean would let the slowest reference dominate.
 
 Only NextUnit's own participants are judged. The competing frameworks are measured, recorded, and reported,
 but nothing about them can fail this repository's build.
@@ -90,15 +90,16 @@ split the baseline.
 Two things are deliberately **not** in the key.
 
 **SDK and runtime patch versions.** Hosted images move them almost every week, so keying on them would
-retire the baseline before it could ever arm, while same-mode normalization reduces common machine movement. It does not guarantee that a
-patch affects every participant equally or prove the cause of any observed shift.
+retire the baseline before it could ever arm, while same-mode normalization reduces common machine
+movement. It does not guarantee that a patch affects every participant equally or prove the cause of any
+observed shift.
 
 **Reference framework versions.** These are dependency-managed and bump often enough that keying on them
-would leave the gate disarmed most of the time. Multiple managed references dilute individual changes in their geometric mean. Native AOT currently has
-only one reference, TUnit (AOT), so its changes are not diluted and shared AOT regressions can cancel
-entirely. The report explicitly warns about that limitation and retains an all-reference diagnostic: whenever a reference version
-differs from the most recent comparable run, the report says so, which is the first thing to check when a
-finding looks surprising.
+would leave the gate disarmed most of the time. Multiple managed references dilute individual changes in
+their geometric mean. Native AOT currently has only one reference, TUnit (AOT), so its changes are not
+diluted and shared AOT regressions can cancel entirely. The report explicitly warns about that limitation
+and retains an all-reference diagnostic: whenever a reference version differs from the most recent
+comparable run, the report says so, which is the first thing to check when a finding looks surprising.
 
 The exact SDK version, runtime version, image build, and every participant's framework version are recorded
 on every line regardless, so any result can be traced back to them.
@@ -226,9 +227,9 @@ reviewable commit explaining the decision.
 dimension of the key is churning; the reference set or the runner image family is the usual cause.
 
 **A finding that arrives with a dependency bump.** The report lists any reference framework whose version
-moved since the last comparable run. A competing framework getting materially faster raises the ratios of participants sharing its mode.
-That is a possible denominator effect, not proof that NextUnit is unchanged. Investigate both sides;
-retire the baseline only after explicitly accepting the changed comparison.
+moved since the last comparable run. A competing framework getting materially faster raises the ratios of
+participants sharing its mode. That is a possible denominator effect, not proof that NextUnit is
+unchanged. Investigate both sides; retire the baseline only after explicitly accepting the changed comparison.
 
 **The history branch is not being written.** The `publish-history` job runs only for non-pull-request events
 on `main`, and needs `benchmark-data` to be unprotected so `GITHUB_TOKEN` can push to it.
