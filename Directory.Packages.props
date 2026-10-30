@@ -43,6 +43,6 @@
     <PackageVersion Include="Microsoft.OpenApi" Version="2.12.2" />
     <!-- SignedCms and SignerInfo are not in the .NET 10 targeting pack; the PKCS types ship out of
          band. Kept on the same 10.0.x line as the other Microsoft packages listed here. -->
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.11" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 </Project>
