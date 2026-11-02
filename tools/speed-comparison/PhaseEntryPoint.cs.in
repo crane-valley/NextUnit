@@ -1,0 +1,46 @@
+using System.Diagnostics;
+using System.Globalization;
+using Microsoft.Testing.Platform.Builder;
+
+namespace UnifiedTests;
+
+internal static class PhaseEntryPoint
+{
+    public static async Task<int> Main(string[] args)
+    {
+        long t0 = Stopwatch.GetTimestamp();
+        ITestApplicationBuilder builder = await TestApplication.CreateBuilderAsync(args);
+        long t1 = Stopwatch.GetTimestamp();
+        SelfRegisteredExtensions.AddSelfRegisteredExtensions(builder, args);
+        long t2 = Stopwatch.GetTimestamp();
+        ITestApplication app = await builder.BuildAsync();
+        long t3 = Stopwatch.GetTimestamp();
+        int result;
+        long t4;
+        long t5;
+        try
+        {
+            result = await app.RunAsync();
+            t4 = Stopwatch.GetTimestamp();
+        }
+        finally
+        {
+            app.Dispose();
+            t5 = Stopwatch.GetTimestamp();
+        }
+
+        // Emit only after all measured boundaries; do not compare this process's total
+        // with uninstrumented totals. Pre-Main runtime/JIT and this output are outside.
+        double create = Milliseconds(t0, t1);
+        double register = Milliseconds(t1, t2);
+        double build = Milliseconds(t2, t3);
+        double run = Milliseconds(t3, t4);
+        double dispose = Milliseconds(t4, t5);
+        Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"NEXTUNIT_PHASES {{\"create_builder_ms\":{create:R},\"register_extensions_ms\":{register:R},\"build_ms\":{build:R},\"run_ms\":{run:R},\"dispose_ms\":{dispose:R}}}"));
+        return result;
+    }
+
+    private static double Milliseconds(long start, long end)
+        => 1000.0 * (end - start) / Stopwatch.Frequency;
+}

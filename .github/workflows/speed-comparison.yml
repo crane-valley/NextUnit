@@ -11,6 +11,10 @@ on:
         description: 'Read-only base/head diagnostic: 21 ABBA blocks and 7 head/head calibration blocks'
         type: boolean
         default: false
+      deep_diagnostic:
+        description: 'Managed version-set/source controls, stage timings, and three JIT/loader traces; one bounded job'
+        type: boolean
+        default: false
       comparison_base_sha:
         description: 'Diagnostic base commit (full SHA)'
         type: string
@@ -50,7 +54,7 @@ env:
 jobs:
   benchmark:
     name: Run Speed Comparison
-    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.same_runner_comparison }}
+    if: ${{ github.event_name != 'workflow_dispatch' || (!inputs.same_runner_comparison && !inputs.deep_diagnostic) }}
     runs-on: ubuntu-latest
     outputs:
       # Whether a record exists to hand to publish-history. Read from the file rather than inferred from
@@ -344,7 +348,7 @@ jobs:
 
   same-runner-comparison:
     name: Read-only same-runner base/head comparison
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.same_runner_comparison }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.same_runner_comparison || inputs.deep_diagnostic) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
@@ -368,7 +372,14 @@ jobs:
           dotnet-version: '10.0.403'
       - name: Build and measure both commits on this runner
         timeout-minutes: 18
-        run: python3 tools/speed-comparison/same-runner-comparison.py
+        env:
+          DEEP_DIAGNOSTIC: ${{ inputs.deep_diagnostic }}
+        run: |
+          if [ "$DEEP_DIAGNOSTIC" = "true" ]; then
+            python3 tools/speed-comparison/deep-diagnostic.py
+          else
+            python3 tools/speed-comparison/same-runner-comparison.py
+          fi
       - name: Upload diagnostic evidence
         if: always()
         timeout-minutes: 3
