@@ -7,6 +7,18 @@ on:
         description: 'Measured rounds per participant; must be divisible by 7'
         required: false
         default: '21'
+      same_runner_comparison:
+        description: 'Read-only base/head diagnostic: 21 ABBA blocks and 7 head/head calibration blocks'
+        type: boolean
+        default: false
+      comparison_base_sha:
+        description: 'Diagnostic base commit (full SHA)'
+        type: string
+        default: '1d32b4ab7c71267a9348493186f477769197a738'
+      comparison_head_sha:
+        description: 'Diagnostic head commit (full SHA)'
+        type: string
+        default: '41d751eb6ff14e98db6c83000c248a2aa3b9ff98'
   schedule:
     # Run every Sunday at midnight UTC
     - cron: '0 0 * * 0'
@@ -38,6 +50,7 @@ env:
 jobs:
   benchmark:
     name: Run Speed Comparison
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.same_runner_comparison }}
     runs-on: ubuntu-latest
     outputs:
       # Whether a record exists to hand to publish-history. Read from the file rather than inferred from
@@ -204,7 +217,7 @@ jobs:
     name: Publish Benchmark History
     runs-on: ubuntu-latest
     needs: benchmark
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    if: ${{ !cancelled() && needs.benchmark.result != 'skipped' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
     permissions:
       contents: write
 
@@ -288,7 +301,7 @@ jobs:
     name: Benchmark Summary
     runs-on: ubuntu-latest
     needs: benchmark
-    if: always()
+    if: ${{ always() && needs.benchmark.result != 'skipped' }}
 
     steps:
       - name: Download results
@@ -328,3 +341,40 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Job Status**: ${{ needs.benchmark.result }}" >> $GITHUB_STEP_SUMMARY
         continue-on-error: true
+
+  same-runner-comparison:
+    name: Read-only same-runner base/head comparison
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.same_runner_comparison }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      BASE_SHA: ${{ inputs.comparison_base_sha }}
+      HEAD_SHA: ${{ inputs.comparison_head_sha }}
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      TESTINGPLATFORM_UI_LANGUAGE: en-us
+      TESTINGPLATFORM_TELEMETRY_OPTOUT: '1'
+      TUNIT_DISABLE_HTML_REPORTER: 'true'
+    steps:
+      - name: Checkout diagnostic harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup pinned .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.403'
+      - name: Build and measure both commits on this runner
+        timeout-minutes: 18
+        run: python3 tools/speed-comparison/same-runner-comparison.py
+      - name: Upload diagnostic evidence
+        if: always()
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v7
+        with:
+          name: same-runner-comparison-${{ github.run_id }}-${{ github.run_attempt }}
+          path: same-runner-results/
+          retention-days: 30
+          if-no-files-found: error
